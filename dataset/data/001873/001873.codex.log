@@ -1,0 +1,847 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-84btrm6d
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019ebaa3-5ddb-7492-9da5-2697c87b32db
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a Stirling engine and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package StirlingEngineModel {
+
+  attribute def Temperature {
+    attribute value : Real;
+    attribute unit : String = "K";
+  }
+
+  attribute def Pressure {
+    attribute value : Real;
+    attribute unit : String = "Pa";
+  }
+
+  attribute def Volume {
+    attribute value : Real;
+    attribute unit : String = "m^3";
+  }
+
+  attribute def HeatFlowRate {
+    attribute value : Real;
+    attribute unit : String = "W";
+  }
+
+  attribute def MechanicalPower {
+    attribute value : Real;
+    attribute unit : String = "W";
+  }
+
+  attribute def RotationalSpeed {
+    attribute value : Real;
+    attribute unit : String = "rad/s";
+  }
+
+  attribute def Torque {
+    attribute value : Real;
+    attribute unit : String = "N*m";
+  }
+
+  attribute def Efficiency {
+    attribute value : Real;
+    attribute unit : String = "1";
+  }
+
+  attribute def TimeDuration {
+    attribute value : Real;
+    attribute unit : String = "s";
+  }
+
+  item def Heat {
+    attribute flowRate : HeatFlowRate;
+    attribute sourceTemperature : Temperature;
+  }
+
+  item def CoolingHeat {
+    attribute flowRate : HeatFlowRate;
+    attribute sinkTemperature : Temperature;
+  }
+
+  item def WorkingGas {
+    attribute gasTemperature : Temperature;
+    attribute gasPressure : Pressure;
+    attribute gasVolume : Volume;
+  }
+
+  item def ShaftPower {
+    attribute power : MechanicalPower;
+    attribute torque : Torque;
+    attribute speed : RotationalSpeed;
+  }
+
+  item def ControlSignal {
+    attribute enabled : Boolean;
+    attribute targetSpeed : RotationalSpeed;
+  }
+
+  port def HotThermalPort {
+    in item heatInput : Heat;
+  }
+
+  port def ColdThermalPort {
+    out item rejectedHeat : CoolingHeat;
+  }
+
+  port def GasPort {
+    inout item gas : WorkingGas;
+  }
+
+  port def ShaftPort {
+    out item shaftOutput : ShaftPower;
+  }
+
+  port def ControlPort {
+    in item command : ControlSignal;
+  }
+
+  part def Heater {
+    attribute suppliedHeatRate : HeatFlowRate;
+    attribute hotSideTemperature : Temperature;
+
+    port heatOut : HotThermalPort;
+  }
+
+  part def Cooler {
+    attribute removedHeatRate : HeatFlowRate;
+    attribute coldSideTemperature : Temperature;
+
+    port heatIn : ColdThermalPort;
+  }
+
+  part def Regenerator {
+    attribute storedHeatCapacity : HeatFlowRate;
+    attribute effectiveness : Efficiency;
+
+    port hotGasSide : GasPort;
+    port coldGasSide : GasPort;
+  }
+
+  part def ExpansionCylinder {
+    attribute cylinderVolume : Volume;
+    attribute gasPressure : Pressure;
+    attribute gasTemperature : Temperature;
+
+    port hotGas : GasPort;
+    port crankMechanicalLink : ShaftPort;
+  }
+
+  part def CompressionCylinder {
+    attribute cylinderVolume : Volume;
+    attribute gasPressure : Pressure;
+    attribute gasTemperature : Temperature;
+
+    port coldGas : GasPort;
+    port crankMechanicalLink : ShaftPort;
+  }
+
+  part def Displacer {
+    attribute phaseAngle : Real;
+    attribute strokeVolume : Volume;
+
+    port hotSpace : GasPort;
+    port coldSpace : GasPort;
+  }
+
+  part def Flywheel {
+    attribute inertia : Real;
+    attribute speed : RotationalSpeed;
+    attribute storedRotationalEnergy : MechanicalPower;
+
+    port shaftIn : ShaftPort;
+    port shaftOut : ShaftPort;
+  }
+
+  part def Crankshaft {
+    attribute crankRadius : Real;
+    attribute angularSpeed : RotationalSpeed;
+    attribute deliveredTorque : Torque;
+
+    port expansionInput : ShaftPort;
+    port compressionInput : ShaftPort;
+    port powerOutput : ShaftPort;
+  }
+
+  part def Controller {
+    attribute startCommanded : Boolean;
+    attribute shutdownCommanded : Boolean;
+    attribute targetSpeed : RotationalSpeed;
+
+    port controlOut : ControlPort;
+  }
+
+  action def PreheatEngine {
+    in item heat : Heat;
+    out item warmedGas : WorkingGas;
+  }
+
+  action def ExpandWorkingGas {
+    in item hotGas : WorkingGas;
+    out item expansionPower : ShaftPower;
+  }
+
+  action def RegenerateHeat {
+    inout item gas : WorkingGas;
+  }
+
+  action def CompressWorkingGas {
+    in item coldGas : WorkingGas;
+    out item compressionLoad : ShaftPower;
+  }
+
+  action def RejectWasteHeat {
+    in item gas : WorkingGas;
+    out item rejectedHeat : CoolingHeat;
+  }
+
+  action def DeliverShaftPower {
+    in item crankPower : ShaftPower;
+    out item usefulPower : ShaftPower;
+  }
+
+  state def StirlingEngineOperatingState {
+    state Off;
+    state Preheating;
+    state Running;
+    state Loaded;
+    state CoolingDown;
+    state Faulted;
+
+    transition initial then Off;
+
+    transition Off then Preheating
+      accept StartCommand;
+
+    transition Preheating then Running
+      if hotSideReady;
+
+    transition Running then Loaded
+      if loadConnected;
+
+    transition Loaded then Running
+      if loadDisconnected;
+
+    transition Running then CoolingDown
+      accept StopCommand;
+
+    transition Loaded then CoolingDown
+      accept StopCommand;
+
+    transition Preheating then Faulted
+      if overTemperature;
+
+    transition Running then Faulted
+      if overSpeed or lowPressure;
+
+    transition Loaded then Faulted
+      if overSpeed or lowPressure;
+
+    transition CoolingDown then Off
+      if safeToStop;
+  }
+
+  part def StirlingEngineSystem {
+    attribute hotReservoirTemperature : Temperature;
+    attribute coldReservoirTemperature : Temperature;
+    attribute meanWorkingGasPressure : Pressure;
+    attribute sweptVolume : Volume;
+    attribute netOutputPower : MechanicalPower;
+    attribute thermalEfficiency : Efficiency;
+    attribute nominalSpeed : RotationalSpeed;
+    attribute startupTime : TimeDuration;
+
+    part heater : Heater;
+    part cooler : Cooler;
+    part regenerator : Regenerator;
+    part expansionCylinder : ExpansionCylinder;
+    part compressionCylinder : CompressionCylinder;
+    part displacer : Displacer;
+    part crankshaft : Crankshaft;
+    part flywheel : Flywheel;
+    part controller : Controller;
+
+    port externalHeatInput : HotThermalPort;
+    port externalHeatRejection : ColdThermalPort;
+    port mechanicalOutput : ShaftPort;
+    port controlInput : ControlPort;
+
+    connection heatSupply
+      connect externalHeatInput to heater.heatOut;
+
+    connection hotGasPath
+      connect heater.heatOut to expansionCylinder.hotGas;
+
+    connection regeneratorHotConnection
+      connect expansionCylinder.hotGas to regenerator.hotGasSide;
+
+    connection regeneratorColdConnection
+      connect regenerator.coldGasSide to compressionCylinder.coldGas;
+
+    connection coolingPath
+      connect compressionCylinder.coldGas to cooler.heatIn;
+
+    connection displacerHotConnection
+      connect displacer.hotSpace to expansionCylinder.hotGas;
+
+    connection displacerColdConnection
+      connect displacer.coldSpace to compressionCylinder.coldGas;
+
+    connection expansionCrankConnection
+      connect expansionCylinder.crankMechanicalLink to crankshaft.expansionInput;
+
+    connection compressionCrankConnection
+      connect compressionCylinder.crankMechanicalLink to crankshaft.compressionInput;
+
+    connection crankToFlywheel
+      connect crankshaft.powerOutput to flywheel.shaftIn;
+
+    connection flywheelToOutput
+      connect flywheel.shaftOut to mechanicalOutput;
+
+    connection rejectedHeatConnection
+      connect cooler.heatIn to externalHeatRejection;
+
+    connection controlConnection
+      connect controlInput to controller.controlOut;
+
+    perform action operatingCycle {
+      first PreheatEngine;
+      then ExpandWorkingGas;
+      then RegenerateHeat;
+      then CompressWorkingGas;
+      then RejectWasteHeat;
+      then DeliverShaftPower;
+    }
+
+    exhibit state StirlingEngineOperatingState;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc /* The Stirling engine system shall convert externally supplied heat across a hot-to-cold temperature difference into continuous rotary shaft power. */
+
+    subject engine : StirlingEngineSystem;
+
+    require constraint {
+      engine.hotReservoirTemperature.value > engine.coldReservoirTemperature.value
+    }
+
+    require constraint {
+      engine.netOutputPower.value >= 250.0
+    }
+
+    require constraint {
+      engine.thermalEfficiency.value >= 0.18
+    }
+  }
+
+  requirement def WorkingGasContainmentRequirement {
+    doc /* The sealed working gas circuit shall retain the working gas during all operating states. */
+
+    subject engine : StirlingEngineSystem;
+
+    require constraint {
+      engine.meanWorkingGasPressure.value >= 500000.0
+    }
+  }
+
+  requirement def CoolingRequirement {
+    doc /* The cooler shall reject waste heat to maintain a usable cold-side temperature. */
+
+    subject engine : StirlingEngineSystem;
+
+    require constraint {
+      engine.coldReservoirTemperature.value <= 330.0
+    }
+  }
+
+  requirement def SpeedRegulationRequirement {
+    doc /* The flywheel and controller shall keep shaft speed near the nominal operating speed during steady running. */
+
+    subject engine : StirlingEngineSystem;
+
+    require constraint {
+      engine.nominalSpeed.value >= 40.0
+    }
+
+    require constraint {
+      engine.nominalSpeed.value <= 160.0
+    }
+  }
+
+  part stirlingEngine : StirlingEngineSystem {
+    attribute hotReservoirTemperature : Temperature {
+      value = 823.0;
+      unit = "K";
+    }
+
+    attribute coldReservoirTemperature : Temperature {
+      value = 303.0;
+      unit = "K";
+    }
+
+    attribute meanWorkingGasPressure : Pressure {
+      value = 1200000.0;
+      unit = "Pa";
+    }
+
+    attribute sweptVolume : Volume {
+      value = 0.00035;
+      unit = "m^3";
+    }
+
+    attribute netOutputPower : MechanicalPower {
+      value = 320.0;
+      unit = "W";
+    }
+
+    attribute thermalEfficiency : Efficiency {
+      value = 0.22;
+      unit = "1";
+    }
+
+    attribute nominalSpeed : RotationalSpeed {
+      value = 94.2;
+      unit = "rad/s";
+    }
+
+    attribute startupTime : TimeDuration {
+      value = 45.0;
+      unit = "s";
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by stirlingEngine;
+  satisfy WorkingGasContainmentRequirement by stirlingEngine;
+  satisfy CoolingRequirement by stirlingEngine;
+  satisfy SpeedRegulationRequirement by stirlingEngine;
+}
+tokens used
+4,161
+package StirlingEngineModel {
+
+  attribute def Temperature {
+    attribute value : Real;
+    attribute unit : String = "K";
+  }
+
+  attribute def Pressure {
+    attribute value : Real;
+    attribute unit : String = "Pa";
+  }
+
+  attribute def Volume {
+    attribute value : Real;
+    attribute unit : String = "m^3";
+  }
+
+  attribute def HeatFlowRate {
+    attribute value : Real;
+    attribute unit : String = "W";
+  }
+
+  attribute def MechanicalPower {
+    attribute value : Real;
+    attribute unit : String = "W";
+  }
+
+  attribute def RotationalSpeed {
+    attribute value : Real;
+    attribute unit : String = "rad/s";
+  }
+
+  attribute def Torque {
+    attribute value : Real;
+    attribute unit : String = "N*m";
+  }
+
+  attribute def Efficiency {
+    attribute value : Real;
+    attribute unit : String = "1";
+  }
+
+  attribute def TimeDuration {
+    attribute value : Real;
+    attribute unit : String = "s";
+  }
+
+  item def Heat {
+    attribute flowRate : HeatFlowRate;
+    attribute sourceTemperature : Temperature;
+  }
+
+  item def CoolingHeat {
+    attribute flowRate : HeatFlowRate;
+    attribute sinkTemperature : Temperature;
+  }
+
+  item def WorkingGas {
+    attribute gasTemperature : Temperature;
+    attribute gasPressure : Pressure;
+    attribute gasVolume : Volume;
+  }
+
+  item def ShaftPower {
+    attribute power : MechanicalPower;
+    attribute torque : Torque;
+    attribute speed : RotationalSpeed;
+  }
+
+  item def ControlSignal {
+    attribute enabled : Boolean;
+    attribute targetSpeed : RotationalSpeed;
+  }
+
+  port def HotThermalPort {
+    in item heatInput : Heat;
+  }
+
+  port def ColdThermalPort {
+    out item rejectedHeat : CoolingHeat;
+  }
+
+  port def GasPort {
+    inout item gas : WorkingGas;
+  }
+
+  port def ShaftPort {
+    out item shaftOutput : ShaftPower;
+  }
+
+  port def ControlPort {
+    in item command : ControlSignal;
+  }
+
+  part def Heater {
+    attribute suppliedHeatRate : HeatFlowRate;
+    attribute hotSideTemperature : Temperature;
+
+    port heatOut : HotThermalPort;
+  }
+
+  part def Cooler {
+    attribute removedHeatRate : HeatFlowRate;
+    attribute coldSideTemperature : Temperature;
+
+    port heatIn : ColdThermalPort;
+  }
+
+  part def Regenerator {
+    attribute storedHeatCapacity : HeatFlowRate;
+    attribute effectiveness : Efficiency;
+
+    port hotGasSide : GasPort;
+    port coldGasSide : GasPort;
+  }
+
+  part def ExpansionCylinder {
+    attribute cylinderVolume : Volume;
+    attribute gasPressure : Pressure;
+    attribute gasTemperature : Temperature;
+
+    port hotGas : GasPort;
+    port crankMechanicalLink : ShaftPort;
+  }
+
+  part def CompressionCylinder {
+    attribute cylinderVolume : Volume;
+    attribute gasPressure : Pressure;
+    attribute gasTemperature : Temperature;
+
+    port coldGas : GasPort;
+    port crankMechanicalLink : ShaftPort;
+  }
+
+  part def Displacer {
+    attribute phaseAngle : Real;
+    attribute strokeVolume : Volume;
+
+    port hotSpace : GasPort;
+    port coldSpace : GasPort;
+  }
+
+  part def Flywheel {
+    attribute inertia : Real;
+    attribute speed : RotationalSpeed;
+    attribute storedRotationalEnergy : MechanicalPower;
+
+    port shaftIn : ShaftPort;
+    port shaftOut : ShaftPort;
+  }
+
+  part def Crankshaft {
+    attribute crankRadius : Real;
+    attribute angularSpeed : RotationalSpeed;
+    attribute deliveredTorque : Torque;
+
+    port expansionInput : ShaftPort;
+    port compressionInput : ShaftPort;
+    port powerOutput : ShaftPort;
+  }
+
+  part def Controller {
+    attribute startCommanded : Boolean;
+    attribute shutdownCommanded : Boolean;
+    attribute targetSpeed : RotationalSpeed;
+
+    port controlOut : ControlPort;
+  }
+
+  action def PreheatEngine {
+    in item heat : Heat;
+    out item warmedGas : WorkingGas;
+  }
+
+  action def ExpandWorkingGas {
+    in item hotGas : WorkingGas;
+    out item expansionPower : ShaftPower;
+  }
+
+  action def RegenerateHeat {
+    inout item gas : WorkingGas;
+  }
+
+  action def CompressWorkingGas {
+    in item coldGas : WorkingGas;
+    out item compressionLoad : ShaftPower;
+  }
+
+  action def RejectWasteHeat {
+    in item gas : WorkingGas;
+    out item rejectedHeat : CoolingHeat;
+  }
+
+  action def DeliverShaftPower {
+    in item crankPower : ShaftPower;
+    out item usefulPower : ShaftPower;
+  }
+
+  state def StirlingEngineOperatingState {
+    state Off;
+    state Preheating;
+    state Running;
+    state Loaded;
+    state CoolingDown;
+    state Faulted;
+
+    transition initial then Off;
+
+    transition Off then Preheating
+      accept StartCommand;
+
+    transition Preheating then Running
+      if hotSideReady;
+
+    transition Running then Loaded
+      if loadConnected;
+
+    transition Loaded then Running
+      if loadDisconnected;
+
+    transition Running then CoolingDown
+      accept StopCommand;
+
+    transition Loaded then CoolingDown
+      accept StopCommand;
+
+    transition Preheating then Faulted
+      if overTemperature;
+
+    transition Running then Faulted
+      if overSpeed or lowPressure;
+
+    transition Loaded then Faulted
+      if overSpeed or lowPressure;
+
+    transition CoolingDown then Off
+      if safeToStop;
+  }
+
+  part def StirlingEngineSystem {
+    attribute hotReservoirTemperature : Temperature;
+    attribute coldReservoirTemperature : Temperature;
+    attribute meanWorkingGasPressure : Pressure;
+    attribute sweptVolume : Volume;
+    attribute netOutputPower : MechanicalPower;
+    attribute thermalEfficiency : Efficiency;
+    attribute nominalSpeed : RotationalSpeed;
+    attribute startupTime : TimeDuration;
+
+    part heater : Heater;
+    part cooler : Cooler;
+    part regenerator : Regenerator;
+    part expansionCylinder : ExpansionCylinder;
+    part compressionCylinder : CompressionCylinder;
+    part displacer : Displacer;
+    part crankshaft : Crankshaft;
+    part flywheel : Flywheel;
+    part controller : Controller;
+
+    port externalHeatInput : HotThermalPort;
+    port externalHeatRejection : ColdThermalPort;
+    port mechanicalOutput : ShaftPort;
+    port controlInput : ControlPort;
+
+    connection heatSupply
+      connect externalHeatInput to heater.heatOut;
+
+    connection hotGasPath
+      connect heater.heatOut to expansionCylinder.hotGas;
+
+    connection regeneratorHotConnection
+      connect expansionCylinder.hotGas to regenerator.hotGasSide;
+
+    connection regeneratorColdConnection
+      connect regenerator.coldGasSide to compressionCylinder.coldGas;
+
+    connection coolingPath
+      connect compressionCylinder.coldGas to cooler.heatIn;
+
+    connection displacerHotConnection
+      connect displacer.hotSpace to expansionCylinder.hotGas;
+
+    connection displacerColdConnection
+      connect displacer.coldSpace to compressionCylinder.coldGas;
+
+    connection expansionCrankConnection
+      connect expansionCylinder.crankMechanicalLink to crankshaft.expansionInput;
+
+    connection compressionCrankConnection
+      connect compressionCylinder.crankMechanicalLink to crankshaft.compressionInput;
+
+    connection crankToFlywheel
+      connect crankshaft.powerOutput to flywheel.shaftIn;
+
+    connection flywheelToOutput
+      connect flywheel.shaftOut to mechanicalOutput;
+
+    connection rejectedHeatConnection
+      connect cooler.heatIn to externalHeatRejection;
+
+    connection controlConnection
+      connect controlInput to controller.controlOut;
+
+    perform action operatingCycle {
+      first PreheatEngine;
+      then ExpandWorkingGas;
+      then RegenerateHeat;
+      then CompressWorkingGas;
+      then RejectWasteHeat;
+      then DeliverShaftPower;
+    }
+
+    exhibit state StirlingEngineOperatingState;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc /* The Stirling engine system shall convert externally supplied heat across a hot-to-cold temperature difference into continuous rotary shaft power. */
+
+    subject engine : StirlingEngineSystem;
+
+    require constraint {
+      engine.hotReservoirTemperature.value > engine.coldReservoirTemperature.value
+    }
+
+    require constraint {
+      engine.netOutputPower.value >= 250.0
+    }
+
+    require constraint {
+      engine.thermalEfficiency.value >= 0.18
+    }
+  }
+
+  requirement def WorkingGasContainmentRequirement {
+    doc /* The sealed working gas circuit shall retain the working gas during all operating states. */
+
+    subject engine : StirlingEngineSystem;
+
+    require constraint {
+      engine.meanWorkingGasPressure.value >= 500000.0
+    }
+  }
+
+  requirement def CoolingRequirement {
+    doc /* The cooler shall reject waste heat to maintain a usable cold-side temperature. */
+
+    subject engine : StirlingEngineSystem;
+
+    require constraint {
+      engine.coldReservoirTemperature.value <= 330.0
+    }
+  }
+
+  requirement def SpeedRegulationRequirement {
+    doc /* The flywheel and controller shall keep shaft speed near the nominal operating speed during steady running. */
+
+    subject engine : StirlingEngineSystem;
+
+    require constraint {
+      engine.nominalSpeed.value >= 40.0
+    }
+
+    require constraint {
+      engine.nominalSpeed.value <= 160.0
+    }
+  }
+
+  part stirlingEngine : StirlingEngineSystem {
+    attribute hotReservoirTemperature : Temperature {
+      value = 823.0;
+      unit = "K";
+    }
+
+    attribute coldReservoirTemperature : Temperature {
+      value = 303.0;
+      unit = "K";
+    }
+
+    attribute meanWorkingGasPressure : Pressure {
+      value = 1200000.0;
+      unit = "Pa";
+    }
+
+    attribute sweptVolume : Volume {
+      value = 0.00035;
+      unit = "m^3";
+    }
+
+    attribute netOutputPower : MechanicalPower {
+      value = 320.0;
+      unit = "W";
+    }
+
+    attribute thermalEfficiency : Efficiency {
+      value = 0.22;
+      unit = "1";
+    }
+
+    attribute nominalSpeed : RotationalSpeed {
+      value = 94.2;
+      unit = "rad/s";
+    }
+
+    attribute startupTime : TimeDuration {
+      value = 45.0;
+      unit = "s";
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by stirlingEngine;
+  satisfy WorkingGasContainmentRequirement by stirlingEngine;
+  satisfy CoolingRequirement by stirlingEngine;
+  satisfy SpeedRegulationRequirement by stirlingEngine;
+}

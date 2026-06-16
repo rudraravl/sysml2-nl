@@ -1,0 +1,385 @@
+package WaterCoolingSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Temperature :> Real {
+        unit = "degC";
+    }
+
+    attribute def Pressure :> Real {
+        unit = "kPa";
+    }
+
+    attribute def FlowRate :> Real {
+        unit = "L/min";
+    }
+
+    attribute def HeatRate :> Real {
+        unit = "W";
+    }
+
+    attribute def Volume :> Real {
+        unit = "L";
+    }
+
+    attribute def Power :> Real {
+        unit = "W";
+    }
+
+    attribute def Speed :> Real {
+        unit = "rpm";
+    }
+
+    attribute def Percent :> Real {
+        unit = "%";
+    }
+
+    item def Coolant {
+        attribute temperature : Temperature;
+        attribute pressure : Pressure;
+        attribute flowRate : FlowRate;
+        attribute glycolConcentration : Percent;
+    }
+
+    item def Heat {
+        attribute heatTransferRate : HeatRate;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Real;
+        attribute current : Real;
+        attribute power : Power;
+    }
+
+    item def ControlSignal {
+        attribute demandedPumpSpeed : Percent;
+        attribute demandedFanSpeed : Percent;
+    }
+
+    port def CoolantInlet {
+        in item coolant : Coolant;
+    }
+
+    port def CoolantOutlet {
+        out item coolant : Coolant;
+    }
+
+    port def HeatInputPort {
+        in item heat : Heat;
+    }
+
+    port def HeatRejectionPort {
+        out item heat : Heat;
+    }
+
+    port def PowerInputPort {
+        in item power : ElectricalPower;
+    }
+
+    port def ControlInputPort {
+        in item command : ControlSignal;
+    }
+
+    port def SensorOutputPort {
+        out item measuredCoolant : Coolant;
+    }
+
+    action def CirculateCoolant {
+        in item inletCoolant : Coolant;
+        out item outletCoolant : Coolant;
+        attribute targetFlowRate : FlowRate;
+        attribute pumpSpeed : Speed;
+    }
+
+    action def AbsorbHeat {
+        in item enteringCoolant : Coolant;
+        in item incomingHeat : Heat;
+        out item heatedCoolant : Coolant;
+        attribute heatAbsorbed : HeatRate;
+    }
+
+    action def RejectHeat {
+        in item hotCoolant : Coolant;
+        out item cooledCoolant : Coolant;
+        out item rejectedHeat : Heat;
+        attribute fanSpeed : Speed;
+        attribute radiatorEffectiveness : Percent;
+    }
+
+    action def RegulateTemperature {
+        in item measuredCoolant : Coolant;
+        out item command : ControlSignal;
+        attribute targetTemperature : Temperature;
+        attribute maximumTemperature : Temperature;
+    }
+
+    state def CoolingOperatingState {
+        entry action initializeCooling;
+        state Off;
+        state Priming;
+        state NormalCooling;
+        state HighLoadCooling;
+        state FaultShutdown;
+
+        transition first Off;
+
+        transition Off_to_Priming
+            first Off
+            then Priming
+            accept StartCommand;
+
+        transition Priming_to_NormalCooling
+            first Priming
+            then NormalCooling
+            if pumpPrimeComplete == true;
+
+        transition NormalCooling_to_HighLoadCooling
+            first NormalCooling
+            then HighLoadCooling
+            if coolantTemperature > 55.0;
+
+        transition HighLoadCooling_to_NormalCooling
+            first HighLoadCooling
+            then NormalCooling
+            if coolantTemperature < 45.0;
+
+        transition Cooling_to_FaultShutdown
+            first NormalCooling
+            then FaultShutdown
+            if coolantFlowRate < 1.0;
+
+        transition HighLoad_to_FaultShutdown
+            first HighLoadCooling
+            then FaultShutdown
+            if coolantTemperature > 85.0;
+
+        transition FaultShutdown_to_Off
+            first FaultShutdown
+            then Off
+            accept ResetCommand;
+    }
+
+    part def Pump {
+        port powerIn : PowerInputPort;
+        port controlIn : ControlInputPort;
+        port coolantIn : CoolantInlet;
+        port coolantOut : CoolantOutlet;
+
+        attribute ratedPower : Power = 24.0;
+        attribute nominalFlowRate : FlowRate = 5.0;
+        attribute maximumFlowRate : FlowRate = 8.0;
+        attribute operatingSpeed : Speed;
+
+        perform action circulate : CirculateCoolant {
+            targetFlowRate = nominalFlowRate;
+            pumpSpeed = operatingSpeed;
+        }
+    }
+
+    part def ColdPlate {
+        port heatIn : HeatInputPort;
+        port coolantIn : CoolantInlet;
+        port coolantOut : CoolantOutlet;
+
+        attribute thermalResistance : Real = 0.08;
+        attribute maximumHeatInput : HeatRate = 600.0;
+
+        perform action absorbHeat : AbsorbHeat {
+            heatAbsorbed = heatIn.heat.heatTransferRate;
+        }
+    }
+
+    part def Radiator {
+        port coolantIn : CoolantInlet;
+        port coolantOut : CoolantOutlet;
+        port heatOut : HeatRejectionPort;
+
+        attribute heatRejectionCapacity : HeatRate = 750.0;
+        attribute coolantPressureDrop : Pressure = 12.0;
+        attribute effectiveness : Percent = 82.0;
+
+        perform action rejectHeat : RejectHeat {
+            radiatorEffectiveness = effectiveness;
+        }
+    }
+
+    part def Fan {
+        port powerIn : PowerInputPort;
+        port controlIn : ControlInputPort;
+
+        attribute ratedPower : Power = 18.0;
+        attribute maximumSpeed : Speed = 2200.0;
+        attribute operatingSpeed : Speed;
+        attribute airflowCommand : Percent;
+    }
+
+    part def Reservoir {
+        port coolantIn : CoolantInlet;
+        port coolantOut : CoolantOutlet;
+
+        attribute capacity : Volume = 1.2;
+        attribute minimumFillVolume : Volume = 0.7;
+        attribute coolantVolume : Volume = 1.0;
+    }
+
+    part def TemperatureSensor {
+        port coolantIn : CoolantInlet;
+        port measurementOut : SensorOutputPort;
+
+        attribute measuredTemperature : Temperature;
+        attribute accuracy : Temperature = 0.5;
+    }
+
+    part def FlowSensor {
+        port coolantIn : CoolantInlet;
+        port measurementOut : SensorOutputPort;
+
+        attribute measuredFlowRate : FlowRate;
+        attribute minimumDetectableFlow : FlowRate = 0.2;
+    }
+
+    part def Controller {
+        port temperatureMeasurementIn : SensorOutputPort;
+        port flowMeasurementIn : SensorOutputPort;
+        port pumpCommandOut : ControlInputPort;
+        port fanCommandOut : ControlInputPort;
+
+        attribute targetCoolantTemperature : Temperature = 40.0;
+        attribute warningTemperature : Temperature = 65.0;
+        attribute shutdownTemperature : Temperature = 85.0;
+        attribute minimumFlowRate : FlowRate = 1.0;
+
+        perform action regulate : RegulateTemperature {
+            targetTemperature = targetCoolantTemperature;
+            maximumTemperature = shutdownTemperature;
+        }
+    }
+
+    part def HeatSource {
+        port heatOut : HeatInputPort;
+
+        attribute nominalHeatGeneration : HeatRate = 350.0;
+        attribute peakHeatGeneration : HeatRate = 600.0;
+        attribute protectedSurfaceTemperature : Temperature;
+    }
+
+    part def PowerSupply {
+        port pumpPowerOut : PowerInputPort;
+        port fanPowerOut : PowerInputPort;
+        port controllerPowerOut : PowerInputPort;
+
+        attribute supplyVoltage : Real = 12.0;
+        attribute maximumOutputPower : Power = 120.0;
+    }
+
+    part def WaterCoolingSystem {
+        port heatInput : HeatInputPort;
+        port wasteHeatOutput : HeatRejectionPort;
+        port electricalInput : PowerInputPort;
+
+        attribute primaryFunction : String = "Remove heat from a protected heat source by circulating liquid coolant through a cold plate, transporting absorbed heat to a radiator, and rejecting that heat to the surrounding air to maintain the protected source below its allowable operating temperature.";
+
+        attribute coolantSetpoint : Temperature = 40.0;
+        attribute maximumAllowedCoolantTemperature : Temperature = 85.0;
+        attribute nominalCoolantFlowRate : FlowRate = 5.0;
+        attribute peakHeatRemovalCapacity : HeatRate = 600.0;
+        attribute coolantInventory : Volume = 1.0;
+        attribute systemPressureLimit : Pressure = 180.0;
+
+        part heatSource : HeatSource;
+        part coldPlate : ColdPlate;
+        part pump : Pump;
+        part radiator : Radiator;
+        part fan : Fan;
+        part reservoir : Reservoir;
+        part temperatureSensor : TemperatureSensor;
+        part flowSensor : FlowSensor;
+        part controller : Controller;
+        part powerSupply : PowerSupply;
+
+        connect heatInput to heatSource.heatOut;
+        connect heatSource.heatOut to coldPlate.heatIn;
+
+        connect reservoir.coolantOut to pump.coolantIn;
+        connect pump.coolantOut to coldPlate.coolantIn;
+        connect coldPlate.coolantOut to radiator.coolantIn;
+        connect radiator.coolantOut to reservoir.coolantIn;
+
+        connect radiator.heatOut to wasteHeatOutput;
+
+        connect electricalInput to powerSupply.controllerPowerOut;
+        connect powerSupply.pumpPowerOut to pump.powerIn;
+        connect powerSupply.fanPowerOut to fan.powerIn;
+
+        connect coldPlate.coolantOut to temperatureSensor.coolantIn;
+        connect pump.coolantOut to flowSensor.coolantIn;
+
+        connect temperatureSensor.measurementOut to controller.temperatureMeasurementIn;
+        connect flowSensor.measurementOut to controller.flowMeasurementIn;
+
+        connect controller.pumpCommandOut to pump.controlIn;
+        connect controller.fanCommandOut to fan.controlIn;
+
+        exhibit state operatingState : CoolingOperatingState;
+
+        perform action systemCoolingCycle {
+            first start pump.circulate;
+            then start coldPlate.absorbHeat;
+            then start radiator.rejectHeat;
+            then start controller.regulate;
+        }
+    }
+
+    requirement def RemoveHeatRequirement {
+        subject system : WaterCoolingSystem;
+        require constraint {
+            system.peakHeatRemovalCapacity >= 600.0
+        }
+        doc /* The water cooling system shall remove at least 600 W of heat from the protected heat source under peak load conditions. */
+    }
+
+    requirement def MaintainTemperatureRequirement {
+        subject system : WaterCoolingSystem;
+        require constraint {
+            system.maximumAllowedCoolantTemperature <= 85.0
+        }
+        doc /* The system shall maintain coolant temperature at or below 85 degC during operation. */
+    }
+
+    requirement def NominalFlowRequirement {
+        subject system : WaterCoolingSystem;
+        require constraint {
+            system.nominalCoolantFlowRate >= 5.0
+        }
+        doc /* The pump and coolant loop shall provide at least 5 L/min nominal flow through the cold plate. */
+    }
+
+    requirement def CoolantInventoryRequirement {
+        subject system : WaterCoolingSystem;
+        require constraint {
+            system.coolantInventory >= 0.7
+        }
+        doc /* The reservoir shall contain sufficient coolant volume to prevent pump starvation during normal operating attitudes. */
+    }
+
+    requirement def OverTemperatureProtectionRequirement {
+        subject system : WaterCoolingSystem;
+        require constraint {
+            system.maximumAllowedCoolantTemperature < 90.0
+        }
+        doc /* The controller shall command shutdown before coolant temperature exceeds 90 degC. */
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : WaterCoolingSystem;
+        doc /* The primary high-level function of the system is to transfer heat away from a heat-generating component by using water-based coolant as the transport medium and rejecting that heat through a radiator. */
+    }
+
+    satisfy RemoveHeatRequirement by WaterCoolingSystem;
+    satisfy MaintainTemperatureRequirement by WaterCoolingSystem;
+    satisfy NominalFlowRequirement by WaterCoolingSystem;
+    satisfy CoolantInventoryRequirement by WaterCoolingSystem;
+    satisfy OverTemperatureProtectionRequirement by WaterCoolingSystem;
+    satisfy PrimaryFunctionRequirement by WaterCoolingSystem;
+}

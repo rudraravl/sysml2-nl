@@ -1,0 +1,394 @@
+package MarsSurfaceExplorationSystem {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  value type Mass_kg :> Real {
+    unit = "kg";
+  }
+
+  value type Distance_m :> Real {
+    unit = "m";
+  }
+
+  value type Speed_mps :> Real {
+    unit = "m/s";
+  }
+
+  value type Power_W :> Real {
+    unit = "W";
+  }
+
+  value type Energy_Wh :> Real {
+    unit = "Wh";
+  }
+
+  value type Temperature_C :> Real {
+    unit = "degC";
+  }
+
+  value type Pressure_Pa :> Real {
+    unit = "Pa";
+  }
+
+  value type DataRate_bps :> Real {
+    unit = "bit/s";
+  }
+
+  value type Duration_s :> Real {
+    unit = "s";
+  }
+
+  item def ElectricalPower {
+    attribute power : Power_W;
+    attribute voltage : Real;
+  }
+
+  item def TelemetryPacket {
+    attribute packetSize : Real;
+    attribute dataRate : DataRate_bps;
+    attribute priority : Integer;
+  }
+
+  item def CommandPacket {
+    attribute commandId : String;
+    attribute executionDeadline : Duration_s;
+  }
+
+  item def MarsRegolithSample {
+    attribute mass : Mass_kg;
+    attribute collectionDepth : Distance_m;
+    attribute estimatedWaterContent : Real;
+  }
+
+  item def AtmosphericMeasurement {
+    attribute temperature : Temperature_C;
+    attribute pressure : Pressure_Pa;
+    attribute dustOpacity : Real;
+  }
+
+  item def NavigationFix {
+    attribute latitude : Real;
+    attribute longitude : Real;
+    attribute elevation : Distance_m;
+    attribute positionUncertainty : Distance_m;
+  }
+
+  port def PowerOutputPort {
+    out item powerOut : ElectricalPower;
+  }
+
+  port def PowerInputPort {
+    in item powerIn : ElectricalPower;
+  }
+
+  port def DataOutputPort {
+    out item telemetryOut : TelemetryPacket;
+  }
+
+  port def DataInputPort {
+    in item telemetryIn : TelemetryPacket;
+  }
+
+  port def CommandInputPort {
+    in item commandIn : CommandPacket;
+  }
+
+  port def CommandOutputPort {
+    out item commandOut : CommandPacket;
+  }
+
+  port def SampleOutputPort {
+    out item sampleOut : MarsRegolithSample;
+  }
+
+  port def SampleInputPort {
+    in item sampleIn : MarsRegolithSample;
+  }
+
+  part def MarsExplorationSystem {
+    doc /* Primary function: autonomously explore the Martian surface, collect environmental and regolith science data, preserve selected samples, and relay mission telemetry to Earth. */
+
+    attribute landedMass : Mass_kg = 1320.0;
+    attribute nominalMissionDuration : Duration_s = 7776000.0;
+    attribute maximumTraverseDistance : Distance_m = 12000.0;
+
+    part lander : MarsLander;
+    part rover : MarsRover;
+    part relayOrbiter : MarsRelayOrbiter;
+    part earthMissionControl : EarthMissionControl;
+
+    connect lander.roverPowerOut to rover.powerIn;
+    connect lander.commandOut to rover.commandIn;
+    connect rover.telemetryOut to lander.telemetryIn;
+    connect rover.sampleOut to lander.sampleIn;
+    connect lander.telemetryOut to relayOrbiter.telemetryIn;
+    connect relayOrbiter.telemetryOut to earthMissionControl.telemetryIn;
+    connect earthMissionControl.commandOut to relayOrbiter.commandIn;
+    connect relayOrbiter.commandOut to lander.commandIn;
+  }
+
+  part def MarsLander {
+    attribute dryMass : Mass_kg = 640.0;
+    attribute powerCapacity : Power_W = 900.0;
+    attribute storedEnergy : Energy_Wh = 4200.0;
+    attribute survivalTemperatureLimit : Temperature_C = -90.0;
+
+    port roverPowerOut : PowerOutputPort;
+    port commandIn : CommandInputPort;
+    port commandOut : CommandOutputPort;
+    port telemetryIn : DataInputPort;
+    port telemetryOut : DataOutputPort;
+    port sampleIn : SampleInputPort;
+
+    part radio : UHFRelayRadio;
+    part powerSystem : LanderPowerSystem;
+    part sampleVault : SampleVault;
+    part environmentalStation : EnvironmentalStation;
+  }
+
+  part def MarsRover {
+    attribute mass : Mass_kg = 380.0;
+    attribute cruiseSpeed : Speed_mps = 0.035;
+    attribute maximumSlope : Real = 30.0;
+    attribute dailyEnergyBudget : Energy_Wh = 1500.0;
+    attribute wheelBase : Distance_m = 2.4;
+
+    port powerIn : PowerInputPort;
+    port commandIn : CommandInputPort;
+    port telemetryOut : DataOutputPort;
+    port sampleOut : SampleOutputPort;
+
+    part mobilitySubsystem : MobilitySubsystem;
+    part autonomyComputer : AutonomyComputer;
+    part drill : RotaryPercussiveDrill;
+    part cameraMast : CameraMast;
+    part spectrometer : MineralSpectrometer;
+    part weatherSensor : AtmosphericSensor;
+
+    perform action conductSurfaceSortie : ConductSurfaceSortie;
+    exhibit state roverState : RoverOperationalStateMachine;
+  }
+
+  part def MarsRelayOrbiter {
+    attribute orbitalPeriod : Duration_s = 7200.0;
+    attribute downlinkRate : DataRate_bps = 2000000.0;
+
+    port telemetryIn : DataInputPort;
+    port telemetryOut : DataOutputPort;
+    port commandIn : CommandInputPort;
+    port commandOut : CommandOutputPort;
+
+    part highGainAntenna : HighGainAntenna;
+    part storeAndForwardComputer : RelayComputer;
+  }
+
+  part def EarthMissionControl {
+    port telemetryIn : DataInputPort;
+    port commandOut : CommandOutputPort;
+
+    part sciencePlanningConsole : SciencePlanningConsole;
+    part flightDynamicsConsole : FlightDynamicsConsole;
+    part archive : MissionDataArchive;
+  }
+
+  part def LanderPowerSystem {
+    attribute solarArrayArea : Real = 8.5;
+    attribute batteryCapacity : Energy_Wh = 5200.0;
+    attribute regulatedBusPower : Power_W = 650.0;
+  }
+
+  part def SampleVault {
+    attribute capacity : Integer = 32;
+    attribute maximumStoredMass : Mass_kg = 2.4;
+    attribute internalTemperature : Temperature_C = -20.0;
+  }
+
+  part def EnvironmentalStation {
+    attribute samplingPeriod : Duration_s = 600.0;
+    port telemetryOut : DataOutputPort;
+  }
+
+  part def MobilitySubsystem {
+    attribute wheelCount : Integer = 6;
+    attribute obstacleClearance : Distance_m = 0.45;
+    attribute maximumStepHeight : Distance_m = 0.30;
+  }
+
+  part def AutonomyComputer {
+    attribute processorPower : Power_W = 85.0;
+    attribute hazardDetectionRange : Distance_m = 25.0;
+    attribute mapResolution : Distance_m = 0.05;
+  }
+
+  part def RotaryPercussiveDrill {
+    attribute maximumDepth : Distance_m = 2.0;
+    attribute boreDiameter : Distance_m = 0.016;
+    attribute drillingPower : Power_W = 180.0;
+    port sampleOut : SampleOutputPort;
+  }
+
+  part def CameraMast {
+    attribute mastHeight : Distance_m = 1.8;
+    attribute stereoBaseline : Distance_m = 0.42;
+    attribute angularResolution : Real = 0.0002;
+  }
+
+  part def MineralSpectrometer {
+    attribute spectralRangeMinimum : Real = 400.0;
+    attribute spectralRangeMaximum : Real = 2500.0;
+    attribute measurementPower : Power_W = 65.0;
+  }
+
+  part def AtmosphericSensor {
+    attribute temperatureAccuracy : Temperature_C = 0.5;
+    attribute pressureAccuracy : Pressure_Pa = 5.0;
+  }
+
+  part def UHFRelayRadio {
+    attribute transmitPower : Power_W = 35.0;
+    attribute nominalDataRate : DataRate_bps = 256000.0;
+  }
+
+  part def HighGainAntenna {
+    attribute diameter : Distance_m = 1.4;
+    attribute pointingAccuracy : Real = 0.05;
+  }
+
+  part def RelayComputer {
+    attribute solidStateStorage : Real = 512.0;
+  }
+
+  part def SciencePlanningConsole;
+  part def FlightDynamicsConsole;
+  part def MissionDataArchive;
+
+  action def ConductSurfaceSortie {
+    in item command : CommandPacket;
+    out item scienceTelemetry : TelemetryPacket;
+    out item collectedSample : MarsRegolithSample;
+
+    first startSortie;
+    then planTraverse;
+    then driveToTarget;
+    then assessHazards;
+    then capturePanorama;
+    then analyzeSurface;
+    then drillSample;
+    then packageSample;
+    then transmitResults;
+
+    action startSortie;
+    action planTraverse;
+    action driveToTarget;
+    action assessHazards;
+    action capturePanorama;
+    action analyzeSurface;
+    action drillSample;
+    action packageSample;
+    action transmitResults;
+  }
+
+  state def RoverOperationalStateMachine {
+    state stowed;
+    state commissioning;
+    state idle;
+    state traversing;
+    state scienceObservation;
+    state sampling;
+    state communication;
+    state faultSafe;
+    state hibernating;
+
+    entry;
+    then stowed;
+
+    transition stowed_to_commissioning
+      first stowed
+      then commissioning;
+
+    transition commissioning_to_idle
+      first commissioning
+      then idle;
+
+    transition idle_to_traversing
+      first idle
+      then traversing;
+
+    transition traversing_to_scienceObservation
+      first traversing
+      then scienceObservation;
+
+    transition scienceObservation_to_sampling
+      first scienceObservation
+      then sampling;
+
+    transition sampling_to_communication
+      first sampling
+      then communication;
+
+    transition communication_to_idle
+      first communication
+      then idle;
+
+    transition any_to_faultSafe
+      first idle
+      then faultSafe;
+
+    transition faultSafe_to_hibernating
+      first faultSafe
+      then hibernating;
+
+    transition hibernating_to_idle
+      first hibernating
+      then idle;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc /* The Mars Exploration System shall perform high-level autonomous exploration of Mars by traversing terrain, collecting science measurements, acquiring selected subsurface samples, and returning telemetry through an orbital relay. */
+    subject system : MarsExplorationSystem;
+  }
+
+  requirement def TraverseRequirement {
+    doc /* The rover shall traverse at least 12000 m during the nominal surface mission. */
+    subject rover : MarsRover;
+    require constraint {
+      rover.cruiseSpeed > 0.0
+    }
+  }
+
+  requirement def SampleAcquisitionRequirement {
+    doc /* The rover shall collect regolith samples from depths up to 2 m and transfer them to the lander sample vault. */
+    subject drill : RotaryPercussiveDrill;
+    require constraint {
+      drill.maximumDepth >= 2.0
+    }
+  }
+
+  requirement def CommunicationsRequirement {
+    doc /* The system shall relay science and health telemetry from the Mars surface to Earth through the Mars relay orbiter. */
+    subject orbiter : MarsRelayOrbiter;
+    require constraint {
+      orbiter.downlinkRate >= 1000000.0
+    }
+  }
+
+  requirement def PowerSurvivalRequirement {
+    doc /* The lander shall maintain enough stored energy to support overnight survival and rover recharge operations. */
+    subject powerSystem : LanderPowerSystem;
+    require constraint {
+      powerSystem.batteryCapacity >= 5000.0
+    }
+  }
+
+  requirement def EnvironmentalMeasurementRequirement {
+    doc /* The system shall measure atmospheric temperature, pressure, and dust opacity at least once every 600 seconds during active surface operations. */
+    subject station : EnvironmentalStation;
+    require constraint {
+      station.samplingPeriod <= 600.0
+    }
+  }
+
+  part marsSurfaceMission : MarsExplorationSystem;
+
+}

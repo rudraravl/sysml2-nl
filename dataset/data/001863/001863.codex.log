@@ -1,0 +1,1263 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-7yc9olmj
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eba98-ac90-7ba3-b3b7-453e92ee17c1
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a system based on a Slug flow and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package SlugFlowTransportSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Pressure :> Real {
+        unit = "Pa";
+    }
+
+    attribute def Temperature :> Real {
+        unit = "K";
+    }
+
+    attribute def Length :> Real {
+        unit = "m";
+    }
+
+    attribute def Diameter :> Real {
+        unit = "m";
+    }
+
+    attribute def Volume :> Real {
+        unit = "m^3";
+    }
+
+    attribute def MassFlowRate :> Real {
+        unit = "kg/s";
+    }
+
+    attribute def VolumetricFlowRate :> Real {
+        unit = "m^3/s";
+    }
+
+    attribute def Velocity :> Real {
+        unit = "m/s";
+    }
+
+    attribute def Density :> Real {
+        unit = "kg/m^3";
+    }
+
+    attribute def Viscosity :> Real {
+        unit = "Pa*s";
+    }
+
+    attribute def Frequency :> Real {
+        unit = "Hz";
+    }
+
+    attribute def Fraction :> Real {
+        unit = "1";
+    }
+
+    attribute def TimeDuration :> Real {
+        unit = "s";
+    }
+
+    item def GasPhase {
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute density : Density;
+        attribute viscosity : Viscosity;
+        attribute superficialVelocity : Velocity;
+    }
+
+    item def LiquidPhase {
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute density : Density;
+        attribute viscosity : Viscosity;
+        attribute superficialVelocity : Velocity;
+    }
+
+    item def SlugUnit {
+        attribute nosePosition : Length;
+        attribute tailPosition : Length;
+        attribute translationalVelocity : Velocity;
+        attribute length : Length;
+        attribute liquidHoldup : Fraction;
+        attribute gasVoidFraction : Fraction;
+    }
+
+    item def TwoPhaseMixture {
+        attribute gas : GasPhase;
+        attribute liquid : LiquidPhase;
+        attribute mixturePressure : Pressure;
+        attribute mixtureTemperature : Temperature;
+        attribute gasVolumeFraction : Fraction;
+        attribute liquidHoldup : Fraction;
+        attribute totalMassFlowRate : MassFlowRate;
+        attribute totalVolumetricFlowRate : VolumetricFlowRate;
+        attribute dominantSlugFrequency : Frequency;
+    }
+
+    item def SeparatedGas {
+        attribute flowRate : MassFlowRate;
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute liquidCarryoverFraction : Fraction;
+    }
+
+    item def SeparatedLiquid {
+        attribute flowRate : MassFlowRate;
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute gasCarryunderFraction : Fraction;
+    }
+
+    item def ControlSignal {
+        attribute commandValue : Real;
+        attribute commandTimestamp : TimeDuration;
+    }
+
+    item def SensorSignal {
+        attribute measuredValue : Real;
+        attribute measurementTimestamp : TimeDuration;
+        attribute validity : Boolean;
+    }
+
+    port def TwoPhaseInletPort {
+        in item mixture : TwoPhaseMixture;
+    }
+
+    port def TwoPhaseOutletPort {
+        out item mixture : TwoPhaseMixture;
+    }
+
+    port def GasOutletPort {
+        out item gas : SeparatedGas;
+    }
+
+    port def LiquidOutletPort {
+        out item liquid : SeparatedLiquid;
+    }
+
+    port def SignalInPort {
+        in item signal : ControlSignal;
+    }
+
+    port def SignalOutPort {
+        out item signal : SensorSignal;
+    }
+
+    port def PowerPort {
+        in item electricalPower;
+    }
+
+    part def SlugFlowTransportAndSeparationSystem {
+        attribute designPressure : Pressure = 9000000.0;
+        attribute designTemperature : Temperature = 363.15;
+        attribute nominalPipelineDiameter : Diameter = 0.254;
+        attribute nominalPipelineLength : Length = 1200.0;
+        attribute nominalMixtureFlowRate : VolumetricFlowRate = 0.185;
+        attribute nominalSlugFrequency : Frequency = 0.08;
+        attribute maximumAllowableLiquidHoldup : Fraction = 0.82;
+        attribute minimumSeparatorResidenceTime : TimeDuration = 45.0;
+
+        port inlet : TwoPhaseInletPort;
+        port gasExport : GasOutletPort;
+        port liquidExport : LiquidOutletPort;
+        port power : PowerPort;
+
+        part upstreamManifold : InletManifold;
+        part slugConditioner : SlugConditioner;
+        part inclinedPipeline : SlugFlowPipeline;
+        part slugDetector : SlugDetectionSensorArray;
+        part controlSystem : SlugFlowController;
+        part separator : SlugCatcherSeparator;
+        part gasValve : ControlValve;
+        part liquidValve : ControlValve;
+        part pressureReliefSystem : PressureReliefAssembly;
+
+        connect inlet.mixture to upstreamManifold.feed.mixture;
+        connect upstreamManifold.discharge.mixture to slugConditioner.inlet.mixture;
+        connect slugConditioner.outlet.mixture to inclinedPipeline.inlet.mixture;
+        connect inclinedPipeline.outlet.mixture to separator.feed.mixture;
+        connect separator.gasOutlet.gas to gasExport.gas;
+        connect separator.liquidOutlet.liquid to liquidExport.liquid;
+
+        connect slugDetector.pressureSignal.signal to controlSystem.pressureMeasurement.signal;
+        connect slugDetector.holdupSignal.signal to controlSystem.holdupMeasurement.signal;
+        connect slugDetector.slugVelocitySignal.signal to controlSystem.slugVelocityMeasurement.signal;
+
+        connect controlSystem.gasValveCommand.signal to gasValve.command.signal;
+        connect controlSystem.liquidValveCommand.signal to liquidValve.command.signal;
+
+        connect separator.gasControlSignal.signal to gasValve.feedback.signal;
+        connect separator.liquidControlSignal.signal to liquidValve.feedback.signal;
+
+        connect pressureReliefSystem.protectedVolume.mixture to separator.feed.mixture;
+
+        perform primaryFunction;
+    }
+
+    action def TransportSlugFlow {
+        in item inletMixture : TwoPhaseMixture;
+        out item outletMixture : TwoPhaseMixture;
+
+        attribute pressureDrop : Pressure;
+        attribute meanSlugVelocity : Velocity;
+        attribute slugFrequency : Frequency;
+        attribute outletLiquidHoldup : Fraction;
+    }
+
+    action def DetectSlugPattern {
+        in item flowingMixture : TwoPhaseMixture;
+        out item pressureSignal : SensorSignal;
+        out item holdupSignal : SensorSignal;
+        out item velocitySignal : SensorSignal;
+
+        attribute detectedSlugLength : Length;
+        attribute detectedSlugFrequency : Frequency;
+        attribute detectedLiquidHoldup : Fraction;
+    }
+
+    action def RegulateBackPressure {
+        in item pressureMeasurement : SensorSignal;
+        in item holdupMeasurement : SensorSignal;
+        out item gasValveCommand : ControlSignal;
+        out item liquidValveCommand : ControlSignal;
+
+        attribute targetBackPressure : Pressure;
+        attribute targetLiquidLevel : Fraction;
+    }
+
+    action def SeparateGasAndLiquid {
+        in item mixedFeed : TwoPhaseMixture;
+        out item dryGas : SeparatedGas;
+        out item stabilizedLiquid : SeparatedLiquid;
+
+        attribute residenceTime : TimeDuration;
+        attribute gasCarryunderLimit : Fraction;
+        attribute liquidCarryoverLimit : Fraction;
+    }
+
+    action def RelieveOverpressure {
+        in item protectedMixture : TwoPhaseMixture;
+        out item relievedMixture : TwoPhaseMixture;
+
+        attribute setPressure : Pressure;
+        attribute reseatPressure : Pressure;
+    }
+
+    action def ProvideHighLevelFunction {
+        in item rawTwoPhaseFlow : TwoPhaseMixture;
+        out item conditionedGas : SeparatedGas;
+        out item conditionedLiquid : SeparatedLiquid;
+
+        first start;
+        then transport : TransportSlugFlow {
+            inletMixture = rawTwoPhaseFlow;
+        }
+        then detect : DetectSlugPattern {
+            flowingMixture = transport.outletMixture;
+        }
+        then regulate : RegulateBackPressure {
+            pressureMeasurement = detect.pressureSignal;
+            holdupMeasurement = detect.holdupSignal;
+        }
+        then separate : SeparateGasAndLiquid {
+            mixedFeed = transport.outletMixture;
+            dryGas = conditionedGas;
+            stabilizedLiquid = conditionedLiquid;
+        }
+        then done;
+    }
+
+    part def InletManifold {
+        attribute headerDiameter : Diameter = 0.305;
+        attribute maximumInletPressure : Pressure = 8500000.0;
+        attribute inletTemperature : Temperature = 333.15;
+
+        port feed : TwoPhaseInletPort;
+        port discharge : TwoPhaseOutletPort;
+
+        perform equalizeIncomingStreams : TransportSlugFlow;
+    }
+
+    part def SlugConditioner {
+        attribute conditionerLength : Length = 18.0;
+        attribute internalDiameter : Diameter = 0.254;
+        attribute mixerInclinationAngle : Real = 3.0;
+        attribute targetMaximumSlugLength : Length = 32.0;
+        attribute targetMinimumSlugFrequency : Frequency = 0.04;
+
+        port inlet : TwoPhaseInletPort;
+        port outlet : TwoPhaseOutletPort;
+
+        perform conditionSlugPattern : TransportSlugFlow;
+    }
+
+    part def SlugFlowPipeline {
+        attribute pipeLength : Length = 1200.0;
+        attribute internalDiameter : Diameter = 0.254;
+        attribute wallRoughness : Length = 0.000045;
+        attribute inclinationAngle : Real = 2.5;
+        attribute maximumOperatingPressure : Pressure = 8000000.0;
+        attribute normalPressureDrop : Pressure = 350000.0;
+
+        port inlet : TwoPhaseInletPort;
+        port outlet : TwoPhaseOutletPort;
+
+        part inletPressureTransmitter : PressureTransmitter;
+        part outletPressureTransmitter : PressureTransmitter;
+        part differentialPressureTransmitter : DifferentialPressureTransmitter;
+        part temperatureTransmitter : TemperatureTransmitter;
+
+        perform conveyIntermittentTwoPhaseFlow : TransportSlugFlow;
+    }
+
+    part def SlugDetectionSensorArray {
+        attribute sampleFrequency : Frequency = 10.0;
+        attribute pressurePeakThreshold : Pressure = 250000.0;
+        attribute holdupSlugThreshold : Fraction = 0.70;
+        attribute minimumValidSlugVelocity : Velocity = 0.6;
+        attribute maximumValidSlugVelocity : Velocity = 8.0;
+
+        port pressureSignal : SignalOutPort;
+        port holdupSignal : SignalOutPort;
+        port slugVelocitySignal : SignalOutPort;
+
+        part pressureSensorA : PressureTransmitter;
+        part pressureSensorB : PressureTransmitter;
+        part gammaDensitometer : LiquidHoldupMeter;
+        part crossCorrelationProcessor : SlugVelocityEstimator;
+
+        perform inferSlugPattern : DetectSlugPattern;
+    }
+
+    part def SlugFlowController {
+        attribute controlCycleTime : TimeDuration = 0.5;
+        attribute pressureSetpoint : Pressure = 6200000.0;
+        attribute separatorLevelSetpoint : Fraction = 0.55;
+        attribute maximumPermittedSlugFrequency : Frequency = 0.18;
+        attribute minimumGasValveOpening : Fraction = 0.12;
+        attribute maximumGasValveOpening : Fraction = 0.95;
+        attribute minimumLiquidValveOpening : Fraction = 0.08;
+        attribute maximumLiquidValveOpening : Fraction = 0.90;
+
+        port pressureMeasurement : SignalInPort;
+        port holdupMeasurement : SignalInPort;
+        port slugVelocityMeasurement : SignalInPort;
+        port gasValveCommand : SignalOutPort;
+        port liquidValveCommand : SignalOutPort;
+
+        perform regulateSystem : RegulateBackPressure;
+
+        state def ControllerStateMachine {
+            state initializing;
+            state steadySlugHandling;
+            state severeSlugMitigation;
+            state separatorHighLevelProtection;
+            state shutdown;
+
+            initial then initializing;
+
+            transition initializing_to_steady
+                first initializing
+                accept after 10.0
+                then steadySlugHandling;
+
+            transition steady_to_severe
+                first steadySlugHandling
+                accept when holdupMeasurement.signal.measuredValue > 0.82
+                then severeSlugMitigation;
+
+            transition severe_to_steady
+                first severeSlugMitigation
+                accept when holdupMeasurement.signal.measuredValue < 0.68
+                then steadySlugHandling;
+
+            transition steady_to_high_level
+                first steadySlugHandling
+                accept when pressureMeasurement.signal.measuredValue > 7600000.0
+                then separatorHighLevelProtection;
+
+            transition severe_to_shutdown
+                first severeSlugMitigation
+                accept when pressureMeasurement.signal.measuredValue > 8300000.0
+                then shutdown;
+
+            transition high_level_to_shutdown
+                first separatorHighLevelProtection
+                accept after 30.0
+                then shutdown;
+        }
+    }
+
+    part def SlugCatcherSeparator {
+        attribute vesselVolume : Volume = 42.0;
+        attribute vesselDiameter : Diameter = 2.2;
+        attribute vesselLength : Length = 11.5;
+        attribute normalOperatingPressure : Pressure = 6100000.0;
+        attribute highPressureTrip : Pressure = 8200000.0;
+        attribute normalLiquidLevel : Fraction = 0.55;
+        attribute highLiquidLevelTrip : Fraction = 0.88;
+        attribute gasCarryunderLimit : Fraction = 0.015;
+        attribute liquidCarryoverLimit : Fraction = 0.002;
+
+        port feed : TwoPhaseInletPort;
+        port gasOutlet : GasOutletPort;
+        port liquidOutlet : LiquidOutletPort;
+        port gasControlSignal : SignalOutPort;
+        port liquidControlSignal : SignalOutPort;
+
+        part inletDiverter : MomentumBreaker;
+        part gasDisengagementZone : GasDisengagementVolume;
+        part liquidSurgeVolume : LiquidSurgeVolume;
+        part demister : MistEliminator;
+        part levelTransmitter : LiquidLevelTransmitter;
+        part pressureTransmitter : PressureTransmitter;
+
+        perform phaseSeparation : SeparateGasAndLiquid;
+
+        state def SeparatorStateMachine {
+            state empty;
+            state filling;
+            state normalSeparation;
+            state slugReceiving;
+            state highLevelAlarm;
+            state pressureReliefDemand;
+
+            initial then empty;
+
+            transition empty_to_filling
+                first empty
+                accept when feed.mixture.totalVolumetricFlowRate > 0.0
+                then filling;
+
+            transition filling_to_normal
+                first filling
+                accept when liquidControlSignal.signal.measuredValue >= 0.45
+                then normalSeparation;
+
+            transition normal_to_slug
+                first normalSeparation
+                accept when feed.mixture.liquidHoldup > 0.75
+                then slugReceiving;
+
+            transition slug_to_normal
+                first slugReceiving
+                accept when feed.mixture.liquidHoldup < 0.60
+                then normalSeparation;
+
+            transition slug_to_high_level
+                first slugReceiving
+                accept when feed.mixture.liquidHoldup > 0.88
+                then highLevelAlarm;
+
+            transition any_to_relief
+                first normalSeparation
+                accept when feed.mixture.mixturePressure > 8200000.0
+                then pressureReliefDemand;
+        }
+    }
+
+    part def ControlValve {
+        attribute nominalDiameter : Diameter = 0.152;
+        attribute minimumOpening : Fraction = 0.0;
+        attribute maximumOpening : Fraction = 1.0;
+        attribute currentOpening : Fraction = 0.50;
+        attribute failPosition : Fraction = 0.0;
+        attribute responseTime : TimeDuration = 2.0;
+
+        port command : SignalInPort;
+        port feedback : SignalOutPort;
+
+        action actuate {
+            in item commandInput : ControlSignal;
+            out item positionFeedback : SensorSignal;
+        }
+    }
+
+    part def PressureReliefAssembly {
+        attribute setPressure : Pressure = 8500000.0;
+        attribute reseatPressure : Pressure = 7900000.0;
+        attribute reliefCapacity : MassFlowRate = 35.0;
+
+        port protectedVolume : TwoPhaseInletPort;
+        port relievedFlow : TwoPhaseOutletPort;
+
+        perform protectFromOverpressure : RelieveOverpressure;
+    }
+
+    part def PressureTransmitter {
+        attribute measurementRangeLow : Pressure = 0.0;
+        attribute measurementRangeHigh : Pressure = 10000000.0;
+        attribute accuracy : Fraction = 0.0025;
+        port output : SignalOutPort;
+    }
+
+    part def DifferentialPressureTransmitter {
+        attribute measurementRangeLow : Pressure = 0.0;
+        attribute measurementRangeHigh : Pressure = 1000000.0;
+        attribute accuracy : Fraction = 0.003;
+        port output : SignalOutPort;
+    }
+
+    part def TemperatureTransmitter {
+        attribute measurementRangeLow : Temperature = 273.15;
+        attribute measurementRangeHigh : Temperature = 423.15;
+        attribute accuracy : Fraction = 0.002;
+        port output : SignalOutPort;
+    }
+
+    part def LiquidHoldupMeter {
+        attribute holdupRangeLow : Fraction = 0.0;
+        attribute holdupRangeHigh : Fraction = 1.0;
+        attribute accuracy : Fraction = 0.015;
+        port output : SignalOutPort;
+    }
+
+    part def SlugVelocityEstimator {
+        attribute sensorSpacing : Length = 4.0;
+        attribute minimumCorrelationCoefficient : Fraction = 0.72;
+        port output : SignalOutPort;
+    }
+
+    part def MomentumBreaker {
+        attribute inletAreaRatio : Fraction = 0.65;
+        attribute energyDissipationEfficiency : Fraction = 0.78;
+    }
+
+    part def GasDisengagementVolume {
+        attribute volume : Volume = 18.0;
+        attribute minimumResidenceTime : TimeDuration = 20.0;
+        attribute allowableLiquidCarryover : Fraction = 0.002;
+    }
+
+    part def LiquidSurgeVolume {
+        attribute volume : Volume = 24.0;
+        attribute slugBufferCapacity : Volume = 16.0;
+        attribute allowableGasCarryunder : Fraction = 0.015;
+    }
+
+    part def MistEliminator {
+        attribute removalEfficiency : Fraction = 0.995;
+        attribute maximumPressureDrop : Pressure = 15000.0;
+    }
+
+    part def LiquidLevelTransmitter {
+        attribute rangeLow : Fraction = 0.0;
+        attribute rangeHigh : Fraction = 1.0;
+        attribute accuracy : Fraction = 0.005;
+        port output : SignalOutPort;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc
+        /*
+         * The system shall receive intermittent gas-liquid slug flow, condition and transport it through the pipeline,
+         * detect slug characteristics, regulate back pressure and liquid inventory, and separate the incoming mixture
+         * into controlled gas and liquid export streams.
+         */
+    }
+
+    requirement def SlugTransportRequirement {
+        attribute maximumPressureDrop : Pressure = 600000.0;
+        attribute minimumSlugVelocity : Velocity = 0.6;
+        attribute maximumSlugVelocity : Velocity = 8.0;
+
+        require constraint {
+            SlugFlowTransportAndSeparationSystem::inclinedPipeline.normalPressureDrop <= maximumPressureDrop
+        }
+    }
+
+    requirement def SlugDetectionRequirement {
+        attribute maximumDetectionLatency : TimeDuration = 1.0;
+        attribute minimumHoldupAccuracy : Fraction = 0.02;
+
+        require constraint {
+            SlugFlowTransportAndSeparationSystem::slugDetector.sampleFrequency >= 5.0
+        }
+    }
+
+    requirement def SeparationRequirement {
+        attribute maximumLiquidCarryover : Fraction = 0.002;
+        attribute maximumGasCarryunder : Fraction = 0.015;
+        attribute minimumResidenceTime : TimeDuration = 45.0;
+
+        require constraint {
+            SlugFlowTransportAndSeparationSystem::separator.liquidCarryoverLimit <= maximumLiquidCarryover
+        }
+
+        require constraint {
+            SlugFlowTransportAndSeparationSystem::separator.gasCarryunderLimit <= maximumGasCarryunder
+        }
+    }
+
+    requirement def PressureProtectionRequirement {
+        attribute maximumAllowableOperatingPressure : Pressure = 8500000.0;
+
+        require constraint {
+            SlugFlowTransportAndSeparationSystem::pressureReliefSystem.setPressure <= maximumAllowableOperatingPressure
+        }
+    }
+
+    requirement def ControlRequirement {
+        attribute maximumControlCycleTime : TimeDuration = 1.0;
+        attribute maximumLiquidHoldupBeforeMitigation : Fraction = 0.82;
+
+        require constraint {
+            SlugFlowTransportAndSeparationSystem::controlSystem.controlCycleTime <= maximumControlCycleTime
+        }
+
+        require constraint {
+            SlugFlowTransportAndSeparationSystem::maximumAllowableLiquidHoldup <= maximumLiquidHoldupBeforeMitigation
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by SlugFlowTransportAndSeparationSystem;
+    satisfy SlugTransportRequirement by SlugFlowTransportAndSeparationSystem::inclinedPipeline;
+    satisfy SlugDetectionRequirement by SlugFlowTransportAndSeparationSystem::slugDetector;
+    satisfy SeparationRequirement by SlugFlowTransportAndSeparationSystem::separator;
+    satisfy PressureProtectionRequirement by SlugFlowTransportAndSeparationSystem::pressureReliefSystem;
+    satisfy ControlRequirement by SlugFlowTransportAndSeparationSystem::controlSystem;
+
+    part slugFlowSystem : SlugFlowTransportAndSeparationSystem {
+        perform primaryFunction : ProvideHighLevelFunction;
+    }
+}
+tokens used
+5,960
+package SlugFlowTransportSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Pressure :> Real {
+        unit = "Pa";
+    }
+
+    attribute def Temperature :> Real {
+        unit = "K";
+    }
+
+    attribute def Length :> Real {
+        unit = "m";
+    }
+
+    attribute def Diameter :> Real {
+        unit = "m";
+    }
+
+    attribute def Volume :> Real {
+        unit = "m^3";
+    }
+
+    attribute def MassFlowRate :> Real {
+        unit = "kg/s";
+    }
+
+    attribute def VolumetricFlowRate :> Real {
+        unit = "m^3/s";
+    }
+
+    attribute def Velocity :> Real {
+        unit = "m/s";
+    }
+
+    attribute def Density :> Real {
+        unit = "kg/m^3";
+    }
+
+    attribute def Viscosity :> Real {
+        unit = "Pa*s";
+    }
+
+    attribute def Frequency :> Real {
+        unit = "Hz";
+    }
+
+    attribute def Fraction :> Real {
+        unit = "1";
+    }
+
+    attribute def TimeDuration :> Real {
+        unit = "s";
+    }
+
+    item def GasPhase {
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute density : Density;
+        attribute viscosity : Viscosity;
+        attribute superficialVelocity : Velocity;
+    }
+
+    item def LiquidPhase {
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute density : Density;
+        attribute viscosity : Viscosity;
+        attribute superficialVelocity : Velocity;
+    }
+
+    item def SlugUnit {
+        attribute nosePosition : Length;
+        attribute tailPosition : Length;
+        attribute translationalVelocity : Velocity;
+        attribute length : Length;
+        attribute liquidHoldup : Fraction;
+        attribute gasVoidFraction : Fraction;
+    }
+
+    item def TwoPhaseMixture {
+        attribute gas : GasPhase;
+        attribute liquid : LiquidPhase;
+        attribute mixturePressure : Pressure;
+        attribute mixtureTemperature : Temperature;
+        attribute gasVolumeFraction : Fraction;
+        attribute liquidHoldup : Fraction;
+        attribute totalMassFlowRate : MassFlowRate;
+        attribute totalVolumetricFlowRate : VolumetricFlowRate;
+        attribute dominantSlugFrequency : Frequency;
+    }
+
+    item def SeparatedGas {
+        attribute flowRate : MassFlowRate;
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute liquidCarryoverFraction : Fraction;
+    }
+
+    item def SeparatedLiquid {
+        attribute flowRate : MassFlowRate;
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute gasCarryunderFraction : Fraction;
+    }
+
+    item def ControlSignal {
+        attribute commandValue : Real;
+        attribute commandTimestamp : TimeDuration;
+    }
+
+    item def SensorSignal {
+        attribute measuredValue : Real;
+        attribute measurementTimestamp : TimeDuration;
+        attribute validity : Boolean;
+    }
+
+    port def TwoPhaseInletPort {
+        in item mixture : TwoPhaseMixture;
+    }
+
+    port def TwoPhaseOutletPort {
+        out item mixture : TwoPhaseMixture;
+    }
+
+    port def GasOutletPort {
+        out item gas : SeparatedGas;
+    }
+
+    port def LiquidOutletPort {
+        out item liquid : SeparatedLiquid;
+    }
+
+    port def SignalInPort {
+        in item signal : ControlSignal;
+    }
+
+    port def SignalOutPort {
+        out item signal : SensorSignal;
+    }
+
+    port def PowerPort {
+        in item electricalPower;
+    }
+
+    part def SlugFlowTransportAndSeparationSystem {
+        attribute designPressure : Pressure = 9000000.0;
+        attribute designTemperature : Temperature = 363.15;
+        attribute nominalPipelineDiameter : Diameter = 0.254;
+        attribute nominalPipelineLength : Length = 1200.0;
+        attribute nominalMixtureFlowRate : VolumetricFlowRate = 0.185;
+        attribute nominalSlugFrequency : Frequency = 0.08;
+        attribute maximumAllowableLiquidHoldup : Fraction = 0.82;
+        attribute minimumSeparatorResidenceTime : TimeDuration = 45.0;
+
+        port inlet : TwoPhaseInletPort;
+        port gasExport : GasOutletPort;
+        port liquidExport : LiquidOutletPort;
+        port power : PowerPort;
+
+        part upstreamManifold : InletManifold;
+        part slugConditioner : SlugConditioner;
+        part inclinedPipeline : SlugFlowPipeline;
+        part slugDetector : SlugDetectionSensorArray;
+        part controlSystem : SlugFlowController;
+        part separator : SlugCatcherSeparator;
+        part gasValve : ControlValve;
+        part liquidValve : ControlValve;
+        part pressureReliefSystem : PressureReliefAssembly;
+
+        connect inlet.mixture to upstreamManifold.feed.mixture;
+        connect upstreamManifold.discharge.mixture to slugConditioner.inlet.mixture;
+        connect slugConditioner.outlet.mixture to inclinedPipeline.inlet.mixture;
+        connect inclinedPipeline.outlet.mixture to separator.feed.mixture;
+        connect separator.gasOutlet.gas to gasExport.gas;
+        connect separator.liquidOutlet.liquid to liquidExport.liquid;
+
+        connect slugDetector.pressureSignal.signal to controlSystem.pressureMeasurement.signal;
+        connect slugDetector.holdupSignal.signal to controlSystem.holdupMeasurement.signal;
+        connect slugDetector.slugVelocitySignal.signal to controlSystem.slugVelocityMeasurement.signal;
+
+        connect controlSystem.gasValveCommand.signal to gasValve.command.signal;
+        connect controlSystem.liquidValveCommand.signal to liquidValve.command.signal;
+
+        connect separator.gasControlSignal.signal to gasValve.feedback.signal;
+        connect separator.liquidControlSignal.signal to liquidValve.feedback.signal;
+
+        connect pressureReliefSystem.protectedVolume.mixture to separator.feed.mixture;
+
+        perform primaryFunction;
+    }
+
+    action def TransportSlugFlow {
+        in item inletMixture : TwoPhaseMixture;
+        out item outletMixture : TwoPhaseMixture;
+
+        attribute pressureDrop : Pressure;
+        attribute meanSlugVelocity : Velocity;
+        attribute slugFrequency : Frequency;
+        attribute outletLiquidHoldup : Fraction;
+    }
+
+    action def DetectSlugPattern {
+        in item flowingMixture : TwoPhaseMixture;
+        out item pressureSignal : SensorSignal;
+        out item holdupSignal : SensorSignal;
+        out item velocitySignal : SensorSignal;
+
+        attribute detectedSlugLength : Length;
+        attribute detectedSlugFrequency : Frequency;
+        attribute detectedLiquidHoldup : Fraction;
+    }
+
+    action def RegulateBackPressure {
+        in item pressureMeasurement : SensorSignal;
+        in item holdupMeasurement : SensorSignal;
+        out item gasValveCommand : ControlSignal;
+        out item liquidValveCommand : ControlSignal;
+
+        attribute targetBackPressure : Pressure;
+        attribute targetLiquidLevel : Fraction;
+    }
+
+    action def SeparateGasAndLiquid {
+        in item mixedFeed : TwoPhaseMixture;
+        out item dryGas : SeparatedGas;
+        out item stabilizedLiquid : SeparatedLiquid;
+
+        attribute residenceTime : TimeDuration;
+        attribute gasCarryunderLimit : Fraction;
+        attribute liquidCarryoverLimit : Fraction;
+    }
+
+    action def RelieveOverpressure {
+        in item protectedMixture : TwoPhaseMixture;
+        out item relievedMixture : TwoPhaseMixture;
+
+        attribute setPressure : Pressure;
+        attribute reseatPressure : Pressure;
+    }
+
+    action def ProvideHighLevelFunction {
+        in item rawTwoPhaseFlow : TwoPhaseMixture;
+        out item conditionedGas : SeparatedGas;
+        out item conditionedLiquid : SeparatedLiquid;
+
+        first start;
+        then transport : TransportSlugFlow {
+            inletMixture = rawTwoPhaseFlow;
+        }
+        then detect : DetectSlugPattern {
+            flowingMixture = transport.outletMixture;
+        }
+        then regulate : RegulateBackPressure {
+            pressureMeasurement = detect.pressureSignal;
+            holdupMeasurement = detect.holdupSignal;
+        }
+        then separate : SeparateGasAndLiquid {
+            mixedFeed = transport.outletMixture;
+            dryGas = conditionedGas;
+            stabilizedLiquid = conditionedLiquid;
+        }
+        then done;
+    }
+
+    part def InletManifold {
+        attribute headerDiameter : Diameter = 0.305;
+        attribute maximumInletPressure : Pressure = 8500000.0;
+        attribute inletTemperature : Temperature = 333.15;
+
+        port feed : TwoPhaseInletPort;
+        port discharge : TwoPhaseOutletPort;
+
+        perform equalizeIncomingStreams : TransportSlugFlow;
+    }
+
+    part def SlugConditioner {
+        attribute conditionerLength : Length = 18.0;
+        attribute internalDiameter : Diameter = 0.254;
+        attribute mixerInclinationAngle : Real = 3.0;
+        attribute targetMaximumSlugLength : Length = 32.0;
+        attribute targetMinimumSlugFrequency : Frequency = 0.04;
+
+        port inlet : TwoPhaseInletPort;
+        port outlet : TwoPhaseOutletPort;
+
+        perform conditionSlugPattern : TransportSlugFlow;
+    }
+
+    part def SlugFlowPipeline {
+        attribute pipeLength : Length = 1200.0;
+        attribute internalDiameter : Diameter = 0.254;
+        attribute wallRoughness : Length = 0.000045;
+        attribute inclinationAngle : Real = 2.5;
+        attribute maximumOperatingPressure : Pressure = 8000000.0;
+        attribute normalPressureDrop : Pressure = 350000.0;
+
+        port inlet : TwoPhaseInletPort;
+        port outlet : TwoPhaseOutletPort;
+
+        part inletPressureTransmitter : PressureTransmitter;
+        part outletPressureTransmitter : PressureTransmitter;
+        part differentialPressureTransmitter : DifferentialPressureTransmitter;
+        part temperatureTransmitter : TemperatureTransmitter;
+
+        perform conveyIntermittentTwoPhaseFlow : TransportSlugFlow;
+    }
+
+    part def SlugDetectionSensorArray {
+        attribute sampleFrequency : Frequency = 10.0;
+        attribute pressurePeakThreshold : Pressure = 250000.0;
+        attribute holdupSlugThreshold : Fraction = 0.70;
+        attribute minimumValidSlugVelocity : Velocity = 0.6;
+        attribute maximumValidSlugVelocity : Velocity = 8.0;
+
+        port pressureSignal : SignalOutPort;
+        port holdupSignal : SignalOutPort;
+        port slugVelocitySignal : SignalOutPort;
+
+        part pressureSensorA : PressureTransmitter;
+        part pressureSensorB : PressureTransmitter;
+        part gammaDensitometer : LiquidHoldupMeter;
+        part crossCorrelationProcessor : SlugVelocityEstimator;
+
+        perform inferSlugPattern : DetectSlugPattern;
+    }
+
+    part def SlugFlowController {
+        attribute controlCycleTime : TimeDuration = 0.5;
+        attribute pressureSetpoint : Pressure = 6200000.0;
+        attribute separatorLevelSetpoint : Fraction = 0.55;
+        attribute maximumPermittedSlugFrequency : Frequency = 0.18;
+        attribute minimumGasValveOpening : Fraction = 0.12;
+        attribute maximumGasValveOpening : Fraction = 0.95;
+        attribute minimumLiquidValveOpening : Fraction = 0.08;
+        attribute maximumLiquidValveOpening : Fraction = 0.90;
+
+        port pressureMeasurement : SignalInPort;
+        port holdupMeasurement : SignalInPort;
+        port slugVelocityMeasurement : SignalInPort;
+        port gasValveCommand : SignalOutPort;
+        port liquidValveCommand : SignalOutPort;
+
+        perform regulateSystem : RegulateBackPressure;
+
+        state def ControllerStateMachine {
+            state initializing;
+            state steadySlugHandling;
+            state severeSlugMitigation;
+            state separatorHighLevelProtection;
+            state shutdown;
+
+            initial then initializing;
+
+            transition initializing_to_steady
+                first initializing
+                accept after 10.0
+                then steadySlugHandling;
+
+            transition steady_to_severe
+                first steadySlugHandling
+                accept when holdupMeasurement.signal.measuredValue > 0.82
+                then severeSlugMitigation;
+
+            transition severe_to_steady
+                first severeSlugMitigation
+                accept when holdupMeasurement.signal.measuredValue < 0.68
+                then steadySlugHandling;
+
+            transition steady_to_high_level
+                first steadySlugHandling
+                accept when pressureMeasurement.signal.measuredValue > 7600000.0
+                then separatorHighLevelProtection;
+
+            transition severe_to_shutdown
+                first severeSlugMitigation
+                accept when pressureMeasurement.signal.measuredValue > 8300000.0
+                then shutdown;
+
+            transition high_level_to_shutdown
+                first separatorHighLevelProtection
+                accept after 30.0
+                then shutdown;
+        }
+    }
+
+    part def SlugCatcherSeparator {
+        attribute vesselVolume : Volume = 42.0;
+        attribute vesselDiameter : Diameter = 2.2;
+        attribute vesselLength : Length = 11.5;
+        attribute normalOperatingPressure : Pressure = 6100000.0;
+        attribute highPressureTrip : Pressure = 8200000.0;
+        attribute normalLiquidLevel : Fraction = 0.55;
+        attribute highLiquidLevelTrip : Fraction = 0.88;
+        attribute gasCarryunderLimit : Fraction = 0.015;
+        attribute liquidCarryoverLimit : Fraction = 0.002;
+
+        port feed : TwoPhaseInletPort;
+        port gasOutlet : GasOutletPort;
+        port liquidOutlet : LiquidOutletPort;
+        port gasControlSignal : SignalOutPort;
+        port liquidControlSignal : SignalOutPort;
+
+        part inletDiverter : MomentumBreaker;
+        part gasDisengagementZone : GasDisengagementVolume;
+        part liquidSurgeVolume : LiquidSurgeVolume;
+        part demister : MistEliminator;
+        part levelTransmitter : LiquidLevelTransmitter;
+        part pressureTransmitter : PressureTransmitter;
+
+        perform phaseSeparation : SeparateGasAndLiquid;
+
+        state def SeparatorStateMachine {
+            state empty;
+            state filling;
+            state normalSeparation;
+            state slugReceiving;
+            state highLevelAlarm;
+            state pressureReliefDemand;
+
+            initial then empty;
+
+            transition empty_to_filling
+                first empty
+                accept when feed.mixture.totalVolumetricFlowRate > 0.0
+                then filling;
+
+            transition filling_to_normal
+                first filling
+                accept when liquidControlSignal.signal.measuredValue >= 0.45
+                then normalSeparation;
+
+            transition normal_to_slug
+                first normalSeparation
+                accept when feed.mixture.liquidHoldup > 0.75
+                then slugReceiving;
+
+            transition slug_to_normal
+                first slugReceiving
+                accept when feed.mixture.liquidHoldup < 0.60
+                then normalSeparation;
+
+            transition slug_to_high_level
+                first slugReceiving
+                accept when feed.mixture.liquidHoldup > 0.88
+                then highLevelAlarm;
+
+            transition any_to_relief
+                first normalSeparation
+                accept when feed.mixture.mixturePressure > 8200000.0
+                then pressureReliefDemand;
+        }
+    }
+
+    part def ControlValve {
+        attribute nominalDiameter : Diameter = 0.152;
+        attribute minimumOpening : Fraction = 0.0;
+        attribute maximumOpening : Fraction = 1.0;
+        attribute currentOpening : Fraction = 0.50;
+        attribute failPosition : Fraction = 0.0;
+        attribute responseTime : TimeDuration = 2.0;
+
+        port command : SignalInPort;
+        port feedback : SignalOutPort;
+
+        action actuate {
+            in item commandInput : ControlSignal;
+            out item positionFeedback : SensorSignal;
+        }
+    }
+
+    part def PressureReliefAssembly {
+        attribute setPressure : Pressure = 8500000.0;
+        attribute reseatPressure : Pressure = 7900000.0;
+        attribute reliefCapacity : MassFlowRate = 35.0;
+
+        port protectedVolume : TwoPhaseInletPort;
+        port relievedFlow : TwoPhaseOutletPort;
+
+        perform protectFromOverpressure : RelieveOverpressure;
+    }
+
+    part def PressureTransmitter {
+        attribute measurementRangeLow : Pressure = 0.0;
+        attribute measurementRangeHigh : Pressure = 10000000.0;
+        attribute accuracy : Fraction = 0.0025;
+        port output : SignalOutPort;
+    }
+
+    part def DifferentialPressureTransmitter {
+        attribute measurementRangeLow : Pressure = 0.0;
+        attribute measurementRangeHigh : Pressure = 1000000.0;
+        attribute accuracy : Fraction = 0.003;
+        port output : SignalOutPort;
+    }
+
+    part def TemperatureTransmitter {
+        attribute measurementRangeLow : Temperature = 273.15;
+        attribute measurementRangeHigh : Temperature = 423.15;
+        attribute accuracy : Fraction = 0.002;
+        port output : SignalOutPort;
+    }
+
+    part def LiquidHoldupMeter {
+        attribute holdupRangeLow : Fraction = 0.0;
+        attribute holdupRangeHigh : Fraction = 1.0;
+        attribute accuracy : Fraction = 0.015;
+        port output : SignalOutPort;
+    }
+
+    part def SlugVelocityEstimator {
+        attribute sensorSpacing : Length = 4.0;
+        attribute minimumCorrelationCoefficient : Fraction = 0.72;
+        port output : SignalOutPort;
+    }
+
+    part def MomentumBreaker {
+        attribute inletAreaRatio : Fraction = 0.65;
+        attribute energyDissipationEfficiency : Fraction = 0.78;
+    }
+
+    part def GasDisengagementVolume {
+        attribute volume : Volume = 18.0;
+        attribute minimumResidenceTime : TimeDuration = 20.0;
+        attribute allowableLiquidCarryover : Fraction = 0.002;
+    }
+
+    part def LiquidSurgeVolume {
+        attribute volume : Volume = 24.0;
+        attribute slugBufferCapacity : Volume = 16.0;
+        attribute allowableGasCarryunder : Fraction = 0.015;
+    }
+
+    part def MistEliminator {
+        attribute removalEfficiency : Fraction = 0.995;
+        attribute maximumPressureDrop : Pressure = 15000.0;
+    }
+
+    part def LiquidLevelTransmitter {
+        attribute rangeLow : Fraction = 0.0;
+        attribute rangeHigh : Fraction = 1.0;
+        attribute accuracy : Fraction = 0.005;
+        port output : SignalOutPort;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc
+        /*
+         * The system shall receive intermittent gas-liquid slug flow, condition and transport it through the pipeline,
+         * detect slug characteristics, regulate back pressure and liquid inventory, and separate the incoming mixture
+         * into controlled gas and liquid export streams.
+         */
+    }
+
+    requirement def SlugTransportRequirement {
+        attribute maximumPressureDrop : Pressure = 600000.0;
+        attribute minimumSlugVelocity : Velocity = 0.6;
+        attribute maximumSlugVelocity : Velocity = 8.0;
+
+        require constraint {
+            SlugFlowTransportAndSeparationSystem::inclinedPipeline.normalPressureDrop <= maximumPressureDrop
+        }
+    }
+
+    requirement def SlugDetectionRequirement {
+        attribute maximumDetectionLatency : TimeDuration = 1.0;
+        attribute minimumHoldupAccuracy : Fraction = 0.02;
+
+        require constraint {
+            SlugFlowTransportAndSeparationSystem::slugDetector.sampleFrequency >= 5.0
+        }
+    }
+
+    requirement def SeparationRequirement {
+        attribute maximumLiquidCarryover : Fraction = 0.002;
+        attribute maximumGasCarryunder : Fraction = 0.015;
+        attribute minimumResidenceTime : TimeDuration = 45.0;
+
+        require constraint {
+            SlugFlowTransportAndSeparationSystem::separator.liquidCarryoverLimit <= maximumLiquidCarryover
+        }
+
+        require constraint {
+            SlugFlowTransportAndSeparationSystem::separator.gasCarryunderLimit <= maximumGasCarryunder
+        }
+    }
+
+    requirement def PressureProtectionRequirement {
+        attribute maximumAllowableOperatingPressure : Pressure = 8500000.0;
+
+        require constraint {
+            SlugFlowTransportAndSeparationSystem::pressureReliefSystem.setPressure <= maximumAllowableOperatingPressure
+        }
+    }
+
+    requirement def ControlRequirement {
+        attribute maximumControlCycleTime : TimeDuration = 1.0;
+        attribute maximumLiquidHoldupBeforeMitigation : Fraction = 0.82;
+
+        require constraint {
+            SlugFlowTransportAndSeparationSystem::controlSystem.controlCycleTime <= maximumControlCycleTime
+        }
+
+        require constraint {
+            SlugFlowTransportAndSeparationSystem::maximumAllowableLiquidHoldup <= maximumLiquidHoldupBeforeMitigation
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by SlugFlowTransportAndSeparationSystem;
+    satisfy SlugTransportRequirement by SlugFlowTransportAndSeparationSystem::inclinedPipeline;
+    satisfy SlugDetectionRequirement by SlugFlowTransportAndSeparationSystem::slugDetector;
+    satisfy SeparationRequirement by SlugFlowTransportAndSeparationSystem::separator;
+    satisfy PressureProtectionRequirement by SlugFlowTransportAndSeparationSystem::pressureReliefSystem;
+    satisfy ControlRequirement by SlugFlowTransportAndSeparationSystem::controlSystem;
+
+    part slugFlowSystem : SlugFlowTransportAndSeparationSystem {
+        perform primaryFunction : ProvideHighLevelFunction;
+    }
+}

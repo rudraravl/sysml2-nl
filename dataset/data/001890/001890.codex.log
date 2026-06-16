@@ -1,0 +1,1111 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-py_5m1sz
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019ebab1-efdc-7fa3-bae3-1d5300ffc1b2
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Define a system based on a Water supply network and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package WaterSupplyNetworkModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Volume;
+    attribute def FlowRate;
+    attribute def Pressure;
+    attribute def Length;
+    attribute def Power;
+    attribute def Energy;
+    attribute def Concentration;
+    attribute def Turbidity;
+    attribute def Time;
+
+    item def RawWater {
+        attribute volume : Volume;
+        attribute turbidity : Turbidity;
+        attribute contaminantConcentration : Concentration;
+    }
+
+    item def TreatedWater {
+        attribute volume : Volume;
+        attribute residualChlorine : Concentration;
+        attribute turbidity : Turbidity;
+        attribute potable : Boolean;
+    }
+
+    item def ElectricalPower {
+        attribute power : Power;
+        attribute voltage : Real;
+        attribute frequency : Real;
+    }
+
+    item def ControlSignal {
+        attribute command : String;
+        attribute setpoint : Real;
+        attribute timestamp : Time;
+    }
+
+    item def Telemetry {
+        attribute measuredPressure : Pressure;
+        attribute measuredFlow : FlowRate;
+        attribute measuredTankLevel : Real;
+        attribute alarmActive : Boolean;
+    }
+
+    port def WaterInletPort {
+        in item waterIn : RawWater;
+    }
+
+    port def RawWaterOutletPort {
+        out item waterOut : RawWater;
+    }
+
+    port def TreatedWaterInletPort {
+        in item waterIn : TreatedWater;
+    }
+
+    port def TreatedWaterOutletPort {
+        out item waterOut : TreatedWater;
+    }
+
+    port def PowerPort {
+        in item powerIn : ElectricalPower;
+    }
+
+    port def ControlInputPort {
+        in item controlIn : ControlSignal;
+    }
+
+    port def TelemetryOutputPort {
+        out item telemetryOut : Telemetry;
+    }
+
+    part def WaterSource {
+        port outlet : RawWaterOutletPort;
+
+        attribute availableVolume : Volume;
+        attribute sourceLevel : Real;
+        attribute rawTurbidity : Turbidity;
+
+        action supplyRawWater {
+            out item suppliedWater : RawWater;
+            attribute requestedFlow : FlowRate;
+        }
+    }
+
+    part def IntakeStation {
+        port sourceInlet : WaterInletPort;
+        port rawOutlet : RawWaterOutletPort;
+        port power : PowerPort;
+        port control : ControlInputPort;
+        port telemetry : TelemetryOutputPort;
+
+        attribute screenDifferentialPressure : Pressure;
+        attribute intakeFlow : FlowRate;
+        attribute pumpAvailable : Boolean;
+
+        action screenDebris {
+            in item incomingWater : RawWater;
+            out item screenedWater : RawWater;
+        }
+
+        action liftRawWater {
+            in item screenedWater : RawWater;
+            out item liftedWater : RawWater;
+            attribute liftHead : Length;
+        }
+    }
+
+    part def TreatmentPlant {
+        port rawInlet : WaterInletPort;
+        port treatedOutlet : TreatedWaterOutletPort;
+        port power : PowerPort;
+        port control : ControlInputPort;
+        port telemetry : TelemetryOutputPort;
+
+        attribute treatmentCapacity : FlowRate;
+        attribute chlorineDose : Concentration;
+        attribute filterPressureDrop : Pressure;
+        attribute outletTurbidity : Turbidity;
+
+        action coagulate {
+            in item rawWater : RawWater;
+            out item conditionedWater : RawWater;
+        }
+
+        action filter {
+            in item conditionedWater : RawWater;
+            out item filteredWater : RawWater;
+        }
+
+        action disinfect {
+            in item filteredWater : RawWater;
+            out item potableWater : TreatedWater;
+        }
+
+        state def TreatmentOperatingState {
+            state idle;
+            state startup;
+            state treating;
+            state backwash;
+            state fault;
+
+            transition first idle;
+            transition idle_to_startup
+                first idle then startup
+                accept ControlSignal
+                if controlIn.command == "START";
+
+            transition startup_to_treating
+                first startup then treating
+                if treatmentCapacity > 0.0;
+
+            transition treating_to_backwash
+                first treating then backwash
+                if filterPressureDrop > 250000.0;
+
+            transition backwash_to_treating
+                first backwash then treating;
+
+            transition any_to_fault
+                first treating then fault
+                if outletTurbidity > 1.0;
+        }
+    }
+
+    part def PumpStation {
+        port inlet : TreatedWaterInletPort;
+        port outlet : TreatedWaterOutletPort;
+        port power : PowerPort;
+        port control : ControlInputPort;
+        port telemetry : TelemetryOutputPort;
+
+        attribute pumpCount : Integer;
+        attribute activePumpCount : Integer;
+        attribute dischargePressure : Pressure;
+        attribute stationFlow : FlowRate;
+        attribute energyUsed : Energy;
+
+        action pressurizeWater {
+            in item lowPressureWater : TreatedWater;
+            out item pressurizedWater : TreatedWater;
+            attribute targetPressure : Pressure;
+        }
+
+        state def PumpStationState {
+            state stopped;
+            state standby;
+            state pumping;
+            state degraded;
+            state emergencyStop;
+
+            transition first stopped;
+            transition stopped_to_standby
+                first stopped then standby
+                accept ControlSignal
+                if controlIn.command == "ENABLE";
+
+            transition standby_to_pumping
+                first standby then pumping
+                if dischargePressure < 420000.0;
+
+            transition pumping_to_standby
+                first pumping then standby
+                if dischargePressure > 560000.0;
+
+            transition pumping_to_degraded
+                first pumping then degraded
+                if activePumpCount < pumpCount;
+
+            transition degraded_to_emergency
+                first degraded then emergencyStop
+                if dischargePressure < 250000.0;
+        }
+    }
+
+    part def StorageTank {
+        port inlet : TreatedWaterInletPort;
+        port outlet : TreatedWaterOutletPort;
+        port telemetry : TelemetryOutputPort;
+
+        attribute capacity : Volume;
+        attribute storedVolume : Volume;
+        attribute waterLevelPercent : Real;
+        attribute minimumOperatingVolume : Volume;
+        attribute overflowVolume : Volume;
+
+        action storeWater {
+            in item incomingWater : TreatedWater;
+        }
+
+        action releaseWater {
+            out item outgoingWater : TreatedWater;
+            attribute demandedFlow : FlowRate;
+        }
+    }
+
+    part def DistributionMain {
+        port inlet : TreatedWaterInletPort;
+        port outlet : TreatedWaterOutletPort;
+        port telemetry : TelemetryOutputPort;
+
+        attribute pipeLength : Length;
+        attribute pipeDiameter : Length;
+        attribute designPressure : Pressure;
+        attribute currentFlow : FlowRate;
+        attribute pressureLoss : Pressure;
+
+        action conveyWater {
+            in item upstreamWater : TreatedWater;
+            out item downstreamWater : TreatedWater;
+        }
+    }
+
+    part def PressureZone {
+        port inlet : TreatedWaterInletPort;
+        port outlet : TreatedWaterOutletPort;
+        port telemetry : TelemetryOutputPort;
+
+        attribute zoneElevation : Length;
+        attribute nominalPressure : Pressure;
+        attribute customerDemand : FlowRate;
+        attribute deliveredPressure : Pressure;
+
+        action regulatePressure {
+            in item suppliedWater : TreatedWater;
+            out item regulatedWater : TreatedWater;
+            attribute pressureSetpoint : Pressure;
+        }
+    }
+
+    part def CustomerConnection {
+        port inlet : TreatedWaterInletPort;
+        port telemetry : TelemetryOutputPort;
+
+        attribute serviceFlow : FlowRate;
+        attribute meterReading : Volume;
+        attribute minimumServicePressure : Pressure;
+
+        action deliverPotableWater {
+            in item suppliedWater : TreatedWater;
+            attribute deliveredVolume : Volume;
+        }
+    }
+
+    part def SupervisoryControlAndDataAcquisition {
+        port intakeCommand : ControlInputPort;
+        port treatmentCommand : ControlInputPort;
+        port pumpCommand : ControlInputPort;
+
+        port intakeTelemetry : TelemetryOutputPort;
+        port treatmentTelemetry : TelemetryOutputPort;
+        port pumpTelemetry : TelemetryOutputPort;
+        port tankTelemetry : TelemetryOutputPort;
+        port distributionTelemetry : TelemetryOutputPort;
+        port zoneTelemetry : TelemetryOutputPort;
+
+        attribute networkPressureSetpoint : Pressure;
+        attribute tankLevelSetpoint : Real;
+        attribute maximumAllowedTurbidity : Turbidity;
+
+        action monitorNetwork {
+            in item telemetrySample : Telemetry;
+        }
+
+        action optimizeOperation {
+            out item controlCommand : ControlSignal;
+            attribute demandForecast : FlowRate;
+        }
+    }
+
+    part def WaterSupplyNetwork {
+        port rawWaterSupply : WaterInletPort;
+        port customerDelivery : TreatedWaterOutletPort;
+        port electricalSupply : PowerPort;
+
+        part source : WaterSource {
+            attribute availableVolume = 500000000.0;
+            attribute sourceLevel = 0.82;
+            attribute rawTurbidity = 4.5;
+        }
+
+        part intake : IntakeStation {
+            attribute screenDifferentialPressure = 15000.0;
+            attribute intakeFlow = 1.4;
+            attribute pumpAvailable = true;
+        }
+
+        part treatment : TreatmentPlant {
+            attribute treatmentCapacity = 1.6;
+            attribute chlorineDose = 2.0;
+            attribute filterPressureDrop = 90000.0;
+            attribute outletTurbidity = 0.2;
+        }
+
+        part highLiftPumps : PumpStation {
+            attribute pumpCount = 4;
+            attribute activePumpCount = 2;
+            attribute dischargePressure = 480000.0;
+            attribute stationFlow = 1.2;
+            attribute energyUsed = 0.0;
+        }
+
+        part clearwell : StorageTank {
+            attribute capacity = 25000.0;
+            attribute storedVolume = 18000.0;
+            attribute waterLevelPercent = 72.0;
+            attribute minimumOperatingVolume = 6000.0;
+            attribute overflowVolume = 0.0;
+        }
+
+        part transmissionMain : DistributionMain {
+            attribute pipeLength = 12000.0;
+            attribute pipeDiameter = 1.2;
+            attribute designPressure = 1000000.0;
+            attribute currentFlow = 1.15;
+            attribute pressureLoss = 65000.0;
+        }
+
+        part northPressureZone : PressureZone {
+            attribute zoneElevation = 120.0;
+            attribute nominalPressure = 430000.0;
+            attribute customerDemand = 0.42;
+            attribute deliveredPressure = 425000.0;
+        }
+
+        part southPressureZone : PressureZone {
+            attribute zoneElevation = 70.0;
+            attribute nominalPressure = 480000.0;
+            attribute customerDemand = 0.50;
+            attribute deliveredPressure = 475000.0;
+        }
+
+        part industrialConnection : CustomerConnection {
+            attribute serviceFlow = 0.18;
+            attribute meterReading = 154000.0;
+            attribute minimumServicePressure = 350000.0;
+        }
+
+        part residentialConnection : CustomerConnection {
+            attribute serviceFlow = 0.74;
+            attribute meterReading = 860000.0;
+            attribute minimumServicePressure = 280000.0;
+        }
+
+        part scada : SupervisoryControlAndDataAcquisition {
+            attribute networkPressureSetpoint = 460000.0;
+            attribute tankLevelSetpoint = 70.0;
+            attribute maximumAllowedTurbidity = 1.0;
+        }
+
+        connect source.outlet to intake.sourceInlet;
+        connect intake.rawOutlet to treatment.rawInlet;
+        connect treatment.treatedOutlet to clearwell.inlet;
+        connect clearwell.outlet to highLiftPumps.inlet;
+        connect highLiftPumps.outlet to transmissionMain.inlet;
+        connect transmissionMain.outlet to northPressureZone.inlet;
+        connect transmissionMain.outlet to southPressureZone.inlet;
+        connect northPressureZone.outlet to residentialConnection.inlet;
+        connect southPressureZone.outlet to industrialConnection.inlet;
+
+        connect electricalSupply to intake.power;
+        connect electricalSupply to treatment.power;
+        connect electricalSupply to highLiftPumps.power;
+
+        connect scada.intakeCommand to intake.control;
+        connect scada.treatmentCommand to treatment.control;
+        connect scada.pumpCommand to highLiftPumps.control;
+
+        connect intake.telemetry to scada.intakeTelemetry;
+        connect treatment.telemetry to scada.treatmentTelemetry;
+        connect highLiftPumps.telemetry to scada.pumpTelemetry;
+        connect clearwell.telemetry to scada.tankTelemetry;
+        connect transmissionMain.telemetry to scada.distributionTelemetry;
+        connect northPressureZone.telemetry to scada.zoneTelemetry;
+        connect southPressureZone.telemetry to scada.zoneTelemetry;
+
+        action providePotableWater {
+            in item rawWater : RawWater;
+            out item deliveredWater : TreatedWater;
+
+            action intakeRawWater : intake.liftRawWater;
+            action treatWater : treatment.disinfect;
+            action storeTreatedWater : clearwell.storeWater;
+            action pressurize : highLiftPumps.pressurizeWater;
+            action distribute : transmissionMain.conveyWater;
+            action regulateNorth : northPressureZone.regulatePressure;
+            action regulateSouth : southPressureZone.regulatePressure;
+            action deliverResidential : residentialConnection.deliverPotableWater;
+            action deliverIndustrial : industrialConnection.deliverPotableWater;
+        }
+
+        state def NetworkOperatingState {
+            state normalSupply;
+            state peakDemand;
+            state lowStorage;
+            state waterQualityHold;
+            state emergencyIsolation;
+
+            transition first normalSupply;
+
+            transition normal_to_peak
+                first normalSupply then peakDemand
+                if northPressureZone.customerDemand + southPressureZone.customerDemand > 1.3;
+
+            transition peak_to_normal
+                first peakDemand then normalSupply
+                if northPressureZone.customerDemand + southPressureZone.customerDemand <= 1.1;
+
+            transition normal_to_lowStorage
+                first normalSupply then lowStorage
+                if clearwell.waterLevelPercent < 35.0;
+
+            transition lowStorage_to_normal
+                first lowStorage then normalSupply
+                if clearwell.waterLevelPercent >= 60.0;
+
+            transition any_to_qualityHold
+                first normalSupply then waterQualityHold
+                if treatment.outletTurbidity > scada.maximumAllowedTurbidity;
+
+            transition qualityHold_to_normal
+                first waterQualityHold then normalSupply
+                if treatment.outletTurbidity <= scada.maximumAllowedTurbidity;
+
+            transition any_to_emergency
+                first normalSupply then emergencyIsolation
+                if highLiftPumps.dischargePressure > transmissionMain.designPressure;
+        }
+    }
+
+    requirement def ProvideSafeReliableWater {
+        subject network : WaterSupplyNetwork;
+
+        doc
+        /* The water supply network shall abstract, treat, store, pressurize, distribute,
+           and deliver potable water from a raw water source to connected customers. */
+
+        require constraint {
+            network.treatment.outletTurbidity <= network.scada.maximumAllowedTurbidity;
+        }
+
+        require constraint {
+            network.clearwell.storedVolume >= network.clearwell.minimumOperatingVolume;
+        }
+
+        require constraint {
+            network.highLiftPumps.dischargePressure <= network.transmissionMain.designPressure;
+        }
+
+        require constraint {
+            network.northPressureZone.deliveredPressure >= network.residentialConnection.minimumServicePressure;
+        }
+
+        require constraint {
+            network.southPressureZone.deliveredPressure >= network.industrialConnection.minimumServicePressure;
+        }
+    }
+
+    requirement def MaintainPotableWaterQuality {
+        subject treatmentPlant : TreatmentPlant;
+
+        require constraint {
+            treatmentPlant.outletTurbidity <= 1.0;
+        }
+
+        require constraint {
+            treatmentPlant.chlorineDose >= 0.5 and treatmentPlant.chlorineDose <= 4.0;
+        }
+    }
+
+    requirement def MaintainDistributionPressure {
+        subject network : WaterSupplyNetwork;
+
+        require constraint {
+            network.northPressureZone.deliveredPressure >= 280000.0;
+        }
+
+        require constraint {
+            network.southPressureZone.deliveredPressure >= 350000.0;
+        }
+    }
+
+    requirement def ProvideOperationalMonitoring {
+        subject network : WaterSupplyNetwork;
+
+        doc
+        /* The system shall continuously monitor source intake, treatment performance,
+           storage level, pumping pressure, distribution flow, and pressure zone delivery. */
+
+        require constraint {
+            network.scada.networkPressureSetpoint > 0.0;
+        }
+
+        require constraint {
+            network.scada.tankLevelSetpoint >= 40.0 and network.scada.tankLevelSetpoint <= 90.0;
+        }
+    }
+
+    satisfy ProvideSafeReliableWater by WaterSupplyNetwork;
+    satisfy MaintainPotableWaterQuality by TreatmentPlant;
+    satisfy MaintainDistributionPressure by WaterSupplyNetwork;
+    satisfy ProvideOperationalMonitoring by SupervisoryControlAndDataAcquisition;
+}
+tokens used
+4,957
+package WaterSupplyNetworkModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Volume;
+    attribute def FlowRate;
+    attribute def Pressure;
+    attribute def Length;
+    attribute def Power;
+    attribute def Energy;
+    attribute def Concentration;
+    attribute def Turbidity;
+    attribute def Time;
+
+    item def RawWater {
+        attribute volume : Volume;
+        attribute turbidity : Turbidity;
+        attribute contaminantConcentration : Concentration;
+    }
+
+    item def TreatedWater {
+        attribute volume : Volume;
+        attribute residualChlorine : Concentration;
+        attribute turbidity : Turbidity;
+        attribute potable : Boolean;
+    }
+
+    item def ElectricalPower {
+        attribute power : Power;
+        attribute voltage : Real;
+        attribute frequency : Real;
+    }
+
+    item def ControlSignal {
+        attribute command : String;
+        attribute setpoint : Real;
+        attribute timestamp : Time;
+    }
+
+    item def Telemetry {
+        attribute measuredPressure : Pressure;
+        attribute measuredFlow : FlowRate;
+        attribute measuredTankLevel : Real;
+        attribute alarmActive : Boolean;
+    }
+
+    port def WaterInletPort {
+        in item waterIn : RawWater;
+    }
+
+    port def RawWaterOutletPort {
+        out item waterOut : RawWater;
+    }
+
+    port def TreatedWaterInletPort {
+        in item waterIn : TreatedWater;
+    }
+
+    port def TreatedWaterOutletPort {
+        out item waterOut : TreatedWater;
+    }
+
+    port def PowerPort {
+        in item powerIn : ElectricalPower;
+    }
+
+    port def ControlInputPort {
+        in item controlIn : ControlSignal;
+    }
+
+    port def TelemetryOutputPort {
+        out item telemetryOut : Telemetry;
+    }
+
+    part def WaterSource {
+        port outlet : RawWaterOutletPort;
+
+        attribute availableVolume : Volume;
+        attribute sourceLevel : Real;
+        attribute rawTurbidity : Turbidity;
+
+        action supplyRawWater {
+            out item suppliedWater : RawWater;
+            attribute requestedFlow : FlowRate;
+        }
+    }
+
+    part def IntakeStation {
+        port sourceInlet : WaterInletPort;
+        port rawOutlet : RawWaterOutletPort;
+        port power : PowerPort;
+        port control : ControlInputPort;
+        port telemetry : TelemetryOutputPort;
+
+        attribute screenDifferentialPressure : Pressure;
+        attribute intakeFlow : FlowRate;
+        attribute pumpAvailable : Boolean;
+
+        action screenDebris {
+            in item incomingWater : RawWater;
+            out item screenedWater : RawWater;
+        }
+
+        action liftRawWater {
+            in item screenedWater : RawWater;
+            out item liftedWater : RawWater;
+            attribute liftHead : Length;
+        }
+    }
+
+    part def TreatmentPlant {
+        port rawInlet : WaterInletPort;
+        port treatedOutlet : TreatedWaterOutletPort;
+        port power : PowerPort;
+        port control : ControlInputPort;
+        port telemetry : TelemetryOutputPort;
+
+        attribute treatmentCapacity : FlowRate;
+        attribute chlorineDose : Concentration;
+        attribute filterPressureDrop : Pressure;
+        attribute outletTurbidity : Turbidity;
+
+        action coagulate {
+            in item rawWater : RawWater;
+            out item conditionedWater : RawWater;
+        }
+
+        action filter {
+            in item conditionedWater : RawWater;
+            out item filteredWater : RawWater;
+        }
+
+        action disinfect {
+            in item filteredWater : RawWater;
+            out item potableWater : TreatedWater;
+        }
+
+        state def TreatmentOperatingState {
+            state idle;
+            state startup;
+            state treating;
+            state backwash;
+            state fault;
+
+            transition first idle;
+            transition idle_to_startup
+                first idle then startup
+                accept ControlSignal
+                if controlIn.command == "START";
+
+            transition startup_to_treating
+                first startup then treating
+                if treatmentCapacity > 0.0;
+
+            transition treating_to_backwash
+                first treating then backwash
+                if filterPressureDrop > 250000.0;
+
+            transition backwash_to_treating
+                first backwash then treating;
+
+            transition any_to_fault
+                first treating then fault
+                if outletTurbidity > 1.0;
+        }
+    }
+
+    part def PumpStation {
+        port inlet : TreatedWaterInletPort;
+        port outlet : TreatedWaterOutletPort;
+        port power : PowerPort;
+        port control : ControlInputPort;
+        port telemetry : TelemetryOutputPort;
+
+        attribute pumpCount : Integer;
+        attribute activePumpCount : Integer;
+        attribute dischargePressure : Pressure;
+        attribute stationFlow : FlowRate;
+        attribute energyUsed : Energy;
+
+        action pressurizeWater {
+            in item lowPressureWater : TreatedWater;
+            out item pressurizedWater : TreatedWater;
+            attribute targetPressure : Pressure;
+        }
+
+        state def PumpStationState {
+            state stopped;
+            state standby;
+            state pumping;
+            state degraded;
+            state emergencyStop;
+
+            transition first stopped;
+            transition stopped_to_standby
+                first stopped then standby
+                accept ControlSignal
+                if controlIn.command == "ENABLE";
+
+            transition standby_to_pumping
+                first standby then pumping
+                if dischargePressure < 420000.0;
+
+            transition pumping_to_standby
+                first pumping then standby
+                if dischargePressure > 560000.0;
+
+            transition pumping_to_degraded
+                first pumping then degraded
+                if activePumpCount < pumpCount;
+
+            transition degraded_to_emergency
+                first degraded then emergencyStop
+                if dischargePressure < 250000.0;
+        }
+    }
+
+    part def StorageTank {
+        port inlet : TreatedWaterInletPort;
+        port outlet : TreatedWaterOutletPort;
+        port telemetry : TelemetryOutputPort;
+
+        attribute capacity : Volume;
+        attribute storedVolume : Volume;
+        attribute waterLevelPercent : Real;
+        attribute minimumOperatingVolume : Volume;
+        attribute overflowVolume : Volume;
+
+        action storeWater {
+            in item incomingWater : TreatedWater;
+        }
+
+        action releaseWater {
+            out item outgoingWater : TreatedWater;
+            attribute demandedFlow : FlowRate;
+        }
+    }
+
+    part def DistributionMain {
+        port inlet : TreatedWaterInletPort;
+        port outlet : TreatedWaterOutletPort;
+        port telemetry : TelemetryOutputPort;
+
+        attribute pipeLength : Length;
+        attribute pipeDiameter : Length;
+        attribute designPressure : Pressure;
+        attribute currentFlow : FlowRate;
+        attribute pressureLoss : Pressure;
+
+        action conveyWater {
+            in item upstreamWater : TreatedWater;
+            out item downstreamWater : TreatedWater;
+        }
+    }
+
+    part def PressureZone {
+        port inlet : TreatedWaterInletPort;
+        port outlet : TreatedWaterOutletPort;
+        port telemetry : TelemetryOutputPort;
+
+        attribute zoneElevation : Length;
+        attribute nominalPressure : Pressure;
+        attribute customerDemand : FlowRate;
+        attribute deliveredPressure : Pressure;
+
+        action regulatePressure {
+            in item suppliedWater : TreatedWater;
+            out item regulatedWater : TreatedWater;
+            attribute pressureSetpoint : Pressure;
+        }
+    }
+
+    part def CustomerConnection {
+        port inlet : TreatedWaterInletPort;
+        port telemetry : TelemetryOutputPort;
+
+        attribute serviceFlow : FlowRate;
+        attribute meterReading : Volume;
+        attribute minimumServicePressure : Pressure;
+
+        action deliverPotableWater {
+            in item suppliedWater : TreatedWater;
+            attribute deliveredVolume : Volume;
+        }
+    }
+
+    part def SupervisoryControlAndDataAcquisition {
+        port intakeCommand : ControlInputPort;
+        port treatmentCommand : ControlInputPort;
+        port pumpCommand : ControlInputPort;
+
+        port intakeTelemetry : TelemetryOutputPort;
+        port treatmentTelemetry : TelemetryOutputPort;
+        port pumpTelemetry : TelemetryOutputPort;
+        port tankTelemetry : TelemetryOutputPort;
+        port distributionTelemetry : TelemetryOutputPort;
+        port zoneTelemetry : TelemetryOutputPort;
+
+        attribute networkPressureSetpoint : Pressure;
+        attribute tankLevelSetpoint : Real;
+        attribute maximumAllowedTurbidity : Turbidity;
+
+        action monitorNetwork {
+            in item telemetrySample : Telemetry;
+        }
+
+        action optimizeOperation {
+            out item controlCommand : ControlSignal;
+            attribute demandForecast : FlowRate;
+        }
+    }
+
+    part def WaterSupplyNetwork {
+        port rawWaterSupply : WaterInletPort;
+        port customerDelivery : TreatedWaterOutletPort;
+        port electricalSupply : PowerPort;
+
+        part source : WaterSource {
+            attribute availableVolume = 500000000.0;
+            attribute sourceLevel = 0.82;
+            attribute rawTurbidity = 4.5;
+        }
+
+        part intake : IntakeStation {
+            attribute screenDifferentialPressure = 15000.0;
+            attribute intakeFlow = 1.4;
+            attribute pumpAvailable = true;
+        }
+
+        part treatment : TreatmentPlant {
+            attribute treatmentCapacity = 1.6;
+            attribute chlorineDose = 2.0;
+            attribute filterPressureDrop = 90000.0;
+            attribute outletTurbidity = 0.2;
+        }
+
+        part highLiftPumps : PumpStation {
+            attribute pumpCount = 4;
+            attribute activePumpCount = 2;
+            attribute dischargePressure = 480000.0;
+            attribute stationFlow = 1.2;
+            attribute energyUsed = 0.0;
+        }
+
+        part clearwell : StorageTank {
+            attribute capacity = 25000.0;
+            attribute storedVolume = 18000.0;
+            attribute waterLevelPercent = 72.0;
+            attribute minimumOperatingVolume = 6000.0;
+            attribute overflowVolume = 0.0;
+        }
+
+        part transmissionMain : DistributionMain {
+            attribute pipeLength = 12000.0;
+            attribute pipeDiameter = 1.2;
+            attribute designPressure = 1000000.0;
+            attribute currentFlow = 1.15;
+            attribute pressureLoss = 65000.0;
+        }
+
+        part northPressureZone : PressureZone {
+            attribute zoneElevation = 120.0;
+            attribute nominalPressure = 430000.0;
+            attribute customerDemand = 0.42;
+            attribute deliveredPressure = 425000.0;
+        }
+
+        part southPressureZone : PressureZone {
+            attribute zoneElevation = 70.0;
+            attribute nominalPressure = 480000.0;
+            attribute customerDemand = 0.50;
+            attribute deliveredPressure = 475000.0;
+        }
+
+        part industrialConnection : CustomerConnection {
+            attribute serviceFlow = 0.18;
+            attribute meterReading = 154000.0;
+            attribute minimumServicePressure = 350000.0;
+        }
+
+        part residentialConnection : CustomerConnection {
+            attribute serviceFlow = 0.74;
+            attribute meterReading = 860000.0;
+            attribute minimumServicePressure = 280000.0;
+        }
+
+        part scada : SupervisoryControlAndDataAcquisition {
+            attribute networkPressureSetpoint = 460000.0;
+            attribute tankLevelSetpoint = 70.0;
+            attribute maximumAllowedTurbidity = 1.0;
+        }
+
+        connect source.outlet to intake.sourceInlet;
+        connect intake.rawOutlet to treatment.rawInlet;
+        connect treatment.treatedOutlet to clearwell.inlet;
+        connect clearwell.outlet to highLiftPumps.inlet;
+        connect highLiftPumps.outlet to transmissionMain.inlet;
+        connect transmissionMain.outlet to northPressureZone.inlet;
+        connect transmissionMain.outlet to southPressureZone.inlet;
+        connect northPressureZone.outlet to residentialConnection.inlet;
+        connect southPressureZone.outlet to industrialConnection.inlet;
+
+        connect electricalSupply to intake.power;
+        connect electricalSupply to treatment.power;
+        connect electricalSupply to highLiftPumps.power;
+
+        connect scada.intakeCommand to intake.control;
+        connect scada.treatmentCommand to treatment.control;
+        connect scada.pumpCommand to highLiftPumps.control;
+
+        connect intake.telemetry to scada.intakeTelemetry;
+        connect treatment.telemetry to scada.treatmentTelemetry;
+        connect highLiftPumps.telemetry to scada.pumpTelemetry;
+        connect clearwell.telemetry to scada.tankTelemetry;
+        connect transmissionMain.telemetry to scada.distributionTelemetry;
+        connect northPressureZone.telemetry to scada.zoneTelemetry;
+        connect southPressureZone.telemetry to scada.zoneTelemetry;
+
+        action providePotableWater {
+            in item rawWater : RawWater;
+            out item deliveredWater : TreatedWater;
+
+            action intakeRawWater : intake.liftRawWater;
+            action treatWater : treatment.disinfect;
+            action storeTreatedWater : clearwell.storeWater;
+            action pressurize : highLiftPumps.pressurizeWater;
+            action distribute : transmissionMain.conveyWater;
+            action regulateNorth : northPressureZone.regulatePressure;
+            action regulateSouth : southPressureZone.regulatePressure;
+            action deliverResidential : residentialConnection.deliverPotableWater;
+            action deliverIndustrial : industrialConnection.deliverPotableWater;
+        }
+
+        state def NetworkOperatingState {
+            state normalSupply;
+            state peakDemand;
+            state lowStorage;
+            state waterQualityHold;
+            state emergencyIsolation;
+
+            transition first normalSupply;
+
+            transition normal_to_peak
+                first normalSupply then peakDemand
+                if northPressureZone.customerDemand + southPressureZone.customerDemand > 1.3;
+
+            transition peak_to_normal
+                first peakDemand then normalSupply
+                if northPressureZone.customerDemand + southPressureZone.customerDemand <= 1.1;
+
+            transition normal_to_lowStorage
+                first normalSupply then lowStorage
+                if clearwell.waterLevelPercent < 35.0;
+
+            transition lowStorage_to_normal
+                first lowStorage then normalSupply
+                if clearwell.waterLevelPercent >= 60.0;
+
+            transition any_to_qualityHold
+                first normalSupply then waterQualityHold
+                if treatment.outletTurbidity > scada.maximumAllowedTurbidity;
+
+            transition qualityHold_to_normal
+                first waterQualityHold then normalSupply
+                if treatment.outletTurbidity <= scada.maximumAllowedTurbidity;
+
+            transition any_to_emergency
+                first normalSupply then emergencyIsolation
+                if highLiftPumps.dischargePressure > transmissionMain.designPressure;
+        }
+    }
+
+    requirement def ProvideSafeReliableWater {
+        subject network : WaterSupplyNetwork;
+
+        doc
+        /* The water supply network shall abstract, treat, store, pressurize, distribute,
+           and deliver potable water from a raw water source to connected customers. */
+
+        require constraint {
+            network.treatment.outletTurbidity <= network.scada.maximumAllowedTurbidity;
+        }
+
+        require constraint {
+            network.clearwell.storedVolume >= network.clearwell.minimumOperatingVolume;
+        }
+
+        require constraint {
+            network.highLiftPumps.dischargePressure <= network.transmissionMain.designPressure;
+        }
+
+        require constraint {
+            network.northPressureZone.deliveredPressure >= network.residentialConnection.minimumServicePressure;
+        }
+
+        require constraint {
+            network.southPressureZone.deliveredPressure >= network.industrialConnection.minimumServicePressure;
+        }
+    }
+
+    requirement def MaintainPotableWaterQuality {
+        subject treatmentPlant : TreatmentPlant;
+
+        require constraint {
+            treatmentPlant.outletTurbidity <= 1.0;
+        }
+
+        require constraint {
+            treatmentPlant.chlorineDose >= 0.5 and treatmentPlant.chlorineDose <= 4.0;
+        }
+    }
+
+    requirement def MaintainDistributionPressure {
+        subject network : WaterSupplyNetwork;
+
+        require constraint {
+            network.northPressureZone.deliveredPressure >= 280000.0;
+        }
+
+        require constraint {
+            network.southPressureZone.deliveredPressure >= 350000.0;
+        }
+    }
+
+    requirement def ProvideOperationalMonitoring {
+        subject network : WaterSupplyNetwork;
+
+        doc
+        /* The system shall continuously monitor source intake, treatment performance,
+           storage level, pumping pressure, distribution flow, and pressure zone delivery. */
+
+        require constraint {
+            network.scada.networkPressureSetpoint > 0.0;
+        }
+
+        require constraint {
+            network.scada.tankLevelSetpoint >= 40.0 and network.scada.tankLevelSetpoint <= 90.0;
+        }
+    }
+
+    satisfy ProvideSafeReliableWater by WaterSupplyNetwork;
+    satisfy MaintainPotableWaterQuality by TreatmentPlant;
+    satisfy MaintainDistributionPressure by WaterSupplyNetwork;
+    satisfy ProvideOperationalMonitoring by SupervisoryControlAndDataAcquisition;
+}

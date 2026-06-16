@@ -1,0 +1,410 @@
+package TaccolaInspiredWaterLiftingSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def LengthValue {
+        :>> quantityKind = ISQ::length;
+        :>> unit = SI::metre;
+    }
+
+    attribute def TimeValue {
+        :>> quantityKind = ISQ::time;
+        :>> unit = SI::second;
+    }
+
+    attribute def MassValue {
+        :>> quantityKind = ISQ::mass;
+        :>> unit = SI::kilogram;
+    }
+
+    attribute def VolumeFlowRateValue {
+        :>> quantityKind = ISQ::volumeFlowRate;
+        :>> unit = SI::cubicMetrePerSecond;
+    }
+
+    attribute def ForceValue {
+        :>> quantityKind = ISQ::force;
+        :>> unit = SI::newton;
+    }
+
+    attribute def TorqueValue {
+        :>> quantityKind = ISQ::torque;
+        :>> unit = SI::newtonMetre;
+    }
+
+    attribute def PowerValue {
+        :>> quantityKind = ISQ::power;
+        :>> unit = SI::watt;
+    }
+
+    attribute def RotationalSpeedValue {
+        :>> quantityKind = ISQ::frequency;
+        :>> unit = SI::hertz;
+    }
+
+    attribute def EfficiencyValue {
+        :> ScalarValues::Real;
+    }
+
+    item def Water {
+        attribute density : MassValue = 1000 [kg];
+        attribute temperature : Real;
+        attribute sedimentFraction : Real;
+    }
+
+    item def HumanEffort {
+        attribute inputForce : ForceValue;
+        attribute cadence : RotationalSpeedValue;
+        attribute availablePower : PowerValue;
+    }
+
+    item def MechanicalTorque {
+        attribute torque : TorqueValue;
+        attribute angularSpeed : RotationalSpeedValue;
+        attribute power : PowerValue;
+    }
+
+    item def LiftedWater {
+        attribute flowRate : VolumeFlowRateValue;
+        attribute liftHeight : LengthValue;
+        attribute deliveredVolume : Real;
+    }
+
+    port def WaterIntakePort {
+        in item incomingWater : Water;
+    }
+
+    port def WaterDischargePort {
+        out item deliveredWater : LiftedWater;
+    }
+
+    port def HumanPowerPort {
+        in item effort : HumanEffort;
+    }
+
+    port def TorquePort {
+        inout item shaftTorque : MechanicalTorque;
+    }
+
+    port def StructuralLoadPort {
+        inout attribute reactionForce : ForceValue;
+    }
+
+    action def ConvertWalkingToTorque {
+        in item effort : HumanEffort;
+        out item torqueOutput : MechanicalTorque;
+
+        attribute wheelRadius : LengthValue;
+        attribute drivetrainEfficiency : EfficiencyValue;
+
+        constraint torqueComputation {
+            torqueOutput.torque == effort.inputForce * wheelRadius * drivetrainEfficiency;
+            torqueOutput.angularSpeed == effort.cadence;
+            torqueOutput.power == effort.availablePower * drivetrainEfficiency;
+        }
+    }
+
+    action def TransferTorque {
+        in item sourceTorque : MechanicalTorque;
+        out item deliveredTorque : MechanicalTorque;
+
+        attribute gearRatio : Real;
+        attribute transmissionEfficiency : EfficiencyValue;
+
+        constraint transferComputation {
+            deliveredTorque.torque == sourceTorque.torque * gearRatio * transmissionEfficiency;
+            deliveredTorque.angularSpeed == sourceTorque.angularSpeed / gearRatio;
+            deliveredTorque.power == sourceTorque.power * transmissionEfficiency;
+        }
+    }
+
+    action def ScoopAndLiftWater {
+        in item sourceWater : Water;
+        in item driveTorque : MechanicalTorque;
+        out item liftedWater : LiftedWater;
+
+        attribute bucketVolume : Real;
+        attribute bucketCount : Integer;
+        attribute wheelDiameter : LengthValue;
+        attribute liftHeight : LengthValue;
+        attribute hydraulicEfficiency : EfficiencyValue;
+
+        constraint flowComputation {
+            liftedWater.liftHeight == liftHeight;
+            liftedWater.flowRate == bucketVolume * bucketCount * driveTorque.angularSpeed * hydraulicEfficiency;
+        }
+    }
+
+    action def DischargeWaterToTrough {
+        in item liftedWater : LiftedWater;
+        out item dischargedWater : LiftedWater;
+
+        attribute spillLossFraction : Real;
+
+        constraint dischargeComputation {
+            dischargedWater.flowRate == liftedWater.flowRate * (1.0 - spillLossFraction);
+            dischargedWater.liftHeight == liftedWater.liftHeight;
+        }
+    }
+
+    state def OperatingState {
+        entry action initialize;
+        state Idle;
+        state HumanPowered;
+        state LiftingWater;
+        state Discharging;
+        state Jammed;
+        state Maintenance;
+
+        transition first Idle;
+
+        transition startPower
+            first Idle
+            then HumanPowered;
+
+        transition torqueAvailable
+            first HumanPowered
+            then LiftingWater;
+
+        transition bucketAtTop
+            first LiftingWater
+            then Discharging;
+
+        transition continueCycle
+            first Discharging
+            then HumanPowered;
+
+        transition obstructionDetected
+            first HumanPowered
+            then Jammed;
+
+        transition obstructionDuringLift
+            first LiftingWater
+            then Jammed;
+
+        transition clearJam
+            first Jammed
+            then Maintenance;
+
+        transition maintenanceComplete
+            first Maintenance
+            then Idle;
+
+        transition stop
+            first HumanPowered
+            then Idle;
+    }
+
+    part def HumanTreadwheel {
+        attribute wheelRadius : LengthValue = 1.8 [m];
+        attribute maximumSafeCadence : RotationalSpeedValue = 0.20 [Hz];
+        attribute nominalHumanPower : PowerValue = 180 [W];
+        attribute conversionEfficiency : EfficiencyValue = 0.82;
+
+        port operatorInput : HumanPowerPort;
+        port torqueOutput : TorquePort;
+
+        perform action convert : ConvertWalkingToTorque {
+            in effort = operatorInput.effort;
+            out torqueOutput = torqueOutput.shaftTorque;
+            wheelRadius = wheelRadius;
+            drivetrainEfficiency = conversionEfficiency;
+        }
+    }
+
+    part def WoodenMainShaft {
+        attribute diameter : LengthValue = 0.28 [m];
+        attribute length : LengthValue = 2.6 [m];
+        attribute allowableTorque : TorqueValue = 950 [N*m];
+
+        port leftTorque : TorquePort;
+        port rightTorque : TorquePort;
+        port frameLoad : StructuralLoadPort;
+    }
+
+    part def PegGearTransmission {
+        attribute gearRatio : Real = 3.2;
+        attribute transmissionEfficiency : EfficiencyValue = 0.74;
+        attribute toothCountDriver : Integer = 18;
+        attribute toothCountDriven : Integer = 58;
+
+        port inputTorque : TorquePort;
+        port outputTorque : TorquePort;
+
+        perform action transmit : TransferTorque {
+            in sourceTorque = inputTorque.shaftTorque;
+            out deliveredTorque = outputTorque.shaftTorque;
+            gearRatio = gearRatio;
+            transmissionEfficiency = transmissionEfficiency;
+        }
+    }
+
+    part def BucketChainWheel {
+        attribute wheelDiameter : LengthValue = 2.4 [m];
+        attribute bucketCount : Integer = 24;
+        attribute bucketVolume : Real = 0.011;
+        attribute hydraulicEfficiency : EfficiencyValue = 0.67;
+        attribute nominalLiftHeight : LengthValue = 3.6 [m];
+
+        port waterIntake : WaterIntakePort;
+        port driveInput : TorquePort;
+        port liftedWaterOutput : WaterDischargePort;
+        port bearingLoad : StructuralLoadPort;
+
+        perform action lift : ScoopAndLiftWater {
+            in sourceWater = waterIntake.incomingWater;
+            in driveTorque = driveInput.shaftTorque;
+            out liftedWater = liftedWaterOutput.deliveredWater;
+            bucketVolume = bucketVolume;
+            bucketCount = bucketCount;
+            wheelDiameter = wheelDiameter;
+            liftHeight = nominalLiftHeight;
+            hydraulicEfficiency = hydraulicEfficiency;
+        }
+    }
+
+    part def IntakeBasin {
+        attribute minimumWaterDepth : LengthValue = 0.45 [m];
+        attribute sedimentLimit : Real = 0.08;
+        port outletToBuckets : WaterIntakePort;
+    }
+
+    part def DischargeTrough {
+        attribute length : LengthValue = 4.5 [m];
+        attribute slope : Real = 0.025;
+        attribute spillLossFraction : Real = 0.05;
+
+        port inletFromBuckets : WaterDischargePort;
+        port finalOutlet : WaterDischargePort;
+
+        perform action discharge : DischargeWaterToTrough {
+            in liftedWater = inletFromBuckets.deliveredWater;
+            out dischargedWater = finalOutlet.deliveredWater;
+            spillLossFraction = spillLossFraction;
+        }
+    }
+
+    part def TimberFrame {
+        attribute height : LengthValue = 4.8 [m];
+        attribute width : LengthValue = 3.1 [m];
+        attribute allowableReactionForce : ForceValue = 7200 [N];
+
+        port treadwheelSupport : StructuralLoadPort;
+        port shaftSupport : StructuralLoadPort;
+        port chainWheelSupport : StructuralLoadPort;
+    }
+
+    part def TaccolaWaterLifter {
+        doc /* A Taccola-inspired human-powered water-lifting machine whose primary function is to raise water from a low source to an elevated trough using a treadwheel, wooden shafting, peg gearing, and a bucket chain. */
+
+        attribute designLiftHeight : LengthValue = 3.6 [m];
+        attribute nominalFlowRate : VolumeFlowRateValue = 0.012 [m^3/s];
+        attribute minimumOverallEfficiency : EfficiencyValue = 0.38;
+        attribute maximumOperatorForce : ForceValue = 280 [N];
+
+        port humanInput : HumanPowerPort;
+        port sourceWater : WaterIntakePort;
+        port deliveredWater : WaterDischargePort;
+
+        part treadwheel : HumanTreadwheel;
+        part mainShaft : WoodenMainShaft;
+        part gearTrain : PegGearTransmission;
+        part bucketWheel : BucketChainWheel;
+        part basin : IntakeBasin;
+        part trough : DischargeTrough;
+        part frame : TimberFrame;
+
+        connection humanToWheel connect humanInput to treadwheel.operatorInput;
+        connection wheelToShaft connect treadwheel.torqueOutput to mainShaft.leftTorque;
+        connection shaftToGear connect mainShaft.rightTorque to gearTrain.inputTorque;
+        connection gearToBucketWheel connect gearTrain.outputTorque to bucketWheel.driveInput;
+        connection basinToBuckets connect sourceWater to basin.outletToBuckets;
+        connection intakeToWheel connect basin.outletToBuckets to bucketWheel.waterIntake;
+        connection bucketsToTrough connect bucketWheel.liftedWaterOutput to trough.inletFromBuckets;
+        connection troughToOutlet connect trough.finalOutlet to deliveredWater;
+
+        connection frameSupportsShaft connect frame.shaftSupport to mainShaft.frameLoad;
+        connection frameSupportsWheel connect frame.chainWheelSupport to bucketWheel.bearingLoad;
+
+        exhibit state machine lifecycle : OperatingState;
+
+        perform action primaryFunction {
+            in item operatorEffort : HumanEffort = humanInput.effort;
+            in item lowSourceWater : Water = sourceWater.incomingWater;
+            out item highDeliveredWater : LiftedWater = deliveredWater.deliveredWater;
+
+            first start treadwheel.convert;
+            then start gearTrain.transmit;
+            then start bucketWheel.lift;
+            then start trough.discharge;
+        }
+    }
+
+    requirement def LiftWaterRequirement {
+        subject system : TaccolaWaterLifter;
+
+        require constraint {
+            system.deliveredWater.deliveredWater.liftHeight >= system.designLiftHeight;
+        }
+    }
+
+    requirement def FlowRequirement {
+        subject system : TaccolaWaterLifter;
+
+        require constraint {
+            system.deliveredWater.deliveredWater.flowRate >= system.nominalFlowRate;
+        }
+    }
+
+    requirement def HumanOperabilityRequirement {
+        subject system : TaccolaWaterLifter;
+
+        require constraint {
+            system.humanInput.effort.inputForce <= system.maximumOperatorForce;
+            system.humanInput.effort.availablePower <= system.treadwheel.nominalHumanPower;
+        }
+    }
+
+    requirement def StructuralSafetyRequirement {
+        subject system : TaccolaWaterLifter;
+
+        require constraint {
+            system.mainShaft.leftTorque.shaftTorque.torque <= system.mainShaft.allowableTorque;
+            system.frame.shaftSupport.reactionForce <= system.frame.allowableReactionForce;
+            system.frame.chainWheelSupport.reactionForce <= system.frame.allowableReactionForce;
+        }
+    }
+
+    requirement def WaterQualityToleranceRequirement {
+        subject system : TaccolaWaterLifter;
+
+        require constraint {
+            system.sourceWater.incomingWater.sedimentFraction <= system.basin.sedimentLimit;
+        }
+    }
+
+    part taccolaInspiredWaterLifter : TaccolaWaterLifter;
+
+    requirement primaryHighLevelRequirement : LiftWaterRequirement {
+        subject system = taccolaInspiredWaterLifter;
+    }
+
+    requirement nominalFlowRequirement : FlowRequirement {
+        subject system = taccolaInspiredWaterLifter;
+    }
+
+    requirement humanOperationRequirement : HumanOperabilityRequirement {
+        subject system = taccolaInspiredWaterLifter;
+    }
+
+    requirement structuralRequirement : StructuralSafetyRequirement {
+        subject system = taccolaInspiredWaterLifter;
+    }
+
+    requirement intakeWaterRequirement : WaterQualityToleranceRequirement {
+        subject system = taccolaInspiredWaterLifter;
+    }
+
+}

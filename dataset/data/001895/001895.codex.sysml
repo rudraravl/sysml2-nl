@@ -1,0 +1,348 @@
+package WaybackMachineSystem {
+    import ScalarValues::*;
+
+    attribute def Seconds :> Real;
+    attribute def Milliseconds :> Real;
+    attribute def Bytes :> Real;
+    attribute def Gigabytes :> Real;
+    attribute def Terabytes :> Real;
+    attribute def UrlText :> String;
+    attribute def Timestamp :> String;
+    attribute def Percent :> Real;
+
+    enum def CaptureStatus {
+        enum idle;
+        enum queued;
+        enum fetching;
+        enum rendering;
+        enum storing;
+        enum indexed;
+        enum failed;
+    }
+
+    enum def ReplayStatus {
+        enum waiting;
+        enum locatingSnapshot;
+        enum loadingArtifacts;
+        enum rewritingLinks;
+        enum servingReplay;
+        enum unavailable;
+    }
+
+    item def ArchiveRequest {
+        attribute requestedUrl: UrlText;
+        attribute requestedTimestamp: Timestamp;
+        attribute requesterId: String;
+    }
+
+    item def CaptureRequest {
+        attribute targetUrl: UrlText;
+        attribute capturePriority: Integer;
+        attribute crawlDepth: Integer;
+        attribute submittedAt: Timestamp;
+    }
+
+    item def WebResource {
+        attribute url: UrlText;
+        attribute contentType: String;
+        attribute payloadSize: Bytes;
+        attribute checksum: String;
+        attribute fetchedAt: Timestamp;
+    }
+
+    item def ArchivedSnapshot {
+        attribute originalUrl: UrlText;
+        attribute archiveTimestamp: Timestamp;
+        attribute snapshotSize: Bytes;
+        attribute contentHash: String;
+        attribute completeness: Percent;
+    }
+
+    item def ReplayPage {
+        attribute replayUrl: UrlText;
+        attribute sourceTimestamp: Timestamp;
+        attribute responseSize: Bytes;
+        attribute generationLatency: Milliseconds;
+    }
+
+    item def IndexRecord {
+        attribute urlKey: String;
+        attribute timestamp: Timestamp;
+        attribute storageAddress: String;
+        attribute mimeType: String;
+        attribute compressedSize: Bytes;
+    }
+
+    item def HealthReport {
+        attribute availableStorage: Terabytes;
+        attribute indexingLag: Seconds;
+        attribute captureQueueDepth: Integer;
+        attribute replayErrorRate: Percent;
+    }
+
+    port def UserWebPort {
+        in item archiveRequest: ArchiveRequest;
+        out item replayPage: ReplayPage;
+    }
+
+    port def CaptureSubmissionPort {
+        in item captureRequest: CaptureRequest;
+    }
+
+    port def CrawlPort {
+        out item captureRequest: CaptureRequest;
+        in item fetchedResource: WebResource;
+    }
+
+    port def StoragePort {
+        in item snapshotToStore: ArchivedSnapshot;
+        out item storedSnapshot: ArchivedSnapshot;
+        out item indexRecord: IndexRecord;
+    }
+
+    port def IndexPort {
+        in item indexRecord: IndexRecord;
+        in item archiveRequest: ArchiveRequest;
+        out item locatedSnapshot: ArchivedSnapshot;
+    }
+
+    port def MonitoringPort {
+        out item healthReport: HealthReport;
+    }
+
+    action def NormalizeUrl {
+        in attribute rawUrl: UrlText;
+        out attribute normalizedUrl: UrlText;
+    }
+
+    action def FetchResource {
+        in item request: CaptureRequest;
+        out item resource: WebResource;
+    }
+
+    action def PackageSnapshot {
+        in item resource: WebResource;
+        out item snapshot: ArchivedSnapshot;
+    }
+
+    action def StoreSnapshot {
+        in item snapshot: ArchivedSnapshot;
+        out item record: IndexRecord;
+    }
+
+    action def LocateNearestSnapshot {
+        in item request: ArchiveRequest;
+        out item snapshot: ArchivedSnapshot;
+    }
+
+    action def RewriteArchivedLinks {
+        in item snapshot: ArchivedSnapshot;
+        out item replayPage: ReplayPage;
+    }
+
+    action def GenerateHealthReport {
+        out item report: HealthReport;
+    }
+
+    state def CaptureLifecycle {
+        state Idle;
+        state Queued;
+        state Fetching;
+        state Rendering;
+        state Storing;
+        state Indexed;
+        state Failed;
+
+        transition first Idle then Queued;
+        transition Queued then Fetching;
+        transition Fetching then Rendering;
+        transition Rendering then Storing;
+        transition Storing then Indexed;
+        transition Fetching then Failed;
+        transition Rendering then Failed;
+        transition Storing then Failed;
+        transition Indexed then Idle;
+        transition Failed then Idle;
+    }
+
+    state def ReplayLifecycle {
+        state Waiting;
+        state LocatingSnapshot;
+        state LoadingArtifacts;
+        state RewritingLinks;
+        state ServingReplay;
+        state Unavailable;
+
+        transition first Waiting then LocatingSnapshot;
+        transition LocatingSnapshot then LoadingArtifacts;
+        transition LoadingArtifacts then RewritingLinks;
+        transition RewritingLinks then ServingReplay;
+        transition LocatingSnapshot then Unavailable;
+        transition LoadingArtifacts then Unavailable;
+        transition ServingReplay then Waiting;
+        transition Unavailable then Waiting;
+    }
+
+    part def UserInterface {
+        port web: UserWebPort;
+        port captureSubmit: CaptureSubmissionPort;
+
+        attribute maximumReplayLatency: Milliseconds = 1200.0;
+        attribute supportedConcurrentUsers: Integer = 250000;
+    }
+
+    part def ArchiveController {
+        port userWeb: UserWebPort;
+        port captureSubmit: CaptureSubmissionPort;
+        port crawlDispatch: CrawlPort;
+        port indexQuery: IndexPort;
+        port monitor: MonitoringPort;
+
+        attribute replayStatus: ReplayStatus;
+        attribute captureStatus: CaptureStatus;
+        attribute requestTimeout: Seconds = 30.0;
+
+        perform action LocateNearestSnapshot;
+        perform action RewriteArchivedLinks;
+        perform state ReplayLifecycle;
+    }
+
+    part def CaptureScheduler {
+        port captureIn: CaptureSubmissionPort;
+        port crawlOut: CrawlPort;
+
+        attribute maximumQueueDepth: Integer = 10000000;
+        attribute defaultCrawlDepth: Integer = 2;
+        attribute minimumCaptureSpacing: Seconds = 3600.0;
+
+        perform action NormalizeUrl;
+        perform state CaptureLifecycle;
+    }
+
+    part def WebCrawler {
+        port crawl: CrawlPort;
+
+        attribute maximumFetchLatency: Seconds = 15.0;
+        attribute maximumPayloadSize: Bytes = 104857600.0;
+        attribute robotsPolicyEnabled: Boolean = true;
+
+        perform action FetchResource;
+    }
+
+    part def SnapshotProcessor {
+        port crawlInput: CrawlPort;
+        port storageOutput: StoragePort;
+
+        attribute compressionRatioTarget: Percent = 55.0;
+        attribute checksumAlgorithm: String = "SHA-256";
+        attribute embeddedResourceLimit: Integer = 5000;
+
+        perform action PackageSnapshot;
+    }
+
+    part def ArchiveStorage {
+        port storage: StoragePort;
+        port monitoring: MonitoringPort;
+
+        attribute rawCapacity: Terabytes = 50000.0;
+        attribute replicationFactor: Integer = 3;
+        attribute minimumDurabilityYears: Integer = 25;
+        attribute maximumReadLatency: Milliseconds = 800.0;
+
+        perform action StoreSnapshot;
+    }
+
+    part def TemporalIndex {
+        port index: IndexPort;
+        port storageRecords: StoragePort;
+
+        attribute indexedUrlCount: Integer;
+        attribute maximumLookupLatency: Milliseconds = 250.0;
+        attribute timestampResolution: Seconds = 1.0;
+    }
+
+    part def ObservabilityService {
+        port monitoring: MonitoringPort;
+
+        attribute healthSamplingPeriod: Seconds = 60.0;
+        attribute alertErrorRateThreshold: Percent = 2.0;
+
+        perform action GenerateHealthReport;
+    }
+
+    part def WaybackMachine {
+        part userInterface: UserInterface;
+        part controller: ArchiveController;
+        part scheduler: CaptureScheduler;
+        part crawler: WebCrawler;
+        part processor: SnapshotProcessor;
+        part storage: ArchiveStorage;
+        part index: TemporalIndex;
+        part observability: ObservabilityService;
+
+        attribute primaryFunction: String =
+            "Capture, preserve, index, and replay historical versions of web resources so users can inspect how a URL appeared at a selected time.";
+
+        attribute minimumSnapshotRetention: Integer = 25;
+        attribute targetReplayAvailability: Percent = 99.95;
+        attribute targetCaptureCompleteness: Percent = 95.0;
+
+        connect userInterface.web to controller.userWeb;
+        connect userInterface.captureSubmit to controller.captureSubmit;
+        connect controller.captureSubmit to scheduler.captureIn;
+        connect scheduler.crawlOut to crawler.crawl;
+        connect crawler.crawl to processor.crawlInput;
+        connect processor.storageOutput to storage.storage;
+        connect storage.storage to index.storageRecords;
+        connect controller.indexQuery to index.index;
+        connect storage.monitoring to observability.monitoring;
+        connect controller.monitor to observability.monitoring;
+    }
+
+    requirement def PreserveWebHistory {
+        subject machine: WaybackMachine;
+        require constraint { machine.minimumSnapshotRetention >= 25 }
+    }
+
+    requirement def ReplayArchivedPage {
+        subject machine: WaybackMachine;
+        require constraint { machine.targetReplayAvailability >= 99.95 }
+    }
+
+    requirement def CaptureCompleteness {
+        subject machine: WaybackMachine;
+        require constraint { machine.targetCaptureCompleteness >= 95.0 }
+    }
+
+    requirement def BoundedReplayLatency {
+        subject ui: UserInterface;
+        require constraint { ui.maximumReplayLatency <= 1200.0 }
+    }
+
+    requirement def DurableArchiveStorage {
+        subject storage: ArchiveStorage;
+        require constraint { storage.replicationFactor >= 3 }
+    }
+
+    part waybackMachine: WaybackMachine;
+
+    requirement preserveWebHistory: PreserveWebHistory {
+        subject machine = waybackMachine;
+    }
+
+    requirement replayArchivedPage: ReplayArchivedPage {
+        subject machine = waybackMachine;
+    }
+
+    requirement captureCompleteness: CaptureCompleteness {
+        subject machine = waybackMachine;
+    }
+
+    requirement durableArchiveStorage: DurableArchiveStorage {
+        subject storage = waybackMachine.storage;
+    }
+
+    requirement boundedReplayLatency: BoundedReplayLatency {
+        subject ui = waybackMachine.userInterface;
+    }
+}

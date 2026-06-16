@@ -1,0 +1,558 @@
+package WaterStorageSystemModel {
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    private attribute def Percent :> Real {
+        doc /* Ratio expressed from 0 to 100 percent. */
+    }
+
+    private attribute def Volume_liter :> Real {
+        doc /* Water volume measured in liters. */
+    }
+
+    private attribute def FlowRate_L_per_min :> Real {
+        doc /* Volumetric water flow rate measured in liters per minute. */
+    }
+
+    private attribute def Pressure_kPa :> Real {
+        doc /* Gauge pressure measured in kilopascals. */
+    }
+
+    private attribute def Temperature_C :> Real {
+        doc /* Water temperature measured in degrees Celsius. */
+    }
+
+    private attribute def Turbidity_NTU :> Real {
+        doc /* Water turbidity measured in nephelometric turbidity units. */
+    }
+
+    private attribute def Time_min :> Real {
+        doc /* Time duration measured in minutes. */
+    }
+
+    item def RawWater {
+        attribute volume : Volume_liter;
+        attribute temperature : Temperature_C;
+        attribute turbidity : Turbidity_NTU;
+    }
+
+    item def StoredWater {
+        attribute volume : Volume_liter;
+        attribute temperature : Temperature_C;
+        attribute turbidity : Turbidity_NTU;
+        attribute potable : Boolean;
+    }
+
+    item def OverflowWater {
+        attribute volume : Volume_liter;
+    }
+
+    item def DrainWater {
+        attribute volume : Volume_liter;
+    }
+
+    item def LevelSignal {
+        attribute level : Percent;
+        attribute measuredVolume : Volume_liter;
+    }
+
+    item def QualitySignal {
+        attribute turbidity : Turbidity_NTU;
+        attribute potable : Boolean;
+    }
+
+    item def ValveCommand {
+        attribute open : Boolean;
+        attribute targetOpening : Percent;
+    }
+
+    item def PumpCommand {
+        attribute enabled : Boolean;
+        attribute targetFlow : FlowRate_L_per_min;
+    }
+
+    item def AlarmSignal {
+        attribute active : Boolean;
+        attribute messageCode : String;
+    }
+
+    port def WaterInPort {
+        in item water : RawWater;
+    }
+
+    port def WaterOutPort {
+        out item water : StoredWater;
+    }
+
+    port def OverflowPort {
+        out item water : OverflowWater;
+    }
+
+    port def DrainPort {
+        out item water : DrainWater;
+    }
+
+    port def LevelSensorPort {
+        out item signal : LevelSignal;
+    }
+
+    port def QualitySensorPort {
+        out item signal : QualitySignal;
+    }
+
+    port def ValveControlPort {
+        in item command : ValveCommand;
+    }
+
+    port def PumpControlPort {
+        in item command : PumpCommand;
+    }
+
+    port def AlarmPort {
+        out item alarm : AlarmSignal;
+    }
+
+    part def StorageTank {
+        attribute nominalCapacity : Volume_liter = 10000.0;
+        attribute usableCapacity : Volume_liter = 9500.0;
+        attribute minimumReserve : Volume_liter = 1000.0;
+        attribute currentVolume : Volume_liter;
+        attribute maxWorkingPressure : Pressure_kPa = 75.0;
+        attribute waterTemperature : Temperature_C;
+
+        port inlet : WaterInPort;
+        port outlet : WaterOutPort;
+        port overflow : OverflowPort;
+        port drain : DrainPort;
+        port levelMeasurement : LevelSensorPort;
+
+        state def TankStateMachine {
+            state Empty;
+            state Filling;
+            state NormalStorage;
+            state ReserveOnly;
+            state Full;
+            state OverflowProtection;
+            state Draining;
+
+            entry; then Empty;
+
+            transition Empty_to_Filling
+                first Empty
+                accept ValveCommand
+                if currentVolume < minimumReserve
+                then Filling;
+
+            transition Filling_to_NormalStorage
+                first Filling
+                if currentVolume >= minimumReserve and currentVolume < usableCapacity
+                then NormalStorage;
+
+            transition NormalStorage_to_Full
+                first NormalStorage
+                if currentVolume >= usableCapacity
+                then Full;
+
+            transition Full_to_OverflowProtection
+                first Full
+                if currentVolume > usableCapacity
+                then OverflowProtection;
+
+            transition OverflowProtection_to_Full
+                first OverflowProtection
+                if currentVolume <= usableCapacity
+                then Full;
+
+            transition NormalStorage_to_ReserveOnly
+                first NormalStorage
+                if currentVolume <= minimumReserve
+                then ReserveOnly;
+
+            transition ReserveOnly_to_Filling
+                first ReserveOnly
+                accept ValveCommand
+                then Filling;
+
+            transition NormalStorage_to_Draining
+                first NormalStorage
+                accept PumpCommand
+                if currentVolume > minimumReserve
+                then Draining;
+
+            transition Draining_to_ReserveOnly
+                first Draining
+                if currentVolume <= minimumReserve
+                then ReserveOnly;
+        }
+
+        action def StoreWater {
+            in item incoming : RawWater;
+            out item stored : StoredWater;
+            attribute acceptedVolume : Volume_liter;
+            attribute availableVolume : Volume_liter;
+
+            first start;
+            then computeAvailableCapacity;
+            then acceptWater;
+            then updateTankInventory;
+            then done;
+
+            action computeAvailableCapacity {
+                out availableVolume = usableCapacity - currentVolume;
+            }
+
+            action acceptWater {
+                in item incoming;
+                out acceptedVolume;
+            }
+
+            action updateTankInventory {
+                in acceptedVolume;
+                out item stored;
+            }
+        }
+    }
+
+    part def InletValve {
+        attribute opening : Percent;
+        attribute failClosed : Boolean = true;
+        attribute maximumFlow : FlowRate_L_per_min = 250.0;
+
+        port waterIn : WaterInPort;
+        port waterOut : WaterInPort;
+        port control : ValveControlPort;
+
+        action def RegulateInflow {
+            in item command : ValveCommand;
+            in item supply : RawWater;
+            out item regulatedSupply : RawWater;
+            attribute actualFlow : FlowRate_L_per_min;
+        }
+    }
+
+    part def OutletPump {
+        attribute enabled : Boolean;
+        attribute ratedFlow : FlowRate_L_per_min = 180.0;
+        attribute dischargePressure : Pressure_kPa;
+
+        port suction : WaterOutPort;
+        port discharge : WaterOutPort;
+        port control : PumpControlPort;
+
+        action def DeliverStoredWater {
+            in item command : PumpCommand;
+            in item stored : StoredWater;
+            out item delivered : StoredWater;
+            attribute deliveredFlow : FlowRate_L_per_min;
+        }
+    }
+
+    part def LevelSensor {
+        attribute measurementRange : Volume_liter = 10000.0;
+        attribute accuracy : Percent = 1.0;
+
+        port sensing : LevelSensorPort;
+
+        action def MeasureLevel {
+            in tankVolume : Volume_liter;
+            out item levelSignal : LevelSignal;
+        }
+    }
+
+    part def QualitySensor {
+        attribute turbidityLimit : Turbidity_NTU = 5.0;
+
+        port sensing : QualitySensorPort;
+
+        action def AssessWaterQuality {
+            in item stored : StoredWater;
+            out item quality : QualitySignal;
+        }
+    }
+
+    part def OverflowAssembly {
+        attribute overflowSetPoint : Percent = 95.0;
+        attribute overflowCapacity : FlowRate_L_per_min = 300.0;
+
+        port inlet : OverflowPort;
+        port discharge : OverflowPort;
+
+        action def DivertExcessWater {
+            in item excess : OverflowWater;
+            out item diverted : OverflowWater;
+        }
+    }
+
+    part def DrainAssembly {
+        attribute drainFlow : FlowRate_L_per_min = 120.0;
+
+        port inlet : DrainPort;
+        port discharge : DrainPort;
+
+        action def DrainTankForMaintenance {
+            in item tankWater : DrainWater;
+            out item removedWater : DrainWater;
+        }
+    }
+
+    part def Controller {
+        attribute lowLevelThreshold : Percent = 15.0;
+        attribute refillStartThreshold : Percent = 35.0;
+        attribute refillStopThreshold : Percent = 90.0;
+        attribute highLevelThreshold : Percent = 95.0;
+        attribute qualityTurbidityLimit : Turbidity_NTU = 5.0;
+
+        port levelInput : LevelSensorPort;
+        port qualityInput : QualitySensorPort;
+        port inletValveCommand : ValveControlPort;
+        port outletPumpCommand : PumpControlPort;
+        port alarmOutput : AlarmPort;
+
+        state def ControllerStateMachine {
+            state Monitoring;
+            state RefillRequested;
+            state SupplyAvailable;
+            state DemandDelivery;
+            state LowReserveProtection;
+            state HighLevelProtection;
+            state QualityFault;
+
+            entry; then Monitoring;
+
+            transition Monitoring_to_RefillRequested
+                first Monitoring
+                accept LevelSignal
+                if level <= refillStartThreshold
+                then RefillRequested;
+
+            transition RefillRequested_to_Monitoring
+                first RefillRequested
+                accept LevelSignal
+                if level >= refillStopThreshold
+                then Monitoring;
+
+            transition Monitoring_to_DemandDelivery
+                first Monitoring
+                accept PumpCommand
+                if level > lowLevelThreshold
+                then DemandDelivery;
+
+            transition DemandDelivery_to_LowReserveProtection
+                first DemandDelivery
+                accept LevelSignal
+                if level <= lowLevelThreshold
+                then LowReserveProtection;
+
+            transition LowReserveProtection_to_RefillRequested
+                first LowReserveProtection
+                accept LevelSignal
+                if level <= refillStartThreshold
+                then RefillRequested;
+
+            transition Monitoring_to_HighLevelProtection
+                first Monitoring
+                accept LevelSignal
+                if level >= highLevelThreshold
+                then HighLevelProtection;
+
+            transition HighLevelProtection_to_Monitoring
+                first HighLevelProtection
+                accept LevelSignal
+                if level < refillStopThreshold
+                then Monitoring;
+
+            transition Monitoring_to_QualityFault
+                first Monitoring
+                accept QualitySignal
+                if potable == false
+                then QualityFault;
+        }
+
+        action def ControlStorage {
+            in item level : LevelSignal;
+            in item quality : QualitySignal;
+            out item valveCommand : ValveCommand;
+            out item pumpCommand : PumpCommand;
+            out item alarm : AlarmSignal;
+
+            first readInputs;
+            then evaluateLevel;
+            then evaluateQuality;
+            then commandActuators;
+            then publishAlarm;
+            then done;
+
+            action readInputs {
+                in item level;
+                in item quality;
+            }
+
+            action evaluateLevel {
+                in item level;
+            }
+
+            action evaluateQuality {
+                in item quality;
+            }
+
+            action commandActuators {
+                out item valveCommand;
+                out item pumpCommand;
+            }
+
+            action publishAlarm {
+                out item alarm;
+            }
+        }
+    }
+
+    part def WaterStorageSystem {
+        doc /* Primary function: receive raw water from a supply line, store a controlled reserve volume in a tank, protect the stored volume from overflow and low-level depletion, monitor level and quality, and deliver stored water to downstream users on demand. */
+
+        attribute designCapacity : Volume_liter = 10000.0;
+        attribute requiredReserve : Volume_liter = 1000.0;
+        attribute nominalDeliveryFlow : FlowRate_L_per_min = 150.0;
+        attribute maximumFillTime : Time_min = 45.0;
+
+        port supplyConnection : WaterInPort;
+        port userConnection : WaterOutPort;
+        port overflowDischarge : OverflowPort;
+        port maintenanceDrain : DrainPort;
+        port operatorAlarm : AlarmPort;
+
+        part inletValve : InletValve;
+        part tank : StorageTank;
+        part outletPump : OutletPump;
+        part levelSensor : LevelSensor;
+        part qualitySensor : QualitySensor;
+        part overflowAssembly : OverflowAssembly;
+        part drainAssembly : DrainAssembly;
+        part controller : Controller;
+
+        connect supplyConnection to inletValve.waterIn;
+        connect inletValve.waterOut to tank.inlet;
+        connect tank.outlet to outletPump.suction;
+        connect outletPump.discharge to userConnection;
+        connect tank.overflow to overflowAssembly.inlet;
+        connect overflowAssembly.discharge to overflowDischarge;
+        connect tank.drain to drainAssembly.inlet;
+        connect drainAssembly.discharge to maintenanceDrain;
+        connect tank.levelMeasurement to levelSensor.sensing;
+        connect levelSensor.sensing to controller.levelInput;
+        connect qualitySensor.sensing to controller.qualityInput;
+        connect controller.inletValveCommand to inletValve.control;
+        connect controller.outletPumpCommand to outletPump.control;
+        connect controller.alarmOutput to operatorAlarm;
+
+        action def OperateWaterStorageSystem {
+            in item suppliedWater : RawWater;
+            out item deliveredWater : StoredWater;
+            out item alarm : AlarmSignal;
+
+            first receiveSupply;
+            then regulateInflow;
+            then storeInventory;
+            then monitorInventory;
+            then assessQuality;
+            then protectTank;
+            then deliverDemand;
+            then reportStatus;
+            then done;
+
+            action receiveSupply {
+                in item suppliedWater;
+            }
+
+            action regulateInflow {
+                in item suppliedWater;
+                out item regulatedWater : RawWater;
+            }
+
+            action storeInventory {
+                in item regulatedWater : RawWater;
+                out item storedWater : StoredWater;
+            }
+
+            action monitorInventory {
+                out item level : LevelSignal;
+            }
+
+            action assessQuality {
+                in item storedWater : StoredWater;
+                out item quality : QualitySignal;
+            }
+
+            action protectTank {
+                in item level : LevelSignal;
+                out item overflow : OverflowWater;
+            }
+
+            action deliverDemand {
+                in item storedWater : StoredWater;
+                out item deliveredWater : StoredWater;
+            }
+
+            action reportStatus {
+                in item level : LevelSignal;
+                in item quality : QualitySignal;
+                out item alarm : AlarmSignal;
+            }
+        }
+    }
+
+    requirement def StoreWaterRequirement {
+        subject system : WaterStorageSystem;
+        require constraint {
+            system.designCapacity >= 10000.0
+        }
+    }
+
+    requirement def ReserveRequirement {
+        subject system : WaterStorageSystem;
+        require constraint {
+            system.requiredReserve >= 1000.0
+        }
+    }
+
+    requirement def OverflowProtectionRequirement {
+        subject system : WaterStorageSystem;
+        require constraint {
+            system.tank.usableCapacity <= system.tank.nominalCapacity
+        }
+    }
+
+    requirement def DeliveryFlowRequirement {
+        subject system : WaterStorageSystem;
+        require constraint {
+            system.nominalDeliveryFlow <= system.outletPump.ratedFlow
+        }
+    }
+
+    requirement def FillTimeRequirement {
+        subject system : WaterStorageSystem;
+        require constraint {
+            system.designCapacity / system.inletValve.maximumFlow <= system.maximumFillTime
+        }
+    }
+
+    requirement def QualityMonitoringRequirement {
+        subject system : WaterStorageSystem;
+        require constraint {
+            system.controller.qualityTurbidityLimit <= 5.0
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The system shall store water and make it available to downstream users while maintaining reserve volume, preventing overflow, and reporting abnormal level or quality conditions. */
+        subject system : WaterStorageSystem;
+    }
+
+    satisfy PrimaryFunctionRequirement by WaterStorageSystem::OperateWaterStorageSystem;
+    satisfy StoreWaterRequirement by WaterStorageSystem::tank;
+    satisfy ReserveRequirement by WaterStorageSystem::controller;
+    satisfy OverflowProtectionRequirement by WaterStorageSystem::overflowAssembly;
+    satisfy DeliveryFlowRequirement by WaterStorageSystem::outletPump;
+    satisfy FillTimeRequirement by WaterStorageSystem::inletValve;
+    satisfy QualityMonitoringRequirement by WaterStorageSystem::qualitySensor;
+}

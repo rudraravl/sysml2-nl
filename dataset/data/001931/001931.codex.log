@@ -1,0 +1,1305 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-q0gtqxne
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019ebade-097a-71b0-b464-231457bfdf3a
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a system based on a Spacecraft propulsion and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package SpacecraftPropulsionSystem {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Mass :> ISQ::mass;
+  attribute def Force :> ISQ::force;
+  attribute def Pressure :> ISQ::pressure;
+  attribute def Temperature :> ISQ::thermodynamicTemperature;
+  attribute def Time :> ISQ::time;
+  attribute def Volume :> ISQ::volume;
+  attribute def Length :> ISQ::length;
+  attribute def Velocity :> ISQ::speed;
+  attribute def Acceleration :> ISQ::acceleration;
+  attribute def ElectricPotential :> ISQ::electricPotential;
+  attribute def ElectricCurrent :> ISQ::electricCurrent;
+  attribute def Power :> ISQ::power;
+  attribute def Ratio :> ScalarValues::Real;
+
+  enum def PropellantPhase {
+    enum liquid;
+    enum gaseous;
+    enum twoPhase;
+  }
+
+  enum def EngineMode {
+    enum off;
+    enum standby;
+    enum prestart;
+    enum steadyBurn;
+    enum throttling;
+    enum shutdown;
+    enum faultSafed;
+  }
+
+  enum def FaultKind {
+    enum lowTankPressure;
+    enum overPressure;
+    enum valveStuckClosed;
+    enum valveStuckOpen;
+    enum chamberOverTemperature;
+    enum ignitionFailure;
+    enum leakDetected;
+    enum controllerFault;
+  }
+
+  item def Oxidizer {
+    attribute phase : PropellantPhase = PropellantPhase::liquid;
+    attribute density : MassPerVolume;
+    attribute temperature : Temperature;
+  }
+
+  item def Fuel {
+    attribute phase : PropellantPhase = PropellantPhase::liquid;
+    attribute density : MassPerVolume;
+    attribute temperature : Temperature;
+  }
+
+  item def PressurantGas {
+    attribute phase : PropellantPhase = PropellantPhase::gaseous;
+    attribute pressure : Pressure;
+    attribute temperature : Temperature;
+  }
+
+  item def ThrustVectorCommand {
+    attribute requestedThrust : Force;
+    attribute burnDuration : Time;
+    attribute pitchGimbalAngle : PlaneAngle;
+    attribute yawGimbalAngle : PlaneAngle;
+    attribute mixtureRatioCommand : Ratio;
+  }
+
+  item def ValveCommand {
+    attribute openFraction : Ratio;
+    attribute slewRate : Ratio;
+  }
+
+  item def IgnitionCommand {
+    attribute enabled : Boolean;
+    attribute sparkDuration : Time;
+  }
+
+  item def HealthStatus {
+    attribute engineMode : EngineMode;
+    attribute faultPresent : Boolean;
+    attribute fault : FaultKind;
+    attribute chamberPressure : Pressure;
+    attribute chamberTemperature : Temperature;
+    attribute deliveredThrust : Force;
+  }
+
+  item def TelemetryFrame {
+    attribute timeTag : Time;
+    attribute fuelTankPressure : Pressure;
+    attribute oxidizerTankPressure : Pressure;
+    attribute regulatorOutletPressure : Pressure;
+    attribute fuelFlowRate : MassPerTime;
+    attribute oxidizerFlowRate : MassPerTime;
+    attribute chamberPressure : Pressure;
+    attribute chamberTemperature : Temperature;
+    attribute thrustMagnitude : Force;
+    attribute specificImpulse : Time;
+    attribute controllerVoltage : ElectricPotential;
+  }
+
+  port def FluidOutletPort {
+    out item fluid;
+    attribute pressure : Pressure;
+    attribute massFlowRate : MassPerTime;
+  }
+
+  port def FluidInletPort {
+    in item fluid;
+    attribute pressure : Pressure;
+    attribute massFlowRate : MassPerTime;
+  }
+
+  port def ElectricalPowerPort {
+    in attribute voltage : ElectricPotential;
+    in attribute current : ElectricCurrent;
+    in attribute availablePower : Power;
+  }
+
+  port def CommandPort {
+    in item thrustCommand : ThrustVectorCommand;
+    in item valveCommand : ValveCommand;
+    in item ignitionCommand : IgnitionCommand;
+  }
+
+  port def TelemetryPort {
+    out item telemetry : TelemetryFrame;
+    out item health : HealthStatus;
+  }
+
+  port def MechanicalThrustPort {
+    out attribute thrust : Force;
+    out attribute pitchMomentArm : Length;
+    out attribute yawMomentArm : Length;
+    out attribute pitchGimbalAngle : PlaneAngle;
+    out attribute yawGimbalAngle : PlaneAngle;
+  }
+
+  part def PropellantTank {
+    attribute usableVolume : Volume;
+    attribute dryMass : Mass;
+    attribute maximumExpectedOperatingPressure : Pressure;
+    attribute burstPressure : Pressure;
+    attribute propellantMass : Mass;
+    attribute ullageVolume : Volume;
+    attribute tankPressure : Pressure;
+    attribute tankTemperature : Temperature;
+
+    port outlet : FluidOutletPort;
+    port pressurantInlet : FluidInletPort;
+
+    perform action updateTankState {
+      in item withdrawnPropellant;
+      in item addedPressurant;
+      out attribute updatedPressure : Pressure;
+      out attribute remainingPropellantMass : Mass;
+    }
+  }
+
+  part def PressurantSubsystem {
+    part highPressureBottle {
+      attribute storedGasMass : Mass;
+      attribute storagePressure : Pressure;
+      attribute storageTemperature : Temperature;
+      attribute bottleVolume : Volume;
+    }
+
+    part regulator {
+      attribute inletPressure : Pressure;
+      attribute outletPressureSetPoint : Pressure;
+      attribute outletPressureTolerance : Pressure;
+      attribute maximumFlowRate : MassPerTime;
+    }
+
+    part isolationValve {
+      attribute openFraction : Ratio;
+      attribute responseTime : Time;
+    }
+
+    port gasOutlet : FluidOutletPort;
+    port commandIn : CommandPort;
+  }
+
+  part def ValveAssembly {
+    attribute commandedOpenFraction : Ratio;
+    attribute measuredOpenFraction : Ratio;
+    attribute leakageRateClosed : MassPerTime;
+    attribute fullOpenPressureDrop : Pressure;
+    attribute responseTime : Time;
+
+    port inlet : FluidInletPort;
+    port outlet : FluidOutletPort;
+    port commandIn : CommandPort;
+
+    perform action positionValve {
+      in item valveCommand : ValveCommand;
+      out attribute measuredOpenFraction : Ratio;
+    }
+  }
+
+  part def FeedLine {
+    attribute internalDiameter : Length;
+    attribute length : Length;
+    attribute pressureDropAtNominalFlow : Pressure;
+    attribute maximumAllowablePressure : Pressure;
+
+    port inlet : FluidInletPort;
+    port outlet : FluidOutletPort;
+  }
+
+  part def Injector {
+    attribute fuelOrificeArea : Area;
+    attribute oxidizerOrificeArea : Area;
+    attribute injectorPressureDrop : Pressure;
+    attribute atomizationEfficiency : Ratio;
+
+    port fuelInlet : FluidInletPort;
+    port oxidizerInlet : FluidInletPort;
+    port mixedOutlet : FluidOutletPort;
+
+    perform action meterAndAtomize {
+      in item fuel : Fuel;
+      in item oxidizer : Oxidizer;
+      out item propellantMixture;
+      out attribute achievedMixtureRatio : Ratio;
+    }
+  }
+
+  part def CombustionChamber {
+    attribute chamberVolume : Volume;
+    attribute nominalChamberPressure : Pressure;
+    attribute maximumChamberPressure : Pressure;
+    attribute nominalChamberTemperature : Temperature;
+    attribute maximumWallTemperature : Temperature;
+    attribute combustionEfficiency : Ratio;
+
+    port mixtureInlet : FluidInletPort;
+    port exhaustOutlet : FluidOutletPort;
+
+    perform action combustPropellants {
+      in item propellantMixture;
+      in item ignition : IgnitionCommand;
+      out item hotGas;
+      out attribute chamberPressure : Pressure;
+      out attribute chamberTemperature : Temperature;
+    }
+  }
+
+  part def Nozzle {
+    attribute throatArea : Area;
+    attribute exitArea : Area;
+    attribute expansionRatio : Ratio;
+    attribute nozzleEfficiency : Ratio;
+    attribute nominalSpecificImpulse : Time;
+
+    port hotGasInlet : FluidInletPort;
+    port thrustOutlet : MechanicalThrustPort;
+
+    perform action expandExhaust {
+      in item hotGas;
+      out attribute thrust : Force;
+      out attribute specificImpulse : Time;
+    }
+  }
+
+  part def ThrustVectorControl {
+    attribute pitchGimbalLimit : PlaneAngle;
+    attribute yawGimbalLimit : PlaneAngle;
+    attribute gimbalRateLimit : AngularVelocity;
+    attribute pitchAngle : PlaneAngle;
+    attribute yawAngle : PlaneAngle;
+
+    port commandIn : CommandPort;
+    port thrustMount : MechanicalThrustPort;
+
+    perform action steerThrustVector {
+      in item command : ThrustVectorCommand;
+      out attribute pitchAngle : PlaneAngle;
+      out attribute yawAngle : PlaneAngle;
+    }
+  }
+
+  part def PropulsionController {
+    attribute controlCyclePeriod : Time;
+    attribute minimumBusVoltage : ElectricPotential;
+    attribute commandedThrust : Force;
+    attribute commandedMixtureRatio : Ratio;
+    attribute mode : EngineMode;
+    attribute detectedFault : FaultKind;
+    attribute faultPresent : Boolean;
+
+    port powerIn : ElectricalPowerPort;
+    port commandIn : CommandPort;
+    port telemetryOut : TelemetryPort;
+    port fuelValveCommand : CommandPort;
+    port oxidizerValveCommand : CommandPort;
+    port pressurantCommand : CommandPort;
+    port ignitionCommandOut : CommandPort;
+    port tvcCommand : CommandPort;
+
+    perform action regulateThrust {
+      in item thrustCommand : ThrustVectorCommand;
+      in item telemetry : TelemetryFrame;
+      out item fuelValveCommand : ValveCommand;
+      out item oxidizerValveCommand : ValveCommand;
+      out item ignitionCommand : IgnitionCommand;
+    }
+
+    perform action detectAndIsolateFaults {
+      in item telemetry : TelemetryFrame;
+      out item health : HealthStatus;
+      out attribute safeShutdownRequired : Boolean;
+    }
+
+    state engineControlState {
+      state off;
+      state standby;
+      state prestart;
+      state ignition;
+      state steadyBurn;
+      state throttling;
+      state shutdown;
+      state faultSafed;
+
+      entry; then off;
+
+      transition off_to_standby
+        first off
+        accept thrustCommand
+        if thrustCommand.requestedThrust > 0 [N]
+        then standby;
+
+      transition standby_to_prestart
+        first standby
+        accept thrustCommand
+        if thrustCommand.burnDuration > 0 [s]
+        then prestart;
+
+      transition prestart_to_ignition
+        first prestart
+        accept ignitionCommand
+        if ignitionCommand.enabled == true
+        then ignition;
+
+      transition ignition_to_burn
+        first ignition
+        accept telemetry
+        if telemetry.chamberPressure > 500 [kPa]
+        then steadyBurn;
+
+      transition burn_to_throttling
+        first steadyBurn
+        accept thrustCommand
+        if thrustCommand.requestedThrust != commandedThrust
+        then throttling;
+
+      transition throttling_to_burn
+        first throttling
+        accept telemetry
+        if telemetry.thrustMagnitude == commandedThrust
+        then steadyBurn;
+
+      transition burn_to_shutdown
+        first steadyBurn
+        accept thrustCommand
+        if thrustCommand.burnDuration <= 0 [s]
+        then shutdown;
+
+      transition any_to_fault
+        first off, standby, prestart, ignition, steadyBurn, throttling, shutdown
+        accept health
+        if health.faultPresent == true
+        then faultSafed;
+
+      transition shutdown_to_off
+        first shutdown
+        after 5 [s]
+        then off;
+    }
+  }
+
+  part def SensorSuite {
+    attribute fuelTankPressureAccuracy : Pressure;
+    attribute oxidizerTankPressureAccuracy : Pressure;
+    attribute chamberPressureAccuracy : Pressure;
+    attribute temperatureAccuracy : Temperature;
+    attribute flowRateAccuracy : MassPerTime;
+    attribute samplePeriod : Time;
+
+    port telemetryOut : TelemetryPort;
+
+    perform action collectTelemetry {
+      out item telemetry : TelemetryFrame;
+    }
+  }
+
+  part def SpacecraftPropulsion {
+    attribute dryMass : Mass = 145 [kg];
+    attribute maximumWetMass : Mass = 720 [kg];
+    attribute nominalThrust : Force = 2200 [N];
+    attribute minimumThrottleThrust : Force = 440 [N];
+    attribute maximumThrust : Force = 2500 [N];
+    attribute nominalSpecificImpulse : Time = 320 [s];
+    attribute mixtureRatio : Ratio = 1.65;
+    attribute totalImpulseCapacity : Impulse = 690000 [N*s];
+    attribute primaryFunction : String = "Generate controlled thrust by storing, conditioning, metering, combusting, and accelerating spacecraft propellants to change spacecraft velocity and attitude.";
+
+    port spacecraftPower : ElectricalPowerPort;
+    port spacecraftCommand : CommandPort;
+    port spacecraftTelemetry : TelemetryPort;
+    port spacecraftThrustInterface : MechanicalThrustPort;
+
+    part fuelTank : PropellantTank {
+      attribute usableVolume = 0.310 [m^3];
+      attribute dryMass = 28 [kg];
+      attribute maximumExpectedOperatingPressure = 2.4 [MPa];
+      attribute burstPressure = 6.0 [MPa];
+      attribute propellantMass = 250 [kg];
+      attribute tankPressure = 2.1 [MPa];
+      attribute tankTemperature = 293 [K];
+    }
+
+    part oxidizerTank : PropellantTank {
+      attribute usableVolume = 0.260 [m^3];
+      attribute dryMass = 31 [kg];
+      attribute maximumExpectedOperatingPressure = 2.4 [MPa];
+      attribute burstPressure = 6.0 [MPa];
+      attribute propellantMass = 410 [kg];
+      attribute tankPressure = 2.1 [MPa];
+      attribute tankTemperature = 293 [K];
+    }
+
+    part pressurization : PressurantSubsystem {
+      part highPressureBottle {
+        attribute storedGasMass = 14 [kg];
+        attribute storagePressure = 31 [MPa];
+        attribute storageTemperature = 293 [K];
+        attribute bottleVolume = 0.055 [m^3];
+      }
+      part regulator {
+        attribute outletPressureSetPoint = 2.1 [MPa];
+        attribute outletPressureTolerance = 35 [kPa];
+        attribute maximumFlowRate = 0.12 [kg/s];
+      }
+      part isolationValve {
+        attribute responseTime = 0.15 [s];
+      }
+    }
+
+    part fuelIsolationValve : ValveAssembly {
+      attribute leakageRateClosed = 0.000001 [kg/s];
+      attribute fullOpenPressureDrop = 20 [kPa];
+      attribute responseTime = 0.080 [s];
+    }
+
+    part oxidizerIsolationValve : ValveAssembly {
+      attribute leakageRateClosed = 0.000001 [kg/s];
+      attribute fullOpenPressureDrop = 22 [kPa];
+      attribute responseTime = 0.080 [s];
+    }
+
+    part fuelLine : FeedLine {
+      attribute internalDiameter = 0.018 [m];
+      attribute length = 1.8 [m];
+      attribute pressureDropAtNominalFlow = 55 [kPa];
+      attribute maximumAllowablePressure = 3.0 [MPa];
+    }
+
+    part oxidizerLine : FeedLine {
+      attribute internalDiameter = 0.020 [m];
+      attribute length = 1.6 [m];
+      attribute pressureDropAtNominalFlow = 60 [kPa];
+      attribute maximumAllowablePressure = 3.0 [MPa];
+    }
+
+    part injector : Injector {
+      attribute fuelOrificeArea = 0.000020 [m^2];
+      attribute oxidizerOrificeArea = 0.000026 [m^2];
+      attribute injectorPressureDrop = 350 [kPa];
+      attribute atomizationEfficiency = 0.96;
+    }
+
+    part chamber : CombustionChamber {
+      attribute chamberVolume = 0.018 [m^3];
+      attribute nominalChamberPressure = 1.35 [MPa];
+      attribute maximumChamberPressure = 1.75 [MPa];
+      attribute nominalChamberTemperature = 3450 [K];
+      attribute maximumWallTemperature = 980 [K];
+      attribute combustionEfficiency = 0.985;
+    }
+
+    part nozzle : Nozzle {
+      attribute throatArea = 0.00085 [m^2];
+      attribute exitArea = 0.031 [m^2];
+      attribute expansionRatio = 36.5;
+      attribute nozzleEfficiency = 0.975;
+      attribute nominalSpecificImpulse = 320 [s];
+    }
+
+    part tvc : ThrustVectorControl {
+      attribute pitchGimbalLimit = 6 [deg];
+      attribute yawGimbalLimit = 6 [deg];
+      attribute gimbalRateLimit = 12 [deg/s];
+    }
+
+    part controller : PropulsionController {
+      attribute controlCyclePeriod = 0.020 [s];
+      attribute minimumBusVoltage = 24 [V];
+    }
+
+    part sensors : SensorSuite {
+      attribute fuelTankPressureAccuracy = 8 [kPa];
+      attribute oxidizerTankPressureAccuracy = 8 [kPa];
+      attribute chamberPressureAccuracy = 5 [kPa];
+      attribute temperatureAccuracy = 3 [K];
+      attribute flowRateAccuracy = 0.005 [kg/s];
+      attribute samplePeriod = 0.010 [s];
+    }
+
+    connection spacecraftPower to controller.powerIn;
+    connection spacecraftCommand to controller.commandIn;
+    connection controller.telemetryOut to spacecraftTelemetry;
+    connection controller.fuelValveCommand to fuelIsolationValve.commandIn;
+    connection controller.oxidizerValveCommand to oxidizerIsolationValve.commandIn;
+    connection controller.pressurantCommand to pressurization.commandIn;
+    connection controller.ignitionCommandOut to chamber.mixtureInlet;
+    connection controller.tvcCommand to tvc.commandIn;
+
+    connection pressurization.gasOutlet to fuelTank.pressurantInlet;
+    connection pressurization.gasOutlet to oxidizerTank.pressurantInlet;
+
+    connection fuelTank.outlet to fuelIsolationValve.inlet;
+    connection fuelIsolationValve.outlet to fuelLine.inlet;
+    connection fuelLine.outlet to injector.fuelInlet;
+
+    connection oxidizerTank.outlet to oxidizerIsolationValve.inlet;
+    connection oxidizerIsolationValve.outlet to oxidizerLine.inlet;
+    connection oxidizerLine.outlet to injector.oxidizerInlet;
+
+    connection injector.mixedOutlet to chamber.mixtureInlet;
+    connection chamber.exhaustOutlet to nozzle.hotGasInlet;
+    connection nozzle.thrustOutlet to tvc.thrustMount;
+    connection tvc.thrustMount to spacecraftThrustInterface;
+    connection sensors.telemetryOut to controller.telemetryOut;
+
+    perform action produceControlledThrust {
+      in item command : ThrustVectorCommand;
+      out item health : HealthStatus;
+      out attribute deliveredThrust : Force;
+      out attribute consumedFuel : Mass;
+      out attribute consumedOxidizer : Mass;
+
+      first start controller.regulateThrust;
+      then start pressurization.regulator;
+      then start fuelIsolationValve.positionValve;
+      then start oxidizerIsolationValve.positionValve;
+      then start injector.meterAndAtomize;
+      then start chamber.combustPropellants;
+      then start nozzle.expandExhaust;
+      then start tvc.steerThrustVector;
+      then start sensors.collectTelemetry;
+      then start controller.detectAndIsolateFaults;
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject propulsion : SpacecraftPropulsion;
+    require constraint {
+      propulsion.nominalThrust >= 2200 [N] and
+      propulsion.nominalSpecificImpulse >= 315 [s] and
+      propulsion.primaryFunction != ""
+    }
+    doc /* The propulsion system shall provide controlled spacecraft delta-v and attitude-control thrust by conditioning propellant, initiating combustion, expanding exhaust through a nozzle, and directing the thrust vector. */
+  }
+
+  requirement def ThrottleRangeRequirement {
+    subject propulsion : SpacecraftPropulsion;
+    require constraint {
+      propulsion.minimumThrottleThrust <= 0.20 * propulsion.nominalThrust and
+      propulsion.maximumThrust >= 1.10 * propulsion.nominalThrust
+    }
+    doc /* The propulsion system shall throttle from no more than 20 percent nominal thrust to at least 110 percent nominal thrust. */
+  }
+
+  requirement def TankPressureSafetyRequirement {
+    subject propulsion : SpacecraftPropulsion;
+    require constraint {
+      propulsion.fuelTank.burstPressure >= 2.0 * propulsion.fuelTank.maximumExpectedOperatingPressure and
+      propulsion.oxidizerTank.burstPressure >= 2.0 * propulsion.oxidizerTank.maximumExpectedOperatingPressure
+    }
+    doc /* Each propellant tank shall maintain a burst pressure margin of at least 2.0 against maximum expected operating pressure. */
+  }
+
+  requirement def MixtureRatioRequirement {
+    subject propulsion : SpacecraftPropulsion;
+    require constraint {
+      propulsion.mixtureRatio >= 1.55 and propulsion.mixtureRatio <= 1.75
+    }
+    doc /* The controller and injector shall maintain oxidizer-to-fuel mixture ratio within the operating band required for efficient combustion. */
+  }
+
+  requirement def FaultSafingRequirement {
+    subject propulsion : SpacecraftPropulsion;
+    require constraint {
+      propulsion.controller.mode == EngineMode::faultSafed implies
+      propulsion.fuelIsolationValve.commandedOpenFraction == 0 and
+      propulsion.oxidizerIsolationValve.commandedOpenFraction == 0
+    }
+    doc /* On detected hazardous fault, the controller shall close propellant isolation valves and transition to a fault-safed engine state. */
+  }
+
+  requirement def ThermalLimitRequirement {
+    subject propulsion : SpacecraftPropulsion;
+    require constraint {
+      propulsion.chamber.maximumWallTemperature <= 1000 [K]
+    }
+    doc /* The combustion chamber wall temperature shall remain within qualified material limits during nominal burns. */
+  }
+
+  requirement def TotalImpulseRequirement {
+    subject propulsion : SpacecraftPropulsion;
+    require constraint {
+      propulsion.totalImpulseCapacity >= 650000 [N*s]
+    }
+    doc /* The propulsion system shall store and deliver sufficient propellant for mission total impulse. */
+  }
+
+  satisfy PrimaryFunctionRequirement by SpacecraftPropulsion;
+  satisfy ThrottleRangeRequirement by SpacecraftPropulsion;
+  satisfy TankPressureSafetyRequirement by SpacecraftPropulsion;
+  satisfy MixtureRatioRequirement by SpacecraftPropulsion;
+  satisfy FaultSafingRequirement by SpacecraftPropulsion;
+  satisfy ThermalLimitRequirement by SpacecraftPropulsion;
+  satisfy TotalImpulseRequirement by SpacecraftPropulsion;
+
+  part missionPropulsionSystem : SpacecraftPropulsion;
+
+}
+tokens used
+6,159
+package SpacecraftPropulsionSystem {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Mass :> ISQ::mass;
+  attribute def Force :> ISQ::force;
+  attribute def Pressure :> ISQ::pressure;
+  attribute def Temperature :> ISQ::thermodynamicTemperature;
+  attribute def Time :> ISQ::time;
+  attribute def Volume :> ISQ::volume;
+  attribute def Length :> ISQ::length;
+  attribute def Velocity :> ISQ::speed;
+  attribute def Acceleration :> ISQ::acceleration;
+  attribute def ElectricPotential :> ISQ::electricPotential;
+  attribute def ElectricCurrent :> ISQ::electricCurrent;
+  attribute def Power :> ISQ::power;
+  attribute def Ratio :> ScalarValues::Real;
+
+  enum def PropellantPhase {
+    enum liquid;
+    enum gaseous;
+    enum twoPhase;
+  }
+
+  enum def EngineMode {
+    enum off;
+    enum standby;
+    enum prestart;
+    enum steadyBurn;
+    enum throttling;
+    enum shutdown;
+    enum faultSafed;
+  }
+
+  enum def FaultKind {
+    enum lowTankPressure;
+    enum overPressure;
+    enum valveStuckClosed;
+    enum valveStuckOpen;
+    enum chamberOverTemperature;
+    enum ignitionFailure;
+    enum leakDetected;
+    enum controllerFault;
+  }
+
+  item def Oxidizer {
+    attribute phase : PropellantPhase = PropellantPhase::liquid;
+    attribute density : MassPerVolume;
+    attribute temperature : Temperature;
+  }
+
+  item def Fuel {
+    attribute phase : PropellantPhase = PropellantPhase::liquid;
+    attribute density : MassPerVolume;
+    attribute temperature : Temperature;
+  }
+
+  item def PressurantGas {
+    attribute phase : PropellantPhase = PropellantPhase::gaseous;
+    attribute pressure : Pressure;
+    attribute temperature : Temperature;
+  }
+
+  item def ThrustVectorCommand {
+    attribute requestedThrust : Force;
+    attribute burnDuration : Time;
+    attribute pitchGimbalAngle : PlaneAngle;
+    attribute yawGimbalAngle : PlaneAngle;
+    attribute mixtureRatioCommand : Ratio;
+  }
+
+  item def ValveCommand {
+    attribute openFraction : Ratio;
+    attribute slewRate : Ratio;
+  }
+
+  item def IgnitionCommand {
+    attribute enabled : Boolean;
+    attribute sparkDuration : Time;
+  }
+
+  item def HealthStatus {
+    attribute engineMode : EngineMode;
+    attribute faultPresent : Boolean;
+    attribute fault : FaultKind;
+    attribute chamberPressure : Pressure;
+    attribute chamberTemperature : Temperature;
+    attribute deliveredThrust : Force;
+  }
+
+  item def TelemetryFrame {
+    attribute timeTag : Time;
+    attribute fuelTankPressure : Pressure;
+    attribute oxidizerTankPressure : Pressure;
+    attribute regulatorOutletPressure : Pressure;
+    attribute fuelFlowRate : MassPerTime;
+    attribute oxidizerFlowRate : MassPerTime;
+    attribute chamberPressure : Pressure;
+    attribute chamberTemperature : Temperature;
+    attribute thrustMagnitude : Force;
+    attribute specificImpulse : Time;
+    attribute controllerVoltage : ElectricPotential;
+  }
+
+  port def FluidOutletPort {
+    out item fluid;
+    attribute pressure : Pressure;
+    attribute massFlowRate : MassPerTime;
+  }
+
+  port def FluidInletPort {
+    in item fluid;
+    attribute pressure : Pressure;
+    attribute massFlowRate : MassPerTime;
+  }
+
+  port def ElectricalPowerPort {
+    in attribute voltage : ElectricPotential;
+    in attribute current : ElectricCurrent;
+    in attribute availablePower : Power;
+  }
+
+  port def CommandPort {
+    in item thrustCommand : ThrustVectorCommand;
+    in item valveCommand : ValveCommand;
+    in item ignitionCommand : IgnitionCommand;
+  }
+
+  port def TelemetryPort {
+    out item telemetry : TelemetryFrame;
+    out item health : HealthStatus;
+  }
+
+  port def MechanicalThrustPort {
+    out attribute thrust : Force;
+    out attribute pitchMomentArm : Length;
+    out attribute yawMomentArm : Length;
+    out attribute pitchGimbalAngle : PlaneAngle;
+    out attribute yawGimbalAngle : PlaneAngle;
+  }
+
+  part def PropellantTank {
+    attribute usableVolume : Volume;
+    attribute dryMass : Mass;
+    attribute maximumExpectedOperatingPressure : Pressure;
+    attribute burstPressure : Pressure;
+    attribute propellantMass : Mass;
+    attribute ullageVolume : Volume;
+    attribute tankPressure : Pressure;
+    attribute tankTemperature : Temperature;
+
+    port outlet : FluidOutletPort;
+    port pressurantInlet : FluidInletPort;
+
+    perform action updateTankState {
+      in item withdrawnPropellant;
+      in item addedPressurant;
+      out attribute updatedPressure : Pressure;
+      out attribute remainingPropellantMass : Mass;
+    }
+  }
+
+  part def PressurantSubsystem {
+    part highPressureBottle {
+      attribute storedGasMass : Mass;
+      attribute storagePressure : Pressure;
+      attribute storageTemperature : Temperature;
+      attribute bottleVolume : Volume;
+    }
+
+    part regulator {
+      attribute inletPressure : Pressure;
+      attribute outletPressureSetPoint : Pressure;
+      attribute outletPressureTolerance : Pressure;
+      attribute maximumFlowRate : MassPerTime;
+    }
+
+    part isolationValve {
+      attribute openFraction : Ratio;
+      attribute responseTime : Time;
+    }
+
+    port gasOutlet : FluidOutletPort;
+    port commandIn : CommandPort;
+  }
+
+  part def ValveAssembly {
+    attribute commandedOpenFraction : Ratio;
+    attribute measuredOpenFraction : Ratio;
+    attribute leakageRateClosed : MassPerTime;
+    attribute fullOpenPressureDrop : Pressure;
+    attribute responseTime : Time;
+
+    port inlet : FluidInletPort;
+    port outlet : FluidOutletPort;
+    port commandIn : CommandPort;
+
+    perform action positionValve {
+      in item valveCommand : ValveCommand;
+      out attribute measuredOpenFraction : Ratio;
+    }
+  }
+
+  part def FeedLine {
+    attribute internalDiameter : Length;
+    attribute length : Length;
+    attribute pressureDropAtNominalFlow : Pressure;
+    attribute maximumAllowablePressure : Pressure;
+
+    port inlet : FluidInletPort;
+    port outlet : FluidOutletPort;
+  }
+
+  part def Injector {
+    attribute fuelOrificeArea : Area;
+    attribute oxidizerOrificeArea : Area;
+    attribute injectorPressureDrop : Pressure;
+    attribute atomizationEfficiency : Ratio;
+
+    port fuelInlet : FluidInletPort;
+    port oxidizerInlet : FluidInletPort;
+    port mixedOutlet : FluidOutletPort;
+
+    perform action meterAndAtomize {
+      in item fuel : Fuel;
+      in item oxidizer : Oxidizer;
+      out item propellantMixture;
+      out attribute achievedMixtureRatio : Ratio;
+    }
+  }
+
+  part def CombustionChamber {
+    attribute chamberVolume : Volume;
+    attribute nominalChamberPressure : Pressure;
+    attribute maximumChamberPressure : Pressure;
+    attribute nominalChamberTemperature : Temperature;
+    attribute maximumWallTemperature : Temperature;
+    attribute combustionEfficiency : Ratio;
+
+    port mixtureInlet : FluidInletPort;
+    port exhaustOutlet : FluidOutletPort;
+
+    perform action combustPropellants {
+      in item propellantMixture;
+      in item ignition : IgnitionCommand;
+      out item hotGas;
+      out attribute chamberPressure : Pressure;
+      out attribute chamberTemperature : Temperature;
+    }
+  }
+
+  part def Nozzle {
+    attribute throatArea : Area;
+    attribute exitArea : Area;
+    attribute expansionRatio : Ratio;
+    attribute nozzleEfficiency : Ratio;
+    attribute nominalSpecificImpulse : Time;
+
+    port hotGasInlet : FluidInletPort;
+    port thrustOutlet : MechanicalThrustPort;
+
+    perform action expandExhaust {
+      in item hotGas;
+      out attribute thrust : Force;
+      out attribute specificImpulse : Time;
+    }
+  }
+
+  part def ThrustVectorControl {
+    attribute pitchGimbalLimit : PlaneAngle;
+    attribute yawGimbalLimit : PlaneAngle;
+    attribute gimbalRateLimit : AngularVelocity;
+    attribute pitchAngle : PlaneAngle;
+    attribute yawAngle : PlaneAngle;
+
+    port commandIn : CommandPort;
+    port thrustMount : MechanicalThrustPort;
+
+    perform action steerThrustVector {
+      in item command : ThrustVectorCommand;
+      out attribute pitchAngle : PlaneAngle;
+      out attribute yawAngle : PlaneAngle;
+    }
+  }
+
+  part def PropulsionController {
+    attribute controlCyclePeriod : Time;
+    attribute minimumBusVoltage : ElectricPotential;
+    attribute commandedThrust : Force;
+    attribute commandedMixtureRatio : Ratio;
+    attribute mode : EngineMode;
+    attribute detectedFault : FaultKind;
+    attribute faultPresent : Boolean;
+
+    port powerIn : ElectricalPowerPort;
+    port commandIn : CommandPort;
+    port telemetryOut : TelemetryPort;
+    port fuelValveCommand : CommandPort;
+    port oxidizerValveCommand : CommandPort;
+    port pressurantCommand : CommandPort;
+    port ignitionCommandOut : CommandPort;
+    port tvcCommand : CommandPort;
+
+    perform action regulateThrust {
+      in item thrustCommand : ThrustVectorCommand;
+      in item telemetry : TelemetryFrame;
+      out item fuelValveCommand : ValveCommand;
+      out item oxidizerValveCommand : ValveCommand;
+      out item ignitionCommand : IgnitionCommand;
+    }
+
+    perform action detectAndIsolateFaults {
+      in item telemetry : TelemetryFrame;
+      out item health : HealthStatus;
+      out attribute safeShutdownRequired : Boolean;
+    }
+
+    state engineControlState {
+      state off;
+      state standby;
+      state prestart;
+      state ignition;
+      state steadyBurn;
+      state throttling;
+      state shutdown;
+      state faultSafed;
+
+      entry; then off;
+
+      transition off_to_standby
+        first off
+        accept thrustCommand
+        if thrustCommand.requestedThrust > 0 [N]
+        then standby;
+
+      transition standby_to_prestart
+        first standby
+        accept thrustCommand
+        if thrustCommand.burnDuration > 0 [s]
+        then prestart;
+
+      transition prestart_to_ignition
+        first prestart
+        accept ignitionCommand
+        if ignitionCommand.enabled == true
+        then ignition;
+
+      transition ignition_to_burn
+        first ignition
+        accept telemetry
+        if telemetry.chamberPressure > 500 [kPa]
+        then steadyBurn;
+
+      transition burn_to_throttling
+        first steadyBurn
+        accept thrustCommand
+        if thrustCommand.requestedThrust != commandedThrust
+        then throttling;
+
+      transition throttling_to_burn
+        first throttling
+        accept telemetry
+        if telemetry.thrustMagnitude == commandedThrust
+        then steadyBurn;
+
+      transition burn_to_shutdown
+        first steadyBurn
+        accept thrustCommand
+        if thrustCommand.burnDuration <= 0 [s]
+        then shutdown;
+
+      transition any_to_fault
+        first off, standby, prestart, ignition, steadyBurn, throttling, shutdown
+        accept health
+        if health.faultPresent == true
+        then faultSafed;
+
+      transition shutdown_to_off
+        first shutdown
+        after 5 [s]
+        then off;
+    }
+  }
+
+  part def SensorSuite {
+    attribute fuelTankPressureAccuracy : Pressure;
+    attribute oxidizerTankPressureAccuracy : Pressure;
+    attribute chamberPressureAccuracy : Pressure;
+    attribute temperatureAccuracy : Temperature;
+    attribute flowRateAccuracy : MassPerTime;
+    attribute samplePeriod : Time;
+
+    port telemetryOut : TelemetryPort;
+
+    perform action collectTelemetry {
+      out item telemetry : TelemetryFrame;
+    }
+  }
+
+  part def SpacecraftPropulsion {
+    attribute dryMass : Mass = 145 [kg];
+    attribute maximumWetMass : Mass = 720 [kg];
+    attribute nominalThrust : Force = 2200 [N];
+    attribute minimumThrottleThrust : Force = 440 [N];
+    attribute maximumThrust : Force = 2500 [N];
+    attribute nominalSpecificImpulse : Time = 320 [s];
+    attribute mixtureRatio : Ratio = 1.65;
+    attribute totalImpulseCapacity : Impulse = 690000 [N*s];
+    attribute primaryFunction : String = "Generate controlled thrust by storing, conditioning, metering, combusting, and accelerating spacecraft propellants to change spacecraft velocity and attitude.";
+
+    port spacecraftPower : ElectricalPowerPort;
+    port spacecraftCommand : CommandPort;
+    port spacecraftTelemetry : TelemetryPort;
+    port spacecraftThrustInterface : MechanicalThrustPort;
+
+    part fuelTank : PropellantTank {
+      attribute usableVolume = 0.310 [m^3];
+      attribute dryMass = 28 [kg];
+      attribute maximumExpectedOperatingPressure = 2.4 [MPa];
+      attribute burstPressure = 6.0 [MPa];
+      attribute propellantMass = 250 [kg];
+      attribute tankPressure = 2.1 [MPa];
+      attribute tankTemperature = 293 [K];
+    }
+
+    part oxidizerTank : PropellantTank {
+      attribute usableVolume = 0.260 [m^3];
+      attribute dryMass = 31 [kg];
+      attribute maximumExpectedOperatingPressure = 2.4 [MPa];
+      attribute burstPressure = 6.0 [MPa];
+      attribute propellantMass = 410 [kg];
+      attribute tankPressure = 2.1 [MPa];
+      attribute tankTemperature = 293 [K];
+    }
+
+    part pressurization : PressurantSubsystem {
+      part highPressureBottle {
+        attribute storedGasMass = 14 [kg];
+        attribute storagePressure = 31 [MPa];
+        attribute storageTemperature = 293 [K];
+        attribute bottleVolume = 0.055 [m^3];
+      }
+      part regulator {
+        attribute outletPressureSetPoint = 2.1 [MPa];
+        attribute outletPressureTolerance = 35 [kPa];
+        attribute maximumFlowRate = 0.12 [kg/s];
+      }
+      part isolationValve {
+        attribute responseTime = 0.15 [s];
+      }
+    }
+
+    part fuelIsolationValve : ValveAssembly {
+      attribute leakageRateClosed = 0.000001 [kg/s];
+      attribute fullOpenPressureDrop = 20 [kPa];
+      attribute responseTime = 0.080 [s];
+    }
+
+    part oxidizerIsolationValve : ValveAssembly {
+      attribute leakageRateClosed = 0.000001 [kg/s];
+      attribute fullOpenPressureDrop = 22 [kPa];
+      attribute responseTime = 0.080 [s];
+    }
+
+    part fuelLine : FeedLine {
+      attribute internalDiameter = 0.018 [m];
+      attribute length = 1.8 [m];
+      attribute pressureDropAtNominalFlow = 55 [kPa];
+      attribute maximumAllowablePressure = 3.0 [MPa];
+    }
+
+    part oxidizerLine : FeedLine {
+      attribute internalDiameter = 0.020 [m];
+      attribute length = 1.6 [m];
+      attribute pressureDropAtNominalFlow = 60 [kPa];
+      attribute maximumAllowablePressure = 3.0 [MPa];
+    }
+
+    part injector : Injector {
+      attribute fuelOrificeArea = 0.000020 [m^2];
+      attribute oxidizerOrificeArea = 0.000026 [m^2];
+      attribute injectorPressureDrop = 350 [kPa];
+      attribute atomizationEfficiency = 0.96;
+    }
+
+    part chamber : CombustionChamber {
+      attribute chamberVolume = 0.018 [m^3];
+      attribute nominalChamberPressure = 1.35 [MPa];
+      attribute maximumChamberPressure = 1.75 [MPa];
+      attribute nominalChamberTemperature = 3450 [K];
+      attribute maximumWallTemperature = 980 [K];
+      attribute combustionEfficiency = 0.985;
+    }
+
+    part nozzle : Nozzle {
+      attribute throatArea = 0.00085 [m^2];
+      attribute exitArea = 0.031 [m^2];
+      attribute expansionRatio = 36.5;
+      attribute nozzleEfficiency = 0.975;
+      attribute nominalSpecificImpulse = 320 [s];
+    }
+
+    part tvc : ThrustVectorControl {
+      attribute pitchGimbalLimit = 6 [deg];
+      attribute yawGimbalLimit = 6 [deg];
+      attribute gimbalRateLimit = 12 [deg/s];
+    }
+
+    part controller : PropulsionController {
+      attribute controlCyclePeriod = 0.020 [s];
+      attribute minimumBusVoltage = 24 [V];
+    }
+
+    part sensors : SensorSuite {
+      attribute fuelTankPressureAccuracy = 8 [kPa];
+      attribute oxidizerTankPressureAccuracy = 8 [kPa];
+      attribute chamberPressureAccuracy = 5 [kPa];
+      attribute temperatureAccuracy = 3 [K];
+      attribute flowRateAccuracy = 0.005 [kg/s];
+      attribute samplePeriod = 0.010 [s];
+    }
+
+    connection spacecraftPower to controller.powerIn;
+    connection spacecraftCommand to controller.commandIn;
+    connection controller.telemetryOut to spacecraftTelemetry;
+    connection controller.fuelValveCommand to fuelIsolationValve.commandIn;
+    connection controller.oxidizerValveCommand to oxidizerIsolationValve.commandIn;
+    connection controller.pressurantCommand to pressurization.commandIn;
+    connection controller.ignitionCommandOut to chamber.mixtureInlet;
+    connection controller.tvcCommand to tvc.commandIn;
+
+    connection pressurization.gasOutlet to fuelTank.pressurantInlet;
+    connection pressurization.gasOutlet to oxidizerTank.pressurantInlet;
+
+    connection fuelTank.outlet to fuelIsolationValve.inlet;
+    connection fuelIsolationValve.outlet to fuelLine.inlet;
+    connection fuelLine.outlet to injector.fuelInlet;
+
+    connection oxidizerTank.outlet to oxidizerIsolationValve.inlet;
+    connection oxidizerIsolationValve.outlet to oxidizerLine.inlet;
+    connection oxidizerLine.outlet to injector.oxidizerInlet;
+
+    connection injector.mixedOutlet to chamber.mixtureInlet;
+    connection chamber.exhaustOutlet to nozzle.hotGasInlet;
+    connection nozzle.thrustOutlet to tvc.thrustMount;
+    connection tvc.thrustMount to spacecraftThrustInterface;
+    connection sensors.telemetryOut to controller.telemetryOut;
+
+    perform action produceControlledThrust {
+      in item command : ThrustVectorCommand;
+      out item health : HealthStatus;
+      out attribute deliveredThrust : Force;
+      out attribute consumedFuel : Mass;
+      out attribute consumedOxidizer : Mass;
+
+      first start controller.regulateThrust;
+      then start pressurization.regulator;
+      then start fuelIsolationValve.positionValve;
+      then start oxidizerIsolationValve.positionValve;
+      then start injector.meterAndAtomize;
+      then start chamber.combustPropellants;
+      then start nozzle.expandExhaust;
+      then start tvc.steerThrustVector;
+      then start sensors.collectTelemetry;
+      then start controller.detectAndIsolateFaults;
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject propulsion : SpacecraftPropulsion;
+    require constraint {
+      propulsion.nominalThrust >= 2200 [N] and
+      propulsion.nominalSpecificImpulse >= 315 [s] and
+      propulsion.primaryFunction != ""
+    }
+    doc /* The propulsion system shall provide controlled spacecraft delta-v and attitude-control thrust by conditioning propellant, initiating combustion, expanding exhaust through a nozzle, and directing the thrust vector. */
+  }
+
+  requirement def ThrottleRangeRequirement {
+    subject propulsion : SpacecraftPropulsion;
+    require constraint {
+      propulsion.minimumThrottleThrust <= 0.20 * propulsion.nominalThrust and
+      propulsion.maximumThrust >= 1.10 * propulsion.nominalThrust
+    }
+    doc /* The propulsion system shall throttle from no more than 20 percent nominal thrust to at least 110 percent nominal thrust. */
+  }
+
+  requirement def TankPressureSafetyRequirement {
+    subject propulsion : SpacecraftPropulsion;
+    require constraint {
+      propulsion.fuelTank.burstPressure >= 2.0 * propulsion.fuelTank.maximumExpectedOperatingPressure and
+      propulsion.oxidizerTank.burstPressure >= 2.0 * propulsion.oxidizerTank.maximumExpectedOperatingPressure
+    }
+    doc /* Each propellant tank shall maintain a burst pressure margin of at least 2.0 against maximum expected operating pressure. */
+  }
+
+  requirement def MixtureRatioRequirement {
+    subject propulsion : SpacecraftPropulsion;
+    require constraint {
+      propulsion.mixtureRatio >= 1.55 and propulsion.mixtureRatio <= 1.75
+    }
+    doc /* The controller and injector shall maintain oxidizer-to-fuel mixture ratio within the operating band required for efficient combustion. */
+  }
+
+  requirement def FaultSafingRequirement {
+    subject propulsion : SpacecraftPropulsion;
+    require constraint {
+      propulsion.controller.mode == EngineMode::faultSafed implies
+      propulsion.fuelIsolationValve.commandedOpenFraction == 0 and
+      propulsion.oxidizerIsolationValve.commandedOpenFraction == 0
+    }
+    doc /* On detected hazardous fault, the controller shall close propellant isolation valves and transition to a fault-safed engine state. */
+  }
+
+  requirement def ThermalLimitRequirement {
+    subject propulsion : SpacecraftPropulsion;
+    require constraint {
+      propulsion.chamber.maximumWallTemperature <= 1000 [K]
+    }
+    doc /* The combustion chamber wall temperature shall remain within qualified material limits during nominal burns. */
+  }
+
+  requirement def TotalImpulseRequirement {
+    subject propulsion : SpacecraftPropulsion;
+    require constraint {
+      propulsion.totalImpulseCapacity >= 650000 [N*s]
+    }
+    doc /* The propulsion system shall store and deliver sufficient propellant for mission total impulse. */
+  }
+
+  satisfy PrimaryFunctionRequirement by SpacecraftPropulsion;
+  satisfy ThrottleRangeRequirement by SpacecraftPropulsion;
+  satisfy TankPressureSafetyRequirement by SpacecraftPropulsion;
+  satisfy MixtureRatioRequirement by SpacecraftPropulsion;
+  satisfy FaultSafingRequirement by SpacecraftPropulsion;
+  satisfy ThermalLimitRequirement by SpacecraftPropulsion;
+  satisfy TotalImpulseRequirement by SpacecraftPropulsion;
+
+  part missionPropulsionSystem : SpacecraftPropulsion;
+
+}

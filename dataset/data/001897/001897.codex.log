@@ -1,0 +1,753 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-zpiu6ic3
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019ebab8-6d46-7cf3-bd43-525a4f6ca447
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a Wheel and axle and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package WheelAndAxleSystemModel {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def PositiveReal specializes Real {
+        constraint positive {
+            this > 0.0
+        }
+    }
+
+    attribute def Efficiency specializes PositiveReal {
+        constraint bounded {
+            this <= 1.0
+        }
+    }
+
+    attribute def LengthValue specializes PositiveReal {
+        :>> unit = m;
+    }
+
+    attribute def ForceValue specializes Real {
+        :>> unit = N;
+    }
+
+    attribute def TorqueValue specializes Real {
+        :>> unit = N*m;
+    }
+
+    attribute def AngularVelocityValue specializes Real {
+        :>> unit = rad/s;
+    }
+
+    attribute def AngleValue specializes Real {
+        :>> unit = rad;
+    }
+
+    attribute def PowerValue specializes Real {
+        :>> unit = W;
+    }
+
+    attribute def MassValue specializes PositiveReal {
+        :>> unit = kg;
+    }
+
+    attribute def TimeValue specializes PositiveReal {
+        :>> unit = s;
+    }
+
+    item def RotationalMotion {
+        attribute angularVelocity : AngularVelocityValue;
+        attribute angularPosition : AngleValue;
+        attribute torque : TorqueValue;
+        attribute mechanicalPower : PowerValue;
+    }
+
+    item def AppliedForce {
+        attribute magnitude : ForceValue;
+        attribute leverArmRadius : LengthValue;
+        attribute directionAngle : AngleValue;
+    }
+
+    item def TranslationalLoad {
+        attribute resistingForce : ForceValue;
+        attribute linearVelocity : Real;
+        attribute liftedMass : MassValue;
+    }
+
+    port def ForceInputPort {
+        in item forceIn : AppliedForce;
+    }
+
+    port def RotationalShaftPort {
+        inout item shaftMotion : RotationalMotion;
+    }
+
+    port def LoadInterfacePort {
+        out item loadMotion : TranslationalLoad;
+    }
+
+    port def BearingReactionPort {
+        out item reactionForce : AppliedForce;
+    }
+
+    part def RigidWheel {
+        attribute radius : LengthValue = 0.35 [m];
+        attribute rimMass : MassValue = 4.5 [kg];
+        attribute momentOfInertia : Real = 0.55;
+        port forcePort : ForceInputPort;
+        port hubPort : RotationalShaftPort;
+    }
+
+    part def RigidAxle {
+        attribute radius : LengthValue = 0.05 [m];
+        attribute length : LengthValue = 0.42 [m];
+        attribute mass : MassValue = 2.0 [kg];
+        attribute torsionalStiffness : Real = 8500.0;
+        port leftHubPort : RotationalShaftPort;
+        port rightLoadPort : RotationalShaftPort;
+    }
+
+    part def BearingSet {
+        attribute frictionTorque : TorqueValue = 0.18 [N*m];
+        attribute radialLoadLimit : ForceValue = 1200.0 [N];
+        port shaftPort : RotationalShaftPort;
+        port reactionPort : BearingReactionPort;
+    }
+
+    part def DrumLoadCoupler {
+        attribute drumRadius : LengthValue = 0.05 [m];
+        attribute cableEfficiency : Efficiency = 0.94;
+        port shaftPort : RotationalShaftPort;
+        port loadPort : LoadInterfacePort;
+    }
+
+    part def ExternalLoad {
+        attribute loadMass : MassValue = 25.0 [kg];
+        attribute gravitationalAcceleration : Real = 9.80665;
+        attribute requiredLiftHeight : LengthValue = 1.0 [m];
+        port inputPort : LoadInterfacePort;
+    }
+
+    action def ConvertForceToTorque {
+        in force : ForceValue;
+        in wheelRadius : LengthValue;
+        out torque : TorqueValue;
+        calc torque = force * wheelRadius;
+    }
+
+    action def TransmitTorqueThroughAxle {
+        in inputTorque : TorqueValue;
+        in bearingFriction : TorqueValue;
+        in transmissionEfficiency : Efficiency;
+        out outputTorque : TorqueValue;
+        calc outputTorque = (inputTorque - bearingFriction) * transmissionEfficiency;
+    }
+
+    action def ConvertTorqueToLoadForce {
+        in torque : TorqueValue;
+        in axleRadius : LengthValue;
+        in cableEfficiency : Efficiency;
+        out loadForce : ForceValue;
+        calc loadForce = (torque / axleRadius) * cableEfficiency;
+    }
+
+    action def ComputeMechanicalAdvantage {
+        in wheelRadius : LengthValue;
+        in axleRadius : LengthValue;
+        out idealMechanicalAdvantage : PositiveReal;
+        calc idealMechanicalAdvantage = wheelRadius / axleRadius;
+    }
+
+    state def WheelAndAxleOperatingState {
+        entry action initializeSystem;
+        state Idle {
+            entry action holdPosition;
+        }
+        state ReceivingInput {
+            entry action acceptTangentialForce;
+        }
+        state TransmittingTorque {
+            entry action rotateWheelAndAxleTogether;
+        }
+        state MovingLoad {
+            entry action windCableAndLiftLoad;
+        }
+        state HoldingLoad {
+            entry action resistReverseMotion;
+        }
+        state Overload {
+            entry action limitOperation;
+        }
+
+        transition first Idle;
+        transition inputApplied
+            first Idle
+            then ReceivingInput
+            accept AppliedForce;
+
+        transition torqueAvailable
+            first ReceivingInput
+            then TransmittingTorque
+            if inputForceMagnitude > 0.0;
+
+        transition sufficientTorque
+            first TransmittingTorque
+            then MovingLoad
+            if outputLoadForce >= resistingLoadForce;
+
+        transition insufficientTorque
+            first TransmittingTorque
+            then HoldingLoad
+            if outputLoadForce < resistingLoadForce;
+
+        transition loadSecured
+            first MovingLoad
+            then HoldingLoad
+            if liftedHeight >= requiredHeight;
+
+        transition overloadDetected
+            first ReceivingInput
+            then Overload
+            if bearingReactionForce > radialLoadLimit;
+
+        transition reset
+            first Overload
+            then Idle;
+    }
+
+    part def WheelAndAxleAssembly {
+        attribute wheelRadius : LengthValue = 0.35 [m];
+        attribute axleRadius : LengthValue = 0.05 [m];
+        attribute mechanicalAdvantage : PositiveReal = 7.0;
+        attribute transmissionEfficiency : Efficiency = 0.88;
+        attribute maximumInputForce : ForceValue = 180.0 [N];
+        attribute nominalInputForce : ForceValue = 45.0 [N];
+        attribute nominalOutputForce : ForceValue = 277.2 [N];
+        attribute nominalInputTorque : TorqueValue = 15.75 [N*m];
+        attribute nominalOutputTorque : TorqueValue = 13.86 [N*m];
+        attribute nominalAngularVelocity : AngularVelocityValue = 2.0 [rad/s];
+        attribute maximumSafeBearingLoad : ForceValue = 1200.0 [N];
+
+        port operatorInput : ForceInputPort;
+        port loadOutput : LoadInterfacePort;
+
+        part wheel : RigidWheel {
+            :>> radius = wheelRadius;
+        }
+
+        part axle : RigidAxle {
+            :>> radius = axleRadius;
+        }
+
+        part bearings : BearingSet {
+            :>> radialLoadLimit = maximumSafeBearingLoad;
+        }
+
+        part loadCoupler : DrumLoadCoupler {
+            :>> drumRadius = axleRadius;
+        }
+
+        exhibit state operatingState : WheelAndAxleOperatingState;
+
+        connection operatorToWheel connect operatorInput to wheel.forcePort;
+        connection wheelHubToAxle connect wheel.hubPort to axle.leftHubPort;
+        connection axleSupportedByBearings connect axle.leftHubPort to bearings.shaftPort;
+        connection axleToCoupler connect axle.rightLoadPort to loadCoupler.shaftPort;
+        connection couplerToOutput connect loadCoupler.loadPort to loadOutput;
+
+        perform action forceToTorque : ConvertForceToTorque {
+            in force = nominalInputForce;
+            in wheelRadius = wheelRadius;
+            out torque = nominalInputTorque;
+        }
+
+        perform action torqueTransmission : TransmitTorqueThroughAxle {
+            in inputTorque = nominalInputTorque;
+            in bearingFriction = bearings.frictionTorque;
+            in transmissionEfficiency = transmissionEfficiency;
+            out outputTorque = nominalOutputTorque;
+        }
+
+        perform action torqueToLoad : ConvertTorqueToLoadForce {
+            in torque = nominalOutputTorque;
+            in axleRadius = axleRadius;
+            in cableEfficiency = loadCoupler.cableEfficiency;
+            out loadForce = nominalOutputForce;
+        }
+
+        perform action advantageCalculation : ComputeMechanicalAdvantage {
+            in wheelRadius = wheelRadius;
+            in axleRadius = axleRadius;
+            out idealMechanicalAdvantage = mechanicalAdvantage;
+        }
+
+        constraint radiusRatioConstraint {
+            mechanicalAdvantage == wheelRadius / axleRadius
+        }
+
+        constraint wheelLargerThanAxleConstraint {
+            wheelRadius > axleRadius
+        }
+
+        constraint outputForceConstraint {
+            nominalOutputForce == ((nominalInputForce * wheelRadius - bearings.frictionTorque) * transmissionEfficiency / axleRadius) * loadCoupler.cableEfficiency
+        }
+
+        constraint safeInputConstraint {
+            nominalInputForce <= maximumInputForce
+        }
+    }
+
+    part def WheelAndAxleLiftingSystem {
+        attribute primaryFunction : String = "Convert a moderate tangential force applied at a large wheel radius into higher torque at a smaller axle radius, producing amplified output force for moving or holding a load.";
+        attribute targetLiftHeight : LengthValue = 1.0 [m];
+        attribute targetLiftTime : TimeValue = 8.0 [s];
+        attribute requiredLoadForce : ForceValue = 245.17 [N];
+
+        part mechanism : WheelAndAxleAssembly;
+        part liftedLoad : ExternalLoad {
+            :>> requiredLiftHeight = targetLiftHeight;
+        }
+
+        connection mechanismToLoad connect mechanism.loadOutput to liftedLoad.inputPort;
+
+        constraint liftCapabilityConstraint {
+            mechanism.nominalOutputForce >= requiredLoadForce
+        }
+
+        constraint compactGeometryConstraint {
+            mechanism.axleRadius >= 0.03 [m] and mechanism.wheelRadius <= 0.50 [m]
+        }
+    }
+
+    requirement def AmplifyForceRequirement {
+        subject system : WheelAndAxleLiftingSystem;
+        require constraint {
+            system.mechanism.mechanicalAdvantage >= 5.0
+        }
+    }
+
+    requirement def WheelAxleGeometryRequirement {
+        subject system : WheelAndAxleLiftingSystem;
+        require constraint {
+            system.mechanism.wheelRadius > system.mechanism.axleRadius
+        }
+    }
+
+    requirement def LiftLoadRequirement {
+        subject system : WheelAndAxleLiftingSystem;
+        require constraint {
+            system.mechanism.nominalOutputForce >= system.requiredLoadForce
+        }
+    }
+
+    requirement def EfficiencyRequirement {
+        subject system : WheelAndAxleLiftingSystem;
+        require constraint {
+            system.mechanism.transmissionEfficiency >= 0.80
+        }
+    }
+
+    requirement def SafeOperationRequirement {
+        subject system : WheelAndAxleLiftingSystem;
+        require constraint {
+            system.mechanism.nominalInputForce <= system.mechanism.maximumInputForce and
+            system.mechanism.maximumSafeBearingLoad >= 1200.0 [N]
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : WheelAndAxleLiftingSystem;
+        doc /* The system shall provide a simple-machine function by rotating a wheel rigidly attached to an axle so that input work applied over a larger circular path is transmitted as greater output force over a smaller circular path. */
+        require constraint {
+            system.mechanism.mechanicalAdvantage == system.mechanism.wheelRadius / system.mechanism.axleRadius
+        }
+    }
+
+    part wheelAndAxleSystem : WheelAndAxleLiftingSystem;
+
+    satisfy AmplifyForceRequirement by wheelAndAxleSystem;
+    satisfy WheelAxleGeometryRequirement by wheelAndAxleSystem;
+    satisfy LiftLoadRequirement by wheelAndAxleSystem;
+    satisfy EfficiencyRequirement by wheelAndAxleSystem;
+    satisfy SafeOperationRequirement by wheelAndAxleSystem;
+    satisfy PrimaryFunctionRequirement by wheelAndAxleSystem;
+}
+tokens used
+2,969
+package WheelAndAxleSystemModel {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def PositiveReal specializes Real {
+        constraint positive {
+            this > 0.0
+        }
+    }
+
+    attribute def Efficiency specializes PositiveReal {
+        constraint bounded {
+            this <= 1.0
+        }
+    }
+
+    attribute def LengthValue specializes PositiveReal {
+        :>> unit = m;
+    }
+
+    attribute def ForceValue specializes Real {
+        :>> unit = N;
+    }
+
+    attribute def TorqueValue specializes Real {
+        :>> unit = N*m;
+    }
+
+    attribute def AngularVelocityValue specializes Real {
+        :>> unit = rad/s;
+    }
+
+    attribute def AngleValue specializes Real {
+        :>> unit = rad;
+    }
+
+    attribute def PowerValue specializes Real {
+        :>> unit = W;
+    }
+
+    attribute def MassValue specializes PositiveReal {
+        :>> unit = kg;
+    }
+
+    attribute def TimeValue specializes PositiveReal {
+        :>> unit = s;
+    }
+
+    item def RotationalMotion {
+        attribute angularVelocity : AngularVelocityValue;
+        attribute angularPosition : AngleValue;
+        attribute torque : TorqueValue;
+        attribute mechanicalPower : PowerValue;
+    }
+
+    item def AppliedForce {
+        attribute magnitude : ForceValue;
+        attribute leverArmRadius : LengthValue;
+        attribute directionAngle : AngleValue;
+    }
+
+    item def TranslationalLoad {
+        attribute resistingForce : ForceValue;
+        attribute linearVelocity : Real;
+        attribute liftedMass : MassValue;
+    }
+
+    port def ForceInputPort {
+        in item forceIn : AppliedForce;
+    }
+
+    port def RotationalShaftPort {
+        inout item shaftMotion : RotationalMotion;
+    }
+
+    port def LoadInterfacePort {
+        out item loadMotion : TranslationalLoad;
+    }
+
+    port def BearingReactionPort {
+        out item reactionForce : AppliedForce;
+    }
+
+    part def RigidWheel {
+        attribute radius : LengthValue = 0.35 [m];
+        attribute rimMass : MassValue = 4.5 [kg];
+        attribute momentOfInertia : Real = 0.55;
+        port forcePort : ForceInputPort;
+        port hubPort : RotationalShaftPort;
+    }
+
+    part def RigidAxle {
+        attribute radius : LengthValue = 0.05 [m];
+        attribute length : LengthValue = 0.42 [m];
+        attribute mass : MassValue = 2.0 [kg];
+        attribute torsionalStiffness : Real = 8500.0;
+        port leftHubPort : RotationalShaftPort;
+        port rightLoadPort : RotationalShaftPort;
+    }
+
+    part def BearingSet {
+        attribute frictionTorque : TorqueValue = 0.18 [N*m];
+        attribute radialLoadLimit : ForceValue = 1200.0 [N];
+        port shaftPort : RotationalShaftPort;
+        port reactionPort : BearingReactionPort;
+    }
+
+    part def DrumLoadCoupler {
+        attribute drumRadius : LengthValue = 0.05 [m];
+        attribute cableEfficiency : Efficiency = 0.94;
+        port shaftPort : RotationalShaftPort;
+        port loadPort : LoadInterfacePort;
+    }
+
+    part def ExternalLoad {
+        attribute loadMass : MassValue = 25.0 [kg];
+        attribute gravitationalAcceleration : Real = 9.80665;
+        attribute requiredLiftHeight : LengthValue = 1.0 [m];
+        port inputPort : LoadInterfacePort;
+    }
+
+    action def ConvertForceToTorque {
+        in force : ForceValue;
+        in wheelRadius : LengthValue;
+        out torque : TorqueValue;
+        calc torque = force * wheelRadius;
+    }
+
+    action def TransmitTorqueThroughAxle {
+        in inputTorque : TorqueValue;
+        in bearingFriction : TorqueValue;
+        in transmissionEfficiency : Efficiency;
+        out outputTorque : TorqueValue;
+        calc outputTorque = (inputTorque - bearingFriction) * transmissionEfficiency;
+    }
+
+    action def ConvertTorqueToLoadForce {
+        in torque : TorqueValue;
+        in axleRadius : LengthValue;
+        in cableEfficiency : Efficiency;
+        out loadForce : ForceValue;
+        calc loadForce = (torque / axleRadius) * cableEfficiency;
+    }
+
+    action def ComputeMechanicalAdvantage {
+        in wheelRadius : LengthValue;
+        in axleRadius : LengthValue;
+        out idealMechanicalAdvantage : PositiveReal;
+        calc idealMechanicalAdvantage = wheelRadius / axleRadius;
+    }
+
+    state def WheelAndAxleOperatingState {
+        entry action initializeSystem;
+        state Idle {
+            entry action holdPosition;
+        }
+        state ReceivingInput {
+            entry action acceptTangentialForce;
+        }
+        state TransmittingTorque {
+            entry action rotateWheelAndAxleTogether;
+        }
+        state MovingLoad {
+            entry action windCableAndLiftLoad;
+        }
+        state HoldingLoad {
+            entry action resistReverseMotion;
+        }
+        state Overload {
+            entry action limitOperation;
+        }
+
+        transition first Idle;
+        transition inputApplied
+            first Idle
+            then ReceivingInput
+            accept AppliedForce;
+
+        transition torqueAvailable
+            first ReceivingInput
+            then TransmittingTorque
+            if inputForceMagnitude > 0.0;
+
+        transition sufficientTorque
+            first TransmittingTorque
+            then MovingLoad
+            if outputLoadForce >= resistingLoadForce;
+
+        transition insufficientTorque
+            first TransmittingTorque
+            then HoldingLoad
+            if outputLoadForce < resistingLoadForce;
+
+        transition loadSecured
+            first MovingLoad
+            then HoldingLoad
+            if liftedHeight >= requiredHeight;
+
+        transition overloadDetected
+            first ReceivingInput
+            then Overload
+            if bearingReactionForce > radialLoadLimit;
+
+        transition reset
+            first Overload
+            then Idle;
+    }
+
+    part def WheelAndAxleAssembly {
+        attribute wheelRadius : LengthValue = 0.35 [m];
+        attribute axleRadius : LengthValue = 0.05 [m];
+        attribute mechanicalAdvantage : PositiveReal = 7.0;
+        attribute transmissionEfficiency : Efficiency = 0.88;
+        attribute maximumInputForce : ForceValue = 180.0 [N];
+        attribute nominalInputForce : ForceValue = 45.0 [N];
+        attribute nominalOutputForce : ForceValue = 277.2 [N];
+        attribute nominalInputTorque : TorqueValue = 15.75 [N*m];
+        attribute nominalOutputTorque : TorqueValue = 13.86 [N*m];
+        attribute nominalAngularVelocity : AngularVelocityValue = 2.0 [rad/s];
+        attribute maximumSafeBearingLoad : ForceValue = 1200.0 [N];
+
+        port operatorInput : ForceInputPort;
+        port loadOutput : LoadInterfacePort;
+
+        part wheel : RigidWheel {
+            :>> radius = wheelRadius;
+        }
+
+        part axle : RigidAxle {
+            :>> radius = axleRadius;
+        }
+
+        part bearings : BearingSet {
+            :>> radialLoadLimit = maximumSafeBearingLoad;
+        }
+
+        part loadCoupler : DrumLoadCoupler {
+            :>> drumRadius = axleRadius;
+        }
+
+        exhibit state operatingState : WheelAndAxleOperatingState;
+
+        connection operatorToWheel connect operatorInput to wheel.forcePort;
+        connection wheelHubToAxle connect wheel.hubPort to axle.leftHubPort;
+        connection axleSupportedByBearings connect axle.leftHubPort to bearings.shaftPort;
+        connection axleToCoupler connect axle.rightLoadPort to loadCoupler.shaftPort;
+        connection couplerToOutput connect loadCoupler.loadPort to loadOutput;
+
+        perform action forceToTorque : ConvertForceToTorque {
+            in force = nominalInputForce;
+            in wheelRadius = wheelRadius;
+            out torque = nominalInputTorque;
+        }
+
+        perform action torqueTransmission : TransmitTorqueThroughAxle {
+            in inputTorque = nominalInputTorque;
+            in bearingFriction = bearings.frictionTorque;
+            in transmissionEfficiency = transmissionEfficiency;
+            out outputTorque = nominalOutputTorque;
+        }
+
+        perform action torqueToLoad : ConvertTorqueToLoadForce {
+            in torque = nominalOutputTorque;
+            in axleRadius = axleRadius;
+            in cableEfficiency = loadCoupler.cableEfficiency;
+            out loadForce = nominalOutputForce;
+        }
+
+        perform action advantageCalculation : ComputeMechanicalAdvantage {
+            in wheelRadius = wheelRadius;
+            in axleRadius = axleRadius;
+            out idealMechanicalAdvantage = mechanicalAdvantage;
+        }
+
+        constraint radiusRatioConstraint {
+            mechanicalAdvantage == wheelRadius / axleRadius
+        }
+
+        constraint wheelLargerThanAxleConstraint {
+            wheelRadius > axleRadius
+        }
+
+        constraint outputForceConstraint {
+            nominalOutputForce == ((nominalInputForce * wheelRadius - bearings.frictionTorque) * transmissionEfficiency / axleRadius) * loadCoupler.cableEfficiency
+        }
+
+        constraint safeInputConstraint {
+            nominalInputForce <= maximumInputForce
+        }
+    }
+
+    part def WheelAndAxleLiftingSystem {
+        attribute primaryFunction : String = "Convert a moderate tangential force applied at a large wheel radius into higher torque at a smaller axle radius, producing amplified output force for moving or holding a load.";
+        attribute targetLiftHeight : LengthValue = 1.0 [m];
+        attribute targetLiftTime : TimeValue = 8.0 [s];
+        attribute requiredLoadForce : ForceValue = 245.17 [N];
+
+        part mechanism : WheelAndAxleAssembly;
+        part liftedLoad : ExternalLoad {
+            :>> requiredLiftHeight = targetLiftHeight;
+        }
+
+        connection mechanismToLoad connect mechanism.loadOutput to liftedLoad.inputPort;
+
+        constraint liftCapabilityConstraint {
+            mechanism.nominalOutputForce >= requiredLoadForce
+        }
+
+        constraint compactGeometryConstraint {
+            mechanism.axleRadius >= 0.03 [m] and mechanism.wheelRadius <= 0.50 [m]
+        }
+    }
+
+    requirement def AmplifyForceRequirement {
+        subject system : WheelAndAxleLiftingSystem;
+        require constraint {
+            system.mechanism.mechanicalAdvantage >= 5.0
+        }
+    }
+
+    requirement def WheelAxleGeometryRequirement {
+        subject system : WheelAndAxleLiftingSystem;
+        require constraint {
+            system.mechanism.wheelRadius > system.mechanism.axleRadius
+        }
+    }
+
+    requirement def LiftLoadRequirement {
+        subject system : WheelAndAxleLiftingSystem;
+        require constraint {
+            system.mechanism.nominalOutputForce >= system.requiredLoadForce
+        }
+    }
+
+    requirement def EfficiencyRequirement {
+        subject system : WheelAndAxleLiftingSystem;
+        require constraint {
+            system.mechanism.transmissionEfficiency >= 0.80
+        }
+    }
+
+    requirement def SafeOperationRequirement {
+        subject system : WheelAndAxleLiftingSystem;
+        require constraint {
+            system.mechanism.nominalInputForce <= system.mechanism.maximumInputForce and
+            system.mechanism.maximumSafeBearingLoad >= 1200.0 [N]
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : WheelAndAxleLiftingSystem;
+        doc /* The system shall provide a simple-machine function by rotating a wheel rigidly attached to an axle so that input work applied over a larger circular path is transmitted as greater output force over a smaller circular path. */
+        require constraint {
+            system.mechanism.mechanicalAdvantage == system.mechanism.wheelRadius / system.mechanism.axleRadius
+        }
+    }
+
+    part wheelAndAxleSystem : WheelAndAxleLiftingSystem;
+
+    satisfy AmplifyForceRequirement by wheelAndAxleSystem;
+    satisfy WheelAxleGeometryRequirement by wheelAndAxleSystem;
+    satisfy LiftLoadRequirement by wheelAndAxleSystem;
+    satisfy EfficiencyRequirement by wheelAndAxleSystem;
+    satisfy SafeOperationRequirement by wheelAndAxleSystem;
+    satisfy PrimaryFunctionRequirement by wheelAndAxleSystem;
+}

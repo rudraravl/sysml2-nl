@@ -1,0 +1,412 @@
+package VacuumTubeSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Voltage :> Real {
+    unit = "V";
+  }
+
+  attribute def Current :> Real {
+    unit = "A";
+  }
+
+  attribute def Resistance :> Real {
+    unit = "Ohm";
+  }
+
+  attribute def Power :> Real {
+    unit = "W";
+  }
+
+  attribute def Temperature :> Real {
+    unit = "K";
+  }
+
+  attribute def Frequency :> Real {
+    unit = "Hz";
+  }
+
+  attribute def Gain :> Real {
+    unit = "dB";
+  }
+
+  item def ElectronFlow {
+    attribute emissionCurrent : Current;
+    attribute kineticEnergy : Real {
+      unit = "eV";
+    }
+  }
+
+  item def HeaterPower {
+    attribute voltage : Voltage;
+    attribute current : Current;
+    attribute power : Power;
+  }
+
+  item def ControlSignal {
+    attribute inputVoltage : Voltage;
+    attribute frequency : Frequency;
+  }
+
+  item def AmplifiedSignal {
+    attribute outputVoltage : Voltage;
+    attribute outputCurrent : Current;
+    attribute voltageGain : Gain;
+    attribute frequency : Frequency;
+  }
+
+  port def ElectricalPowerPort {
+    in item powerInput : HeaterPower;
+  }
+
+  port def SignalInputPort {
+    in item signalIn : ControlSignal;
+  }
+
+  port def SignalOutputPort {
+    out item signalOut : AmplifiedSignal;
+  }
+
+  port def ElectronEmissionPort {
+    out item emittedElectrons : ElectronFlow;
+  }
+
+  port def ElectronCollectionPort {
+    in item collectedElectrons : ElectronFlow;
+  }
+
+  part def Cathode {
+    attribute heaterVoltage : Voltage = 6.3;
+    attribute heaterCurrent : Current = 0.3;
+    attribute cathodeTemperature : Temperature;
+    attribute workFunction : Real {
+      unit = "eV";
+    } = 2.5;
+
+    port heaterPort : ElectricalPowerPort;
+    port emissionPort : ElectronEmissionPort;
+
+    action heatCathode {
+      in item heaterSupply : HeaterPower;
+      out attribute resultingTemperature : Temperature;
+    }
+
+    action emitElectrons {
+      in attribute cathodeTemperature : Temperature;
+      out item electronCloud : ElectronFlow;
+    }
+
+    state def CathodeOperatingState {
+      state cold;
+      state warming;
+      state emitting;
+      state overheated;
+
+      transition first cold;
+      transition cold_to_warming
+        first cold
+        then warming;
+
+      transition warming_to_emitting
+        first warming
+        then emitting
+        if cathodeTemperature >= 1050.0;
+
+      transition emitting_to_overheated
+        first emitting
+        then overheated
+        if cathodeTemperature > 1300.0;
+
+      transition overheated_to_warming
+        first overheated
+        then warming
+        if cathodeTemperature <= 1200.0;
+    }
+
+    perform state cathodeState : CathodeOperatingState;
+  }
+
+  part def Heater {
+    attribute ratedVoltage : Voltage = 6.3;
+    attribute ratedCurrent : Current = 0.3;
+    attribute heaterResistance : Resistance = 21.0;
+    attribute dissipatedPower : Power;
+
+    port supplyPort : ElectricalPowerPort;
+
+    action convertElectricalPowerToHeat {
+      in item heaterSupply : HeaterPower;
+      out attribute dissipatedHeat : Power;
+    }
+  }
+
+  part def ControlGrid {
+    attribute gridBiasVoltage : Voltage = -2.0;
+    attribute gridLeakResistance : Resistance = 1000000.0;
+    attribute transconductance : Real {
+      unit = "S";
+    } = 0.0022;
+
+    port inputPort : SignalInputPort;
+    port modulatedElectronPort : ElectronEmissionPort;
+
+    action modulateElectronFlow {
+      in item inputSignal : ControlSignal;
+      in item incomingElectronCloud : ElectronFlow;
+      out item controlledElectronStream : ElectronFlow;
+    }
+  }
+
+  part def Anode {
+    attribute plateVoltage : Voltage = 250.0;
+    attribute plateCurrent : Current;
+    attribute plateDissipation : Power;
+    attribute maximumPlateDissipation : Power = 12.0;
+
+    port collectionPort : ElectronCollectionPort;
+    port outputPort : SignalOutputPort;
+
+    action collectElectrons {
+      in item controlledElectronStream : ElectronFlow;
+      out attribute plateCurrentResult : Current;
+    }
+
+    action developOutputSignal {
+      in attribute plateCurrentVariation : Current;
+      out item amplifiedOutput : AmplifiedSignal;
+    }
+  }
+
+  part def VacuumEnvelope {
+    attribute internalPressure : Real {
+      unit = "Pa";
+    } = 0.00001;
+
+    attribute maximumAllowedPressure : Real {
+      unit = "Pa";
+    } = 0.001;
+
+    attribute glassTemperature : Temperature;
+    attribute dielectricStrength : Voltage = 1000.0;
+
+    action maintainVacuum {
+      out attribute pressureStable : Boolean;
+    }
+
+    state def EnvelopeIntegrityState {
+      state sealed;
+      state degradedVacuum;
+      state failed;
+
+      transition first sealed;
+
+      transition sealed_to_degradedVacuum
+        first sealed
+        then degradedVacuum
+        if internalPressure > maximumAllowedPressure;
+
+      transition degradedVacuum_to_failed
+        first degradedVacuum
+        then failed
+        if internalPressure > 0.1;
+    }
+
+    perform state envelopeState : EnvelopeIntegrityState;
+  }
+
+  part def LoadCircuit {
+    attribute loadResistance : Resistance = 100000.0;
+    attribute supplyVoltage : Voltage = 250.0;
+    attribute outputCouplingCapacitance : Real {
+      unit = "F";
+    } = 0.000000022;
+
+    port inputFromAnode : SignalOutputPort;
+    port amplifiedOutputPort : SignalOutputPort;
+
+    action convertPlateCurrentToVoltage {
+      in item plateSignal : AmplifiedSignal;
+      out item loadOutputSignal : AmplifiedSignal;
+    }
+  }
+
+  part def VacuumTubeAmplifier {
+    attribute nominalHeaterVoltage : Voltage = 6.3;
+    attribute nominalPlateVoltage : Voltage = 250.0;
+    attribute nominalGridBias : Voltage = -2.0;
+    attribute smallSignalVoltageGain : Gain = 20.0;
+    attribute bandwidthLow : Frequency = 20.0;
+    attribute bandwidthHigh : Frequency = 20000.0;
+    attribute maximumOutputPower : Power = 4.0;
+
+    part heater : Heater;
+    part cathode : Cathode;
+    part controlGrid : ControlGrid;
+    part anode : Anode;
+    part envelope : VacuumEnvelope;
+    part loadCircuit : LoadCircuit;
+
+    port heaterSupplyInput : ElectricalPowerPort;
+    port signalInput : SignalInputPort;
+    port signalOutput : SignalOutputPort;
+
+    connect heaterSupplyInput to heater.supplyPort;
+    connect heater.supplyPort to cathode.heaterPort;
+    connect signalInput to controlGrid.inputPort;
+    connect cathode.emissionPort to controlGrid.modulatedElectronPort;
+    connect controlGrid.modulatedElectronPort to anode.collectionPort;
+    connect anode.outputPort to loadCircuit.inputFromAnode;
+    connect loadCircuit.amplifiedOutputPort to signalOutput;
+
+    action amplifySignal {
+      in item inputSignal : ControlSignal;
+      in item heaterSupply : HeaterPower;
+      out item outputSignal : AmplifiedSignal;
+
+      first start;
+      then heatCathodeAction : cathode.heatCathode;
+      then electronEmissionAction : cathode.emitElectrons;
+      then gridModulationAction : controlGrid.modulateElectronFlow;
+      then electronCollectionAction : anode.collectElectrons;
+      then plateSignalAction : anode.developOutputSignal;
+      then loadConversionAction : loadCircuit.convertPlateCurrentToVoltage;
+      then done;
+    }
+
+    state def TubeOperatingState {
+      state off;
+      state heating;
+      state ready;
+      state amplifying;
+      state standby;
+      state fault;
+
+      transition first off;
+
+      transition off_to_heating
+        first off
+        then heating;
+
+      transition heating_to_ready
+        first heating
+        then ready
+        if cathode.cathodeTemperature >= 1050.0 and envelope.internalPressure <= envelope.maximumAllowedPressure;
+
+      transition ready_to_amplifying
+        first ready
+        then amplifying;
+
+      transition amplifying_to_standby
+        first amplifying
+        then standby
+        if controlGrid.inputPort.signalIn.inputVoltage == 0.0;
+
+      transition standby_to_amplifying
+        first standby
+        then amplifying
+        if controlGrid.inputPort.signalIn.inputVoltage != 0.0;
+
+      transition amplifying_to_fault
+        first amplifying
+        then fault
+        if anode.plateDissipation > anode.maximumPlateDissipation or envelope.internalPressure > envelope.maximumAllowedPressure;
+
+      transition heating_to_fault
+        first heating
+        then fault
+        if cathode.cathodeTemperature > 1300.0;
+    }
+
+    perform state operatingState : TubeOperatingState;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject tube : VacuumTubeAmplifier;
+
+    require constraint {
+      tube.signalOutput.signalOut.outputVoltage > tube.signalInput.signalIn.inputVoltage
+    }
+
+    doc /* The vacuum tube shall use thermionic emission from a heated cathode and electrostatic control by a grid to regulate electron flow through a vacuum, producing an amplified electrical output signal at the anode/load circuit. */
+  }
+
+  requirement def VacuumIntegrityRequirement {
+    subject envelope : VacuumEnvelope;
+
+    require constraint {
+      envelope.internalPressure <= envelope.maximumAllowedPressure
+    }
+
+    doc /* The evacuated envelope shall maintain pressure low enough to allow controlled electron transport without significant gas ionization or arcing. */
+  }
+
+  requirement def HeaterOperatingRequirement {
+    subject tube : VacuumTubeAmplifier;
+
+    require constraint {
+      tube.heater.ratedVoltage == tube.nominalHeaterVoltage
+    }
+
+    doc /* The heater shall raise the cathode to thermionic emission temperature using nominal heater power. */
+  }
+
+  requirement def CathodeEmissionRequirement {
+    subject cathode : Cathode;
+
+    require constraint {
+      cathode.cathodeTemperature >= 1050.0 and cathode.cathodeTemperature <= 1300.0
+    }
+
+    doc /* The cathode shall operate within the thermionic emission temperature range needed for stable electron production. */
+  }
+
+  requirement def SignalAmplificationRequirement {
+    subject tube : VacuumTubeAmplifier;
+
+    require constraint {
+      tube.smallSignalVoltageGain >= 15.0
+    }
+
+    doc /* The tube amplifier shall provide voltage gain by converting grid voltage variations into controlled plate current variations. */
+  }
+
+  requirement def AudioBandwidthRequirement {
+    subject tube : VacuumTubeAmplifier;
+
+    require constraint {
+      tube.bandwidthLow <= 20.0 and tube.bandwidthHigh >= 20000.0
+    }
+
+    doc /* The modeled tube amplifier shall support high-level audio-frequency amplification from 20 Hz to 20 kHz. */
+  }
+
+  requirement def PlateDissipationRequirement {
+    subject anode : Anode;
+
+    require constraint {
+      anode.plateDissipation <= anode.maximumPlateDissipation
+    }
+
+    doc /* The anode shall remain within rated plate dissipation during normal amplification. */
+  }
+
+  part vacuumTubeSystem : VacuumTubeAmplifier {
+    attribute nominalHeaterVoltage = 6.3;
+    attribute nominalPlateVoltage = 250.0;
+    attribute nominalGridBias = -2.0;
+    attribute smallSignalVoltageGain = 20.0;
+    attribute bandwidthLow = 20.0;
+    attribute bandwidthHigh = 20000.0;
+    attribute maximumOutputPower = 4.0;
+  }
+
+  satisfy PrimaryFunctionRequirement by vacuumTubeSystem;
+  satisfy HeaterOperatingRequirement by vacuumTubeSystem;
+  satisfy SignalAmplificationRequirement by vacuumTubeSystem;
+  satisfy AudioBandwidthRequirement by vacuumTubeSystem;
+  satisfy VacuumIntegrityRequirement by vacuumTubeSystem.envelope;
+  satisfy CathodeEmissionRequirement by vacuumTubeSystem.cathode;
+  satisfy PlateDissipationRequirement by vacuumTubeSystem.anode;
+}

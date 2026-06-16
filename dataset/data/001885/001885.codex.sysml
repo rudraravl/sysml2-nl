@@ -1,0 +1,333 @@
+package VolumetricFlowRateSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+
+    attribute def VolumetricFlowRate {
+        :> ISQ::volumeRate;
+        unit = "L/min";
+    }
+
+    attribute def Pressure {
+        :> ISQ::pressure;
+        unit = "kPa";
+    }
+
+    attribute def Temperature {
+        :> ISQ::thermodynamicTemperature;
+        unit = "degC";
+    }
+
+    attribute def Volume {
+        :> ISQ::volume;
+        unit = "L";
+    }
+
+    attribute def TimeDuration {
+        :> ISQ::duration;
+        unit = "s";
+    }
+
+    attribute def PumpSpeed {
+        :> ISQ::frequency;
+        unit = "rpm";
+    }
+
+    attribute def ValvePosition {
+        :> ScalarValues::Real;
+        unit = "%";
+    }
+
+    item def Fluid {
+        attribute density : Real;
+        attribute viscosity : Real;
+        attribute temperature : Temperature;
+    }
+
+    item def FlowCommand {
+        attribute requestedFlowRate : VolumetricFlowRate;
+        attribute maximumAllowedPressure : Pressure;
+    }
+
+    item def FlowMeasurement {
+        attribute measuredFlowRate : VolumetricFlowRate;
+        attribute measuredPressure : Pressure;
+        attribute measuredTemperature : Temperature;
+        attribute timestamp : TimeDuration;
+    }
+
+    item def ControlSignal {
+        attribute pumpSpeedCommand : PumpSpeed;
+        attribute valvePositionCommand : ValvePosition;
+    }
+
+    port def FluidInletPort {
+        in item fluidIn : Fluid;
+    }
+
+    port def FluidOutletPort {
+        out item fluidOut : Fluid;
+    }
+
+    port def CommandPort {
+        in item command : FlowCommand;
+    }
+
+    port def MeasurementPort {
+        out item measurement : FlowMeasurement;
+    }
+
+    port def ControlPort {
+        out item controlSignal : ControlSignal;
+    }
+
+    port def ActuatorPort {
+        in item actuatorSignal : ControlSignal;
+    }
+
+    part def FlowSensor {
+        port sensedFluid : FluidInletPort;
+        port measurementOut : MeasurementPort;
+
+        attribute sensorRangeMin : VolumetricFlowRate = 0.0 [L/min];
+        attribute sensorRangeMax : VolumetricFlowRate = 250.0 [L/min];
+        attribute accuracy : Real = 0.015;
+
+        action measureFlow {
+            in item incomingFluid : Fluid;
+            out item flowReading : FlowMeasurement;
+        }
+    }
+
+    part def PressureSensor {
+        port sensedFluid : FluidInletPort;
+        port measurementOut : MeasurementPort;
+
+        attribute pressureRangeMin : Pressure = 0.0 [kPa];
+        attribute pressureRangeMax : Pressure = 600.0 [kPa];
+
+        action measurePressure {
+            in item incomingFluid : Fluid;
+            out item pressureReading : FlowMeasurement;
+        }
+    }
+
+    part def VariableSpeedPump {
+        port fluidInlet : FluidInletPort;
+        port fluidOutlet : FluidOutletPort;
+        port actuatorInput : ActuatorPort;
+
+        attribute minimumSpeed : PumpSpeed = 300.0 [rpm];
+        attribute maximumSpeed : PumpSpeed = 3600.0 [rpm];
+        attribute nominalFlowRate : VolumetricFlowRate = 120.0 [L/min];
+
+        action increaseFlow {
+            in commandSpeed : PumpSpeed;
+            out item pumpedFluid : Fluid;
+        }
+
+        action stopPump {
+            out stopped : Boolean;
+        }
+    }
+
+    part def ModulatingValve {
+        port fluidInlet : FluidInletPort;
+        port fluidOutlet : FluidOutletPort;
+        port actuatorInput : ActuatorPort;
+
+        attribute minimumPosition : ValvePosition = 0.0 [%];
+        attribute maximumPosition : ValvePosition = 100.0 [%];
+        attribute failSafePosition : ValvePosition = 0.0 [%];
+
+        action regulateFlow {
+            in valveCommand : ValvePosition;
+            in item incomingFluid : Fluid;
+            out item regulatedFluid : Fluid;
+        }
+    }
+
+    part def FlowController {
+        port commandIn : CommandPort;
+        port measurementIn : MeasurementPort;
+        port controlOut : ControlPort;
+
+        attribute targetFlowRate : VolumetricFlowRate = 100.0 [L/min];
+        attribute tolerance : VolumetricFlowRate = 2.0 [L/min];
+        attribute pressureLimit : Pressure = 450.0 [kPa];
+        attribute samplePeriod : TimeDuration = 0.1 [s];
+
+        action computeControlSignal {
+            in item requestedCommand : FlowCommand;
+            in item measuredState : FlowMeasurement;
+            out item generatedSignal : ControlSignal;
+        }
+
+        state controllerState {
+            state Off;
+            state Initializing;
+            state Regulating;
+            state PressureLimited;
+            state Fault;
+
+            initial then Off;
+
+            transition Off_to_Initializing
+                first Off
+                accept FlowCommand
+                if command.requestedFlowRate > 0.0 [L/min]
+                then Initializing;
+
+            transition Initializing_to_Regulating
+                first Initializing
+                if measurement.measuredFlowRate >= 0.0 [L/min]
+                then Regulating;
+
+            transition Regulating_to_PressureLimited
+                first Regulating
+                if measurement.measuredPressure >= pressureLimit
+                then PressureLimited;
+
+            transition PressureLimited_to_Regulating
+                first PressureLimited
+                if measurement.measuredPressure < pressureLimit and
+                   measurement.measuredFlowRate < targetFlowRate
+                then Regulating;
+
+            transition Any_to_Fault
+                first Regulating
+                if measurement.measuredPressure > 600.0 [kPa]
+                then Fault;
+
+            transition Fault_to_Off
+                first Fault
+                accept FlowCommand
+                if command.requestedFlowRate == 0.0 [L/min]
+                then Off;
+        }
+    }
+
+    part def FlowPath {
+        port inlet : FluidInletPort;
+        port outlet : FluidOutletPort;
+
+        part pump : VariableSpeedPump;
+        part valve : ModulatingValve;
+        part flowSensor : FlowSensor;
+        part pressureSensor : PressureSensor;
+
+        connect inlet.fluidIn to pump.fluidInlet.fluidIn;
+        connect pump.fluidOutlet.fluidOut to valve.fluidInlet.fluidIn;
+        connect valve.fluidOutlet.fluidOut to flowSensor.sensedFluid.fluidIn;
+        connect valve.fluidOutlet.fluidOut to pressureSensor.sensedFluid.fluidIn;
+        connect flowSensor.sensedFluid.fluidIn to outlet.fluidOut;
+    }
+
+    part def VolumetricFlowRateControlSystem {
+        port sourceInlet : FluidInletPort;
+        port controlledOutlet : FluidOutletPort;
+        port operatorCommand : CommandPort;
+        port flowStatus : MeasurementPort;
+
+        attribute minimumControlledFlow : VolumetricFlowRate = 10.0 [L/min];
+        attribute maximumControlledFlow : VolumetricFlowRate = 200.0 [L/min];
+        attribute nominalControlledFlow : VolumetricFlowRate = 100.0 [L/min];
+        attribute maximumDischargePressure : Pressure = 450.0 [kPa];
+
+        part flowPath : FlowPath;
+        part controller : FlowController;
+
+        connect sourceInlet.fluidIn to flowPath.inlet.fluidIn;
+        connect flowPath.outlet.fluidOut to controlledOutlet.fluidOut;
+        connect operatorCommand.command to controller.commandIn.command;
+        connect flowPath.flowSensor.measurementOut.measurement to controller.measurementIn.measurement;
+        connect flowPath.pressureSensor.measurementOut.measurement to controller.measurementIn.measurement;
+        connect flowPath.flowSensor.measurementOut.measurement to flowStatus.measurement;
+        connect controller.controlOut.controlSignal to flowPath.pump.actuatorInput.actuatorSignal;
+        connect controller.controlOut.controlSignal to flowPath.valve.actuatorInput.actuatorSignal;
+
+        action provideControlledVolumetricFlow {
+            in item supplyFluid : Fluid;
+            in item requestedFlow : FlowCommand;
+            out item deliveredFluid : Fluid;
+            out item actualFlow : FlowMeasurement;
+
+            first start;
+            then acceptCommand;
+            then measureCurrentFlow;
+            then calculateCorrection;
+            then adjustPumpAndValve;
+            then deliverFluidAtRequestedRate;
+            then reportFlowStatus;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : VolumetricFlowRateControlSystem;
+
+        require constraint {
+            system shall provide a controlled outlet fluid stream whose volumetric flow rate tracks the commanded volumetric flow rate.
+        }
+    }
+
+    requirement def FlowRangeRequirement {
+        subject system : VolumetricFlowRateControlSystem;
+
+        require constraint {
+            system.minimumControlledFlow <= system.nominalControlledFlow and
+            system.nominalControlledFlow <= system.maximumControlledFlow
+        }
+    }
+
+    requirement def FlowAccuracyRequirement {
+        subject system : VolumetricFlowRateControlSystem;
+
+        attribute allowedError : VolumetricFlowRate = 2.0 [L/min];
+
+        require constraint {
+            abs(system.flowStatus.measurement.measuredFlowRate -
+                system.controller.targetFlowRate) <= allowedError
+        }
+    }
+
+    requirement def PressureProtectionRequirement {
+        subject system : VolumetricFlowRateControlSystem;
+
+        require constraint {
+            system.flowStatus.measurement.measuredPressure <=
+            system.maximumDischargePressure
+        }
+    }
+
+    requirement def SafeShutdownRequirement {
+        subject system : VolumetricFlowRateControlSystem;
+
+        require constraint {
+            system.controller.controllerState != system.controller.Fault or
+            system.flowPath.pump.minimumSpeed <= 300.0 [rpm]
+        }
+    }
+
+    part volumetricFlowRateSystem : VolumetricFlowRateControlSystem;
+
+    requirement primaryFunction : PrimaryFunctionRequirement {
+        subject system = volumetricFlowRateSystem;
+    }
+
+    requirement controlledRange : FlowRangeRequirement {
+        subject system = volumetricFlowRateSystem;
+    }
+
+    requirement controlledAccuracy : FlowAccuracyRequirement {
+        subject system = volumetricFlowRateSystem;
+    }
+
+    requirement pressureProtection : PressureProtectionRequirement {
+        subject system = volumetricFlowRateSystem;
+    }
+
+    requirement safeShutdown : SafeShutdownRequirement {
+        subject system = volumetricFlowRateSystem;
+    }
+
+}

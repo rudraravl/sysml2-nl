@@ -1,0 +1,504 @@
+package CuriosityBasedExplorationSystem {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def Length :> Real {
+    unit = "m";
+  }
+
+  attribute def Mass :> Real {
+    unit = "kg";
+  }
+
+  attribute def Speed :> Real {
+    unit = "m/s";
+  }
+
+  attribute def Power :> Real {
+    unit = "W";
+  }
+
+  attribute def Energy :> Real {
+    unit = "J";
+  }
+
+  attribute def Temperature :> Real {
+    unit = "K";
+  }
+
+  attribute def DataRate :> Real {
+    unit = "bit/s";
+  }
+
+  attribute def RadiationDose :> Real {
+    unit = "Gy";
+  }
+
+  attribute def TimeDuration :> Real {
+    unit = "s";
+  }
+
+  attribute def Percentage :> Real {
+    unit = "%";
+  }
+
+  item def RockSample {
+    attribute sampleMass : Mass;
+    attribute drillDepth : Length;
+    attribute mineralConfidence : Percentage;
+    attribute contaminationRisk : Percentage;
+  }
+
+  item def TerrainMap {
+    attribute mapResolution : Length;
+    attribute coveredArea : Real;
+    attribute obstacleCount : Integer;
+    attribute traversabilityScore : Percentage;
+  }
+
+  item def ScienceData {
+    attribute dataVolume : Real;
+    attribute compressionRatio : Real;
+    attribute priority : Integer;
+  }
+
+  item def CommandPacket {
+    attribute commandId : Integer;
+    attribute executionDeadline : TimeDuration;
+    attribute safetyCritical : Boolean;
+  }
+
+  item def PowerFlow {
+    attribute suppliedPower : Power;
+    attribute availableEnergy : Energy;
+  }
+
+  item def ThermalFlow {
+    attribute componentTemperature : Temperature;
+    attribute heatRejectionPower : Power;
+  }
+
+  port def DataPort {
+    out item data : ScienceData;
+    in item command : CommandPacket;
+  }
+
+  port def PowerPort {
+    in item electricalPower : PowerFlow;
+  }
+
+  port def SamplePort {
+    inout item sample : RockSample;
+  }
+
+  port def ThermalPort {
+    inout item thermalState : ThermalFlow;
+  }
+
+  port def MobilityPort {
+    out item terrain : TerrainMap;
+    in item command : CommandPacket;
+  }
+
+  part def CuriosityInspiredMarsRover {
+    doc
+    /* Primary high-level function: autonomously traverse planetary terrain, assess environmental safety, acquire and analyze geological samples, and transmit prioritized scientific findings to mission operations. */
+
+    attribute totalMass : Mass = 899.0;
+    attribute bodyLength : Length = 3.0;
+    attribute maxTraverseSpeed : Speed = 0.04;
+    attribute nominalPowerDemand : Power = 125.0;
+    attribute dailyEnergyBudget : Energy = 7500000.0;
+    attribute minimumOperatingTemperature : Temperature = 218.0;
+    attribute maximumOperatingTemperature : Temperature = 323.0;
+    attribute designLife : TimeDuration = 59400000.0;
+
+    port powerInput : PowerPort;
+    port thermalInterface : ThermalPort;
+    port missionData : DataPort;
+    port sampleTransfer : SamplePort;
+    port mobilityInterface : MobilityPort;
+
+    part chassis : RoverChassis;
+    part mobility : RockerBogieMobility;
+    part powerSubsystem : RadioisotopePowerSubsystem;
+    part thermalSubsystem : ThermalControlSubsystem;
+    part computeSubsystem : AutonomousComputeSubsystem;
+    part communicationSubsystem : DeepSpaceCommunicationSubsystem;
+    part sciencePayload : SciencePayloadSubsystem;
+    part samplingSubsystem : SampleAcquisitionSubsystem;
+    part hazardSubsystem : HazardAssessmentSubsystem;
+
+    connect powerSubsystem.powerOut to mobility.powerInput;
+    connect powerSubsystem.powerOut to computeSubsystem.powerInput;
+    connect powerSubsystem.powerOut to communicationSubsystem.powerInput;
+    connect powerSubsystem.powerOut to sciencePayload.powerInput;
+    connect powerSubsystem.powerOut to samplingSubsystem.powerInput;
+    connect powerSubsystem.powerOut to thermalSubsystem.powerInput;
+
+    connect thermalSubsystem.thermalBus to computeSubsystem.thermalInterface;
+    connect thermalSubsystem.thermalBus to sciencePayload.thermalInterface;
+    connect thermalSubsystem.thermalBus to samplingSubsystem.thermalInterface;
+    connect thermalSubsystem.thermalBus to mobility.thermalInterface;
+
+    connect computeSubsystem.navCommand to mobility.commandInput;
+    connect mobility.terrainOutput to hazardSubsystem.terrainInput;
+    connect hazardSubsystem.hazardReport to computeSubsystem.hazardInput;
+
+    connect samplingSubsystem.sampleOutput to sciencePayload.sampleInput;
+    connect sciencePayload.scienceOutput to computeSubsystem.scienceInput;
+    connect computeSubsystem.downlinkOutput to communicationSubsystem.dataInput;
+    connect communicationSubsystem.missionInterface to missionData;
+
+    connect mobilityInterface to mobility.externalMobilityPort;
+    connect sampleTransfer to samplingSubsystem.externalSamplePort;
+    connect thermalInterface to thermalSubsystem.externalThermalPort;
+    connect powerInput to powerSubsystem.externalPowerPort;
+
+    perform action explorePlanetarySurface;
+    exhibit state roverMissionState;
+  }
+
+  part def RoverChassis {
+    attribute structuralMass : Mass = 250.0;
+    attribute wheelBase : Length = 2.8;
+    attribute groundClearance : Length = 0.66;
+    attribute allowableStaticTilt : Real = 45.0;
+  }
+
+  part def RockerBogieMobility {
+    attribute wheelCount : Integer = 6;
+    attribute wheelDiameter : Length = 0.5;
+    attribute obstacleClimbHeight : Length = 0.65;
+    attribute maxSlope : Real = 30.0;
+    attribute nominalDrivePower : Power = 90.0;
+
+    port powerInput : PowerPort;
+    port thermalInterface : ThermalPort;
+    port commandInput : DataPort;
+    port terrainOutput : MobilityPort;
+    port externalMobilityPort : MobilityPort;
+
+    action driveToTarget {
+      in targetRange : Length;
+      in commandedSpeed : Speed;
+      out estimatedArrival : TimeDuration;
+      out terrainMap : TerrainMap;
+
+      first startDrive;
+      then monitorSlip;
+      then updateTerrainMap;
+      then stopAtTarget;
+
+      action startDrive;
+      action monitorSlip;
+      action updateTerrainMap;
+      action stopAtTarget;
+    }
+  }
+
+  part def RadioisotopePowerSubsystem {
+    attribute beginningOfLifePower : Power = 125.0;
+    attribute endOfLifePower : Power = 100.0;
+    attribute thermalWastePower : Power = 1900.0;
+    attribute batteryCapacity : Energy = 15000000.0;
+    attribute minimumStateOfCharge : Percentage = 35.0;
+
+    port externalPowerPort : PowerPort;
+    port powerOut : PowerPort;
+
+    action allocatePower {
+      in requestedPower : Power;
+      out approvedPower : Power;
+      out remainingEnergy : Energy;
+    }
+  }
+
+  part def ThermalControlSubsystem {
+    attribute heaterPowerLimit : Power = 300.0;
+    attribute radiatorArea : Real = 1.2;
+    attribute fluidLoopTemperature : Temperature = 273.0;
+
+    port powerInput : PowerPort;
+    port thermalBus : ThermalPort;
+    port externalThermalPort : ThermalPort;
+
+    action regulateTemperature {
+      in sensedTemperature : Temperature;
+      out heaterCommand : Power;
+      out radiatorBypassOpen : Boolean;
+    }
+  }
+
+  part def AutonomousComputeSubsystem {
+    attribute processorPower : Power = 45.0;
+    attribute faultToleranceLevel : Integer = 2;
+    attribute onboardStorageCapacity : Real = 32000000000.0;
+    attribute autonomyCycleTime : TimeDuration = 2.0;
+
+    port powerInput : PowerPort;
+    port thermalInterface : ThermalPort;
+    port hazardInput : DataPort;
+    port scienceInput : DataPort;
+    port downlinkOutput : DataPort;
+    port navCommand : DataPort;
+
+    action planSolActivities {
+      in commandPlan : CommandPacket;
+      in availableEnergy : Energy;
+      in terrainRisk : Percentage;
+      out driveCommand : CommandPacket;
+      out scienceCommand : CommandPacket;
+      out communicationCommand : CommandPacket;
+    }
+
+    action prioritizeScienceData {
+      in rawScienceData : ScienceData;
+      out downlinkData : ScienceData;
+    }
+  }
+
+  part def DeepSpaceCommunicationSubsystem {
+    attribute xBandDataRate : DataRate = 32000.0;
+    attribute uhfRelayDataRate : DataRate = 2000000.0;
+    attribute highGainAntennaDiameter : Length = 0.28;
+    attribute nominalTransmitPower : Power = 35.0;
+
+    port powerInput : PowerPort;
+    port dataInput : DataPort;
+    port missionInterface : DataPort;
+
+    action transmitData {
+      in dataToSend : ScienceData;
+      out transmittedVolume : Real;
+      out linkMargin : Real;
+    }
+  }
+
+  part def SciencePayloadSubsystem {
+    attribute cameraResolution : Real = 2000000.0;
+    attribute spectrometerRangeMin : Real = 240.0;
+    attribute spectrometerRangeMax : Real = 850.0;
+    attribute analysisPowerDemand : Power = 60.0;
+    attribute nominalAnalysisDuration : TimeDuration = 3600.0;
+
+    port powerInput : PowerPort;
+    port thermalInterface : ThermalPort;
+    port sampleInput : SamplePort;
+    port scienceOutput : DataPort;
+
+    part mastCamera : MastCamera;
+    part laserSpectrometer : LaserSpectrometer;
+    part xrayDiffractometer : XRayDiffractometer;
+    part environmentalStation : EnvironmentalStation;
+
+    action analyzeSample {
+      in sample : RockSample;
+      out result : ScienceData;
+    }
+
+    action imageTerrain {
+      out terrainProduct : ScienceData;
+    }
+  }
+
+  part def MastCamera {
+    attribute focalLength : Length = 0.034;
+    attribute imageDataVolume : Real = 24000000.0;
+  }
+
+  part def LaserSpectrometer {
+    attribute laserPulseEnergy : Energy = 0.014;
+    attribute standoffDistance : Length = 7.0;
+  }
+
+  part def XRayDiffractometer {
+    attribute sampleCupVolume : Real = 0.00000008;
+    attribute mineralDetectionLimit : Percentage = 1.0;
+  }
+
+  part def EnvironmentalStation {
+    attribute windSensorRange : Speed = 70.0;
+    attribute temperatureAccuracy : Temperature = 1.0;
+    attribute radiationDoseRateLimit : RadiationDose = 0.001;
+  }
+
+  part def SampleAcquisitionSubsystem {
+    attribute armReach : Length = 2.1;
+    attribute drillMaxDepth : Length = 0.065;
+    attribute drillPowerDemand : Power = 85.0;
+    attribute sampleProcessingDuration : TimeDuration = 1800.0;
+
+    port powerInput : PowerPort;
+    port thermalInterface : ThermalPort;
+    port sampleOutput : SamplePort;
+    port externalSamplePort : SamplePort;
+
+    action acquireRockSample {
+      in targetHardness : Real;
+      in requestedDepth : Length;
+      out acquiredSample : RockSample;
+      out acquisitionSuccessful : Boolean;
+    }
+
+    action sieveAndPortionSample {
+      in rawSample : RockSample;
+      out portionedSample : RockSample;
+    }
+  }
+
+  part def HazardAssessmentSubsystem {
+    attribute maximumWheelSinkage : Length = 0.08;
+    attribute maximumRockHeight : Length = 0.45;
+    attribute minimumSunAvoidanceAngle : Real = 15.0;
+    attribute safePathConfidenceThreshold : Percentage = 90.0;
+
+    port terrainInput : MobilityPort;
+    port hazardReport : DataPort;
+
+    action evaluateRoute {
+      in terrainMap : TerrainMap;
+      out hazardData : ScienceData;
+      out safeToProceed : Boolean;
+    }
+  }
+
+  action def ExplorePlanetarySurface {
+    in missionCommand : CommandPacket;
+    out scienceReturn : ScienceData;
+
+    first receiveMissionCommand;
+    then planActivities;
+    then traverseToScienceTarget;
+    then assessHazards;
+    then acquireSample;
+    then analyzeCollectedMaterial;
+    then prioritizeFindings;
+    then transmitFindings;
+
+    action receiveMissionCommand;
+    action planActivities;
+    action traverseToScienceTarget;
+    action assessHazards;
+    action acquireSample;
+    action analyzeCollectedMaterial;
+    action prioritizeFindings;
+    action transmitFindings;
+  }
+
+  state def RoverMissionState {
+    entry action initializeRover;
+
+    state Dormant;
+    state Wakeup;
+    state HealthCheck;
+    state Traverse;
+    state HazardAvoidance;
+    state SampleAcquisition;
+    state SampleAnalysis;
+    state DataDownlink;
+    state EnergyConservation;
+    state FaultSafe;
+
+    transition first Dormant then Wakeup
+      accept CommandPacket
+      do initializeRover;
+
+    transition Wakeup then HealthCheck
+      if powerSubsystemReady;
+
+    transition HealthCheck then Traverse
+      if healthNominal and energyAvailable;
+
+    transition Traverse then HazardAvoidance
+      if hazardDetected;
+
+    transition HazardAvoidance then Traverse
+      if safeRouteConfirmed;
+
+    transition Traverse then SampleAcquisition
+      if targetReached;
+
+    transition SampleAcquisition then SampleAnalysis
+      if sampleSecured;
+
+    transition SampleAnalysis then DataDownlink
+      if scienceDataReady;
+
+    transition DataDownlink then EnergyConservation
+      if communicationWindowClosed;
+
+    transition EnergyConservation then Wakeup
+      if nextSolBegins;
+
+    transition HealthCheck then FaultSafe
+      if criticalFaultDetected;
+
+    transition Traverse then FaultSafe
+      if criticalFaultDetected;
+
+    transition SampleAcquisition then FaultSafe
+      if criticalFaultDetected;
+
+    transition SampleAnalysis then FaultSafe
+      if criticalFaultDetected;
+
+    transition FaultSafe then EnergyConservation
+      if faultIsolated;
+
+    action initializeRover;
+  }
+
+  requirement def PrimaryMissionRequirement {
+    doc
+    /* The rover shall perform autonomous planetary surface exploration by navigating to geologic targets, collecting environmental and mineralogical observations, analyzing samples, and returning prioritized scientific data. */
+  }
+
+  requirement def MobilityRequirement {
+    doc
+    /* The rover shall traverse uneven terrain with rocks up to 0.45 m high and slopes up to 30 degrees while maintaining vehicle stability and preserving wheel integrity. */
+  }
+
+  requirement def ScienceRequirement {
+    doc
+    /* The rover shall identify mineral composition of drilled rock samples with at least 90 percent confidence for major constituents above the payload detection threshold. */
+  }
+
+  requirement def AutonomyRequirement {
+    doc
+    /* The rover shall detect unsafe terrain and replan local motion without waiting for real-time ground intervention. */
+  }
+
+  requirement def PowerRequirement {
+    doc
+    /* The rover shall maintain at least 35 percent battery state of charge during nominal operations and enter energy conservation mode before violating this threshold. */
+  }
+
+  requirement def CommunicationRequirement {
+    doc
+    /* The rover shall store, prioritize, compress, and transmit mission science data during available direct-to-Earth or relay communication windows. */
+  }
+
+  requirement def ThermalRequirement {
+    doc
+    /* The rover shall maintain temperature-sensitive avionics, science instruments, and sampling mechanisms between 218 K and 323 K during active and dormant phases. */
+  }
+
+  requirement def FaultProtectionRequirement {
+    doc
+    /* The rover shall transition to a fault-safe state when critical power, thermal, mobility, compute, or communication faults are detected. */
+  }
+
+  satisfy PrimaryMissionRequirement by CuriosityInspiredMarsRover;
+  satisfy MobilityRequirement by RockerBogieMobility;
+  satisfy ScienceRequirement by SciencePayloadSubsystem;
+  satisfy AutonomyRequirement by AutonomousComputeSubsystem;
+  satisfy PowerRequirement by RadioisotopePowerSubsystem;
+  satisfy CommunicationRequirement by DeepSpaceCommunicationSubsystem;
+  satisfy ThermalRequirement by ThermalControlSubsystem;
+  satisfy FaultProtectionRequirement by RoverMissionState;
+
+  part curiosityBasedRover : CuriosityInspiredMarsRover;
+
+}

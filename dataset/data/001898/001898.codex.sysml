@@ -1,0 +1,534 @@
+package WindGeneratorSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def RealValue :> ScalarValues::Real;
+  attribute def IntegerValue :> ScalarValues::Integer;
+  attribute def BooleanValue :> ScalarValues::Boolean;
+  attribute def TextValue :> ScalarValues::String;
+
+  attribute def WindSpeed :> RealValue {
+    unit = "m/s";
+  }
+
+  attribute def AngularVelocity :> RealValue {
+    unit = "rad/s";
+  }
+
+  attribute def Torque :> RealValue {
+    unit = "N*m";
+  }
+
+  attribute def ElectricPower :> RealValue {
+    unit = "W";
+  }
+
+  attribute def ElectricVoltage :> RealValue {
+    unit = "V";
+  }
+
+  attribute def ElectricCurrent :> RealValue {
+    unit = "A";
+  }
+
+  attribute def Frequency :> RealValue {
+    unit = "Hz";
+  }
+
+  attribute def Temperature :> RealValue {
+    unit = "degC";
+  }
+
+  attribute def Percentage :> RealValue {
+    unit = "%";
+  }
+
+  attribute def Energy :> RealValue {
+    unit = "kWh";
+  }
+
+  attribute def Angle :> RealValue {
+    unit = "deg";
+  }
+
+  item def AirFlow {
+    attribute speed : WindSpeed;
+    attribute direction : Angle;
+    attribute density : RealValue = 1.225;
+  }
+
+  item def MechanicalRotation {
+    attribute shaftSpeed : AngularVelocity;
+    attribute shaftTorque : Torque;
+  }
+
+  item def ThreePhaseACPower {
+    attribute voltageLineToLine : ElectricVoltage;
+    attribute currentPerPhase : ElectricCurrent;
+    attribute activePower : ElectricPower;
+    attribute frequency : Frequency;
+    attribute powerFactor : RealValue;
+  }
+
+  item def ControlCommand {
+    attribute pitchAngleCommand : Angle;
+    attribute yawAngleCommand : Angle;
+    attribute brakeCommanded : BooleanValue;
+    attribute connectToGridCommanded : BooleanValue;
+  }
+
+  item def TelemetryPacket {
+    attribute windSpeed : WindSpeed;
+    attribute rotorSpeed : AngularVelocity;
+    attribute generatedPower : ElectricPower;
+    attribute gearboxTemperature : Temperature;
+    attribute generatorTemperature : Temperature;
+    attribute availability : Percentage;
+    attribute operatingState : TextValue;
+  }
+
+  item def FaultReport {
+    attribute faultCode : TextValue;
+    attribute severity : IntegerValue;
+    attribute safeShutdownRequired : BooleanValue;
+  }
+
+  port def WindInletPort {
+    in item wind : AirFlow;
+  }
+
+  port def RotationPort {
+    out item rotation : MechanicalRotation;
+  }
+
+  port def RotationInputPort {
+    in item rotation : MechanicalRotation;
+  }
+
+  port def ElectricalPowerOutPort {
+    out item power : ThreePhaseACPower;
+  }
+
+  port def ElectricalPowerInPort {
+    in item power : ThreePhaseACPower;
+  }
+
+  port def CommandPort {
+    in item command : ControlCommand;
+  }
+
+  port def TelemetryPort {
+    out item telemetry : TelemetryPacket;
+  }
+
+  port def FaultPort {
+    out item fault : FaultReport;
+  }
+
+  port def GridInterfacePort {
+    out item exportedPower : ThreePhaseACPower;
+  }
+
+  part def RotorAssembly {
+    attribute bladeCount : IntegerValue = 3;
+    attribute rotorDiameter : RealValue = 120.0 {
+      unit = "m";
+    }
+    attribute sweptArea : RealValue = 11309.7 {
+      unit = "m^2";
+    }
+    attribute pitchAngle : Angle;
+    attribute rotorSpeed : AngularVelocity;
+    attribute aerodynamicEfficiency : Percentage;
+
+    port windIn : WindInletPort;
+    port mechanicalOut : RotationPort;
+    port commandIn : CommandPort;
+
+    action convertWindToRotation {
+      in item wind : AirFlow;
+      in attribute pitchAngle : Angle;
+      out item rotation : MechanicalRotation;
+
+      objective {
+        doc /* Convert kinetic energy from moving air into low-speed mechanical shaft rotation using aerodynamic lift on the blades. */
+      }
+    }
+  }
+
+  part def PitchControlSystem {
+    attribute commandedPitch : Angle;
+    attribute actualPitch : Angle;
+    attribute pitchRateLimit : RealValue = 8.0 {
+      unit = "deg/s";
+    }
+
+    port commandIn : CommandPort;
+    port faultOut : FaultPort;
+
+    state pitchControlState {
+      state tracking;
+      state feathering;
+      state locked;
+
+      entry; then tracking;
+
+      transition tracking_to_feathering
+        first tracking
+        accept ControlCommand
+        if command.brakeCommanded
+        then feathering;
+
+      transition feathering_to_locked
+        first feathering
+        if actualPitch >= 89.0
+        then locked;
+
+      transition locked_to_tracking
+        first locked
+        accept ControlCommand
+        if not command.brakeCommanded
+        then tracking;
+    }
+  }
+
+  part def YawControlSystem {
+    attribute nacelleYawAngle : Angle;
+    attribute yawError : Angle;
+    attribute yawRateLimit : RealValue = 0.5 {
+      unit = "deg/s";
+    }
+
+    port commandIn : CommandPort;
+
+    action alignRotorWithWind {
+      in attribute windDirection : Angle;
+      in attribute currentYaw : Angle;
+      out attribute yawCommand : Angle;
+    }
+  }
+
+  part def Gearbox {
+    attribute gearRatio : RealValue = 96.0;
+    attribute oilTemperature : Temperature;
+    attribute mechanicalEfficiency : Percentage = 96.0;
+
+    port lowSpeedIn : RotationInputPort;
+    port highSpeedOut : RotationPort;
+
+    action increaseShaftSpeed {
+      in item lowSpeedRotation : MechanicalRotation;
+      out item highSpeedRotation : MechanicalRotation;
+    }
+  }
+
+  part def ElectricGenerator {
+    attribute ratedPower : ElectricPower = 3000000.0;
+    attribute generatorTemperature : Temperature;
+    attribute conversionEfficiency : Percentage = 94.0;
+    attribute generatedVoltage : ElectricVoltage = 690.0;
+    attribute generatedFrequency : Frequency;
+
+    port mechanicalIn : RotationInputPort;
+    port electricalOut : ElectricalPowerOutPort;
+
+    action generateElectricalPower {
+      in item shaftRotation : MechanicalRotation;
+      out item acPower : ThreePhaseACPower;
+
+      objective {
+        doc /* Convert high-speed mechanical shaft rotation into three-phase alternating electrical power by electromagnetic induction. */
+      }
+    }
+  }
+
+  part def PowerConverter {
+    attribute dcLinkVoltage : ElectricVoltage;
+    attribute outputVoltage : ElectricVoltage = 690.0;
+    attribute outputFrequency : Frequency = 60.0;
+    attribute converterEfficiency : Percentage = 98.0;
+
+    port rawPowerIn : ElectricalPowerInPort;
+    port conditionedPowerOut : ElectricalPowerOutPort;
+
+    action conditionPower {
+      in item variableACPower : ThreePhaseACPower;
+      out item gridSynchronizedPower : ThreePhaseACPower;
+    }
+  }
+
+  part def Transformer {
+    attribute primaryVoltage : ElectricVoltage = 690.0;
+    attribute secondaryVoltage : ElectricVoltage = 34500.0;
+    attribute transformerEfficiency : Percentage = 98.5;
+    attribute windingTemperature : Temperature;
+
+    port lowVoltageIn : ElectricalPowerInPort;
+    port mediumVoltageOut : ElectricalPowerOutPort;
+
+    action stepUpVoltage {
+      in item lowVoltagePower : ThreePhaseACPower;
+      out item mediumVoltagePower : ThreePhaseACPower;
+    }
+  }
+
+  part def BrakeSystem {
+    attribute brakeApplied : BooleanValue;
+    attribute brakeTemperature : Temperature;
+    attribute maximumStoppingTorque : Torque = 2500000.0;
+
+    port commandIn : CommandPort;
+    port faultOut : FaultPort;
+
+    action applyBrake {
+      in item command : ControlCommand;
+      out attribute brakeApplied : BooleanValue;
+    }
+  }
+
+  part def SupervisoryController {
+    attribute cutInWindSpeed : WindSpeed = 3.5;
+    attribute ratedWindSpeed : WindSpeed = 12.0;
+    attribute cutOutWindSpeed : WindSpeed = 25.0;
+    attribute restartWindSpeed : WindSpeed = 20.0;
+    attribute targetRotorSpeed : AngularVelocity;
+    attribute targetPower : ElectricPower;
+    attribute gridConnected : BooleanValue;
+
+    port telemetryOut : TelemetryPort;
+    port commandOut : CommandPort;
+    port faultOut : FaultPort;
+
+    action computeOperatingCommands {
+      in item wind : AirFlow;
+      in attribute measuredRotorSpeed : AngularVelocity;
+      in attribute measuredPower : ElectricPower;
+      out item command : ControlCommand;
+    }
+
+    state operatingMode {
+      state parked;
+      state starting;
+      state generating;
+      state ratedPowerLimiting;
+      state highWindShutdown;
+      state faultShutdown;
+      state maintenance;
+
+      entry; then parked;
+
+      transition parked_to_starting
+        first parked
+        if wind.speed >= cutInWindSpeed and wind.speed < cutOutWindSpeed
+        then starting;
+
+      transition starting_to_generating
+        first starting
+        if gridConnected and targetRotorSpeed > 0.0
+        then generating;
+
+      transition generating_to_rated
+        first generating
+        if wind.speed >= ratedWindSpeed and wind.speed < cutOutWindSpeed
+        then ratedPowerLimiting;
+
+      transition rated_to_generating
+        first ratedPowerLimiting
+        if wind.speed < ratedWindSpeed
+        then generating;
+
+      transition generating_to_highWindShutdown
+        first generating
+        if wind.speed >= cutOutWindSpeed
+        then highWindShutdown;
+
+      transition rated_to_highWindShutdown
+        first ratedPowerLimiting
+        if wind.speed >= cutOutWindSpeed
+        then highWindShutdown;
+
+      transition highWindShutdown_to_parked
+        first highWindShutdown
+        if wind.speed <= restartWindSpeed
+        then parked;
+
+      transition any_to_faultShutdown
+        first parked
+        accept FaultReport
+        if fault.safeShutdownRequired
+        then faultShutdown;
+
+      transition faultShutdown_to_maintenance
+        first faultShutdown
+        then maintenance;
+    }
+  }
+
+  part def GridConnectionSystem {
+    attribute gridVoltage : ElectricVoltage = 34500.0;
+    attribute gridFrequency : Frequency = 60.0;
+    attribute breakerClosed : BooleanValue;
+    attribute exportedEnergyToday : Energy;
+
+    port conditionedPowerIn : ElectricalPowerInPort;
+    port gridOut : GridInterfacePort;
+    port commandIn : CommandPort;
+
+    action connectAndExport {
+      in item synchronizedPower : ThreePhaseACPower;
+      in item command : ControlCommand;
+      out item exportedPower : ThreePhaseACPower;
+    }
+  }
+
+  part def WindGenerator {
+    attribute systemRatedPower : ElectricPower = 3000000.0;
+    attribute systemAvailabilityTarget : Percentage = 97.0;
+    attribute designLife : RealValue = 25.0 {
+      unit = "yr";
+    }
+    attribute hubHeight : RealValue = 100.0 {
+      unit = "m";
+    }
+    attribute primaryFunction : TextValue = "Convert kinetic energy in wind into grid-compatible electrical power.";
+
+    port ambientWind : WindInletPort;
+    port electricalGridExport : GridInterfacePort;
+    port supervisoryTelemetry : TelemetryPort;
+    port systemFaults : FaultPort;
+
+    part rotor : RotorAssembly;
+    part pitch : PitchControlSystem;
+    part yaw : YawControlSystem;
+    part gearbox : Gearbox;
+    part generator : ElectricGenerator;
+    part converter : PowerConverter;
+    part transformer : Transformer;
+    part brake : BrakeSystem;
+    part controller : SupervisoryController;
+    part gridConnection : GridConnectionSystem;
+
+    connect ambientWind.wind to rotor.windIn.wind;
+    connect rotor.mechanicalOut.rotation to gearbox.lowSpeedIn.rotation;
+    connect gearbox.highSpeedOut.rotation to generator.mechanicalIn.rotation;
+    connect generator.electricalOut.power to converter.rawPowerIn.power;
+    connect converter.conditionedPowerOut.power to transformer.lowVoltageIn.power;
+    connect transformer.mediumVoltageOut.power to gridConnection.conditionedPowerIn.power;
+    connect gridConnection.gridOut.exportedPower to electricalGridExport.exportedPower;
+
+    connect controller.commandOut.command to rotor.commandIn.command;
+    connect controller.commandOut.command to pitch.commandIn.command;
+    connect controller.commandOut.command to yaw.commandIn.command;
+    connect controller.commandOut.command to brake.commandIn.command;
+    connect controller.commandOut.command to gridConnection.commandIn.command;
+
+    connect controller.telemetryOut.telemetry to supervisoryTelemetry.telemetry;
+    connect controller.faultOut.fault to systemFaults.fault;
+    connect pitch.faultOut.fault to systemFaults.fault;
+    connect brake.faultOut.fault to systemFaults.fault;
+
+    action performPrimaryFunction {
+      in item wind : AirFlow;
+      out item exportedPower : ThreePhaseACPower;
+
+      first start;
+      then senseWind;
+      then alignAndPitch;
+      then convertAerodynamicEnergy;
+      then increaseMechanicalSpeed;
+      then generateRawElectricalPower;
+      then conditionElectricalPower;
+      then transformVoltage;
+      then connectToGrid;
+      then done;
+
+      action senseWind;
+      action alignAndPitch;
+      action convertAerodynamicEnergy;
+      action increaseMechanicalSpeed;
+      action generateRawElectricalPower;
+      action conditionElectricalPower;
+      action transformVoltage;
+      action connectToGrid;
+
+      objective {
+        doc /* The wind generator captures wind energy at the rotor, converts it through a mechanical drivetrain into electrical power, conditions that power to meet grid requirements, and exports it through a protected grid interface. */
+      }
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject generator : WindGenerator;
+
+    require constraint {
+      generator.primaryFunction == "Convert kinetic energy in wind into grid-compatible electrical power."
+    }
+
+    doc /* The wind generator shall provide the high-level function of converting wind kinetic energy into usable electrical power for export to an electrical grid. */
+  }
+
+  requirement def PowerProductionRequirement {
+    subject generator : WindGenerator;
+
+    require constraint {
+      generator.systemRatedPower >= 3000000.0
+    }
+
+    doc /* The wind generator shall produce at least 3 MW of active electrical power at rated wind speed under normal operating conditions. */
+  }
+
+  requirement def WindOperatingEnvelopeRequirement {
+    subject controller : SupervisoryController;
+
+    require constraint {
+      controller.cutInWindSpeed <= 3.5 and controller.cutOutWindSpeed >= 25.0
+    }
+
+    doc /* The control system shall allow generation above cut-in wind speed and perform protective shutdown at or above cut-out wind speed. */
+  }
+
+  requirement def GridPowerQualityRequirement {
+    subject converter : PowerConverter;
+
+    require constraint {
+      converter.outputFrequency == 60.0 and converter.outputVoltage == 690.0
+    }
+
+    doc /* The power conversion system shall regulate generator output into grid-synchronized AC power before voltage step-up and export. */
+  }
+
+  requirement def SafetyShutdownRequirement {
+    subject brake : BrakeSystem;
+
+    require constraint {
+      brake.maximumStoppingTorque >= 2500000.0
+    }
+
+    doc /* The brake system shall provide sufficient stopping torque to bring the rotor to a safe state during commanded or fault-driven shutdown. */
+  }
+
+  requirement def AvailabilityRequirement {
+    subject generator : WindGenerator;
+
+    require constraint {
+      generator.systemAvailabilityTarget >= 97.0
+    }
+
+    doc /* The wind generator shall be designed to support high operational availability through monitored control, fault reporting, and protected shutdown behavior. */
+  }
+
+  satisfy PrimaryFunctionRequirement by WindGenerator::performPrimaryFunction;
+  satisfy PowerProductionRequirement by WindGenerator::generator;
+  satisfy WindOperatingEnvelopeRequirement by WindGenerator::controller;
+  satisfy GridPowerQualityRequirement by WindGenerator::converter;
+  satisfy SafetyShutdownRequirement by WindGenerator::brake;
+  satisfy AvailabilityRequirement by WindGenerator;
+
+  part windGeneratorSystem : WindGenerator {
+    attribute systemRatedPower = 3000000.0;
+    attribute hubHeight = 100.0;
+    attribute designLife = 25.0;
+  }
+}

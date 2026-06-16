@@ -1,0 +1,353 @@
+package StaticPressureSystemModel {
+  import ScalarValues::*;
+  import SI::*;
+
+  value type Pressure_Pa specializes Real {
+    unit = "Pa";
+    quantityKind = "static pressure";
+  }
+
+  value type Temperature_C specializes Real {
+    unit = "degC";
+    quantityKind = "temperature";
+  }
+
+  value type Voltage_V specializes Real {
+    unit = "V";
+    quantityKind = "electric potential";
+  }
+
+  value type Current_mA specializes Real {
+    unit = "mA";
+    quantityKind = "electric current";
+  }
+
+  value type Time_ms specializes Real {
+    unit = "ms";
+    quantityKind = "time";
+  }
+
+  value type Percent specializes Real {
+    unit = "%";
+    quantityKind = "ratio";
+  }
+
+  value type FlowRate_Lps specializes Real {
+    unit = "L/s";
+    quantityKind = "volumetric flow rate";
+  }
+
+  item def StaticPressureSample {
+    attribute pressure : Pressure_Pa;
+    attribute temperature : Temperature_C;
+    attribute timestamp : Time_ms;
+    attribute valid : Boolean;
+  }
+
+  item def FilteredPressure {
+    attribute pressure : Pressure_Pa;
+    attribute confidence : Percent;
+    attribute timestamp : Time_ms;
+  }
+
+  item def PressureCommand {
+    attribute targetPressure : Pressure_Pa;
+    attribute tolerance : Pressure_Pa;
+    attribute responseLimit : Time_ms;
+  }
+
+  item def ValveCommand {
+    attribute position : Percent;
+    attribute reason : String;
+  }
+
+  item def HealthStatus {
+    attribute healthy : Boolean;
+    attribute faultCode : String;
+    attribute lastMeasuredPressure : Pressure_Pa;
+  }
+
+  item def ElectricalPower {
+    attribute voltage : Voltage_V;
+    attribute current : Current_mA;
+  }
+
+  port def StaticPressurePort {
+    in item ambientStaticPressure : StaticPressureSample;
+  }
+
+  port def PressureDataPort {
+    out item filteredPressure : FilteredPressure;
+    out item health : HealthStatus;
+  }
+
+  port def CommandPort {
+    in item command : PressureCommand;
+  }
+
+  port def ValveControlPort {
+    out item valveCommand : ValveCommand;
+  }
+
+  port def PowerPort {
+    in item power : ElectricalPower;
+  }
+
+  port def VentPort {
+    in item inletPressure : StaticPressureSample;
+    out item relievedFlow : FlowRate_Lps;
+  }
+
+  action def SenseStaticPressure {
+    in item rawPressure : StaticPressureSample;
+    out item measuredPressure : StaticPressureSample;
+
+    constraint validRange {
+      measuredPressure.pressure >= 0.0 and measuredPressure.pressure <= 250000.0
+    }
+  }
+
+  action def FilterPressureSignal {
+    in item measuredPressure : StaticPressureSample;
+    out item filteredPressure : FilteredPressure;
+
+    attribute filterWindow : Time_ms = 100.0;
+    attribute minimumConfidence : Percent = 95.0;
+  }
+
+  action def CompareAgainstTarget {
+    in item filteredPressure : FilteredPressure;
+    in item command : PressureCommand;
+    out item error : Pressure_Pa;
+
+    constraint errorDefinition {
+      error == command.targetPressure - filteredPressure.pressure
+    }
+  }
+
+  action def RegulateStaticPressure {
+    in item error : Pressure_Pa;
+    out item valveCommand : ValveCommand;
+
+    attribute proportionalGain : Real = 0.04;
+    attribute maximumValvePosition : Percent = 100.0;
+    attribute minimumValvePosition : Percent = 0.0;
+  }
+
+  action def DiagnosePressureSystem {
+    in item filteredPressure : FilteredPressure;
+    in item power : ElectricalPower;
+    out item health : HealthStatus;
+
+    constraint powerHealthy {
+      power.voltage >= 20.0 and power.voltage <= 30.0
+    }
+  }
+
+  state def StaticPressureControllerStates {
+    entry action Initialize {
+      then Calibrate;
+    }
+
+    state Calibrate;
+    state Monitor;
+    state Regulate;
+    state Fault;
+    state Shutdown;
+
+    transition first Calibrate;
+    transition Calibrate_to_Monitor
+      first Calibrate
+      then Monitor;
+
+    transition Monitor_to_Regulate
+      first Monitor
+      then Regulate
+      if pressureErrorMagnitude > commandedTolerance;
+
+    transition Regulate_to_Monitor
+      first Regulate
+      then Monitor
+      if pressureErrorMagnitude <= commandedTolerance;
+
+    transition Any_to_Fault
+      first Monitor
+      then Fault
+      if healthHealthy == false;
+
+    transition Regulate_to_Fault
+      first Regulate
+      then Fault
+      if healthHealthy == false;
+
+    transition Fault_to_Shutdown
+      first Fault
+      then Shutdown
+      if faultIsCritical == true;
+
+    attribute pressureErrorMagnitude : Pressure_Pa;
+    attribute commandedTolerance : Pressure_Pa;
+    attribute healthHealthy : Boolean;
+    attribute faultIsCritical : Boolean;
+  }
+
+  part def StaticPressureSensor {
+    port pressureIn : StaticPressurePort;
+    port dataOut : PressureDataPort;
+    port powerIn : PowerPort;
+
+    attribute measurementRangeMin : Pressure_Pa = 0.0;
+    attribute measurementRangeMax : Pressure_Pa = 250000.0;
+    attribute accuracy : Pressure_Pa = 25.0;
+    attribute samplePeriod : Time_ms = 10.0;
+    attribute operatingTemperatureMin : Temperature_C = -40.0;
+    attribute operatingTemperatureMax : Temperature_C = 85.0;
+
+    perform action sense : SenseStaticPressure;
+    perform action filter : FilterPressureSignal;
+  }
+
+  part def StaticPressureController {
+    port pressureDataIn : PressureDataPort;
+    port commandIn : CommandPort;
+    port valveOut : ValveControlPort;
+    port powerIn : PowerPort;
+
+    attribute targetPressure : Pressure_Pa = 101325.0;
+    attribute tolerance : Pressure_Pa = 100.0;
+    attribute controlPeriod : Time_ms = 20.0;
+    attribute maximumCorrectionTime : Time_ms = 2000.0;
+
+    perform action compare : CompareAgainstTarget;
+    perform action regulate : RegulateStaticPressure;
+    exhibit state behavior : StaticPressureControllerStates;
+  }
+
+  part def PressureReliefValve {
+    port controlIn : ValveControlPort;
+    port vent : VentPort;
+
+    attribute normallyClosed : Boolean = true;
+    attribute maximumReliefFlow : FlowRate_Lps = 12.0;
+    attribute responseTime : Time_ms = 50.0;
+    attribute commandedPosition : Percent = 0.0;
+  }
+
+  part def PowerConditioner {
+    port supplyOut : PowerPort;
+
+    attribute nominalVoltage : Voltage_V = 24.0;
+    attribute maximumCurrent : Current_mA = 500.0;
+    attribute rippleLimit : Voltage_V = 0.05;
+  }
+
+  part def StaticPressureSystem {
+    port sensedPressure : StaticPressurePort;
+    port operatorCommand : CommandPort;
+    port pressureReport : PressureDataPort;
+    port reliefVent : VentPort;
+
+    part sensor : StaticPressureSensor;
+    part controller : StaticPressureController;
+    part reliefValve : PressureReliefValve;
+    part powerConditioner : PowerConditioner;
+
+    attribute primaryFunction : String =
+      "Measure static pressure, determine deviation from a commanded target, and regulate or report system pressure to maintain stable operating conditions.";
+
+    attribute nominalStaticPressure : Pressure_Pa = 101325.0;
+    attribute allowableStaticPressureLow : Pressure_Pa = 95000.0;
+    attribute allowableStaticPressureHigh : Pressure_Pa = 110000.0;
+    attribute requiredAccuracy : Pressure_Pa = 50.0;
+    attribute reportingPeriod : Time_ms = 100.0;
+
+    connect sensedPressure to sensor.pressureIn;
+    connect sensor.dataOut to controller.pressureDataIn;
+    connect sensor.dataOut to pressureReport;
+    connect operatorCommand to controller.commandIn;
+    connect controller.valveOut to reliefValve.controlIn;
+    connect reliefValve.vent to reliefVent;
+    connect powerConditioner.supplyOut to sensor.powerIn;
+    connect powerConditioner.supplyOut to controller.powerIn;
+
+    perform action diagnose : DiagnosePressureSystem;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject system : StaticPressureSystem;
+
+    doc "The system shall provide a high-level static pressure function by sensing static pressure, filtering the measurement, comparing it with a commanded target, and issuing regulation or reporting outputs."
+
+    require constraint primaryFunctionDefined {
+      system.requiredAccuracy <= 50.0 and
+      system.reportingPeriod <= 100.0
+    }
+  }
+
+  requirement def StaticPressureMeasurementRequirement {
+    subject sensor : StaticPressureSensor;
+
+    doc "The static pressure sensor shall measure pressure across the specified range with sufficient accuracy for control and reporting."
+
+    require constraint measurementCapability {
+      sensor.measurementRangeMin <= 0.0 and
+      sensor.measurementRangeMax >= 250000.0 and
+      sensor.accuracy <= 25.0 and
+      sensor.samplePeriod <= 10.0
+    }
+  }
+
+  requirement def StaticPressureControlRequirement {
+    subject controller : StaticPressureController;
+
+    doc "The controller shall compare filtered static pressure against the target and command pressure relief when the measured pressure exceeds the allowable tolerance."
+
+    require constraint controlPerformance {
+      controller.tolerance <= 100.0 and
+      controller.controlPeriod <= 20.0 and
+      controller.maximumCorrectionTime <= 2000.0
+    }
+  }
+
+  requirement def PressureReliefRequirement {
+    subject valve : PressureReliefValve;
+
+    doc "The relief valve shall modulate venting flow in response to controller commands to reduce excessive static pressure."
+
+    require constraint reliefCapability {
+      valve.maximumReliefFlow >= 10.0 and
+      valve.responseTime <= 50.0
+    }
+  }
+
+  requirement def PowerRequirement {
+    subject power : PowerConditioner;
+
+    doc "The power conditioner shall provide stable electrical power to pressure sensing and control components."
+
+    require constraint stablePower {
+      power.nominalVoltage == 24.0 and
+      power.maximumCurrent >= 500.0 and
+      power.rippleLimit <= 0.05
+    }
+  }
+
+  requirement def SystemOperatingEnvelopeRequirement {
+    subject system : StaticPressureSystem;
+
+    doc "The system shall maintain and report static pressure within the defined operating envelope during normal operation."
+
+    require constraint pressureEnvelope {
+      system.allowableStaticPressureLow >= 95000.0 and
+      system.allowableStaticPressureHigh <= 110000.0 and
+      system.nominalStaticPressure == 101325.0
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by StaticPressureSystem;
+  satisfy StaticPressureMeasurementRequirement by StaticPressureSystem::sensor;
+  satisfy StaticPressureControlRequirement by StaticPressureSystem::controller;
+  satisfy PressureReliefRequirement by StaticPressureSystem::reliefValve;
+  satisfy PowerRequirement by StaticPressureSystem::powerConditioner;
+  satisfy SystemOperatingEnvelopeRequirement by StaticPressureSystem;
+}

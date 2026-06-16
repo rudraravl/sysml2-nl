@@ -1,0 +1,328 @@
+package JetPropulsionLaboratoryModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    value def DataRate :> Real;
+    value def MissionCost :> Real;
+    value def TimeDuration :> Real;
+    value def Distance :> Real;
+    value def PowerLevel :> Real;
+    value def ForceLevel :> Real;
+
+    item def MissionCommand {
+        attribute commandId : String;
+        attribute targetVehicle : String;
+        attribute executionTime : String;
+        attribute encodedSizeMb : DataRate;
+    }
+
+    item def TelemetryFrame {
+        attribute spacecraftId : String;
+        attribute receiveTime : String;
+        attribute dataVolumeMb : DataRate;
+        attribute signalStrengthDbm : Real;
+    }
+
+    item def ScienceObservation {
+        attribute instrumentName : String;
+        attribute targetBody : String;
+        attribute observationTime : String;
+        attribute dataVolumeGb : Real;
+    }
+
+    item def NavigationSolution {
+        attribute epoch : String;
+        attribute positionUncertaintyKm : Distance;
+        attribute velocityUncertaintyMps : Real;
+    }
+
+    item def MissionPlan {
+        attribute missionName : String;
+        attribute destination : String;
+        attribute launchReadinessDate : String;
+        attribute estimatedCostUsdM : MissionCost;
+        attribute plannedDurationDays : TimeDuration;
+    }
+
+    item def PropulsionTestResult {
+        attribute thrusterName : String;
+        attribute measuredThrustN : ForceLevel;
+        attribute chamberPressurePa : Real;
+        attribute testDurationSec : TimeDuration;
+    }
+
+    port def ProgramDirectionPort {
+        in item missionAuthorization : MissionPlan;
+        out item missionStatus : TelemetryFrame;
+    }
+
+    port def SpacecraftOperationsPort {
+        out item command : MissionCommand;
+        in item telemetry : TelemetryFrame;
+        out item navigationUpdate : NavigationSolution;
+    }
+
+    port def ScienceDataPort {
+        in item rawObservation : ScienceObservation;
+        out item calibratedObservation : ScienceObservation;
+    }
+
+    port def NavigationPort {
+        in item trackingTelemetry : TelemetryFrame;
+        out item navigationSolution : NavigationSolution;
+    }
+
+    port def PropulsionTestPort {
+        in item testRequest : MissionPlan;
+        out item testResult : PropulsionTestResult;
+    }
+
+    part def MissionFormulationOffice {
+        attribute activeConceptStudies : Integer;
+        attribute annualBudgetUsdM : MissionCost;
+        port nasaProgramInterface : ProgramDirectionPort;
+        out item approvedMissionPlan : MissionPlan;
+    }
+
+    part def FlightProjectOffice {
+        attribute activeFlightProjects : Integer;
+        attribute projectRiskIndex : Real;
+        in item approvedMissionPlan : MissionPlan;
+        out item verifiedMissionPlan : MissionPlan;
+        port projectOperations : SpacecraftOperationsPort;
+    }
+
+    part def SpacecraftAssemblyFacility {
+        attribute cleanRoomAreaM2 : Real;
+        attribute environmentalControlPowerKw : PowerLevel;
+        in item verifiedMissionPlan : MissionPlan;
+        out item integratedSpacecraftPlan : MissionPlan;
+    }
+
+    part def PropulsionLaboratory {
+        attribute maxVacuumChamberDiameterM : Real;
+        attribute maxTestThrustN : ForceLevel;
+        port propulsionTestInterface : PropulsionTestPort;
+    }
+
+    part def MissionControlCenter {
+        attribute staffedConsoleCount : Integer;
+        attribute commandApprovalLatencyMin : TimeDuration;
+        port operationsLink : SpacecraftOperationsPort;
+        port navigationInterface : NavigationPort;
+    }
+
+    part def DeepSpaceNetworkInterface {
+        attribute averageUplinkRateMbps : DataRate;
+        attribute averageDownlinkRateMbps : DataRate;
+        attribute antennaAvailabilityPercent : Real;
+        port spacecraftLink : SpacecraftOperationsPort;
+        port trackingLink : NavigationPort;
+    }
+
+    part def NavigationTeam {
+        attribute orbitDeterminationCycleHr : TimeDuration;
+        attribute targetPositionAccuracyKm : Distance;
+        port navigationService : NavigationPort;
+    }
+
+    part def ScienceDataSystem {
+        attribute archiveCapacityPb : Real;
+        attribute processingThroughputGbPerHr : DataRate;
+        port sciencePipeline : ScienceDataPort;
+    }
+
+    part def PublicOutreachOffice {
+        attribute annualReleaseCount : Integer;
+        in item validatedObservation : ScienceObservation;
+    }
+
+    action def FormulateMission {
+        in item authorization : MissionPlan;
+        out item approvedPlan : MissionPlan;
+
+        first start;
+        then assessScientificObjectives;
+        then estimateCostAndSchedule;
+        then approveConcept;
+        then done;
+    }
+
+    action def BuildAndTestSpacecraft {
+        in item verifiedPlan : MissionPlan;
+        out item integratedPlan : MissionPlan;
+        out item propulsionResult : PropulsionTestResult;
+
+        first start;
+        then assembleFlightHardware;
+        then executeEnvironmentalTests;
+        then executePropulsionTests;
+        then certifyFlightReadiness;
+        then done;
+    }
+
+    action def OperateRoboticMission {
+        in item missionPlan : MissionPlan;
+        in item telemetry : TelemetryFrame;
+        out item command : MissionCommand;
+        out item scienceObservation : ScienceObservation;
+
+        first start;
+        then receiveTelemetry;
+        then determineSpacecraftState;
+        then planCommandSequence;
+        then uplinkCommand;
+        then acquireScienceData;
+        then archiveMissionProducts;
+        then done;
+    }
+
+    action def ProcessScienceData {
+        in item rawObservation : ScienceObservation;
+        out item calibratedObservation : ScienceObservation;
+
+        first start;
+        then validateInstrumentMetadata;
+        then calibrateObservation;
+        then generateArchiveProduct;
+        then publishToScienceCommunity;
+        then done;
+    }
+
+    state def MissionLifecycle {
+        entry action initializeMissionRecord;
+
+        state ConceptFormulation;
+        state DesignAndDevelopment;
+        state AssemblyTestAndLaunchReadiness;
+        state CruiseOperations;
+        state EncounterOrSurfaceOperations;
+        state ExtendedMission;
+        state MissionCloseout;
+
+        transition first ConceptFormulation;
+        transition ConceptFormulation to DesignAndDevelopment
+            accept ConceptApproved;
+        transition DesignAndDevelopment to AssemblyTestAndLaunchReadiness
+            accept DesignVerified;
+        transition AssemblyTestAndLaunchReadiness to CruiseOperations
+            accept LaunchSuccessful;
+        transition CruiseOperations to EncounterOrSurfaceOperations
+            accept TargetArrival;
+        transition EncounterOrSurfaceOperations to ExtendedMission
+            accept PrimeMissionComplete;
+        transition ExtendedMission to MissionCloseout
+            accept EndOfMissionDeclared;
+    }
+
+    part def JetPropulsionLaboratory {
+        attribute name : String = "Jet Propulsion Laboratory";
+        attribute primaryFunction : String = "Design, build, test, and operate robotic spacecraft missions that explore planetary bodies, deep space, and Earth system phenomena for NASA and the scientific community.";
+        attribute headquartersLocation : String = "Pasadena, California";
+        attribute managedForAgency : String = "NASA";
+        attribute maximumConcurrentFlightProjects : Integer = 25;
+
+        port nasaProgramPort : ProgramDirectionPort;
+        port deepSpaceOperationsPort : SpacecraftOperationsPort;
+        port scienceCommunityPort : ScienceDataPort;
+
+        part formulationOffice : MissionFormulationOffice;
+        part flightProjects : FlightProjectOffice;
+        part assemblyFacility : SpacecraftAssemblyFacility;
+        part propulsionLaboratory : PropulsionLaboratory;
+        part missionControl : MissionControlCenter;
+        part deepSpaceNetwork : DeepSpaceNetworkInterface;
+        part navigationTeam : NavigationTeam;
+        part scienceDataSystem : ScienceDataSystem;
+        part outreachOffice : PublicOutreachOffice;
+
+        perform action formulateMission : FormulateMission;
+        perform action buildAndTestSpacecraft : BuildAndTestSpacecraft;
+        perform action operateRoboticMission : OperateRoboticMission;
+        perform action processScienceData : ProcessScienceData;
+
+        exhibit state missionLifecycle : MissionLifecycle;
+
+        connect nasaProgramPort to formulationOffice.nasaProgramInterface;
+        connect formulationOffice.approvedMissionPlan to flightProjects.approvedMissionPlan;
+        connect flightProjects.verifiedMissionPlan to assemblyFacility.verifiedMissionPlan;
+        connect missionControl.operationsLink to deepSpaceNetwork.spacecraftLink;
+        connect missionControl.navigationInterface to navigationTeam.navigationService;
+        connect deepSpaceNetwork.trackingLink to navigationTeam.navigationService;
+        connect scienceCommunityPort to scienceDataSystem.sciencePipeline;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject lab : JetPropulsionLaboratory;
+
+        doc /* The laboratory shall provide the integrated institutional capability to formulate, implement, and operate robotic space missions. */
+
+        require constraint {
+            lab.maximumConcurrentFlightProjects >= 1
+        }
+    }
+
+    requirement def DeepSpaceOperationsRequirement {
+        subject lab : JetPropulsionLaboratory;
+
+        require constraint {
+            lab.deepSpaceNetwork.averageDownlinkRateMbps > 0.0
+        }
+    }
+
+    requirement def MissionDataProcessingRequirement {
+        subject lab : JetPropulsionLaboratory;
+
+        require constraint {
+            lab.scienceDataSystem.archiveCapacityPb >= 1.0
+        }
+    }
+
+    requirement def PropulsionVerificationRequirement {
+        subject lab : JetPropulsionLaboratory;
+
+        require constraint {
+            lab.propulsionLaboratory.maxTestThrustN > 0.0
+        }
+    }
+
+    requirement def NavigationAccuracyRequirement {
+        subject lab : JetPropulsionLaboratory;
+
+        require constraint {
+            lab.navigationTeam.targetPositionAccuracyKm <= 10.0
+        }
+    }
+
+    part jplSystem : JetPropulsionLaboratory {
+        attribute maximumConcurrentFlightProjects = 18;
+
+        part deepSpaceNetwork {
+            attribute averageUplinkRateMbps = 2.0;
+            attribute averageDownlinkRateMbps = 8.0;
+            attribute antennaAvailabilityPercent = 96.5;
+        }
+
+        part scienceDataSystem {
+            attribute archiveCapacityPb = 45.0;
+            attribute processingThroughputGbPerHr = 750.0;
+        }
+
+        part propulsionLaboratory {
+            attribute maxVacuumChamberDiameterM = 8.2;
+            attribute maxTestThrustN = 500000.0;
+        }
+
+        part navigationTeam {
+            attribute orbitDeterminationCycleHr = 8.0;
+            attribute targetPositionAccuracyKm = 5.0;
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by jplSystem;
+    satisfy DeepSpaceOperationsRequirement by jplSystem;
+    satisfy MissionDataProcessingRequirement by jplSystem;
+    satisfy PropulsionVerificationRequirement by jplSystem;
+    satisfy NavigationAccuracyRequirement by jplSystem;
+}

@@ -1,0 +1,282 @@
+package SpacecraftSolarPanelSystemModel {
+  import ScalarValues::*;
+  import SI::*;
+
+  item def PhotonFlux;
+  item def DirectCurrentPower;
+  item def RegulatedPower;
+  item def ThermalEnergy;
+  item def DeploymentCommand;
+  item def SunVector;
+  item def TelemetryPacket;
+
+  value type Voltage {
+    unit V;
+  }
+
+  value type Current {
+    unit A;
+  }
+
+  value type Power {
+    unit W;
+  }
+
+  value type Energy {
+    unit Wh;
+  }
+
+  value type Angle {
+    unit deg;
+  }
+
+  value type Temperature {
+    unit K;
+  }
+
+  value type Irradiance {
+    unit W_per_m2;
+  }
+
+  value type Area {
+    unit m2;
+  }
+
+  value type Efficiency {
+    unit percent;
+  }
+
+  port def OpticalInputPort {
+    in item photons : PhotonFlux;
+  }
+
+  port def ElectricalPowerPort {
+    out item power : DirectCurrentPower;
+  }
+
+  port def RegulatedPowerPort {
+    out item power : RegulatedPower;
+  }
+
+  port def ThermalPort {
+    out item heat : ThermalEnergy;
+  }
+
+  port def CommandPort {
+    in item command : DeploymentCommand;
+  }
+
+  port def SunSensorPort {
+    out item vector : SunVector;
+  }
+
+  port def TelemetryPort {
+    out item telemetry : TelemetryPacket;
+  }
+
+  part def SolarCell {
+    attribute openCircuitVoltage : Voltage = 2.7;
+    attribute shortCircuitCurrent : Current = 0.52;
+    attribute conversionEfficiency : Efficiency = 30.0;
+    attribute operatingTemperature : Temperature = 298.15;
+
+    port sunlight : OpticalInputPort;
+    port dcOut : ElectricalPowerPort;
+    port heatOut : ThermalPort;
+
+    action convertSunlightToElectricity {
+      in item incidentPhotons : PhotonFlux;
+      out item generatedPower : DirectCurrentPower;
+    }
+  }
+
+  part def SolarPanelWing {
+    attribute activeArea : Area = 12.5;
+    attribute nominalIrradiance : Irradiance = 1361.0;
+    attribute wingEfficiency : Efficiency = 28.5;
+    attribute articulationAngle : Angle = 0.0;
+    attribute nominalPower : Power = 4850.0;
+
+    part cells[2400] : SolarCell;
+
+    port sunlight : OpticalInputPort;
+    port dcPower : ElectricalPowerPort;
+    port wasteHeat : ThermalPort;
+
+    action collectSolarEnergy {
+      in item photons : PhotonFlux;
+      out item wingPower : DirectCurrentPower;
+    }
+  }
+
+  part def DeploymentMechanism {
+    attribute deployedAngle : Angle = 90.0;
+    attribute latchEngaged : Boolean = false;
+
+    port commandIn : CommandPort;
+    port telemetryOut : TelemetryPort;
+
+    action releaseLaunchLocks;
+    action rotateWingToDeployedPosition;
+    action engageHoldDownLatch;
+  }
+
+  part def SunTrackingAssembly {
+    attribute pointingError : Angle = 0.25;
+    attribute maximumSlewAngle : Angle = 180.0;
+
+    port sunVectorOut : SunSensorPort;
+    port telemetryOut : TelemetryPort;
+
+    action estimateSunVector {
+      out item vector : SunVector;
+    }
+
+    action commandPanelPointing {
+      in item vector : SunVector;
+    }
+  }
+
+  part def PowerRegulationUnit {
+    attribute inputVoltage : Voltage = 100.0;
+    attribute regulatedBusVoltage : Voltage = 28.0;
+    attribute maximumOutputPower : Power = 9000.0;
+    attribute regulationEfficiency : Efficiency = 96.0;
+
+    port rawPowerIn : ElectricalPowerPort;
+    port regulatedPowerOut : RegulatedPowerPort;
+    port telemetryOut : TelemetryPort;
+
+    action regulateArrayPower {
+      in item rawPower : DirectCurrentPower;
+      out item busPower : RegulatedPower;
+    }
+  }
+
+  part def SpacecraftElectricalBus {
+    attribute nominalVoltage : Voltage = 28.0;
+    attribute storedEnergy : Energy = 4200.0;
+    attribute loadDemand : Power = 2500.0;
+
+    port powerIn : RegulatedPowerPort;
+  }
+
+  part def SpacecraftSolarPowerSystem {
+    attribute primaryFunction : String =
+      "Convert incident solar radiation into regulated electrical power for spacecraft loads and battery charging.";
+
+    attribute totalArrayArea : Area = 25.0;
+    attribute totalNominalPower : Power = 9700.0;
+    attribute minimumOperationalPower : Power = 3500.0;
+
+    part portWing : SolarPanelWing;
+    part starboardWing : SolarPanelWing;
+    part portDeployment : DeploymentMechanism;
+    part starboardDeployment : DeploymentMechanism;
+    part tracker : SunTrackingAssembly;
+    part regulator : PowerRegulationUnit;
+    part electricalBus : SpacecraftElectricalBus;
+
+    port sunlight : OpticalInputPort;
+    port spacecraftPower : RegulatedPowerPort;
+    port commandIn : CommandPort;
+    port telemetryOut : TelemetryPort;
+
+    connection sunlightToPortWing connect sunlight to portWing.sunlight;
+    connection sunlightToStarboardWing connect sunlight to starboardWing.sunlight;
+    connection portWingPowerToRegulator connect portWing.dcPower to regulator.rawPowerIn;
+    connection starboardWingPowerToRegulator connect starboardWing.dcPower to regulator.rawPowerIn;
+    connection regulatorToBus connect regulator.regulatedPowerOut to electricalBus.powerIn;
+    connection regulatorToSpacecraft connect regulator.regulatedPowerOut to spacecraftPower;
+    connection commandToPortDeployment connect commandIn to portDeployment.commandIn;
+    connection commandToStarboardDeployment connect commandIn to starboardDeployment.commandIn;
+
+    action provideSpacecraftElectricalPower {
+      in item solarFlux : PhotonFlux;
+      out item usablePower : RegulatedPower;
+
+      first start;
+      then collectPower;
+      then regulatePower;
+      then deliverPower;
+      then done;
+
+      action collectPower {
+        out item rawArrayPower : DirectCurrentPower;
+      }
+
+      action regulatePower {
+        in item rawArrayPower : DirectCurrentPower;
+        out item regulatedBusPower : RegulatedPower;
+      }
+
+      action deliverPower {
+        in item regulatedBusPower : RegulatedPower;
+        out item usablePower : RegulatedPower;
+      }
+    }
+
+    state def OperationalStates {
+      state Stowed;
+      state Deploying;
+      state SunAcquisition;
+      state GeneratingPower;
+      state SafeMode;
+      state EclipseStandby;
+
+      transition initialToStowed first Stowed;
+      transition deployCommandReceived first Stowed accept DeploymentCommand then Deploying;
+      transition deploymentComplete first Deploying then SunAcquisition;
+      transition sunVectorLocked first SunAcquisition then GeneratingPower;
+      transition lowSunlight first GeneratingPower then EclipseStandby;
+      transition sunlightRestored first EclipseStandby then SunAcquisition;
+      transition faultDetected first GeneratingPower then SafeMode;
+      transition faultCleared first SafeMode then SunAcquisition;
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject system : SpacecraftSolarPowerSystem;
+
+    require constraint {
+      system.totalNominalPower >= system.minimumOperationalPower
+    }
+  }
+
+  requirement def DeployedPowerRequirement {
+    subject system : SpacecraftSolarPowerSystem;
+
+    require constraint {
+      system.totalNominalPower >= 9000.0
+    }
+  }
+
+  requirement def BusVoltageRequirement {
+    subject regulator : PowerRegulationUnit;
+
+    require constraint {
+      regulator.regulatedBusVoltage == 28.0
+    }
+  }
+
+  requirement def TrackingAccuracyRequirement {
+    subject tracker : SunTrackingAssembly;
+
+    require constraint {
+      tracker.pointingError <= 1.0
+    }
+  }
+
+  requirement def DeploymentRequirement {
+    subject mechanism : DeploymentMechanism;
+
+    require constraint {
+      mechanism.deployedAngle >= 90.0
+    }
+  }
+
+  part spacecraftSolarPowerSystem : SpacecraftSolarPowerSystem;
+
+  satisfy spacecraftSolarPowerSystem by PrimaryFunctionRequirement;
+  satisfy spacecraftSolarPowerSystem by DeployedPowerRequirement;
+}

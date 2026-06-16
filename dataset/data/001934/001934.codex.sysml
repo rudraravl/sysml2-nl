@@ -1,0 +1,428 @@
+package TelepresenceSystemModel {
+
+    import ScalarValues::*;
+    import Quantities::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Percent :> Real {
+        unit = one;
+    }
+
+    attribute def Latency :> Real {
+        unit = ms;
+    }
+
+    attribute def DataRate :> Real {
+        unit = Mb / s;
+    }
+
+    attribute def Distance :> Real {
+        unit = m;
+    }
+
+    attribute def Angle :> Real {
+        unit = deg;
+    }
+
+    attribute def AudioLevel :> Real {
+        unit = dB;
+    }
+
+    attribute def ResolutionWidth :> Integer;
+    attribute def ResolutionHeight :> Integer;
+
+    item def AudioStream {
+        attribute sampleRate : Frequency;
+        attribute channelCount : Integer;
+        attribute bitrate : DataRate;
+        attribute level : AudioLevel;
+    }
+
+    item def VideoStream {
+        attribute width : ResolutionWidth;
+        attribute height : ResolutionHeight;
+        attribute frameRate : Frequency;
+        attribute bitrate : DataRate;
+        attribute encodingLatency : Latency;
+    }
+
+    item def ControlCommand {
+        attribute commandId : Integer;
+        attribute panAngle : Angle;
+        attribute tiltAngle : Angle;
+        attribute driveSpeed : Speed;
+        attribute emergencyStop : Boolean;
+    }
+
+    item def PresenceStatus {
+        attribute connected : Boolean;
+        attribute batteryCharge : Percent;
+        attribute networkLatency : Latency;
+        attribute operatorAuthenticated : Boolean;
+        attribute faultActive : Boolean;
+    }
+
+    port def AudioOutPort {
+        out item audio : AudioStream;
+    }
+
+    port def AudioInPort {
+        in item audio : AudioStream;
+    }
+
+    port def VideoOutPort {
+        out item video : VideoStream;
+    }
+
+    port def VideoInPort {
+        in item video : VideoStream;
+    }
+
+    port def CommandOutPort {
+        out item command : ControlCommand;
+    }
+
+    port def CommandInPort {
+        in item command : ControlCommand;
+    }
+
+    port def StatusOutPort {
+        out item status : PresenceStatus;
+    }
+
+    port def StatusInPort {
+        in item status : PresenceStatus;
+    }
+
+    part def CameraAssembly {
+        attribute horizontalFieldOfView : Angle = 90 [deg];
+        attribute verticalFieldOfView : Angle = 60 [deg];
+        attribute opticalZoom : Real = 4.0;
+        attribute panRange : Angle = 180 [deg];
+        attribute tiltRange : Angle = 90 [deg];
+
+        port videoOut : VideoOutPort;
+        port commandIn : CommandInPort;
+
+        action captureVideo {
+            out item videoFrame : VideoStream;
+        }
+
+        action pointCamera {
+            in item command : ControlCommand;
+        }
+    }
+
+    part def MicrophoneArray {
+        attribute microphoneCount : Integer = 4;
+        attribute pickupRadius : Distance = 5 [m];
+        attribute noiseSuppressionEnabled : Boolean = true;
+
+        port audioOut : AudioOutPort;
+
+        action captureAudio {
+            out item roomAudio : AudioStream;
+        }
+    }
+
+    part def SpeakerSystem {
+        attribute speakerCount : Integer = 2;
+        attribute maximumLevel : AudioLevel = 85 [dB];
+
+        port audioIn : AudioInPort;
+
+        action renderRemoteVoice {
+            in item remoteAudio : AudioStream;
+        }
+    }
+
+    part def DisplaySystem {
+        attribute diagonalSize : Distance = 0.34 [m];
+        attribute nativeWidth : ResolutionWidth = 1920;
+        attribute nativeHeight : ResolutionHeight = 1080;
+
+        port videoIn : VideoInPort;
+
+        action presentRemoteImage {
+            in item remoteVideo : VideoStream;
+        }
+    }
+
+    part def MobilityBase {
+        attribute maximumSpeed : Speed = 1.2 [m / s];
+        attribute turningRadius : Distance = 0.4 [m];
+        attribute obstacleStopDistance : Distance = 0.25 [m];
+
+        port commandIn : CommandInPort;
+        port statusOut : StatusOutPort;
+
+        action executeMotion {
+            in item motionCommand : ControlCommand;
+        }
+
+        action stopSafely;
+    }
+
+    part def NetworkInterface {
+        attribute minimumUplinkRate : DataRate = 8 [Mb / s];
+        attribute minimumDownlinkRate : DataRate = 8 [Mb / s];
+        attribute maximumAllowedLatency : Latency = 150 [ms];
+        attribute encryptionEnabled : Boolean = true;
+
+        port localAudioIn : AudioInPort;
+        port localVideoIn : VideoInPort;
+        port remoteAudioOut : AudioOutPort;
+        port remoteVideoOut : VideoOutPort;
+        port commandOut : CommandOutPort;
+        port commandIn : CommandInPort;
+        port statusIn : StatusInPort;
+        port statusOut : StatusOutPort;
+
+        action encodeAndTransmitMedia {
+            in item audio : AudioStream;
+            in item video : VideoStream;
+        }
+
+        action receiveAndDecodeMedia {
+            out item audio : AudioStream;
+            out item video : VideoStream;
+        }
+
+        action exchangeControlAndStatus {
+            in item command : ControlCommand;
+            out item status : PresenceStatus;
+        }
+    }
+
+    part def OperatorConsole {
+        attribute authenticated : Boolean;
+        attribute preferredVideoWidth : ResolutionWidth = 1920;
+        attribute preferredVideoHeight : ResolutionHeight = 1080;
+
+        port audioIn : AudioInPort;
+        port audioOut : AudioOutPort;
+        port videoIn : VideoInPort;
+        port videoOut : VideoOutPort;
+        port commandOut : CommandOutPort;
+        port statusIn : StatusInPort;
+
+        action authenticateOperator {
+            out authenticated : Boolean;
+        }
+
+        action captureOperatorMedia {
+            out item operatorAudio : AudioStream;
+            out item operatorVideo : VideoStream;
+        }
+
+        action displayRemoteEnvironment {
+            in item remoteAudio : AudioStream;
+            in item remoteVideo : VideoStream;
+            in item status : PresenceStatus;
+        }
+
+        action issueControlCommand {
+            out item command : ControlCommand;
+        }
+    }
+
+    part def PowerSubsystem {
+        attribute batteryCapacity : Energy = 360 [W * h];
+        attribute nominalVoltage : ElectricPotential = 24 [V];
+        attribute minimumOperatingCharge : Percent = 15.0;
+        attribute currentCharge : Percent;
+
+        port statusOut : StatusOutPort;
+
+        action monitorBattery {
+            out item status : PresenceStatus;
+        }
+    }
+
+    part def TelepresenceRobot {
+        attribute nominalSessionDuration : Time = 4 [h];
+        attribute operationalLatencyLimit : Latency = 200 [ms];
+
+        part camera : CameraAssembly;
+        part microphones : MicrophoneArray;
+        part speakers : SpeakerSystem;
+        part display : DisplaySystem;
+        part base : MobilityBase;
+        part network : NetworkInterface;
+        part power : PowerSubsystem;
+
+        port remoteAudioIn : AudioInPort;
+        port remoteAudioOut : AudioOutPort;
+        port remoteVideoIn : VideoInPort;
+        port remoteVideoOut : VideoOutPort;
+        port remoteCommandIn : CommandInPort;
+        port remoteStatusOut : StatusOutPort;
+
+        connect microphones.audioOut to network.localAudioIn;
+        connect camera.videoOut to network.localVideoIn;
+        connect network.remoteAudioOut to speakers.audioIn;
+        connect network.remoteVideoOut to display.videoIn;
+        connect network.commandOut to camera.commandIn;
+        connect network.commandOut to base.commandIn;
+        connect base.statusOut to network.statusIn;
+        connect power.statusOut to network.statusIn;
+
+        connect remoteAudioIn to network.remoteAudioOut;
+        connect network.localAudioIn to remoteAudioOut;
+        connect remoteVideoIn to network.remoteVideoOut;
+        connect network.localVideoIn to remoteVideoOut;
+        connect remoteCommandIn to network.commandIn;
+        connect network.statusOut to remoteStatusOut;
+
+        state def RobotOperationalState {
+            entry action initialize;
+            state Offline;
+            state AwaitingAuthentication;
+            state Connected;
+            state ActiveTelepresence;
+            state DegradedNetwork;
+            state LowPowerReturn;
+            state EmergencyStopped;
+
+            transition first Offline;
+            transition Offline then AwaitingAuthentication
+                accept PresenceStatus
+                if operatorAuthenticated;
+            transition AwaitingAuthentication then Connected
+                accept PresenceStatus
+                if connected and operatorAuthenticated;
+            transition Connected then ActiveTelepresence
+                accept ControlCommand
+                if not emergencyStop;
+            transition ActiveTelepresence then DegradedNetwork
+                accept PresenceStatus
+                if networkLatency > 200 [ms];
+            transition DegradedNetwork then ActiveTelepresence
+                accept PresenceStatus
+                if networkLatency <= 150 [ms];
+            transition ActiveTelepresence then LowPowerReturn
+                accept PresenceStatus
+                if batteryCharge < 15.0;
+            transition ActiveTelepresence then EmergencyStopped
+                accept ControlCommand
+                if emergencyStop;
+            transition DegradedNetwork then EmergencyStopped
+                accept ControlCommand
+                if emergencyStop;
+            transition EmergencyStopped then Connected
+                accept ControlCommand
+                if not emergencyStop;
+        }
+
+        action provideTelepresence {
+            first start;
+            then authenticate;
+            then establishSecureSession;
+            then captureLocalEnvironment;
+            then streamLocalPresence;
+            then renderOperatorPresence;
+            then applyRemoteCommands;
+            then monitorSafetyAndHealth;
+
+            action start;
+            action authenticate;
+            action establishSecureSession;
+            action captureLocalEnvironment {
+                out item roomAudio : AudioStream;
+                out item roomVideo : VideoStream;
+            }
+            action streamLocalPresence {
+                in item roomAudio : AudioStream;
+                in item roomVideo : VideoStream;
+            }
+            action renderOperatorPresence {
+                in item operatorAudio : AudioStream;
+                in item operatorVideo : VideoStream;
+            }
+            action applyRemoteCommands {
+                in item command : ControlCommand;
+            }
+            action monitorSafetyAndHealth {
+                out item status : PresenceStatus;
+            }
+        }
+    }
+
+    part def TelepresenceSystem {
+        attribute primaryFunction : String =
+            "Enable a remote authenticated operator to perceive, communicate with, and navigate within a distant physical environment in near real time.";
+
+        part robot : TelepresenceRobot;
+        part console : OperatorConsole;
+
+        connect console.audioOut to robot.remoteAudioIn;
+        connect robot.remoteAudioOut to console.audioIn;
+        connect console.videoOut to robot.remoteVideoIn;
+        connect robot.remoteVideoOut to console.videoIn;
+        connect console.commandOut to robot.remoteCommandIn;
+        connect robot.remoteStatusOut to console.statusIn;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The telepresence system shall enable a remote operator to interact with people and observe the remote environment through bidirectional audio, bidirectional video, and remote control of viewpoint and mobility. */
+
+        subject system : TelepresenceSystem;
+
+        require constraint {
+            system.robot.network.encryptionEnabled == true
+        }
+    }
+
+    requirement def MediaQualityRequirement {
+        doc /* The system shall support high-definition interactive communication suitable for natural conversation and situational awareness. */
+
+        subject robot : TelepresenceRobot;
+
+        require constraint {
+            robot.camera.horizontalFieldOfView >= 80 [deg] and
+            robot.display.nativeWidth >= 1280 and
+            robot.display.nativeHeight >= 720 and
+            robot.network.minimumUplinkRate >= 6 [Mb / s] and
+            robot.network.minimumDownlinkRate >= 6 [Mb / s]
+        }
+    }
+
+    requirement def LatencyRequirement {
+        doc /* End-to-end media and command latency shall remain low enough for conversational interaction and safe remote navigation. */
+
+        subject robot : TelepresenceRobot;
+
+        require constraint {
+            robot.operationalLatencyLimit <= 200 [ms] and
+            robot.network.maximumAllowedLatency <= 150 [ms]
+        }
+    }
+
+    requirement def SafetyRequirement {
+        doc /* The mobile base shall stop when an emergency command is received or when an obstacle is detected within the configured stop distance. */
+
+        subject base : MobilityBase;
+
+        require constraint {
+            base.obstacleStopDistance <= 0.30 [m]
+        }
+    }
+
+    requirement def PowerRequirement {
+        doc /* The telepresence robot shall monitor battery state and enter a low-power return behavior before charge becomes insufficient for controlled operation. */
+
+        subject power : PowerSubsystem;
+
+        require constraint {
+            power.minimumOperatingCharge >= 10.0 and
+            power.batteryCapacity >= 250 [W * h]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by TelepresenceSystem;
+    satisfy MediaQualityRequirement by TelepresenceRobot;
+    satisfy LatencyRequirement by TelepresenceRobot;
+    satisfy SafetyRequirement by MobilityBase;
+    satisfy PowerRequirement by PowerSubsystem;
+}
