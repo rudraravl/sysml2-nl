@@ -1,0 +1,669 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-1m2m6aiz
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eba9d-d57c-7501-bfda-d8bc1de6addb
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a Spring and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package SpringBasedSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def ForceValue :> Real {
+        attribute unit : String = "N";
+    }
+
+    attribute def LengthValue :> Real {
+        attribute unit : String = "m";
+    }
+
+    attribute def VelocityValue :> Real {
+        attribute unit : String = "m/s";
+    }
+
+    attribute def StiffnessValue :> Real {
+        attribute unit : String = "N/m";
+    }
+
+    attribute def EnergyValue :> Real {
+        attribute unit : String = "J";
+    }
+
+    attribute def MassValue :> Real {
+        attribute unit : String = "kg";
+    }
+
+    attribute def DampingValue :> Real {
+        attribute unit : String = "N*s/m";
+    }
+
+    attribute def TimeValue :> Real {
+        attribute unit : String = "s";
+    }
+
+    item def MechanicalLoad {
+        attribute force : ForceValue;
+        attribute displacement : LengthValue;
+        attribute velocity : VelocityValue;
+    }
+
+    item def MechanicalEnergy {
+        attribute energy : EnergyValue;
+    }
+
+    port def TranslationalMechanicalPort {
+        inout load : MechanicalLoad;
+    }
+
+    port def EnergyStatusPort {
+        out storedEnergy : MechanicalEnergy;
+        out compression : LengthValue;
+        out availableStroke : LengthValue;
+    }
+
+    part def SpringElement {
+        attribute freeLength : LengthValue = 0.120;
+        attribute compressedLength : LengthValue;
+        attribute maximumCompression : LengthValue = 0.045;
+        attribute stiffness : StiffnessValue = 8500.0;
+        attribute movingMass : MassValue = 0.180;
+        attribute storedEnergy : EnergyValue;
+
+        port fixedEnd : TranslationalMechanicalPort;
+        port movingEnd : TranslationalMechanicalPort;
+
+        constraint def HookeLaw {
+            in k : StiffnessValue;
+            in x : LengthValue;
+            out restoringForce : ForceValue;
+
+            restoringForce == k * x;
+        }
+
+        constraint def ElasticEnergy {
+            in k : StiffnessValue;
+            in x : LengthValue;
+            out energy : EnergyValue;
+
+            energy == 0.5 * k * x * x;
+        }
+
+        constraint springForce : HookeLaw {
+            k = stiffness;
+            x = freeLength - compressedLength;
+            restoringForce = movingEnd.load.force;
+        }
+
+        constraint energyStorage : ElasticEnergy {
+            k = stiffness;
+            x = freeLength - compressedLength;
+            energy = storedEnergy;
+        }
+    }
+
+    part def DamperElement {
+        attribute dampingCoefficient : DampingValue = 42.0;
+
+        port frameSide : TranslationalMechanicalPort;
+        port loadSide : TranslationalMechanicalPort;
+
+        constraint def ViscousDamping {
+            in c : DampingValue;
+            in v : VelocityValue;
+            out dampingForce : ForceValue;
+
+            dampingForce == c * v;
+        }
+
+        constraint dampingLaw : ViscousDamping {
+            c = dampingCoefficient;
+            v = loadSide.load.velocity;
+            dampingForce = loadSide.load.force;
+        }
+    }
+
+    part def GuideHousing {
+        attribute guideLength : LengthValue = 0.140;
+        attribute radialClearance : LengthValue = 0.0008;
+        attribute structuralMass : MassValue = 0.420;
+
+        port baseMount : TranslationalMechanicalPort;
+        port guidedSlider : TranslationalMechanicalPort;
+    }
+
+    part def LoadInterface {
+        attribute contactStrokeLimit : LengthValue = 0.050;
+        attribute interfaceMass : MassValue = 0.090;
+
+        port externalLoadPort : TranslationalMechanicalPort;
+        port internalLoadPort : TranslationalMechanicalPort;
+    }
+
+    part def StrokeSensor {
+        attribute measurementRange : LengthValue = 0.060;
+        attribute samplingPeriod : TimeValue = 0.010;
+
+        port sensedMotion : TranslationalMechanicalPort;
+        port statusOut : EnergyStatusPort;
+    }
+
+    action def AbsorbMechanicalLoad {
+        in appliedLoad : MechanicalLoad;
+        in stiffness : StiffnessValue;
+        in maximumCompression : LengthValue;
+        out acceptedLoad : MechanicalLoad;
+        out storedEnergy : MechanicalEnergy;
+
+        constraint {
+            acceptedLoad.displacement <= maximumCompression;
+            acceptedLoad.force == stiffness * acceptedLoad.displacement;
+            storedEnergy.energy == 0.5 * stiffness * acceptedLoad.displacement * acceptedLoad.displacement;
+        }
+    }
+
+    action def ReleaseStoredEnergy {
+        in storedEnergy : MechanicalEnergy;
+        in requestedDisplacement : LengthValue;
+        in stiffness : StiffnessValue;
+        out deliveredLoad : MechanicalLoad;
+
+        constraint {
+            deliveredLoad.displacement == requestedDisplacement;
+            deliveredLoad.force == stiffness * requestedDisplacement;
+            storedEnergy.energy >= 0.5 * stiffness * requestedDisplacement * requestedDisplacement;
+        }
+    }
+
+    action def LimitStroke {
+        in requestedCompression : LengthValue;
+        in maximumCompression : LengthValue;
+        out permittedCompression : LengthValue;
+
+        constraint {
+            permittedCompression <= maximumCompression;
+        }
+    }
+
+    state def SpringOperatingState {
+        attribute compression : LengthValue;
+        attribute storedEnergy : EnergyValue;
+
+        state unloaded;
+        state compressing;
+        state holding;
+        state releasing;
+        state fullyCompressed;
+        state faulted;
+
+        transition initial then unloaded;
+
+        transition unloaded to compressing
+            accept loadApplied
+            if compression > 0.0;
+
+        transition compressing to holding
+            accept loadStable
+            if compression > 0.0 and compression < 0.045;
+
+        transition compressing to fullyCompressed
+            accept strokeLimitReached
+            if compression >= 0.045;
+
+        transition holding to releasing
+            accept loadRemoved
+            if storedEnergy > 0.0;
+
+        transition releasing to unloaded
+            accept energyReleased
+            if compression == 0.0;
+
+        transition fullyCompressed to releasing
+            accept loadRemoved
+            if storedEnergy > 0.0;
+
+        transition compressing to faulted
+            accept overStroke
+            if compression > 0.045;
+
+        transition fullyCompressed to faulted
+            accept overload
+            if compression > 0.045;
+    }
+
+    part def SpringBasedEnergyBuffer {
+        attribute ratedLoad : ForceValue = 380.0;
+        attribute maximumLoad : ForceValue = 420.0;
+        attribute nominalStroke : LengthValue = 0.040;
+        attribute maximumStroke : LengthValue = 0.045;
+        attribute responseTime : TimeValue = 0.080;
+        attribute primaryFunction : String = "Absorb externally applied translational mechanical load, store it as elastic potential energy in a spring, and return controlled restoring force when the load is released.";
+
+        port externalMechanicalPort : TranslationalMechanicalPort;
+        port mountingPort : TranslationalMechanicalPort;
+        port statusPort : EnergyStatusPort;
+
+        part loadInterface : LoadInterface;
+        part spring : SpringElement;
+        part damper : DamperElement;
+        part housing : GuideHousing;
+        part sensor : StrokeSensor;
+
+        connect externalMechanicalPort to loadInterface.externalLoadPort;
+        connect loadInterface.internalLoadPort to damper.loadSide;
+        connect damper.frameSide to spring.movingEnd;
+        connect spring.fixedEnd to housing.baseMount;
+        connect housing.guidedSlider to sensor.sensedMotion;
+        connect sensor.statusOut to statusPort;
+        connect mountingPort to housing.baseMount;
+
+        perform action absorbLoad : AbsorbMechanicalLoad {
+            appliedLoad = externalMechanicalPort.load;
+            stiffness = spring.stiffness;
+            maximumCompression = spring.maximumCompression;
+        }
+
+        perform action releaseEnergy : ReleaseStoredEnergy {
+            storedEnergy = statusPort.storedEnergy;
+            stiffness = spring.stiffness;
+        }
+
+        perform action constrainStroke : LimitStroke {
+            requestedCompression = externalMechanicalPort.load.displacement;
+            maximumCompression = maximumStroke;
+        }
+
+        exhibit state behavior operatingState : SpringOperatingState;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : SpringBasedEnergyBuffer;
+
+        doc /* The spring-based system shall transform incoming translational mechanical load into elastic potential energy and later return that energy as restoring force. */
+
+        require constraint {
+            system.spring.storedEnergy >= 0.0;
+            system.spring.storedEnergy == 0.5 * system.spring.stiffness * system.externalMechanicalPort.load.displacement * system.externalMechanicalPort.load.displacement;
+        }
+    }
+
+    requirement def LoadCapacityRequirement {
+        subject system : SpringBasedEnergyBuffer;
+
+        require constraint {
+            system.externalMechanicalPort.load.force <= system.maximumLoad;
+        }
+    }
+
+    requirement def StrokeLimitRequirement {
+        subject system : SpringBasedEnergyBuffer;
+
+        require constraint {
+            system.externalMechanicalPort.load.displacement <= system.maximumStroke;
+        }
+    }
+
+    requirement def RestoringForceRequirement {
+        subject system : SpringBasedEnergyBuffer;
+
+        require constraint {
+            system.spring.movingEnd.load.force == system.spring.stiffness * system.externalMechanicalPort.load.displacement;
+        }
+    }
+
+    requirement def EnergyStatusRequirement {
+        subject system : SpringBasedEnergyBuffer;
+
+        require constraint {
+            system.statusPort.compression == system.externalMechanicalPort.load.displacement;
+            system.statusPort.availableStroke == system.maximumStroke - system.externalMechanicalPort.load.displacement;
+            system.statusPort.storedEnergy.energy == system.spring.storedEnergy;
+        }
+    }
+
+    part springSystem : SpringBasedEnergyBuffer;
+
+    satisfy PrimaryFunctionRequirement by springSystem;
+    satisfy LoadCapacityRequirement by springSystem;
+    satisfy StrokeLimitRequirement by springSystem;
+    satisfy RestoringForceRequirement by springSystem;
+    satisfy EnergyStatusRequirement by springSystem;
+}
+tokens used
+3,934
+package SpringBasedSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def ForceValue :> Real {
+        attribute unit : String = "N";
+    }
+
+    attribute def LengthValue :> Real {
+        attribute unit : String = "m";
+    }
+
+    attribute def VelocityValue :> Real {
+        attribute unit : String = "m/s";
+    }
+
+    attribute def StiffnessValue :> Real {
+        attribute unit : String = "N/m";
+    }
+
+    attribute def EnergyValue :> Real {
+        attribute unit : String = "J";
+    }
+
+    attribute def MassValue :> Real {
+        attribute unit : String = "kg";
+    }
+
+    attribute def DampingValue :> Real {
+        attribute unit : String = "N*s/m";
+    }
+
+    attribute def TimeValue :> Real {
+        attribute unit : String = "s";
+    }
+
+    item def MechanicalLoad {
+        attribute force : ForceValue;
+        attribute displacement : LengthValue;
+        attribute velocity : VelocityValue;
+    }
+
+    item def MechanicalEnergy {
+        attribute energy : EnergyValue;
+    }
+
+    port def TranslationalMechanicalPort {
+        inout load : MechanicalLoad;
+    }
+
+    port def EnergyStatusPort {
+        out storedEnergy : MechanicalEnergy;
+        out compression : LengthValue;
+        out availableStroke : LengthValue;
+    }
+
+    part def SpringElement {
+        attribute freeLength : LengthValue = 0.120;
+        attribute compressedLength : LengthValue;
+        attribute maximumCompression : LengthValue = 0.045;
+        attribute stiffness : StiffnessValue = 8500.0;
+        attribute movingMass : MassValue = 0.180;
+        attribute storedEnergy : EnergyValue;
+
+        port fixedEnd : TranslationalMechanicalPort;
+        port movingEnd : TranslationalMechanicalPort;
+
+        constraint def HookeLaw {
+            in k : StiffnessValue;
+            in x : LengthValue;
+            out restoringForce : ForceValue;
+
+            restoringForce == k * x;
+        }
+
+        constraint def ElasticEnergy {
+            in k : StiffnessValue;
+            in x : LengthValue;
+            out energy : EnergyValue;
+
+            energy == 0.5 * k * x * x;
+        }
+
+        constraint springForce : HookeLaw {
+            k = stiffness;
+            x = freeLength - compressedLength;
+            restoringForce = movingEnd.load.force;
+        }
+
+        constraint energyStorage : ElasticEnergy {
+            k = stiffness;
+            x = freeLength - compressedLength;
+            energy = storedEnergy;
+        }
+    }
+
+    part def DamperElement {
+        attribute dampingCoefficient : DampingValue = 42.0;
+
+        port frameSide : TranslationalMechanicalPort;
+        port loadSide : TranslationalMechanicalPort;
+
+        constraint def ViscousDamping {
+            in c : DampingValue;
+            in v : VelocityValue;
+            out dampingForce : ForceValue;
+
+            dampingForce == c * v;
+        }
+
+        constraint dampingLaw : ViscousDamping {
+            c = dampingCoefficient;
+            v = loadSide.load.velocity;
+            dampingForce = loadSide.load.force;
+        }
+    }
+
+    part def GuideHousing {
+        attribute guideLength : LengthValue = 0.140;
+        attribute radialClearance : LengthValue = 0.0008;
+        attribute structuralMass : MassValue = 0.420;
+
+        port baseMount : TranslationalMechanicalPort;
+        port guidedSlider : TranslationalMechanicalPort;
+    }
+
+    part def LoadInterface {
+        attribute contactStrokeLimit : LengthValue = 0.050;
+        attribute interfaceMass : MassValue = 0.090;
+
+        port externalLoadPort : TranslationalMechanicalPort;
+        port internalLoadPort : TranslationalMechanicalPort;
+    }
+
+    part def StrokeSensor {
+        attribute measurementRange : LengthValue = 0.060;
+        attribute samplingPeriod : TimeValue = 0.010;
+
+        port sensedMotion : TranslationalMechanicalPort;
+        port statusOut : EnergyStatusPort;
+    }
+
+    action def AbsorbMechanicalLoad {
+        in appliedLoad : MechanicalLoad;
+        in stiffness : StiffnessValue;
+        in maximumCompression : LengthValue;
+        out acceptedLoad : MechanicalLoad;
+        out storedEnergy : MechanicalEnergy;
+
+        constraint {
+            acceptedLoad.displacement <= maximumCompression;
+            acceptedLoad.force == stiffness * acceptedLoad.displacement;
+            storedEnergy.energy == 0.5 * stiffness * acceptedLoad.displacement * acceptedLoad.displacement;
+        }
+    }
+
+    action def ReleaseStoredEnergy {
+        in storedEnergy : MechanicalEnergy;
+        in requestedDisplacement : LengthValue;
+        in stiffness : StiffnessValue;
+        out deliveredLoad : MechanicalLoad;
+
+        constraint {
+            deliveredLoad.displacement == requestedDisplacement;
+            deliveredLoad.force == stiffness * requestedDisplacement;
+            storedEnergy.energy >= 0.5 * stiffness * requestedDisplacement * requestedDisplacement;
+        }
+    }
+
+    action def LimitStroke {
+        in requestedCompression : LengthValue;
+        in maximumCompression : LengthValue;
+        out permittedCompression : LengthValue;
+
+        constraint {
+            permittedCompression <= maximumCompression;
+        }
+    }
+
+    state def SpringOperatingState {
+        attribute compression : LengthValue;
+        attribute storedEnergy : EnergyValue;
+
+        state unloaded;
+        state compressing;
+        state holding;
+        state releasing;
+        state fullyCompressed;
+        state faulted;
+
+        transition initial then unloaded;
+
+        transition unloaded to compressing
+            accept loadApplied
+            if compression > 0.0;
+
+        transition compressing to holding
+            accept loadStable
+            if compression > 0.0 and compression < 0.045;
+
+        transition compressing to fullyCompressed
+            accept strokeLimitReached
+            if compression >= 0.045;
+
+        transition holding to releasing
+            accept loadRemoved
+            if storedEnergy > 0.0;
+
+        transition releasing to unloaded
+            accept energyReleased
+            if compression == 0.0;
+
+        transition fullyCompressed to releasing
+            accept loadRemoved
+            if storedEnergy > 0.0;
+
+        transition compressing to faulted
+            accept overStroke
+            if compression > 0.045;
+
+        transition fullyCompressed to faulted
+            accept overload
+            if compression > 0.045;
+    }
+
+    part def SpringBasedEnergyBuffer {
+        attribute ratedLoad : ForceValue = 380.0;
+        attribute maximumLoad : ForceValue = 420.0;
+        attribute nominalStroke : LengthValue = 0.040;
+        attribute maximumStroke : LengthValue = 0.045;
+        attribute responseTime : TimeValue = 0.080;
+        attribute primaryFunction : String = "Absorb externally applied translational mechanical load, store it as elastic potential energy in a spring, and return controlled restoring force when the load is released.";
+
+        port externalMechanicalPort : TranslationalMechanicalPort;
+        port mountingPort : TranslationalMechanicalPort;
+        port statusPort : EnergyStatusPort;
+
+        part loadInterface : LoadInterface;
+        part spring : SpringElement;
+        part damper : DamperElement;
+        part housing : GuideHousing;
+        part sensor : StrokeSensor;
+
+        connect externalMechanicalPort to loadInterface.externalLoadPort;
+        connect loadInterface.internalLoadPort to damper.loadSide;
+        connect damper.frameSide to spring.movingEnd;
+        connect spring.fixedEnd to housing.baseMount;
+        connect housing.guidedSlider to sensor.sensedMotion;
+        connect sensor.statusOut to statusPort;
+        connect mountingPort to housing.baseMount;
+
+        perform action absorbLoad : AbsorbMechanicalLoad {
+            appliedLoad = externalMechanicalPort.load;
+            stiffness = spring.stiffness;
+            maximumCompression = spring.maximumCompression;
+        }
+
+        perform action releaseEnergy : ReleaseStoredEnergy {
+            storedEnergy = statusPort.storedEnergy;
+            stiffness = spring.stiffness;
+        }
+
+        perform action constrainStroke : LimitStroke {
+            requestedCompression = externalMechanicalPort.load.displacement;
+            maximumCompression = maximumStroke;
+        }
+
+        exhibit state behavior operatingState : SpringOperatingState;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : SpringBasedEnergyBuffer;
+
+        doc /* The spring-based system shall transform incoming translational mechanical load into elastic potential energy and later return that energy as restoring force. */
+
+        require constraint {
+            system.spring.storedEnergy >= 0.0;
+            system.spring.storedEnergy == 0.5 * system.spring.stiffness * system.externalMechanicalPort.load.displacement * system.externalMechanicalPort.load.displacement;
+        }
+    }
+
+    requirement def LoadCapacityRequirement {
+        subject system : SpringBasedEnergyBuffer;
+
+        require constraint {
+            system.externalMechanicalPort.load.force <= system.maximumLoad;
+        }
+    }
+
+    requirement def StrokeLimitRequirement {
+        subject system : SpringBasedEnergyBuffer;
+
+        require constraint {
+            system.externalMechanicalPort.load.displacement <= system.maximumStroke;
+        }
+    }
+
+    requirement def RestoringForceRequirement {
+        subject system : SpringBasedEnergyBuffer;
+
+        require constraint {
+            system.spring.movingEnd.load.force == system.spring.stiffness * system.externalMechanicalPort.load.displacement;
+        }
+    }
+
+    requirement def EnergyStatusRequirement {
+        subject system : SpringBasedEnergyBuffer;
+
+        require constraint {
+            system.statusPort.compression == system.externalMechanicalPort.load.displacement;
+            system.statusPort.availableStroke == system.maximumStroke - system.externalMechanicalPort.load.displacement;
+            system.statusPort.storedEnergy.energy == system.spring.storedEnergy;
+        }
+    }
+
+    part springSystem : SpringBasedEnergyBuffer;
+
+    satisfy PrimaryFunctionRequirement by springSystem;
+    satisfy LoadCapacityRequirement by springSystem;
+    satisfy StrokeLimitRequirement by springSystem;
+    satisfy RestoringForceRequirement by springSystem;
+    satisfy EnergyStatusRequirement by springSystem;
+}

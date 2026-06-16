@@ -1,0 +1,482 @@
+package WatermillSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def VolumetricFlowRate {
+        :> scalarValue;
+        unit = m^3/s;
+    }
+
+    attribute def RotationalSpeed {
+        :> scalarValue;
+        unit = rad/s;
+    }
+
+    attribute def Torque {
+        :> scalarValue;
+        unit = N*m;
+    }
+
+    attribute def MechanicalPower {
+        :> scalarValue;
+        unit = W;
+    }
+
+    attribute def HydraulicHead {
+        :> scalarValue;
+        unit = m;
+    }
+
+    attribute def Efficiency {
+        :> scalarValue;
+    }
+
+    attribute def GrainMassRate {
+        :> scalarValue;
+        unit = kg/s;
+    }
+
+    attribute def ParticleSize {
+        :> scalarValue;
+        unit = mm;
+    }
+
+    item def Water {
+        attribute temperature : TemperatureValue;
+        attribute flowRate : VolumetricFlowRate;
+        attribute head : HydraulicHead;
+    }
+
+    item def Grain {
+        attribute massFlowRate : GrainMassRate;
+        attribute moistureFraction : Efficiency;
+    }
+
+    item def Flour {
+        attribute massFlowRate : GrainMassRate;
+        attribute meanParticleSize : ParticleSize;
+    }
+
+    item def RotationalMotion {
+        attribute speed : RotationalSpeed;
+        attribute torque : Torque;
+        attribute power : MechanicalPower;
+    }
+
+    port def WaterPort {
+        inout item water : Water;
+    }
+
+    port def GrainInputPort {
+        in item grain : Grain;
+    }
+
+    port def FlourOutputPort {
+        out item flour : Flour;
+    }
+
+    port def ShaftPort {
+        inout item motion : RotationalMotion;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The watermill shall convert the hydraulic energy of flowing water into useful rotary mechanical energy for milling grain into flour. */
+        subject watermill : Watermill;
+        require constraint {
+            watermill.waterWheel.hydraulicToMechanicalEfficiency >= 0.55;
+            watermill.millstoneAssembly.nominalFlourOutput.massFlowRate >= 0.08 [kg/s];
+        }
+    }
+
+    requirement def SafeOperationRequirement {
+        doc /* The watermill shall regulate water admission and stop milling when wheel overspeed or insufficient grain feed is detected. */
+        subject watermill : Watermill;
+        require constraint {
+            watermill.governor.maximumPermittedWheelSpeed <= 8.0 [rad/s];
+            watermill.grainHopper.minimumOperatingMass >= 5.0 [kg];
+        }
+    }
+
+    requirement def WaterConveyanceRequirement {
+        doc /* The headrace, sluice gate, and tailrace shall guide water through the wheel with controlled flow and discharge it downstream. */
+        subject watermill : Watermill;
+        require constraint {
+            watermill.headrace.nominalFlow.flowRate >= 0.6 [m^3/s];
+            watermill.sluiceGate.maximumOpeningFraction <= 1.0;
+        }
+    }
+
+    part def Headrace {
+        attribute nominalFlow : Water;
+        attribute channelLength : LengthValue = 45 [m];
+        attribute channelSlope : Efficiency = 0.015;
+
+        port inlet : WaterPort;
+        port outlet : WaterPort;
+    }
+
+    part def SluiceGate {
+        attribute openingFraction : Efficiency = 0.75;
+        attribute maximumOpeningFraction : Efficiency = 1.0;
+        attribute minimumOpeningFraction : Efficiency = 0.0;
+        attribute commandedOpeningFraction : Efficiency;
+
+        port upstream : WaterPort;
+        port downstream : WaterPort;
+
+        action regulateFlow {
+            in desiredFlow : VolumetricFlowRate;
+            in measuredFlow : VolumetricFlowRate;
+            out adjustedOpening : Efficiency;
+
+            first start;
+            then compareFlow;
+            then setOpening;
+            then done;
+
+            action compareFlow;
+            action setOpening {
+                adjustedOpening =
+                    if measuredFlow < desiredFlow then
+                        min(openingFraction + 0.05, maximumOpeningFraction)
+                    else
+                        max(openingFraction - 0.05, minimumOpeningFraction);
+            }
+        }
+    }
+
+    part def WaterWheel {
+        attribute diameter : LengthValue = 5.2 [m];
+        attribute width : LengthValue = 1.1 [m];
+        attribute hydraulicToMechanicalEfficiency : Efficiency = 0.68;
+        attribute currentSpeed : RotationalSpeed;
+        attribute currentTorque : Torque;
+        attribute generatedPower : MechanicalPower;
+
+        port waterIn : WaterPort;
+        port waterOut : WaterPort;
+        port shaftOutput : ShaftPort;
+
+        action convertHydraulicEnergy {
+            in suppliedWater : Water;
+            out wheelMotion : RotationalMotion;
+
+            first captureWater;
+            then applyImpulseAndWeight;
+            then rotateWheel;
+            then transmitMotion;
+
+            action captureWater;
+            action applyImpulseAndWeight;
+            action rotateWheel;
+            action transmitMotion;
+        }
+    }
+
+    part def MainShaft {
+        attribute shaftLength : LengthValue = 7.5 [m];
+        attribute allowableTorque : Torque = 18000 [N*m];
+        attribute rotationalLossFactor : Efficiency = 0.06;
+
+        port wheelSide : ShaftPort;
+        port gearSide : ShaftPort;
+    }
+
+    part def GearTrain {
+        attribute gearRatio : Real = 3.5;
+        attribute mechanicalEfficiency : Efficiency = 0.88;
+        attribute outputSpeed : RotationalSpeed;
+        attribute outputTorque : Torque;
+
+        port inputShaft : ShaftPort;
+        port outputShaft : ShaftPort;
+
+        action adaptSpeedAndTorque {
+            in inputMotion : RotationalMotion;
+            out outputMotion : RotationalMotion;
+
+            first receiveRotation;
+            then increaseSpeed;
+            then reduceTorque;
+            then deliverRotation;
+
+            action receiveRotation;
+            action increaseSpeed;
+            action reduceTorque;
+            action deliverRotation;
+        }
+    }
+
+    part def GrainHopper {
+        attribute storedGrainMass : MassValue = 120 [kg];
+        attribute minimumOperatingMass : MassValue = 5 [kg];
+        attribute feedRate : GrainMassRate = 0.1 [kg/s];
+
+        port grainLoad : GrainInputPort;
+        port grainFeed : GrainInputPort;
+
+        action meterGrain {
+            out meteredGrain : Grain;
+
+            first checkInventory;
+            then openFeedShoe;
+            then dischargeGrain;
+
+            action checkInventory;
+            action openFeedShoe;
+            action dischargeGrain;
+        }
+    }
+
+    part def MillstoneAssembly {
+        attribute runnerStoneDiameter : LengthValue = 1.4 [m];
+        attribute bedStoneDiameter : LengthValue = 1.4 [m];
+        attribute stoneGap : LengthValue = 0.8 [mm];
+        attribute nominalFlourOutput : Flour;
+        attribute millingEfficiency : Efficiency = 0.82;
+
+        port driveInput : ShaftPort;
+        port grainInput : GrainInputPort;
+        port flourOutput : FlourOutputPort;
+
+        action grindGrain {
+            in rotationalInput : RotationalMotion;
+            in grainSupply : Grain;
+            out flourProduct : Flour;
+
+            first receiveGrain;
+            then shearAndCrush;
+            then siftCoarseParticles;
+            then dischargeFlour;
+
+            action receiveGrain;
+            action shearAndCrush;
+            action siftCoarseParticles;
+            action dischargeFlour;
+        }
+    }
+
+    part def FlourBin {
+        attribute storedFlourMass : MassValue = 0 [kg];
+        attribute capacity : MassValue = 250 [kg];
+
+        port inlet : FlourOutputPort;
+
+        action collectFlour {
+            in flour : Flour;
+            first receiveFlour;
+            then settleProduct;
+            then updateInventory;
+
+            action receiveFlour;
+            action settleProduct;
+            action updateInventory;
+        }
+    }
+
+    part def Tailrace {
+        attribute dischargeLength : LengthValue = 30 [m];
+
+        port inlet : WaterPort;
+        port outlet : WaterPort;
+    }
+
+    part def Governor {
+        attribute maximumPermittedWheelSpeed : RotationalSpeed = 8.0 [rad/s];
+        attribute minimumMillingWheelSpeed : RotationalSpeed = 2.2 [rad/s];
+        attribute measuredWheelSpeed : RotationalSpeed;
+        attribute gateCommand : Efficiency;
+
+        port sensedShaft : ShaftPort;
+
+        action computeGateCommand {
+            in speed : RotationalSpeed;
+            in grainAvailable : Boolean;
+            out command : Efficiency;
+
+            first evaluateSpeed;
+            then evaluateLoad;
+            then commandGate;
+
+            action evaluateSpeed;
+            action evaluateLoad;
+            action commandGate {
+                command =
+                    if not grainAvailable then 0.0
+                    else if speed > maximumPermittedWheelSpeed then 0.25
+                    else if speed < minimumMillingWheelSpeed then 0.9
+                    else 0.65;
+            }
+        }
+    }
+
+    part def Watermill {
+        doc /* Primary high-level function: use controlled flowing water to turn a wheel, transmit rotary power through a shaft and gears, and grind incoming grain into flour. */
+
+        attribute designHead : HydraulicHead = 3.8 [m];
+        attribute designFlowRate : VolumetricFlowRate = 0.75 [m^3/s];
+        attribute ratedMechanicalPower : MechanicalPower = 18500 [W];
+        attribute ratedFlourProductionRate : GrainMassRate = 0.09 [kg/s];
+
+        port upstreamWaterSupply : WaterPort;
+        port downstreamWaterDischarge : WaterPort;
+        port grainReceivingPort : GrainInputPort;
+        port flourDeliveryPort : FlourOutputPort;
+
+        part headrace : Headrace;
+        part sluiceGate : SluiceGate;
+        part waterWheel : WaterWheel;
+        part mainShaft : MainShaft;
+        part gearTrain : GearTrain;
+        part grainHopper : GrainHopper;
+        part millstoneAssembly : MillstoneAssembly;
+        part flourBin : FlourBin;
+        part tailrace : Tailrace;
+        part governor : Governor;
+
+        connect upstreamWaterSupply to headrace.inlet;
+        connect headrace.outlet to sluiceGate.upstream;
+        connect sluiceGate.downstream to waterWheel.waterIn;
+        connect waterWheel.waterOut to tailrace.inlet;
+        connect tailrace.outlet to downstreamWaterDischarge;
+
+        connect waterWheel.shaftOutput to mainShaft.wheelSide;
+        connect mainShaft.gearSide to gearTrain.inputShaft;
+        connect gearTrain.outputShaft to millstoneAssembly.driveInput;
+        connect governor.sensedShaft to mainShaft.gearSide;
+
+        connect grainReceivingPort to grainHopper.grainLoad;
+        connect grainHopper.grainFeed to millstoneAssembly.grainInput;
+        connect millstoneAssembly.flourOutput to flourBin.inlet;
+        connect millstoneAssembly.flourOutput to flourDeliveryPort;
+
+        perform action operateWatermill {
+            first admitWater;
+            then convertEnergy;
+            then transmitPower;
+            then feedGrain;
+            then grind;
+            then collectProduct;
+            then dischargeWater;
+
+            action admitWater {
+                in waterSupply : Water;
+                out controlledWater : Water;
+            }
+
+            action convertEnergy {
+                in controlledWater : Water;
+                out rotaryMotion : RotationalMotion;
+            }
+
+            action transmitPower {
+                in wheelMotion : RotationalMotion;
+                out millstoneMotion : RotationalMotion;
+            }
+
+            action feedGrain {
+                out grainForGrinding : Grain;
+            }
+
+            action grind {
+                in millstoneMotion : RotationalMotion;
+                in grainForGrinding : Grain;
+                out producedFlour : Flour;
+            }
+
+            action collectProduct {
+                in producedFlour : Flour;
+            }
+
+            action dischargeWater {
+                in spentWater : Water;
+            }
+        }
+
+        state def OperatingStateMachine {
+            state idle;
+            state starting;
+            state milling;
+            state regulating;
+            state stopping;
+            state faulted;
+
+            transition initial then idle;
+
+            transition idle_to_starting
+                first idle
+                accept StartCommand
+                then starting;
+
+            transition starting_to_milling
+                first starting
+                if waterWheel.currentSpeed >= governor.minimumMillingWheelSpeed
+                then milling;
+
+            transition milling_to_regulating
+                first milling
+                if waterWheel.currentSpeed > governor.maximumPermittedWheelSpeed
+                then regulating;
+
+            transition regulating_to_milling
+                first regulating
+                if waterWheel.currentSpeed <= governor.maximumPermittedWheelSpeed
+                then milling;
+
+            transition milling_to_stopping
+                first milling
+                accept StopCommand
+                then stopping;
+
+            transition starting_to_faulted
+                first starting
+                if grainHopper.storedGrainMass < grainHopper.minimumOperatingMass
+                then faulted;
+
+            transition milling_to_faulted
+                first milling
+                if mainShaft.allowableTorque < waterWheel.currentTorque
+                then faulted;
+
+            transition stopping_to_idle
+                first stopping
+                if sluiceGate.openingFraction == 0.0
+                then idle;
+        }
+
+        satisfy PrimaryFunctionRequirement by Watermill;
+        satisfy SafeOperationRequirement by Watermill;
+        satisfy WaterConveyanceRequirement by Watermill;
+    }
+
+    part watermillSystem : Watermill {
+        attribute designHead = 3.8 [m];
+        attribute designFlowRate = 0.75 [m^3/s];
+        attribute ratedMechanicalPower = 18500 [W];
+        attribute ratedFlourProductionRate = 0.09 [kg/s];
+
+        part headrace {
+            attribute nominalFlow : Water {
+                attribute flowRate = 0.75 [m^3/s];
+                attribute head = 3.8 [m];
+                attribute temperature = 285 [K];
+            }
+        }
+
+        part waterWheel {
+            attribute hydraulicToMechanicalEfficiency = 0.68;
+            attribute currentSpeed = 4.5 [rad/s];
+            attribute currentTorque = 4100 [N*m];
+            attribute generatedPower = 18450 [W];
+        }
+
+        part millstoneAssembly {
+            attribute nominalFlourOutput : Flour {
+                attribute massFlowRate = 0.09 [kg/s];
+                attribute meanParticleSize = 0.25 [mm];
+            }
+        }
+    }
+}

@@ -1,0 +1,497 @@
+package SegwayHTHighLevelModel {
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Mass {
+        :>> unit = "kg";
+    }
+
+    attribute def Length {
+        :>> unit = "m";
+    }
+
+    attribute def Speed {
+        :>> unit = "m/s";
+    }
+
+    attribute def Acceleration {
+        :>> unit = "m/s^2";
+    }
+
+    attribute def Angle {
+        :>> unit = "rad";
+    }
+
+    attribute def AngularRate {
+        :>> unit = "rad/s";
+    }
+
+    attribute def Torque {
+        :>> unit = "N*m";
+    }
+
+    attribute def Force {
+        :>> unit = "N";
+    }
+
+    attribute def Voltage {
+        :>> unit = "V";
+    }
+
+    attribute def Current {
+        :>> unit = "A";
+    }
+
+    attribute def Power {
+        :>> unit = "W";
+    }
+
+    attribute def Energy {
+        :>> unit = "J";
+    }
+
+    attribute def Duration {
+        :>> unit = "s";
+    }
+
+    attribute def Temperature {
+        :>> unit = "degC";
+    }
+
+    item def RiderCommand {
+        attribute desiredLeanAngle : Angle;
+        attribute desiredYawRate : AngularRate;
+        attribute emergencyStopRequested : Boolean;
+    }
+
+    item def RiderLoad {
+        attribute riderMass : Mass;
+        attribute centerOfMassHeight : Length;
+        attribute stanceWidth : Length;
+    }
+
+    item def MotionState {
+        attribute forwardSpeed : Speed;
+        attribute yawRate : AngularRate;
+        attribute pitchAngle : Angle;
+        attribute pitchRate : AngularRate;
+        attribute lateralAcceleration : Acceleration;
+    }
+
+    item def BalanceEstimate {
+        attribute pitchAngle : Angle;
+        attribute pitchRate : AngularRate;
+        attribute wheelSpeedLeft : Speed;
+        attribute wheelSpeedRight : Speed;
+        attribute stabilityMargin : Real;
+    }
+
+    item def MotorCommand {
+        attribute leftWheelTorque : Torque;
+        attribute rightWheelTorque : Torque;
+        attribute regenerativeBrakingEnabled : Boolean;
+    }
+
+    item def ElectricalEnergyFlow {
+        attribute voltage : Voltage;
+        attribute current : Current;
+        attribute power : Power;
+    }
+
+    item def MechanicalDriveFlow {
+        attribute torque : Torque;
+        attribute rotationalSpeed : AngularRate;
+    }
+
+    item def DiagnosticStatus {
+        attribute healthy : Boolean;
+        attribute faultCode : String;
+        attribute batteryStateOfCharge : Real;
+        attribute controllerTemperature : Temperature;
+    }
+
+    port def RiderInterfacePort {
+        in item riderLoad : RiderLoad;
+        in item riderCommand : RiderCommand;
+        out item motionFeedback : MotionState;
+        out item diagnosticStatus : DiagnosticStatus;
+    }
+
+    port def EnergyOutputPort {
+        out item electricalPower : ElectricalEnergyFlow;
+    }
+
+    port def EnergyInputPort {
+        in item electricalPower : ElectricalEnergyFlow;
+    }
+
+    port def DriveCommandPort {
+        in item motorCommand : MotorCommand;
+    }
+
+    port def DriveOutputPort {
+        out item mechanicalDrive : MechanicalDriveFlow;
+    }
+
+    port def SensorOutputPort {
+        out item balanceEstimate : BalanceEstimate;
+    }
+
+    port def MotionPort {
+        out item motionState : MotionState;
+    }
+
+    port def GroundContactPort {
+        in item normalForce : Force;
+        out item tractionForce : Force;
+    }
+
+    part def BatteryPack {
+        attribute nominalVoltage : Voltage = 72.0;
+        attribute usableEnergy : Energy = 1800000.0;
+        attribute maximumContinuousPower : Power = 3500.0;
+        attribute stateOfCharge : Real;
+        attribute minimumAllowedStateOfCharge : Real = 0.10;
+
+        port powerOut : EnergyOutputPort;
+        port rechargeIn : EnergyInputPort;
+        port diagnosticOut : EnergyOutputPort;
+
+        action supplyTractionEnergy {
+            in item requestedPower : ElectricalEnergyFlow;
+            out item deliveredPower : ElectricalEnergyFlow;
+
+            first start;
+            then validateStateOfCharge;
+            then limitPowerToSafeEnvelope;
+            then deliverRegulatedDcPower;
+            then done;
+        }
+    }
+
+    part def InertialMeasurementUnit {
+        attribute pitchAccuracy : Angle = 0.005;
+        attribute pitchRateAccuracy : AngularRate = 0.02;
+        attribute samplePeriod : Duration = 0.005;
+
+        port estimateOut : SensorOutputPort;
+
+        action estimateVehicleAttitude {
+            in item rawAcceleration : MotionState;
+            out item balanceEstimate : BalanceEstimate;
+
+            first start;
+            then filterAccelerationAndGyroData;
+            then estimatePitchAndPitchRate;
+            then publishBalanceEstimate;
+            then done;
+        }
+    }
+
+    part def WheelEncoder {
+        attribute pulsesPerRevolution : Integer = 2048;
+        attribute wheelRadius : Length = 0.24;
+
+        port speedOut : SensorOutputPort;
+
+        action measureWheelSpeed {
+            out item balanceEstimate : BalanceEstimate;
+
+            first start;
+            then countEncoderPulses;
+            then computeLeftAndRightWheelSpeeds;
+            then publishWheelSpeedEstimate;
+            then done;
+        }
+    }
+
+    part def BalanceController {
+        attribute maximumForwardSpeed : Speed = 5.6;
+        attribute maximumReverseSpeed : Speed = 2.2;
+        attribute maximumPitchAngle : Angle = 0.35;
+        attribute maximumCommandedTorque : Torque = 85.0;
+        attribute controlPeriod : Duration = 0.005;
+
+        port riderIn : RiderInterfacePort;
+        port imuIn : SensorOutputPort;
+        port encoderIn : SensorOutputPort;
+        port motorCommandOut : DriveCommandPort;
+
+        action maintainDynamicBalanceAndTranslateRiderIntent {
+            in item riderCommand : RiderCommand;
+            in item riderLoad : RiderLoad;
+            in item balanceEstimate : BalanceEstimate;
+            out item motorCommand : MotorCommand;
+
+            first start;
+            then validateRiderPresent;
+            then estimateForeAftInstability;
+            then convertLeanToDesiredForwardVelocity;
+            then convertHandlebarYawToDifferentialTorque;
+            then applySpeedAndTiltLimits;
+            then commandWheelTorques;
+            then done;
+        }
+
+        state controllerState {
+            entry;
+            state inactive;
+            state selfTest;
+            state balancing;
+            state speedLimited;
+            state protectiveStop;
+            state faulted;
+
+            transition initial_to_inactive first inactive;
+            transition power_on inactive accept PowerButtonPressed then selfTest;
+            transition self_test_passed selfTest if diagnosticHealthy then balancing;
+            transition self_test_failed selfTest if not diagnosticHealthy then faulted;
+            transition speed_limit balancing if requestedSpeedExceedsLimit then speedLimited;
+            transition return_to_balancing speedLimited if requestedSpeedWithinLimit then balancing;
+            transition rider_stop balancing accept EmergencyStopRequested then protectiveStop;
+            transition loss_of_balance balancing if stabilityMarginTooLow then protectiveStop;
+            transition controller_fault balancing if criticalFaultDetected then faulted;
+            transition reset_fault faulted accept ResetCommand then selfTest;
+            transition shutdown inactive accept PowerButtonPressed then inactive;
+        }
+    }
+
+    part def MotorDrive {
+        attribute maximumPhaseCurrent : Current = 120.0;
+        attribute inverterEfficiency : Real = 0.92;
+
+        port powerIn : EnergyInputPort;
+        port commandIn : DriveCommandPort;
+        port driveOut : DriveOutputPort;
+
+        action convertElectricalPowerToWheelTorque {
+            in item electricalPower : ElectricalEnergyFlow;
+            in item motorCommand : MotorCommand;
+            out item mechanicalDrive : MechanicalDriveFlow;
+
+            first start;
+            then regulatePhaseCurrent;
+            then produceCommandedTorque;
+            then recoverEnergyDuringBraking;
+            then done;
+        }
+    }
+
+    part def WheelAssembly {
+        attribute wheelRadius : Length = 0.24;
+        attribute tireContactPatchLength : Length = 0.08;
+        attribute maximumTractionForce : Force = 1200.0;
+
+        port driveIn : DriveOutputPort;
+        port groundContact : GroundContactPort;
+        port motionOut : MotionPort;
+
+        action convertWheelTorqueToGroundMotion {
+            in item mechanicalDrive : MechanicalDriveFlow;
+            out item motionState : MotionState;
+
+            first start;
+            then applyTorqueAtWheelHub;
+            then generateTractionForce;
+            then updateVehicleMotion;
+            then done;
+        }
+    }
+
+    part def Chassis {
+        attribute platformMass : Mass = 45.0;
+        attribute wheelTrack : Length = 0.63;
+        attribute platformHeight : Length = 0.20;
+        attribute handlebarHeight : Length = 1.15;
+
+        port riderInterface : RiderInterfacePort;
+        port motionOut : MotionPort;
+
+        action supportRiderAndTransmitForces {
+            in item riderLoad : RiderLoad;
+            out item motionState : MotionState;
+
+            first start;
+            then carryRiderLoad;
+            then transmitRiderLeanMoment;
+            then constrainRiderFootPosition;
+            then done;
+        }
+    }
+
+    part def OperatorConsole {
+        attribute displayRefreshPeriod : Duration = 0.10;
+
+        port riderPort : RiderInterfacePort;
+        port diagnosticIn : RiderInterfacePort;
+
+        action collectRiderInputsAndDisplayStatus {
+            in item riderCommand : RiderCommand;
+            in item diagnosticStatus : DiagnosticStatus;
+            out item motionFeedback : MotionState;
+
+            first start;
+            then readLeanAndSteeringInput;
+            then indicateSpeedBatteryAndFaults;
+            then provideHapticAndVisualFeedback;
+            then done;
+        }
+    }
+
+    action def ProvideSelfBalancingPersonalTransport {
+        in item riderLoad : RiderLoad;
+        in item riderCommand : RiderCommand;
+        out item transportedMotion : MotionState;
+        out item systemStatus : DiagnosticStatus;
+
+        first start;
+        then senseRiderLeanAndVehicleAttitude;
+        then computeStabilizingWheelTorques;
+        then driveLeftAndRightWheels;
+        then moveRiderWhileMaintainingUprightBalance;
+        then reportOperatingStatus;
+        then done;
+    }
+
+    part def SegwayHT {
+        attribute curbMass : Mass = 45.0;
+        attribute ratedRiderMassMinimum : Mass = 45.0;
+        attribute ratedRiderMassMaximum : Mass = 118.0;
+        attribute maximumForwardSpeed : Speed = 5.6;
+        attribute nominalRangeEnergy : Energy = 1800000.0;
+        attribute maximumSafePitchAngle : Angle = 0.35;
+        attribute maximumStoppingDistanceFromTopSpeed : Length = 4.0;
+
+        port riderInterface : RiderInterfacePort;
+        port groundContact : GroundContactPort;
+        port motionOut : MotionPort;
+
+        part battery : BatteryPack;
+        part imu : InertialMeasurementUnit;
+        part leftEncoder : WheelEncoder;
+        part rightEncoder : WheelEncoder;
+        part controller : BalanceController;
+        part leftMotorDrive : MotorDrive;
+        part rightMotorDrive : MotorDrive;
+        part leftWheel : WheelAssembly;
+        part rightWheel : WheelAssembly;
+        part chassis : Chassis;
+        part console : OperatorConsole;
+
+        connect battery.powerOut to leftMotorDrive.powerIn;
+        connect battery.powerOut to rightMotorDrive.powerIn;
+        connect imu.estimateOut to controller.imuIn;
+        connect leftEncoder.speedOut to controller.encoderIn;
+        connect rightEncoder.speedOut to controller.encoderIn;
+        connect riderInterface to controller.riderIn;
+        connect riderInterface to chassis.riderInterface;
+        connect riderInterface to console.riderPort;
+        connect controller.motorCommandOut to leftMotorDrive.commandIn;
+        connect controller.motorCommandOut to rightMotorDrive.commandIn;
+        connect leftMotorDrive.driveOut to leftWheel.driveIn;
+        connect rightMotorDrive.driveOut to rightWheel.driveIn;
+        connect leftWheel.groundContact to groundContact;
+        connect rightWheel.groundContact to groundContact;
+        connect leftWheel.motionOut to motionOut;
+        connect rightWheel.motionOut to motionOut;
+        connect chassis.motionOut to motionOut;
+
+        perform primaryFunction : ProvideSelfBalancingPersonalTransport;
+
+        state operatingMode {
+            entry;
+            state poweredOff;
+            state starting;
+            state readyForRider;
+            state balancingStationary;
+            state transportingRider;
+            state controlledStop;
+            state charging;
+            state fault;
+
+            transition initial_to_poweredOff first poweredOff;
+            transition start_requested poweredOff accept PowerButtonPressed then starting;
+            transition self_test_complete starting if diagnosticHealthy then readyForRider;
+            transition self_test_fault starting if not diagnosticHealthy then fault;
+            transition rider_steps_on readyForRider if riderDetected then balancingStationary;
+            transition rider_leans_forward balancingStationary if abs(riderCommand.desiredLeanAngle) > 0.02 then transportingRider;
+            transition rider_returns_upright transportingRider if abs(riderCommand.desiredLeanAngle) <= 0.02 and abs(motionState.forwardSpeed) <= 0.1 then balancingStationary;
+            transition stop_requested transportingRider accept EmergencyStopRequested then controlledStop;
+            transition stop_complete controlledStop if abs(motionState.forwardSpeed) <= 0.05 then readyForRider;
+            transition charge_connected poweredOff accept ChargerConnected then charging;
+            transition charge_removed charging accept ChargerRemoved then poweredOff;
+            transition critical_fault_detected transportingRider if criticalFaultDetected then fault;
+            transition reset_after_fault fault accept ResetCommand then starting;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject ht : SegwayHT;
+
+        doc /* The Segway HT shall transport a standing rider over ground by continuously sensing rider lean and vehicle attitude, computing stabilizing wheel torques, and driving two coaxial wheels so that the rider remains dynamically balanced while moving according to rider intent. */
+
+        require constraint {
+            ht.maximumForwardSpeed >= 5.0 and
+            ht.ratedRiderMassMinimum <= 45.0 and
+            ht.ratedRiderMassMaximum >= 118.0
+        }
+    }
+
+    requirement def DynamicBalanceRequirement {
+        subject ht : SegwayHT;
+
+        doc /* During normal riding, the Segway HT shall maintain pitch angle within the safe pitch envelope while producing forward or reverse motion commanded by rider lean. */
+
+        require constraint {
+            ht.maximumSafePitchAngle <= 0.35
+        }
+    }
+
+    requirement def RiderMassSupportRequirement {
+        subject ht : SegwayHT;
+
+        doc /* The Segway HT shall support and transport riders within the specified mass range without exceeding wheel torque, battery power, or chassis load limits. */
+
+        require constraint {
+            ht.ratedRiderMassMinimum == 45.0 and
+            ht.ratedRiderMassMaximum == 118.0
+        }
+    }
+
+    requirement def SpeedLimitRequirement {
+        subject ht : SegwayHT;
+
+        doc /* The Segway HT shall limit commanded forward speed to a safe maximum value and shall reduce torque commands when requested rider input would exceed that value. */
+
+        require constraint {
+            ht.maximumForwardSpeed <= 5.6
+        }
+    }
+
+    requirement def ProtectiveStopRequirement {
+        subject ht : SegwayHT;
+
+        doc /* The Segway HT shall enter a controlled stop when emergency stop is requested, balance stability margin is insufficient, or a critical traction, power, sensor, or controller fault is detected. */
+
+        require constraint {
+            ht.maximumStoppingDistanceFromTopSpeed <= 4.0
+        }
+    }
+
+    requirement def EnergyAvailabilityRequirement {
+        subject ht : SegwayHT;
+
+        doc /* The Segway HT shall provide sufficient onboard stored energy to supply both motor drives and the balance controller during normal riding and controlled stopping. */
+
+        require constraint {
+            ht.nominalRangeEnergy >= 1800000.0
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by SegwayHT::primaryFunction;
+    satisfy DynamicBalanceRequirement by SegwayHT::controller;
+    satisfy RiderMassSupportRequirement by SegwayHT::chassis;
+    satisfy SpeedLimitRequirement by SegwayHT::controller;
+    satisfy ProtectiveStopRequirement by SegwayHT::operatingMode;
+    satisfy EnergyAvailabilityRequirement by SegwayHT::battery;
+}

@@ -1,0 +1,668 @@
+package SteamPumpModel {
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Pressure :> Real {
+    doc /* Fluid absolute pressure in pascals. */
+  }
+
+  attribute def Temperature :> Real {
+    doc /* Thermodynamic temperature in kelvin. */
+  }
+
+  attribute def MassFlowRate :> Real {
+    doc /* Mass flow rate in kilograms per second. */
+  }
+
+  attribute def VolumeFlowRate :> Real {
+    doc /* Volumetric flow rate in cubic meters per second. */
+  }
+
+  attribute def ShaftSpeed :> Real {
+    doc /* Rotational speed in revolutions per minute. */
+  }
+
+  attribute def Power :> Real {
+    doc /* Mechanical or thermal power in watts. */
+  }
+
+  attribute def Efficiency :> Real {
+    doc /* Dimensionless conversion efficiency. */
+  }
+
+  attribute def StrokeRate :> Real {
+    doc /* Reciprocating strokes per minute. */
+  }
+
+  attribute def Force :> Real {
+    doc /* Linear force in newtons. */
+  }
+
+  attribute def Position :> Real {
+    doc /* Linear position in meters. */
+  }
+
+  attribute def BooleanSignal :> Boolean;
+  attribute def CommandSignal :> BooleanSignal;
+  attribute def AlarmSignal :> BooleanSignal;
+
+  item def Steam {
+    attribute pressure : Pressure;
+    attribute temperature : Temperature;
+    attribute massFlow : MassFlowRate;
+    attribute specificEnthalpy : Real;
+  }
+
+  item def Condensate {
+    attribute pressure : Pressure;
+    attribute temperature : Temperature;
+    attribute volumeFlow : VolumeFlowRate;
+  }
+
+  item def Feedwater {
+    attribute pressure : Pressure;
+    attribute temperature : Temperature;
+    attribute volumeFlow : VolumeFlowRate;
+  }
+
+  item def ExhaustSteam {
+    attribute pressure : Pressure;
+    attribute temperature : Temperature;
+    attribute massFlow : MassFlowRate;
+  }
+
+  item def Lubricant {
+    attribute pressure : Pressure;
+    attribute temperature : Temperature;
+    attribute volumeFlow : VolumeFlowRate;
+  }
+
+  item def DrainWater {
+    attribute pressure : Pressure;
+    attribute temperature : Temperature;
+    attribute volumeFlow : VolumeFlowRate;
+  }
+
+  port def SteamInletPort {
+    in item steam : Steam;
+    attribute ratedPressure : Pressure;
+    attribute maximumTemperature : Temperature;
+  }
+
+  port def SteamExhaustPort {
+    out item exhaust : ExhaustSteam;
+    attribute backPressure : Pressure;
+  }
+
+  port def WaterInletPort {
+    in item inletWater : Condensate;
+    attribute minimumSuctionPressure : Pressure;
+  }
+
+  port def WaterOutletPort {
+    out item outletWater : Feedwater;
+    attribute dischargePressure : Pressure;
+  }
+
+  port def LubricationPort {
+    inout item oil : Lubricant;
+    attribute supplyPressure : Pressure;
+  }
+
+  port def DrainPort {
+    out item drain : DrainWater;
+  }
+
+  port def CommandPort {
+    in attribute start : CommandSignal;
+    in attribute stop : CommandSignal;
+    in attribute reset : CommandSignal;
+  }
+
+  port def StatusPort {
+    out attribute running : BooleanSignal;
+    out attribute available : BooleanSignal;
+    out attribute faulted : BooleanSignal;
+    out attribute lowSuctionPressureAlarm : AlarmSignal;
+    out attribute highDischargePressureAlarm : AlarmSignal;
+    out attribute overspeedAlarm : AlarmSignal;
+  }
+
+  interface def SteamSupplyInterface {
+    end supplier : SteamExhaustPort;
+    end consumer : SteamInletPort;
+  }
+
+  interface def WaterSuctionInterface {
+    end source : WaterOutletPort;
+    end receiver : WaterInletPort;
+  }
+
+  interface def WaterDischargeInterface {
+    end pumpOutlet : WaterOutletPort;
+    end systemInlet : WaterInletPort;
+  }
+
+  interface def ExhaustInterface {
+    end pumpExhaust : SteamExhaustPort;
+    end condenserInlet : SteamInletPort;
+  }
+
+  interface def LubricationInterface {
+    end reservoir : LubricationPort;
+    end bearing : LubricationPort;
+  }
+
+  part def SteamDrivenFeedwaterPumpSystem {
+    doc /* Primary function: use the energy of supplied steam to raise feedwater from suction pressure to boiler feed pressure and deliver controlled flow to a steam generator. */
+
+    port steamSupply : SteamInletPort;
+    port steamExhaust : SteamExhaustPort;
+    port waterSuction : WaterInletPort;
+    port waterDischarge : WaterOutletPort;
+    port commands : CommandPort;
+    port status : StatusPort;
+    port drain : DrainPort;
+
+    attribute requiredDischargePressure : Pressure = 8500000.0;
+    attribute nominalSuctionPressure : Pressure = 250000.0;
+    attribute nominalFlow : VolumeFlowRate = 0.045;
+    attribute maximumSteamPressure : Pressure = 1800000.0;
+    attribute minimumSteamPressure : Pressure = 900000.0;
+    attribute minimumEfficiency : Efficiency = 0.62;
+
+    part steamEnd : SteamPowerCylinder;
+    part liquidEnd : ReciprocatingWaterPump;
+    part crosshead : MechanicalLinkage;
+    part steamAdmissionValve : GovernorValve;
+    part suctionValve : CheckValve;
+    part dischargeValve : CheckValve;
+    part lubricationSystem : LubricationSystem;
+    part controller : PumpController;
+    part instrumentation : PumpInstrumentation;
+    part reliefValve : PressureReliefValve;
+    part frame : StructuralFrame;
+
+    connect steamSupply to steamAdmissionValve.steamIn;
+    connect steamAdmissionValve.steamOut to steamEnd.steamIn;
+    connect steamEnd.exhaustOut to steamExhaust;
+    connect steamEnd.pistonRod to crosshead.steamSide;
+    connect crosshead.waterSide to liquidEnd.plungerRod;
+    connect waterSuction to suctionValve.inlet;
+    connect suctionValve.outlet to liquidEnd.waterIn;
+    connect liquidEnd.waterOut to dischargeValve.inlet;
+    connect dischargeValve.outlet to waterDischarge;
+    connect dischargeValve.outlet to reliefValve.protectedLine;
+    connect reliefValve.drainOut to drain;
+    connect lubricationSystem.bearingOil to crosshead.lube;
+    connect instrumentation.sensedSteam to steamSupply;
+    connect instrumentation.sensedSuction to waterSuction;
+    connect instrumentation.sensedDischarge to waterDischarge;
+    connect commands to controller.commandInput;
+    connect controller.valveCommand to steamAdmissionValve.control;
+    connect controller.statusOutput to status;
+  }
+
+  part def SteamPowerCylinder {
+    port steamIn : SteamInletPort;
+    port exhaustOut : SteamExhaustPort;
+    port pistonRod : MechanicalLinearPort;
+
+    attribute cylinderBore : Real = 0.32;
+    attribute strokeLength : Real = 0.45;
+    attribute steamCutoffFraction : Real = 0.55;
+    attribute indicatedPower : Power;
+    attribute pistonForce : Force;
+    attribute pistonPosition : Position;
+    attribute strokeRate : StrokeRate;
+
+    action convertSteamEnergyToLinearMotion : SteamExpansionAction;
+    state operatingState : SteamCylinderStates;
+  }
+
+  part def ReciprocatingWaterPump {
+    port waterIn : WaterInletPort;
+    port waterOut : WaterOutletPort;
+    port plungerRod : MechanicalLinearPort;
+
+    attribute plungerDiameter : Real = 0.18;
+    attribute strokeLength : Real = 0.45;
+    attribute volumetricEfficiency : Efficiency = 0.91;
+    attribute hydraulicPower : Power;
+    attribute strokeRate : StrokeRate;
+    attribute deliveredFlow : VolumeFlowRate;
+    attribute dischargePressure : Pressure;
+
+    action pumpWater : RaiseFeedwaterPressureAction;
+    state hydraulicState : LiquidEndStates;
+  }
+
+  port def MechanicalLinearPort {
+    inout attribute force : Force;
+    inout attribute position : Position;
+    inout attribute strokeRate : StrokeRate;
+  }
+
+  part def MechanicalLinkage {
+    port steamSide : MechanicalLinearPort;
+    port waterSide : MechanicalLinearPort;
+    port lube : LubricationPort;
+
+    attribute mechanicalEfficiency : Efficiency = 0.94;
+    attribute transmittedForce : Force;
+    attribute crossheadPosition : Position;
+  }
+
+  part def GovernorValve {
+    port steamIn : SteamInletPort;
+    port steamOut : SteamInletPort;
+    port control : ValveControlPort;
+
+    attribute openingFraction : Real;
+    attribute commandedOpening : Real;
+    attribute maximumFlow : MassFlowRate = 2.8;
+    attribute pressureDrop : Pressure;
+
+    state valveState : GovernorValveStates;
+  }
+
+  port def ValveControlPort {
+    in attribute openCommand : Real;
+    in attribute closeCommand : CommandSignal;
+    in attribute tripCommand : CommandSignal;
+  }
+
+  part def CheckValve {
+    port inlet : WaterInletPort;
+    port outlet : WaterOutletPort;
+
+    attribute crackingPressure : Pressure = 12000.0;
+    attribute reverseLeakageFlow : VolumeFlowRate;
+    attribute open : Boolean;
+
+    state checkValveState : CheckValveStates;
+  }
+
+  part def PressureReliefValve {
+    port protectedLine : WaterOutletPort;
+    port drainOut : DrainPort;
+
+    attribute setPressure : Pressure = 9200000.0;
+    attribute reseatPressure : Pressure = 8700000.0;
+    attribute relievingFlow : VolumeFlowRate;
+    attribute open : Boolean;
+
+    state reliefState : ReliefValveStates;
+  }
+
+  part def LubricationSystem {
+    port bearingOil : LubricationPort;
+
+    attribute reservoirVolume : Real = 0.075;
+    attribute oilSupplyPressure : Pressure = 220000.0;
+    attribute oilTemperature : Temperature;
+    attribute lowOilPressureAlarm : AlarmSignal;
+
+    part reservoir : OilReservoir;
+    part pump : AuxiliaryOilPump;
+    part cooler : OilCooler;
+
+    connect reservoir.outlet to pump.inlet;
+    connect pump.outlet to cooler.inlet;
+    connect cooler.outlet to bearingOil;
+  }
+
+  part def OilReservoir {
+    port outlet : LubricationPort;
+    attribute oilLevel : Real;
+    attribute oilTemperature : Temperature;
+  }
+
+  part def AuxiliaryOilPump {
+    port inlet : LubricationPort;
+    port outlet : LubricationPort;
+    attribute outletPressure : Pressure;
+    attribute flow : VolumeFlowRate;
+  }
+
+  part def OilCooler {
+    port inlet : LubricationPort;
+    port outlet : LubricationPort;
+    attribute heatRemoved : Power;
+  }
+
+  part def PumpInstrumentation {
+    port sensedSteam : SteamInletPort;
+    port sensedSuction : WaterInletPort;
+    port sensedDischarge : WaterOutletPort;
+
+    attribute steamPressure : Pressure;
+    attribute steamTemperature : Temperature;
+    attribute suctionPressure : Pressure;
+    attribute dischargePressure : Pressure;
+    attribute waterFlow : VolumeFlowRate;
+    attribute strokeRate : StrokeRate;
+    attribute lowSuctionPressure : AlarmSignal;
+    attribute highDischargePressure : AlarmSignal;
+    attribute overspeed : AlarmSignal;
+  }
+
+  part def PumpController {
+    port commandInput : CommandPort;
+    port statusOutput : StatusPort;
+    port valveCommand : ValveControlPort;
+
+    attribute targetDischargePressure : Pressure = 8500000.0;
+    attribute targetFlow : VolumeFlowRate = 0.045;
+    attribute maximumStrokeRate : StrokeRate = 85.0;
+    attribute minimumSuctionPressure : Pressure = 180000.0;
+    attribute highDischargeTripPressure : Pressure = 9500000.0;
+    attribute available : Boolean;
+    attribute running : Boolean;
+    attribute faulted : Boolean;
+
+    action startPump : StartSteamPumpAction;
+    action regulatePump : RegulateDischargePressureAction;
+    action stopPump : StopSteamPumpAction;
+    action tripPump : TripSteamPumpAction;
+
+    state controlState : PumpControlStates;
+  }
+
+  part def StructuralFrame {
+    attribute foundationBoltCount : Integer = 12;
+    attribute allowableVibrationVelocity : Real = 0.0045;
+    attribute frameMass : Real = 1850.0;
+  }
+
+  action def SteamExpansionAction {
+    in item admittedSteam : Steam;
+    out item exhaustSteam : ExhaustSteam;
+    out attribute pistonForce : Force;
+    out attribute strokeRate : StrokeRate;
+
+    attribute expansionEfficiency : Efficiency = 0.72;
+  }
+
+  action def RaiseFeedwaterPressureAction {
+    in item suctionWater : Condensate;
+    in attribute plungerForce : Force;
+    out item pressurizedWater : Feedwater;
+
+    attribute hydraulicEfficiency : Efficiency = 0.86;
+    attribute pressureRise : Pressure;
+    attribute deliveredFlow : VolumeFlowRate;
+  }
+
+  action def StartSteamPumpAction {
+    in attribute startCommand : CommandSignal;
+    out attribute valveOpening : Real;
+    out attribute running : Boolean;
+
+    first startLubrication;
+    then crackSteamValve;
+    then accelerateToMinimumStrokeRate;
+    then enablePressureRegulation;
+
+    action startLubrication;
+    action crackSteamValve;
+    action accelerateToMinimumStrokeRate;
+    action enablePressureRegulation;
+  }
+
+  action def RegulateDischargePressureAction {
+    in attribute measuredDischargePressure : Pressure;
+    in attribute targetDischargePressure : Pressure;
+    in attribute measuredFlow : VolumeFlowRate;
+    out attribute valveOpening : Real;
+
+    action comparePressure;
+    action adjustSteamAdmission;
+    action limitStrokeRate;
+
+    first comparePressure;
+    then adjustSteamAdmission;
+    then limitStrokeRate;
+  }
+
+  action def StopSteamPumpAction {
+    in attribute stopCommand : CommandSignal;
+    out attribute valveOpening : Real;
+    out attribute running : Boolean;
+
+    first closeSteamAdmission;
+    then ventCylinder;
+    then coastToStop;
+
+    action closeSteamAdmission;
+    action ventCylinder;
+    action coastToStop;
+  }
+
+  action def TripSteamPumpAction {
+    in attribute tripCondition : AlarmSignal;
+    out attribute tripValveCommand : CommandSignal;
+    out attribute faulted : Boolean;
+
+    first closeGovernorValve;
+    then isolateSteam;
+    then openReliefIfRequired;
+
+    action closeGovernorValve;
+    action isolateSteam;
+    action openReliefIfRequired;
+  }
+
+  state def PumpControlStates {
+    entry action initializeAvailability;
+
+    state stopped;
+    state starting;
+    state running;
+    state stopping;
+    state tripped;
+    state lockedOut;
+
+    transition initial then stopped;
+
+    transition stopped_to_starting
+      first stopped
+      accept StartCommand
+      if startPermissivesSatisfied
+      then starting;
+
+    transition starting_to_running
+      first starting
+      accept MinimumStrokeRateReached
+      then running;
+
+    transition running_to_stopping
+      first running
+      accept StopCommand
+      then stopping;
+
+    transition stopping_to_stopped
+      first stopping
+      accept ZeroStrokeRate
+      then stopped;
+
+    transition running_to_tripped
+      first running
+      accept ProtectiveTrip
+      then tripped;
+
+    transition starting_to_tripped
+      first starting
+      accept ProtectiveTrip
+      then tripped;
+
+    transition tripped_to_lockedOut
+      first tripped
+      accept FaultLatched
+      then lockedOut;
+
+    transition lockedOut_to_stopped
+      first lockedOut
+      accept ResetCommand
+      if faultCleared
+      then stopped;
+  }
+
+  state def SteamCylinderStates {
+    state depressurized;
+    state admittingSteam;
+    state expanding;
+    state exhausting;
+    state isolated;
+
+    transition initial then depressurized;
+    transition depressurized_to_admittingSteam first depressurized accept SteamValveOpened then admittingSteam;
+    transition admittingSteam_to_expanding first admittingSteam accept CutoffReached then expanding;
+    transition expanding_to_exhausting first expanding accept EndOfPowerStroke then exhausting;
+    transition exhausting_to_admittingSteam first exhausting accept ReturnStrokeComplete then admittingSteam;
+    transition admittingSteam_to_isolated first admittingSteam accept TripCommand then isolated;
+    transition expanding_to_isolated first expanding accept TripCommand then isolated;
+    transition exhausting_to_isolated first exhausting accept TripCommand then isolated;
+  }
+
+  state def LiquidEndStates {
+    state idle;
+    state suctionStroke;
+    state dischargeStroke;
+    state cavitationRisk;
+    state overpressure;
+
+    transition initial then idle;
+    transition idle_to_suctionStroke first idle accept PlungerRetracts then suctionStroke;
+    transition suctionStroke_to_dischargeStroke first suctionStroke accept PlungerAdvances then dischargeStroke;
+    transition dischargeStroke_to_suctionStroke first dischargeStroke accept PlungerRetracts then suctionStroke;
+    transition suctionStroke_to_cavitationRisk first suctionStroke accept LowSuctionPressure then cavitationRisk;
+    transition dischargeStroke_to_overpressure first dischargeStroke accept HighDischargePressure then overpressure;
+    transition cavitationRisk_to_suctionStroke first cavitationRisk accept SuctionPressureRecovered then suctionStroke;
+    transition overpressure_to_idle first overpressure accept ReliefOpened then idle;
+  }
+
+  state def GovernorValveStates {
+    state closed;
+    state opening;
+    state modulating;
+    state closing;
+    state trippedClosed;
+
+    transition initial then closed;
+    transition closed_to_opening first closed accept OpenCommand then opening;
+    transition opening_to_modulating first opening accept OpeningAtSetpoint then modulating;
+    transition modulating_to_closing first modulating accept CloseCommand then closing;
+    transition closing_to_closed first closing accept FullyClosed then closed;
+    transition opening_to_trippedClosed first opening accept TripCommand then trippedClosed;
+    transition modulating_to_trippedClosed first modulating accept TripCommand then trippedClosed;
+    transition trippedClosed_to_closed first trippedClosed accept ResetCommand then closed;
+  }
+
+  state def CheckValveStates {
+    state seated;
+    state opening;
+    state open;
+    state closing;
+
+    transition initial then seated;
+    transition seated_to_opening first seated accept ForwardPressureExceedsCrackingPressure then opening;
+    transition opening_to_open first opening accept StableForwardFlow then open;
+    transition open_to_closing first open accept FlowReversalDetected then closing;
+    transition closing_to_seated first closing accept ReverseFlowStopped then seated;
+  }
+
+  state def ReliefValveStates {
+    state closed;
+    state lifting;
+    state relieving;
+    state reseating;
+
+    transition initial then closed;
+    transition closed_to_lifting first closed accept PressureAboveSetpoint then lifting;
+    transition lifting_to_relieving first lifting accept FullLiftReached then relieving;
+    transition relieving_to_reseating first relieving accept PressureBelowReseat then reseating;
+    transition reseating_to_closed first reseating accept DiscSeated then closed;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject pumpSystem : SteamDrivenFeedwaterPumpSystem;
+
+    doc /* The steam pump system shall convert supplied steam energy into mechanical reciprocating motion to increase feedwater pressure and deliver feedwater to the boiler feed header. */
+
+    require constraint {
+      pumpSystem.waterDischarge.dischargePressure >= pumpSystem.requiredDischargePressure
+    }
+  }
+
+  requirement def FlowCapacityRequirement {
+    subject pumpSystem : SteamDrivenFeedwaterPumpSystem;
+
+    doc /* The system shall provide the nominal feedwater flow while supplied with steam within the specified operating pressure range. */
+
+    require constraint {
+      pumpSystem.nominalFlow >= 0.045
+    }
+  }
+
+  requirement def SteamSupplyRequirement {
+    subject pumpSystem : SteamDrivenFeedwaterPumpSystem;
+
+    doc /* The system shall operate only when steam supply pressure is between minimum and maximum operating limits. */
+
+    require constraint {
+      pumpSystem.steamSupply.ratedPressure >= pumpSystem.minimumSteamPressure and
+      pumpSystem.steamSupply.ratedPressure <= pumpSystem.maximumSteamPressure
+    }
+  }
+
+  requirement def OverpressureProtectionRequirement {
+    subject pumpSystem : SteamDrivenFeedwaterPumpSystem;
+
+    doc /* The discharge side shall relieve pressure before exceeding the allowable high-discharge trip pressure. */
+
+    require constraint {
+      pumpSystem.reliefValve.setPressure < pumpSystem.controller.highDischargeTripPressure
+    }
+  }
+
+  requirement def LowSuctionProtectionRequirement {
+    subject pumpSystem : SteamDrivenFeedwaterPumpSystem;
+
+    doc /* The controller shall trip or inhibit starting when suction pressure is below the minimum permitted value. */
+
+    require constraint {
+      pumpSystem.controller.minimumSuctionPressure >= 180000.0
+    }
+  }
+
+  requirement def EfficiencyRequirement {
+    subject pumpSystem : SteamDrivenFeedwaterPumpSystem;
+
+    doc /* The steam pump system shall maintain minimum overall efficiency during rated operation. */
+
+    require constraint {
+      pumpSystem.minimumEfficiency >= 0.62
+    }
+  }
+
+  requirement def SafeShutdownRequirement {
+    subject pumpSystem : SteamDrivenFeedwaterPumpSystem;
+
+    doc /* On protective trip, the system shall close steam admission, isolate steam power, and report faulted status. */
+
+    require constraint {
+      pumpSystem.controller.faulted == true implies pumpSystem.steamAdmissionValve.openingFraction == 0.0
+    }
+  }
+
+  part steamPumpInstallation : SteamDrivenFeedwaterPumpSystem {
+    attribute requiredDischargePressure = 8500000.0;
+    attribute nominalSuctionPressure = 250000.0;
+    attribute nominalFlow = 0.045;
+    attribute maximumSteamPressure = 1800000.0;
+    attribute minimumSteamPressure = 900000.0;
+    attribute minimumEfficiency = 0.62;
+  }
+}

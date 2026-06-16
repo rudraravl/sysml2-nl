@@ -1,0 +1,1119 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-hdh616x4
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019ebad4-97e9-7ff3-951c-6e67d9e64c8c
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Define a system based on a STS-123 and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package STS123SystemModel {
+
+    private import ScalarValues::*;
+    private import ISQ::*;
+    private import SI::*;
+
+    attribute def MissionElapsedTime :> ISQ::time {
+        unit = SI::s;
+    }
+
+    attribute def MassValue :> ISQ::mass {
+        unit = SI::kg;
+    }
+
+    attribute def DistanceValue :> ISQ::length {
+        unit = SI::m;
+    }
+
+    attribute def VelocityValue :> ISQ::speed {
+        unit = SI::m / SI::s;
+    }
+
+    attribute def PowerValue :> ISQ::power {
+        unit = SI::W;
+    }
+
+    attribute def EnergyValue :> ISQ::energy {
+        unit = SI::J;
+    }
+
+    attribute def DataRateValue :> ISQ::dataRate {
+        unit = SI::bit / SI::s;
+    }
+
+    attribute def TemperatureValue :> ISQ::thermodynamicTemperature {
+        unit = SI::K;
+    }
+
+    attribute def PressureValue :> ISQ::pressure {
+        unit = SI::Pa;
+    }
+
+    enum def MissionPhase {
+        enum preLaunch;
+        enum ascent;
+        enum rendezvous;
+        enum dockedAssembly;
+        enum roboticsTransfer;
+        enum externalOperations;
+        enum undocking;
+        enum entry;
+        enum landing;
+        enum complete;
+        enum abort;
+    }
+
+    item def CrewMember {
+        attribute name : String;
+        attribute role : String;
+        attribute evaQualified : Boolean;
+    }
+
+    item def TelemetryPacket {
+        attribute timestamp : MissionElapsedTime;
+        attribute sourceId : String;
+        attribute healthSummary : String;
+        attribute dataRate : DataRateValue;
+    }
+
+    item def CommandMessage {
+        attribute timestamp : MissionElapsedTime;
+        attribute destinationId : String;
+        attribute commandName : String;
+        attribute authenticated : Boolean;
+    }
+
+    item def ElectricalPower {
+        attribute availablePower : PowerValue;
+        attribute busVoltage : ScalarValues::Real;
+    }
+
+    item def ThermalLoad {
+        attribute heatRejected : PowerValue;
+        attribute equipmentTemperature : TemperatureValue;
+    }
+
+    item def Propellant {
+        attribute mass : MassValue;
+        attribute tankPressure : PressureValue;
+    }
+
+    item def PressurizedCargo {
+        attribute cargoName : String;
+        attribute mass : MassValue;
+        attribute destinationRack : String;
+    }
+
+    item def ExternalPayload {
+        attribute payloadName : String;
+        attribute mass : MassValue;
+        attribute grappleFixtureId : String;
+    }
+
+    item def DockingLoad {
+        attribute axialForce : ScalarValues::Real;
+        attribute alignmentError : DistanceValue;
+        attribute relativeVelocity : VelocityValue;
+    }
+
+    port def PowerPort {
+        out item power : ElectricalPower;
+    }
+
+    port def DataPort {
+        in item command : CommandMessage;
+        out item telemetry : TelemetryPacket;
+    }
+
+    port def ThermalPort {
+        out item thermalLoad : ThermalLoad;
+    }
+
+    port def PropulsionPort {
+        in item propellant : Propellant;
+    }
+
+    port def CargoPort {
+        out item pressurizedCargo : PressurizedCargo;
+        out item externalPayload : ExternalPayload;
+    }
+
+    port def DockingPort {
+        inout item load : DockingLoad;
+    }
+
+    port def CrewPort {
+        inout item crew : CrewMember;
+    }
+
+    part def Orbiter {
+        attribute dryMass : MassValue;
+        attribute maxCrew : Integer;
+        attribute electricalCapacity : PowerValue;
+        attribute currentPhase : MissionPhase;
+
+        port powerInterface : PowerPort;
+        port commandTelemetryInterface : DataPort;
+        port thermalInterface : ThermalPort;
+        port aftPropulsionFeed : PropulsionPort;
+        port payloadBayInterface : CargoPort;
+        port dockingInterface : DockingPort;
+        port crewTransferInterface : CrewPort;
+
+        part flightDeck {
+            attribute activeDisplays : Integer;
+            attribute guidanceMode : String;
+        }
+
+        part midDeck {
+            attribute availableStowageVolume : ScalarValues::Real;
+            attribute lifeSupportMarginHours : ScalarValues::Real;
+        }
+
+        part payloadBay {
+            attribute usableLength : DistanceValue;
+            attribute payloadRetentionActive : Boolean;
+        }
+
+        part mainPropulsionSystem {
+            attribute engineCount : Integer = 3;
+            attribute ascentThrustAvailable : Boolean;
+        }
+
+        part orbitalManeuveringSystem {
+            attribute engineCount : Integer = 2;
+            attribute deltaVRemaining : VelocityValue;
+        }
+
+        part reactionControlSystem {
+            attribute jetCount : Integer;
+            attribute propellantRemaining : MassValue;
+        }
+
+        part avionics {
+            attribute primaryComputersOnline : Integer;
+            attribute backupFlightSystemReady : Boolean;
+        }
+
+        part environmentalControl {
+            attribute cabinPressure : PressureValue;
+            attribute cabinTemperature : TemperatureValue;
+            attribute carbonDioxideRemovalActive : Boolean;
+        }
+    }
+
+    part def InternationalSpaceStation {
+        attribute orbitalAltitude : DistanceValue;
+        attribute crewCapacity : Integer;
+        attribute assemblyConfiguration : String;
+
+        port stationPowerInterface : PowerPort;
+        port stationDataInterface : DataPort;
+        port stationThermalInterface : ThermalPort;
+        port pressurizedMatingAdapter : DockingPort;
+        port stationCrewInterface : CrewPort;
+        port payloadReceivingInterface : CargoPort;
+
+        part harmonyNode {
+            attribute activeBerthingPorts : Integer;
+        }
+
+        part kiboLogisticsLocation {
+            attribute readyToReceiveModule : Boolean;
+        }
+
+        part dexterManipulator {
+            attribute operational : Boolean;
+            attribute toolChangeoutReady : Boolean;
+        }
+
+        part mobileBaseSystem {
+            attribute railPosition : DistanceValue;
+        }
+    }
+
+    part def LogisticsModule {
+        attribute name : String = "Kibo Logistics Module Pressurized Section";
+        attribute launchMass : MassValue;
+        attribute pressurizedVolume : ScalarValues::Real;
+        attribute installedOnStation : Boolean;
+
+        port modulePower : PowerPort;
+        port moduleData : DataPort;
+        port moduleThermal : ThermalPort;
+        port moduleCargoTransfer : CargoPort;
+
+        part experimentRacks {
+            attribute rackCount : Integer;
+            attribute configuredForActivation : Boolean;
+        }
+
+        part structuralShell {
+            attribute pressureIntegrityVerified : Boolean;
+        }
+    }
+
+    part def SpecialPurposeDexterousManipulator {
+        attribute name : String = "Dextre";
+        attribute launchMass : MassValue;
+        attribute operationalOnStation : Boolean;
+
+        port manipulatorPower : PowerPort;
+        port manipulatorData : DataPort;
+        port manipulatorThermal : ThermalPort;
+        port manipulatorCargoInterface : CargoPort;
+
+        part armA {
+            attribute jointCount : Integer;
+            attribute brakeReleased : Boolean;
+        }
+
+        part armB {
+            attribute jointCount : Integer;
+            attribute brakeReleased : Boolean;
+        }
+
+        part toolHolder {
+            attribute installedTools : Integer;
+        }
+    }
+
+    part def MissionControlCenter {
+        attribute location : String = "Houston";
+        attribute flightDirectorConsoleActive : Boolean;
+
+        port groundDataInterface : DataPort;
+
+        part flightDynamicsConsole {
+            attribute trajectorySolutionValid : Boolean;
+        }
+
+        part roboticsConsole {
+            attribute procedureLoaded : Boolean;
+        }
+
+        part evaConsole {
+            attribute suitTelemetryNominal : Boolean;
+        }
+    }
+
+    part def STS123IntegratedSystem {
+        doc /* STS-123 is modeled as an integrated Space Shuttle assembly mission system whose high-level primary function is to transport crew, the first pressurized Kibo logistics element, and the Special Purpose Dexterous Manipulator to the International Space Station, then support rendezvous, docking, robotic transfer, assembly, checkout, and safe return of the orbiter crew. */
+
+        attribute missionName : String = "STS-123";
+        attribute primaryFunction : String = "Deliver and integrate major International Space Station assembly elements while sustaining crewed shuttle operations from launch through landing.";
+        attribute plannedDockedDuration : MissionElapsedTime;
+        attribute currentMissionPhase : MissionPhase;
+        attribute crewCount : Integer = 7;
+
+        port groundLink : DataPort;
+        port stationDockingPort : DockingPort;
+        port stationCargoPort : CargoPort;
+        port missionPowerBus : PowerPort;
+        port missionThermalBus : ThermalPort;
+
+        part orbiter : Orbiter {
+            attribute dryMass = 78000 [SI::kg];
+            attribute maxCrew = 7;
+            attribute electricalCapacity = 21000 [SI::W];
+        }
+
+        part station : InternationalSpaceStation {
+            attribute orbitalAltitude = 350000 [SI::m];
+            attribute crewCapacity = 6;
+            attribute assemblyConfiguration = "STS-123 docked assembly configuration";
+        }
+
+        part kiboLogisticsModule : LogisticsModule {
+            attribute launchMass = 4200 [SI::kg];
+            attribute pressurizedVolume = 16.0;
+        }
+
+        part dextre : SpecialPurposeDexterousManipulator {
+            attribute launchMass = 1560 [SI::kg];
+        }
+
+        part missionControl : MissionControlCenter;
+
+        part crew {
+            part commander : CrewMember {
+                attribute name = "Commander";
+                attribute role = "Orbiter command and mission authority";
+                attribute evaQualified = false;
+            }
+
+            part pilot : CrewMember {
+                attribute name = "Pilot";
+                attribute role = "Ascent, rendezvous, entry, and orbiter systems";
+                attribute evaQualified = false;
+            }
+
+            part missionSpecialistRobotics : CrewMember {
+                attribute name = "Robotics Specialist";
+                attribute role = "Station and shuttle robotic arm operations";
+                attribute evaQualified = true;
+            }
+
+            part missionSpecialistEva1 : CrewMember {
+                attribute name = "EVA Specialist 1";
+                attribute role = "External assembly and payload activation";
+                attribute evaQualified = true;
+            }
+
+            part missionSpecialistEva2 : CrewMember {
+                attribute name = "EVA Specialist 2";
+                attribute role = "External assembly and Dextre outfitting";
+                attribute evaQualified = true;
+            }
+
+            part missionSpecialistTransfer : CrewMember {
+                attribute name = "Transfer Specialist";
+                attribute role = "Pressurized cargo transfer and inventory";
+                attribute evaQualified = false;
+            }
+
+            part missionSpecialistSystems : CrewMember {
+                attribute name = "Systems Specialist";
+                attribute role = "Life support, avionics, and inspection support";
+                attribute evaQualified = false;
+            }
+        }
+
+        connection dockedStructuralPath connect orbiter.dockingInterface to station.pressurizedMatingAdapter;
+        connection cargoPath connect orbiter.payloadBayInterface to station.payloadReceivingInterface;
+        connection commandPath connect missionControl.groundDataInterface to orbiter.commandTelemetryInterface;
+        connection stationCommandPath connect missionControl.groundDataInterface to station.stationDataInterface;
+        connection powerDuringDockedOps connect station.stationPowerInterface to kiboLogisticsModule.modulePower;
+        connection dexterPowerPath connect station.stationPowerInterface to dextre.manipulatorPower;
+        connection kiboThermalPath connect kiboLogisticsModule.moduleThermal to station.stationThermalInterface;
+        connection dexterThermalPath connect dextre.manipulatorThermal to station.stationThermalInterface;
+        connection crewHatchPath connect orbiter.crewTransferInterface to station.stationCrewInterface;
+    }
+
+    action def LaunchAndAscent {
+        in item ascentPropellant : Propellant;
+        out item ascentTelemetry : TelemetryPacket;
+
+        first start;
+        then ignition;
+        then liftoff;
+        then solidRocketBoosterSeparation;
+        then externalTankSeparation;
+        then mainEngineCutoff;
+        then orbitInsertion;
+        then done;
+    }
+
+    action def RendezvousAndDock {
+        in item stateVectorCommand : CommandMessage;
+        out item dockingLoad : DockingLoad;
+
+        first phaseAdjust;
+        then terminalInitiation;
+        then proximityOperations;
+        then stationKeeping;
+        then finalApproach;
+        then softCapture;
+        then hardMate;
+        then done;
+    }
+
+    action def TransferKiboLogisticsModule {
+        in item modulePayload : ExternalPayload;
+        out item installedCargo : PressurizedCargo;
+
+        first grappleModule;
+        then unberthFromPayloadBay;
+        then maneuverToStationPort;
+        then berthToHarmony;
+        then connectPowerDataThermal;
+        then leakCheckVestibule;
+        then activateModule;
+        then done;
+    }
+
+    action def InstallDextreManipulator {
+        in item manipulatorPayload : ExternalPayload;
+        out item activationTelemetry : TelemetryPacket;
+
+        first removeLaunchRestraints;
+        then grappleManipulator;
+        then positionOnStationWorksite;
+        then attachStructuralInterfaces;
+        then connectPowerData;
+        then performJointCheckout;
+        then confirmOperational;
+        then done;
+    }
+
+    action def ConductEVAOperations {
+        in item evaCrew1 : CrewMember;
+        in item evaCrew2 : CrewMember;
+        out item evaTelemetry : TelemetryPacket;
+
+        first suitPrep;
+        then airlockDepress;
+        then translateToWorksite;
+        then externalAssemblyTasks;
+        then toolStowage;
+        then airlockIngress;
+        then repressurize;
+        then done;
+    }
+
+    action def UndockAndReturn {
+        out item landingTelemetry : TelemetryPacket;
+
+        first hatchClosure;
+        then undock;
+        then separationBurn;
+        then lateInspection;
+        then deorbitBurn;
+        then atmosphericEntry;
+        then runwayLanding;
+        then safing;
+        then done;
+    }
+
+    state def STS123MissionStateMachine {
+        entry action initializeMission;
+
+        state PreLaunch;
+        state Ascent;
+        state OrbitPhasing;
+        state DockedAssembly;
+        state RoboticsTransfer;
+        state EVAOperations;
+        state Checkout;
+        state UndockedFreeFlight;
+        state EntryLanding;
+        state MissionComplete;
+        state MissionAbort;
+
+        transition first PreLaunch;
+
+        transition launch from PreLaunch to Ascent
+            accept CommandMessage
+            if commandName == "GO_FOR_LAUNCH";
+
+        transition orbitAchieved from Ascent to OrbitPhasing;
+
+        transition abortDuringAscent from Ascent to MissionAbort
+            if currentMissionPhase == MissionPhase::abort;
+
+        transition docked from OrbitPhasing to DockedAssembly;
+
+        transition beginRobotics from DockedAssembly to RoboticsTransfer;
+
+        transition beginEVA from RoboticsTransfer to EVAOperations;
+
+        transition evaComplete from EVAOperations to Checkout;
+
+        transition readyToUndock from Checkout to UndockedFreeFlight;
+
+        transition deorbit from UndockedFreeFlight to EntryLanding;
+
+        transition wheelsStop from EntryLanding to MissionComplete;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The STS-123 integrated system shall transport crew and station assembly payloads to the International Space Station, support docked installation and activation operations, and return the orbiter crew safely to Earth. */
+    }
+
+    requirement def RendezvousRequirement {
+        doc /* The system shall provide controlled rendezvous and docking with the International Space Station while maintaining relative velocity and alignment within docking interface limits. */
+    }
+
+    requirement def CargoDeliveryRequirement {
+        doc /* The system shall deliver the Kibo Logistics Module and Special Purpose Dexterous Manipulator to station interfaces and support their mechanical, electrical, data, and thermal integration. */
+    }
+
+    requirement def CrewSafetyRequirement {
+        doc /* The system shall maintain habitable cabin conditions, authenticated command capability, emergency abort modes, and safe entry and landing capability for all assigned crew members. */
+    }
+
+    requirement def TelemetryRequirement {
+        doc /* The system shall provide continuous health, trajectory, payload, life support, robotics, and EVA telemetry to mission control during critical mission phases. */
+    }
+
+    requirement def EVARequirement {
+        doc /* The system shall support external crew operations needed to remove launch restraints, configure payloads, connect utilities, and verify station assembly readiness. */
+    }
+
+    satisfy PrimaryFunctionRequirement by STS123IntegratedSystem;
+    satisfy RendezvousRequirement by STS123IntegratedSystem::orbiter;
+    satisfy CargoDeliveryRequirement by STS123IntegratedSystem::kiboLogisticsModule;
+    satisfy CargoDeliveryRequirement by STS123IntegratedSystem::dextre;
+    satisfy CrewSafetyRequirement by STS123IntegratedSystem::orbiter;
+    satisfy TelemetryRequirement by STS123IntegratedSystem::missionControl;
+    satisfy EVARequirement by STS123IntegratedSystem::crew;
+
+    exhibit state STS123MissionStateMachine by STS123IntegratedSystem;
+
+    perform action LaunchAndAscent by STS123IntegratedSystem::orbiter;
+    perform action RendezvousAndDock by STS123IntegratedSystem;
+    perform action TransferKiboLogisticsModule by STS123IntegratedSystem;
+    perform action InstallDextreManipulator by STS123IntegratedSystem;
+    perform action ConductEVAOperations by STS123IntegratedSystem::crew;
+    perform action UndockAndReturn by STS123IntegratedSystem::orbiter;
+}
+tokens used
+5,055
+package STS123SystemModel {
+
+    private import ScalarValues::*;
+    private import ISQ::*;
+    private import SI::*;
+
+    attribute def MissionElapsedTime :> ISQ::time {
+        unit = SI::s;
+    }
+
+    attribute def MassValue :> ISQ::mass {
+        unit = SI::kg;
+    }
+
+    attribute def DistanceValue :> ISQ::length {
+        unit = SI::m;
+    }
+
+    attribute def VelocityValue :> ISQ::speed {
+        unit = SI::m / SI::s;
+    }
+
+    attribute def PowerValue :> ISQ::power {
+        unit = SI::W;
+    }
+
+    attribute def EnergyValue :> ISQ::energy {
+        unit = SI::J;
+    }
+
+    attribute def DataRateValue :> ISQ::dataRate {
+        unit = SI::bit / SI::s;
+    }
+
+    attribute def TemperatureValue :> ISQ::thermodynamicTemperature {
+        unit = SI::K;
+    }
+
+    attribute def PressureValue :> ISQ::pressure {
+        unit = SI::Pa;
+    }
+
+    enum def MissionPhase {
+        enum preLaunch;
+        enum ascent;
+        enum rendezvous;
+        enum dockedAssembly;
+        enum roboticsTransfer;
+        enum externalOperations;
+        enum undocking;
+        enum entry;
+        enum landing;
+        enum complete;
+        enum abort;
+    }
+
+    item def CrewMember {
+        attribute name : String;
+        attribute role : String;
+        attribute evaQualified : Boolean;
+    }
+
+    item def TelemetryPacket {
+        attribute timestamp : MissionElapsedTime;
+        attribute sourceId : String;
+        attribute healthSummary : String;
+        attribute dataRate : DataRateValue;
+    }
+
+    item def CommandMessage {
+        attribute timestamp : MissionElapsedTime;
+        attribute destinationId : String;
+        attribute commandName : String;
+        attribute authenticated : Boolean;
+    }
+
+    item def ElectricalPower {
+        attribute availablePower : PowerValue;
+        attribute busVoltage : ScalarValues::Real;
+    }
+
+    item def ThermalLoad {
+        attribute heatRejected : PowerValue;
+        attribute equipmentTemperature : TemperatureValue;
+    }
+
+    item def Propellant {
+        attribute mass : MassValue;
+        attribute tankPressure : PressureValue;
+    }
+
+    item def PressurizedCargo {
+        attribute cargoName : String;
+        attribute mass : MassValue;
+        attribute destinationRack : String;
+    }
+
+    item def ExternalPayload {
+        attribute payloadName : String;
+        attribute mass : MassValue;
+        attribute grappleFixtureId : String;
+    }
+
+    item def DockingLoad {
+        attribute axialForce : ScalarValues::Real;
+        attribute alignmentError : DistanceValue;
+        attribute relativeVelocity : VelocityValue;
+    }
+
+    port def PowerPort {
+        out item power : ElectricalPower;
+    }
+
+    port def DataPort {
+        in item command : CommandMessage;
+        out item telemetry : TelemetryPacket;
+    }
+
+    port def ThermalPort {
+        out item thermalLoad : ThermalLoad;
+    }
+
+    port def PropulsionPort {
+        in item propellant : Propellant;
+    }
+
+    port def CargoPort {
+        out item pressurizedCargo : PressurizedCargo;
+        out item externalPayload : ExternalPayload;
+    }
+
+    port def DockingPort {
+        inout item load : DockingLoad;
+    }
+
+    port def CrewPort {
+        inout item crew : CrewMember;
+    }
+
+    part def Orbiter {
+        attribute dryMass : MassValue;
+        attribute maxCrew : Integer;
+        attribute electricalCapacity : PowerValue;
+        attribute currentPhase : MissionPhase;
+
+        port powerInterface : PowerPort;
+        port commandTelemetryInterface : DataPort;
+        port thermalInterface : ThermalPort;
+        port aftPropulsionFeed : PropulsionPort;
+        port payloadBayInterface : CargoPort;
+        port dockingInterface : DockingPort;
+        port crewTransferInterface : CrewPort;
+
+        part flightDeck {
+            attribute activeDisplays : Integer;
+            attribute guidanceMode : String;
+        }
+
+        part midDeck {
+            attribute availableStowageVolume : ScalarValues::Real;
+            attribute lifeSupportMarginHours : ScalarValues::Real;
+        }
+
+        part payloadBay {
+            attribute usableLength : DistanceValue;
+            attribute payloadRetentionActive : Boolean;
+        }
+
+        part mainPropulsionSystem {
+            attribute engineCount : Integer = 3;
+            attribute ascentThrustAvailable : Boolean;
+        }
+
+        part orbitalManeuveringSystem {
+            attribute engineCount : Integer = 2;
+            attribute deltaVRemaining : VelocityValue;
+        }
+
+        part reactionControlSystem {
+            attribute jetCount : Integer;
+            attribute propellantRemaining : MassValue;
+        }
+
+        part avionics {
+            attribute primaryComputersOnline : Integer;
+            attribute backupFlightSystemReady : Boolean;
+        }
+
+        part environmentalControl {
+            attribute cabinPressure : PressureValue;
+            attribute cabinTemperature : TemperatureValue;
+            attribute carbonDioxideRemovalActive : Boolean;
+        }
+    }
+
+    part def InternationalSpaceStation {
+        attribute orbitalAltitude : DistanceValue;
+        attribute crewCapacity : Integer;
+        attribute assemblyConfiguration : String;
+
+        port stationPowerInterface : PowerPort;
+        port stationDataInterface : DataPort;
+        port stationThermalInterface : ThermalPort;
+        port pressurizedMatingAdapter : DockingPort;
+        port stationCrewInterface : CrewPort;
+        port payloadReceivingInterface : CargoPort;
+
+        part harmonyNode {
+            attribute activeBerthingPorts : Integer;
+        }
+
+        part kiboLogisticsLocation {
+            attribute readyToReceiveModule : Boolean;
+        }
+
+        part dexterManipulator {
+            attribute operational : Boolean;
+            attribute toolChangeoutReady : Boolean;
+        }
+
+        part mobileBaseSystem {
+            attribute railPosition : DistanceValue;
+        }
+    }
+
+    part def LogisticsModule {
+        attribute name : String = "Kibo Logistics Module Pressurized Section";
+        attribute launchMass : MassValue;
+        attribute pressurizedVolume : ScalarValues::Real;
+        attribute installedOnStation : Boolean;
+
+        port modulePower : PowerPort;
+        port moduleData : DataPort;
+        port moduleThermal : ThermalPort;
+        port moduleCargoTransfer : CargoPort;
+
+        part experimentRacks {
+            attribute rackCount : Integer;
+            attribute configuredForActivation : Boolean;
+        }
+
+        part structuralShell {
+            attribute pressureIntegrityVerified : Boolean;
+        }
+    }
+
+    part def SpecialPurposeDexterousManipulator {
+        attribute name : String = "Dextre";
+        attribute launchMass : MassValue;
+        attribute operationalOnStation : Boolean;
+
+        port manipulatorPower : PowerPort;
+        port manipulatorData : DataPort;
+        port manipulatorThermal : ThermalPort;
+        port manipulatorCargoInterface : CargoPort;
+
+        part armA {
+            attribute jointCount : Integer;
+            attribute brakeReleased : Boolean;
+        }
+
+        part armB {
+            attribute jointCount : Integer;
+            attribute brakeReleased : Boolean;
+        }
+
+        part toolHolder {
+            attribute installedTools : Integer;
+        }
+    }
+
+    part def MissionControlCenter {
+        attribute location : String = "Houston";
+        attribute flightDirectorConsoleActive : Boolean;
+
+        port groundDataInterface : DataPort;
+
+        part flightDynamicsConsole {
+            attribute trajectorySolutionValid : Boolean;
+        }
+
+        part roboticsConsole {
+            attribute procedureLoaded : Boolean;
+        }
+
+        part evaConsole {
+            attribute suitTelemetryNominal : Boolean;
+        }
+    }
+
+    part def STS123IntegratedSystem {
+        doc /* STS-123 is modeled as an integrated Space Shuttle assembly mission system whose high-level primary function is to transport crew, the first pressurized Kibo logistics element, and the Special Purpose Dexterous Manipulator to the International Space Station, then support rendezvous, docking, robotic transfer, assembly, checkout, and safe return of the orbiter crew. */
+
+        attribute missionName : String = "STS-123";
+        attribute primaryFunction : String = "Deliver and integrate major International Space Station assembly elements while sustaining crewed shuttle operations from launch through landing.";
+        attribute plannedDockedDuration : MissionElapsedTime;
+        attribute currentMissionPhase : MissionPhase;
+        attribute crewCount : Integer = 7;
+
+        port groundLink : DataPort;
+        port stationDockingPort : DockingPort;
+        port stationCargoPort : CargoPort;
+        port missionPowerBus : PowerPort;
+        port missionThermalBus : ThermalPort;
+
+        part orbiter : Orbiter {
+            attribute dryMass = 78000 [SI::kg];
+            attribute maxCrew = 7;
+            attribute electricalCapacity = 21000 [SI::W];
+        }
+
+        part station : InternationalSpaceStation {
+            attribute orbitalAltitude = 350000 [SI::m];
+            attribute crewCapacity = 6;
+            attribute assemblyConfiguration = "STS-123 docked assembly configuration";
+        }
+
+        part kiboLogisticsModule : LogisticsModule {
+            attribute launchMass = 4200 [SI::kg];
+            attribute pressurizedVolume = 16.0;
+        }
+
+        part dextre : SpecialPurposeDexterousManipulator {
+            attribute launchMass = 1560 [SI::kg];
+        }
+
+        part missionControl : MissionControlCenter;
+
+        part crew {
+            part commander : CrewMember {
+                attribute name = "Commander";
+                attribute role = "Orbiter command and mission authority";
+                attribute evaQualified = false;
+            }
+
+            part pilot : CrewMember {
+                attribute name = "Pilot";
+                attribute role = "Ascent, rendezvous, entry, and orbiter systems";
+                attribute evaQualified = false;
+            }
+
+            part missionSpecialistRobotics : CrewMember {
+                attribute name = "Robotics Specialist";
+                attribute role = "Station and shuttle robotic arm operations";
+                attribute evaQualified = true;
+            }
+
+            part missionSpecialistEva1 : CrewMember {
+                attribute name = "EVA Specialist 1";
+                attribute role = "External assembly and payload activation";
+                attribute evaQualified = true;
+            }
+
+            part missionSpecialistEva2 : CrewMember {
+                attribute name = "EVA Specialist 2";
+                attribute role = "External assembly and Dextre outfitting";
+                attribute evaQualified = true;
+            }
+
+            part missionSpecialistTransfer : CrewMember {
+                attribute name = "Transfer Specialist";
+                attribute role = "Pressurized cargo transfer and inventory";
+                attribute evaQualified = false;
+            }
+
+            part missionSpecialistSystems : CrewMember {
+                attribute name = "Systems Specialist";
+                attribute role = "Life support, avionics, and inspection support";
+                attribute evaQualified = false;
+            }
+        }
+
+        connection dockedStructuralPath connect orbiter.dockingInterface to station.pressurizedMatingAdapter;
+        connection cargoPath connect orbiter.payloadBayInterface to station.payloadReceivingInterface;
+        connection commandPath connect missionControl.groundDataInterface to orbiter.commandTelemetryInterface;
+        connection stationCommandPath connect missionControl.groundDataInterface to station.stationDataInterface;
+        connection powerDuringDockedOps connect station.stationPowerInterface to kiboLogisticsModule.modulePower;
+        connection dexterPowerPath connect station.stationPowerInterface to dextre.manipulatorPower;
+        connection kiboThermalPath connect kiboLogisticsModule.moduleThermal to station.stationThermalInterface;
+        connection dexterThermalPath connect dextre.manipulatorThermal to station.stationThermalInterface;
+        connection crewHatchPath connect orbiter.crewTransferInterface to station.stationCrewInterface;
+    }
+
+    action def LaunchAndAscent {
+        in item ascentPropellant : Propellant;
+        out item ascentTelemetry : TelemetryPacket;
+
+        first start;
+        then ignition;
+        then liftoff;
+        then solidRocketBoosterSeparation;
+        then externalTankSeparation;
+        then mainEngineCutoff;
+        then orbitInsertion;
+        then done;
+    }
+
+    action def RendezvousAndDock {
+        in item stateVectorCommand : CommandMessage;
+        out item dockingLoad : DockingLoad;
+
+        first phaseAdjust;
+        then terminalInitiation;
+        then proximityOperations;
+        then stationKeeping;
+        then finalApproach;
+        then softCapture;
+        then hardMate;
+        then done;
+    }
+
+    action def TransferKiboLogisticsModule {
+        in item modulePayload : ExternalPayload;
+        out item installedCargo : PressurizedCargo;
+
+        first grappleModule;
+        then unberthFromPayloadBay;
+        then maneuverToStationPort;
+        then berthToHarmony;
+        then connectPowerDataThermal;
+        then leakCheckVestibule;
+        then activateModule;
+        then done;
+    }
+
+    action def InstallDextreManipulator {
+        in item manipulatorPayload : ExternalPayload;
+        out item activationTelemetry : TelemetryPacket;
+
+        first removeLaunchRestraints;
+        then grappleManipulator;
+        then positionOnStationWorksite;
+        then attachStructuralInterfaces;
+        then connectPowerData;
+        then performJointCheckout;
+        then confirmOperational;
+        then done;
+    }
+
+    action def ConductEVAOperations {
+        in item evaCrew1 : CrewMember;
+        in item evaCrew2 : CrewMember;
+        out item evaTelemetry : TelemetryPacket;
+
+        first suitPrep;
+        then airlockDepress;
+        then translateToWorksite;
+        then externalAssemblyTasks;
+        then toolStowage;
+        then airlockIngress;
+        then repressurize;
+        then done;
+    }
+
+    action def UndockAndReturn {
+        out item landingTelemetry : TelemetryPacket;
+
+        first hatchClosure;
+        then undock;
+        then separationBurn;
+        then lateInspection;
+        then deorbitBurn;
+        then atmosphericEntry;
+        then runwayLanding;
+        then safing;
+        then done;
+    }
+
+    state def STS123MissionStateMachine {
+        entry action initializeMission;
+
+        state PreLaunch;
+        state Ascent;
+        state OrbitPhasing;
+        state DockedAssembly;
+        state RoboticsTransfer;
+        state EVAOperations;
+        state Checkout;
+        state UndockedFreeFlight;
+        state EntryLanding;
+        state MissionComplete;
+        state MissionAbort;
+
+        transition first PreLaunch;
+
+        transition launch from PreLaunch to Ascent
+            accept CommandMessage
+            if commandName == "GO_FOR_LAUNCH";
+
+        transition orbitAchieved from Ascent to OrbitPhasing;
+
+        transition abortDuringAscent from Ascent to MissionAbort
+            if currentMissionPhase == MissionPhase::abort;
+
+        transition docked from OrbitPhasing to DockedAssembly;
+
+        transition beginRobotics from DockedAssembly to RoboticsTransfer;
+
+        transition beginEVA from RoboticsTransfer to EVAOperations;
+
+        transition evaComplete from EVAOperations to Checkout;
+
+        transition readyToUndock from Checkout to UndockedFreeFlight;
+
+        transition deorbit from UndockedFreeFlight to EntryLanding;
+
+        transition wheelsStop from EntryLanding to MissionComplete;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The STS-123 integrated system shall transport crew and station assembly payloads to the International Space Station, support docked installation and activation operations, and return the orbiter crew safely to Earth. */
+    }
+
+    requirement def RendezvousRequirement {
+        doc /* The system shall provide controlled rendezvous and docking with the International Space Station while maintaining relative velocity and alignment within docking interface limits. */
+    }
+
+    requirement def CargoDeliveryRequirement {
+        doc /* The system shall deliver the Kibo Logistics Module and Special Purpose Dexterous Manipulator to station interfaces and support their mechanical, electrical, data, and thermal integration. */
+    }
+
+    requirement def CrewSafetyRequirement {
+        doc /* The system shall maintain habitable cabin conditions, authenticated command capability, emergency abort modes, and safe entry and landing capability for all assigned crew members. */
+    }
+
+    requirement def TelemetryRequirement {
+        doc /* The system shall provide continuous health, trajectory, payload, life support, robotics, and EVA telemetry to mission control during critical mission phases. */
+    }
+
+    requirement def EVARequirement {
+        doc /* The system shall support external crew operations needed to remove launch restraints, configure payloads, connect utilities, and verify station assembly readiness. */
+    }
+
+    satisfy PrimaryFunctionRequirement by STS123IntegratedSystem;
+    satisfy RendezvousRequirement by STS123IntegratedSystem::orbiter;
+    satisfy CargoDeliveryRequirement by STS123IntegratedSystem::kiboLogisticsModule;
+    satisfy CargoDeliveryRequirement by STS123IntegratedSystem::dextre;
+    satisfy CrewSafetyRequirement by STS123IntegratedSystem::orbiter;
+    satisfy TelemetryRequirement by STS123IntegratedSystem::missionControl;
+    satisfy EVARequirement by STS123IntegratedSystem::crew;
+
+    exhibit state STS123MissionStateMachine by STS123IntegratedSystem;
+
+    perform action LaunchAndAscent by STS123IntegratedSystem::orbiter;
+    perform action RendezvousAndDock by STS123IntegratedSystem;
+    perform action TransferKiboLogisticsModule by STS123IntegratedSystem;
+    perform action InstallDextreManipulator by STS123IntegratedSystem;
+    perform action ConductEVAOperations by STS123IntegratedSystem::crew;
+    perform action UndockAndReturn by STS123IntegratedSystem::orbiter;
+}

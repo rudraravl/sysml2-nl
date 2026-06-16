@@ -1,0 +1,955 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-tw5upvkr
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019ebab3-ed7b-7b00-9950-97c09d7befcc
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a Water well and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package WaterWellSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def FlowRate :> Real {
+        unit = "L/min";
+    }
+
+    attribute def Pressure :> Real {
+        unit = "kPa";
+    }
+
+    attribute def Depth :> Real {
+        unit = "m";
+    }
+
+    attribute def Volume :> Real {
+        unit = "L";
+    }
+
+    attribute def Power :> Real {
+        unit = "W";
+    }
+
+    attribute def Voltage :> Real {
+        unit = "V";
+    }
+
+    attribute def Concentration :> Real {
+        unit = "mg/L";
+    }
+
+    attribute def Turbidity :> Real {
+        unit = "NTU";
+    }
+
+    item def Groundwater {
+        attribute temperature : Real;
+        attribute dissolvedSolids : Concentration;
+        attribute turbidity : Turbidity;
+    }
+
+    item def PotableWater :> Groundwater {
+        attribute meetsLocalDrinkingStandard : Boolean;
+    }
+
+    item def ElectricalEnergy {
+        attribute voltage : Voltage;
+        attribute power : Power;
+    }
+
+    item def ControlSignal {
+        attribute command : String;
+        attribute timestamp : String;
+    }
+
+    port def WaterInletPort {
+        in item water : Groundwater;
+    }
+
+    port def WaterOutletPort {
+        out item water : PotableWater;
+        attribute flow : FlowRate;
+        attribute pressure : Pressure;
+    }
+
+    port def ElectricalInputPort {
+        in item energy : ElectricalEnergy;
+    }
+
+    port def ControlPort {
+        in item command : ControlSignal;
+        out item status : ControlSignal;
+    }
+
+    port def SensorDataPort {
+        out attribute waterLevel : Depth;
+        out attribute outletPressure : Pressure;
+        out attribute outletFlow : FlowRate;
+        out attribute turbidity : Turbidity;
+    }
+
+    part def Aquifer {
+        attribute staticWaterLevel : Depth = 18.0;
+        attribute rechargeRate : FlowRate = 12.0;
+        attribute availableDrawdown : Depth = 25.0;
+        port waterSupply : WaterInletPort;
+    }
+
+    part def Borehole {
+        attribute drilledDepth : Depth = 65.0;
+        attribute diameter : Real = 0.20;
+        part casing : Casing;
+        part screen : WellScreen;
+    }
+
+    part def Casing {
+        attribute length : Depth = 62.0;
+        attribute internalDiameter : Real = 0.15;
+        attribute material : String = "PVC";
+    }
+
+    part def WellScreen {
+        attribute screenLength : Depth = 8.0;
+        attribute slotSize : Real = 0.001;
+        port intake : WaterInletPort;
+    }
+
+    part def SubmersiblePump {
+        attribute ratedFlow : FlowRate = 35.0;
+        attribute ratedPressure : Pressure = 420.0;
+        attribute ratedPower : Power = 1100.0;
+        attribute minimumSubmergence : Depth = 3.0;
+
+        port suction : WaterInletPort;
+        port discharge : WaterOutletPort;
+        port electricalInput : ElectricalInputPort;
+        port control : ControlPort;
+
+        state def PumpOperatingState {
+            entry action initializePump {
+                send ControlSignal { command = "pump initialized"; } via control.status;
+            }
+
+            state Off;
+            state Starting;
+            state Pumping;
+            state LowWaterProtection;
+            state Faulted;
+
+            transition first Off;
+
+            transition startPump
+                first Off
+                then Starting
+                accept ControlSignal
+                if command == "START";
+
+            transition reachPressure
+                first Starting
+                then Pumping
+                if discharge.pressure >= 150.0;
+
+            transition stopPump
+                first Pumping
+                then Off
+                accept ControlSignal
+                if command == "STOP";
+
+            transition lowWater
+                first Pumping
+                then LowWaterProtection
+                if suction.waterLevel < minimumSubmergence;
+
+            transition resetAfterRecovery
+                first LowWaterProtection
+                then Off
+                accept ControlSignal
+                if command == "RESET";
+
+            transition faultDetected
+                first Starting
+                then Faulted
+                if electricalInput.energy.power > 1500.0;
+
+            transition clearFault
+                first Faulted
+                then Off
+                accept ControlSignal
+                if command == "CLEAR_FAULT";
+        }
+    }
+
+    part def CheckValve {
+        attribute crackingPressure : Pressure = 20.0;
+        port inlet : WaterInletPort;
+        port outlet : WaterOutletPort;
+    }
+
+    part def PressureTank {
+        attribute capacity : Volume = 120.0;
+        attribute cutInPressure : Pressure = 240.0;
+        attribute cutOutPressure : Pressure = 380.0;
+        attribute storedVolume : Volume;
+        port inlet : WaterInletPort;
+        port outlet : WaterOutletPort;
+    }
+
+    part def FiltrationUnit {
+        attribute sedimentRatingMicron : Real = 5.0;
+        attribute maxFlow : FlowRate = 40.0;
+        port inlet : WaterInletPort;
+        port outlet : WaterOutletPort;
+
+        action filterWater {
+            in item rawWater : Groundwater;
+            out item treatedWater : PotableWater;
+            objective {
+                treatedWater.turbidity <= 1.0;
+                treatedWater.meetsLocalDrinkingStandard == true;
+            }
+        }
+    }
+
+    part def WellController {
+        attribute lowWaterTripLevel : Depth = 4.0;
+        attribute highPressureLimit : Pressure = 430.0;
+        attribute commandedState : String = "AUTO";
+
+        port controlToPump : ControlPort;
+        port sensorInput : SensorDataPort;
+        port electricalInput : ElectricalInputPort;
+
+        state def ControllerState {
+            state Standby;
+            state DemandDetected;
+            state PumpCommandedOn;
+            state ProtectingPump;
+            state Alarm;
+
+            transition initial Standby;
+
+            transition pressureLow
+                first Standby
+                then DemandDetected
+                if sensorInput.outletPressure < 240.0;
+
+            transition commandStart
+                first DemandDetected
+                then PumpCommandedOn
+                do send ControlSignal { command = "START"; } via controlToPump.command;
+
+            transition pressureSatisfied
+                first PumpCommandedOn
+                then Standby
+                if sensorInput.outletPressure >= 380.0
+                do send ControlSignal { command = "STOP"; } via controlToPump.command;
+
+            transition inadequateWater
+                first PumpCommandedOn
+                then ProtectingPump
+                if sensorInput.waterLevel < lowWaterTripLevel
+                do send ControlSignal { command = "STOP"; } via controlToPump.command;
+
+            transition abnormalPressure
+                first PumpCommandedOn
+                then Alarm
+                if sensorInput.outletPressure > highPressureLimit
+                do send ControlSignal { command = "STOP"; } via controlToPump.command;
+        }
+    }
+
+    part def WaterQualitySensor {
+        attribute measuredTurbidity : Turbidity;
+        attribute measuredDissolvedSolids : Concentration;
+        port sampleInlet : WaterInletPort;
+        port dataOut : SensorDataPort;
+    }
+
+    part def PressureSensor {
+        attribute measuredPressure : Pressure;
+        port hydraulicPort : WaterInletPort;
+        port dataOut : SensorDataPort;
+    }
+
+    part def LevelSensor {
+        attribute measuredWaterLevel : Depth;
+        port measurementPort : WaterInletPort;
+        port dataOut : SensorDataPort;
+    }
+
+    part def PowerSupply {
+        attribute nominalVoltage : Voltage = 240.0;
+        attribute availablePower : Power = 2200.0;
+        port electricalOutput : ElectricalInputPort;
+    }
+
+    part def DistributionOutlet {
+        attribute servicePressureMinimum : Pressure = 200.0;
+        attribute serviceFlowDemand : FlowRate = 20.0;
+        port inlet : WaterInletPort;
+        port deliveredWater : WaterOutletPort;
+    }
+
+    action def ExtractGroundwater {
+        in item sourceWater : Groundwater;
+        out item liftedWater : Groundwater;
+        attribute liftDepth : Depth;
+        attribute deliveredFlow : FlowRate;
+    }
+
+    action def StoreAndPressurizeWater {
+        in item incomingWater : PotableWater;
+        out item pressurizedWater : PotableWater;
+        attribute tankPressure : Pressure;
+        attribute storageVolume : Volume;
+    }
+
+    action def DeliverWater {
+        in item pressurizedWater : PotableWater;
+        out item suppliedWater : PotableWater;
+        attribute deliveredFlow : FlowRate;
+        attribute deliveredPressure : Pressure;
+    }
+
+    part def WaterWellSystem {
+        doc
+        /*
+         Primary high-level function: extract groundwater from an underground aquifer,
+         lift it to the surface, treat it to acceptable quality, store it under pressure,
+         and deliver usable water to a distribution point on demand.
+        */
+
+        attribute designDepth : Depth = 65.0;
+        attribute nominalDeliveryFlow : FlowRate = 25.0;
+        attribute nominalDeliveryPressure : Pressure = 300.0;
+        attribute maximumSafePressure : Pressure = 430.0;
+        attribute minimumOperatingWaterLevel : Depth = 4.0;
+
+        part aquifer : Aquifer;
+        part borehole : Borehole;
+        part pump : SubmersiblePump;
+        part checkValve : CheckValve;
+        part filter : FiltrationUnit;
+        part pressureTank : PressureTank;
+        part controller : WellController;
+        part qualitySensor : WaterQualitySensor;
+        part pressureSensor : PressureSensor;
+        part levelSensor : LevelSensor;
+        part powerSupply : PowerSupply;
+        part outlet : DistributionOutlet;
+
+        port deliveredWater : WaterOutletPort;
+        port electricalService : ElectricalInputPort;
+        port operatorControl : ControlPort;
+
+        connect aquifer.waterSupply to borehole.screen.intake;
+        connect borehole.screen.intake to pump.suction;
+        connect pump.discharge to checkValve.inlet;
+        connect checkValve.outlet to filter.inlet;
+        connect filter.outlet to pressureTank.inlet;
+        connect pressureTank.outlet to outlet.inlet;
+        connect outlet.deliveredWater to deliveredWater;
+
+        connect powerSupply.electricalOutput to pump.electricalInput;
+        connect powerSupply.electricalOutput to controller.electricalInput;
+        connect controller.controlToPump to pump.control;
+        connect operatorControl to controller.controlToPump;
+
+        connect levelSensor.dataOut to controller.sensorInput;
+        connect pressureSensor.dataOut to controller.sensorInput;
+        connect qualitySensor.dataOut to controller.sensorInput;
+
+        connect levelSensor.measurementPort to borehole.screen.intake;
+        connect pressureSensor.hydraulicPort to pressureTank.outlet;
+        connect qualitySensor.sampleInlet to filter.outlet;
+
+        perform action extract : ExtractGroundwater {
+            in sourceWater = aquifer.waterSupply.water;
+            out liftedWater = pump.discharge.water;
+            liftDepth = designDepth;
+            deliveredFlow = nominalDeliveryFlow;
+        }
+
+        perform action condition : FiltrationUnit::filterWater {
+            in rawWater = pump.discharge.water;
+            out treatedWater = filter.outlet.water;
+        }
+
+        perform action store : StoreAndPressurizeWater {
+            in incomingWater = filter.outlet.water;
+            out pressurizedWater = pressureTank.outlet.water;
+            tankPressure = nominalDeliveryPressure;
+            storageVolume = pressureTank.capacity;
+        }
+
+        perform action supply : DeliverWater {
+            in pressurizedWater = pressureTank.outlet.water;
+            out suppliedWater = deliveredWater.water;
+            deliveredFlow = nominalDeliveryFlow;
+            deliveredPressure = nominalDeliveryPressure;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject well : WaterWellSystem;
+
+        require constraint {
+            well.deliveredWater.flow >= 20.0 and
+            well.deliveredWater.pressure >= 200.0 and
+            well.deliveredWater.water.meetsLocalDrinkingStandard == true
+        }
+
+        doc
+        /*
+         The water well system shall provide treated, pressurized water from the aquifer
+         to the distribution outlet whenever demand exists and sufficient groundwater is
+         available.
+        */
+    }
+
+    requirement def PumpProtectionRequirement {
+        subject well : WaterWellSystem;
+
+        require constraint {
+            well.levelSensor.measuredWaterLevel >= well.minimumOperatingWaterLevel
+            or well.pump.PumpOperatingState == well.pump.PumpOperatingState::LowWaterProtection
+        }
+
+        doc
+        /*
+         The system shall stop pumping when water level falls below the minimum safe
+         submergence level to prevent dry-run damage.
+        */
+    }
+
+    requirement def PressureControlRequirement {
+        subject well : WaterWellSystem;
+
+        require constraint {
+            well.pressureTank.outlet.pressure <= well.maximumSafePressure
+        }
+
+        doc
+        /*
+         The controller shall prevent delivery pressure from exceeding the maximum
+         safe hydraulic pressure of the well system.
+        */
+    }
+
+    requirement def WaterQualityRequirement {
+        subject well : WaterWellSystem;
+
+        require constraint {
+            well.qualitySensor.measuredTurbidity <= 1.0 and
+            well.deliveredWater.water.dissolvedSolids <= 500.0
+        }
+
+        doc
+        /*
+         Delivered water shall meet basic potable water quality targets for turbidity
+         and dissolved solids after filtration.
+        */
+    }
+
+    requirement def EnergyRequirement {
+        subject well : WaterWellSystem;
+
+        require constraint {
+            well.powerSupply.nominalVoltage == 240.0 and
+            well.powerSupply.availablePower >= well.pump.ratedPower
+        }
+
+        doc
+        /*
+         The electrical supply shall provide sufficient voltage and power for normal
+         pump operation.
+        */
+    }
+
+    satisfy PrimaryFunctionRequirement by WaterWellSystem;
+    satisfy PumpProtectionRequirement by WaterWellSystem::controller;
+    satisfy PressureControlRequirement by WaterWellSystem::controller;
+    satisfy WaterQualityRequirement by WaterWellSystem::filter;
+    satisfy EnergyRequirement by WaterWellSystem::powerSupply;
+}
+tokens used
+4,438
+package WaterWellSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def FlowRate :> Real {
+        unit = "L/min";
+    }
+
+    attribute def Pressure :> Real {
+        unit = "kPa";
+    }
+
+    attribute def Depth :> Real {
+        unit = "m";
+    }
+
+    attribute def Volume :> Real {
+        unit = "L";
+    }
+
+    attribute def Power :> Real {
+        unit = "W";
+    }
+
+    attribute def Voltage :> Real {
+        unit = "V";
+    }
+
+    attribute def Concentration :> Real {
+        unit = "mg/L";
+    }
+
+    attribute def Turbidity :> Real {
+        unit = "NTU";
+    }
+
+    item def Groundwater {
+        attribute temperature : Real;
+        attribute dissolvedSolids : Concentration;
+        attribute turbidity : Turbidity;
+    }
+
+    item def PotableWater :> Groundwater {
+        attribute meetsLocalDrinkingStandard : Boolean;
+    }
+
+    item def ElectricalEnergy {
+        attribute voltage : Voltage;
+        attribute power : Power;
+    }
+
+    item def ControlSignal {
+        attribute command : String;
+        attribute timestamp : String;
+    }
+
+    port def WaterInletPort {
+        in item water : Groundwater;
+    }
+
+    port def WaterOutletPort {
+        out item water : PotableWater;
+        attribute flow : FlowRate;
+        attribute pressure : Pressure;
+    }
+
+    port def ElectricalInputPort {
+        in item energy : ElectricalEnergy;
+    }
+
+    port def ControlPort {
+        in item command : ControlSignal;
+        out item status : ControlSignal;
+    }
+
+    port def SensorDataPort {
+        out attribute waterLevel : Depth;
+        out attribute outletPressure : Pressure;
+        out attribute outletFlow : FlowRate;
+        out attribute turbidity : Turbidity;
+    }
+
+    part def Aquifer {
+        attribute staticWaterLevel : Depth = 18.0;
+        attribute rechargeRate : FlowRate = 12.0;
+        attribute availableDrawdown : Depth = 25.0;
+        port waterSupply : WaterInletPort;
+    }
+
+    part def Borehole {
+        attribute drilledDepth : Depth = 65.0;
+        attribute diameter : Real = 0.20;
+        part casing : Casing;
+        part screen : WellScreen;
+    }
+
+    part def Casing {
+        attribute length : Depth = 62.0;
+        attribute internalDiameter : Real = 0.15;
+        attribute material : String = "PVC";
+    }
+
+    part def WellScreen {
+        attribute screenLength : Depth = 8.0;
+        attribute slotSize : Real = 0.001;
+        port intake : WaterInletPort;
+    }
+
+    part def SubmersiblePump {
+        attribute ratedFlow : FlowRate = 35.0;
+        attribute ratedPressure : Pressure = 420.0;
+        attribute ratedPower : Power = 1100.0;
+        attribute minimumSubmergence : Depth = 3.0;
+
+        port suction : WaterInletPort;
+        port discharge : WaterOutletPort;
+        port electricalInput : ElectricalInputPort;
+        port control : ControlPort;
+
+        state def PumpOperatingState {
+            entry action initializePump {
+                send ControlSignal { command = "pump initialized"; } via control.status;
+            }
+
+            state Off;
+            state Starting;
+            state Pumping;
+            state LowWaterProtection;
+            state Faulted;
+
+            transition first Off;
+
+            transition startPump
+                first Off
+                then Starting
+                accept ControlSignal
+                if command == "START";
+
+            transition reachPressure
+                first Starting
+                then Pumping
+                if discharge.pressure >= 150.0;
+
+            transition stopPump
+                first Pumping
+                then Off
+                accept ControlSignal
+                if command == "STOP";
+
+            transition lowWater
+                first Pumping
+                then LowWaterProtection
+                if suction.waterLevel < minimumSubmergence;
+
+            transition resetAfterRecovery
+                first LowWaterProtection
+                then Off
+                accept ControlSignal
+                if command == "RESET";
+
+            transition faultDetected
+                first Starting
+                then Faulted
+                if electricalInput.energy.power > 1500.0;
+
+            transition clearFault
+                first Faulted
+                then Off
+                accept ControlSignal
+                if command == "CLEAR_FAULT";
+        }
+    }
+
+    part def CheckValve {
+        attribute crackingPressure : Pressure = 20.0;
+        port inlet : WaterInletPort;
+        port outlet : WaterOutletPort;
+    }
+
+    part def PressureTank {
+        attribute capacity : Volume = 120.0;
+        attribute cutInPressure : Pressure = 240.0;
+        attribute cutOutPressure : Pressure = 380.0;
+        attribute storedVolume : Volume;
+        port inlet : WaterInletPort;
+        port outlet : WaterOutletPort;
+    }
+
+    part def FiltrationUnit {
+        attribute sedimentRatingMicron : Real = 5.0;
+        attribute maxFlow : FlowRate = 40.0;
+        port inlet : WaterInletPort;
+        port outlet : WaterOutletPort;
+
+        action filterWater {
+            in item rawWater : Groundwater;
+            out item treatedWater : PotableWater;
+            objective {
+                treatedWater.turbidity <= 1.0;
+                treatedWater.meetsLocalDrinkingStandard == true;
+            }
+        }
+    }
+
+    part def WellController {
+        attribute lowWaterTripLevel : Depth = 4.0;
+        attribute highPressureLimit : Pressure = 430.0;
+        attribute commandedState : String = "AUTO";
+
+        port controlToPump : ControlPort;
+        port sensorInput : SensorDataPort;
+        port electricalInput : ElectricalInputPort;
+
+        state def ControllerState {
+            state Standby;
+            state DemandDetected;
+            state PumpCommandedOn;
+            state ProtectingPump;
+            state Alarm;
+
+            transition initial Standby;
+
+            transition pressureLow
+                first Standby
+                then DemandDetected
+                if sensorInput.outletPressure < 240.0;
+
+            transition commandStart
+                first DemandDetected
+                then PumpCommandedOn
+                do send ControlSignal { command = "START"; } via controlToPump.command;
+
+            transition pressureSatisfied
+                first PumpCommandedOn
+                then Standby
+                if sensorInput.outletPressure >= 380.0
+                do send ControlSignal { command = "STOP"; } via controlToPump.command;
+
+            transition inadequateWater
+                first PumpCommandedOn
+                then ProtectingPump
+                if sensorInput.waterLevel < lowWaterTripLevel
+                do send ControlSignal { command = "STOP"; } via controlToPump.command;
+
+            transition abnormalPressure
+                first PumpCommandedOn
+                then Alarm
+                if sensorInput.outletPressure > highPressureLimit
+                do send ControlSignal { command = "STOP"; } via controlToPump.command;
+        }
+    }
+
+    part def WaterQualitySensor {
+        attribute measuredTurbidity : Turbidity;
+        attribute measuredDissolvedSolids : Concentration;
+        port sampleInlet : WaterInletPort;
+        port dataOut : SensorDataPort;
+    }
+
+    part def PressureSensor {
+        attribute measuredPressure : Pressure;
+        port hydraulicPort : WaterInletPort;
+        port dataOut : SensorDataPort;
+    }
+
+    part def LevelSensor {
+        attribute measuredWaterLevel : Depth;
+        port measurementPort : WaterInletPort;
+        port dataOut : SensorDataPort;
+    }
+
+    part def PowerSupply {
+        attribute nominalVoltage : Voltage = 240.0;
+        attribute availablePower : Power = 2200.0;
+        port electricalOutput : ElectricalInputPort;
+    }
+
+    part def DistributionOutlet {
+        attribute servicePressureMinimum : Pressure = 200.0;
+        attribute serviceFlowDemand : FlowRate = 20.0;
+        port inlet : WaterInletPort;
+        port deliveredWater : WaterOutletPort;
+    }
+
+    action def ExtractGroundwater {
+        in item sourceWater : Groundwater;
+        out item liftedWater : Groundwater;
+        attribute liftDepth : Depth;
+        attribute deliveredFlow : FlowRate;
+    }
+
+    action def StoreAndPressurizeWater {
+        in item incomingWater : PotableWater;
+        out item pressurizedWater : PotableWater;
+        attribute tankPressure : Pressure;
+        attribute storageVolume : Volume;
+    }
+
+    action def DeliverWater {
+        in item pressurizedWater : PotableWater;
+        out item suppliedWater : PotableWater;
+        attribute deliveredFlow : FlowRate;
+        attribute deliveredPressure : Pressure;
+    }
+
+    part def WaterWellSystem {
+        doc
+        /*
+         Primary high-level function: extract groundwater from an underground aquifer,
+         lift it to the surface, treat it to acceptable quality, store it under pressure,
+         and deliver usable water to a distribution point on demand.
+        */
+
+        attribute designDepth : Depth = 65.0;
+        attribute nominalDeliveryFlow : FlowRate = 25.0;
+        attribute nominalDeliveryPressure : Pressure = 300.0;
+        attribute maximumSafePressure : Pressure = 430.0;
+        attribute minimumOperatingWaterLevel : Depth = 4.0;
+
+        part aquifer : Aquifer;
+        part borehole : Borehole;
+        part pump : SubmersiblePump;
+        part checkValve : CheckValve;
+        part filter : FiltrationUnit;
+        part pressureTank : PressureTank;
+        part controller : WellController;
+        part qualitySensor : WaterQualitySensor;
+        part pressureSensor : PressureSensor;
+        part levelSensor : LevelSensor;
+        part powerSupply : PowerSupply;
+        part outlet : DistributionOutlet;
+
+        port deliveredWater : WaterOutletPort;
+        port electricalService : ElectricalInputPort;
+        port operatorControl : ControlPort;
+
+        connect aquifer.waterSupply to borehole.screen.intake;
+        connect borehole.screen.intake to pump.suction;
+        connect pump.discharge to checkValve.inlet;
+        connect checkValve.outlet to filter.inlet;
+        connect filter.outlet to pressureTank.inlet;
+        connect pressureTank.outlet to outlet.inlet;
+        connect outlet.deliveredWater to deliveredWater;
+
+        connect powerSupply.electricalOutput to pump.electricalInput;
+        connect powerSupply.electricalOutput to controller.electricalInput;
+        connect controller.controlToPump to pump.control;
+        connect operatorControl to controller.controlToPump;
+
+        connect levelSensor.dataOut to controller.sensorInput;
+        connect pressureSensor.dataOut to controller.sensorInput;
+        connect qualitySensor.dataOut to controller.sensorInput;
+
+        connect levelSensor.measurementPort to borehole.screen.intake;
+        connect pressureSensor.hydraulicPort to pressureTank.outlet;
+        connect qualitySensor.sampleInlet to filter.outlet;
+
+        perform action extract : ExtractGroundwater {
+            in sourceWater = aquifer.waterSupply.water;
+            out liftedWater = pump.discharge.water;
+            liftDepth = designDepth;
+            deliveredFlow = nominalDeliveryFlow;
+        }
+
+        perform action condition : FiltrationUnit::filterWater {
+            in rawWater = pump.discharge.water;
+            out treatedWater = filter.outlet.water;
+        }
+
+        perform action store : StoreAndPressurizeWater {
+            in incomingWater = filter.outlet.water;
+            out pressurizedWater = pressureTank.outlet.water;
+            tankPressure = nominalDeliveryPressure;
+            storageVolume = pressureTank.capacity;
+        }
+
+        perform action supply : DeliverWater {
+            in pressurizedWater = pressureTank.outlet.water;
+            out suppliedWater = deliveredWater.water;
+            deliveredFlow = nominalDeliveryFlow;
+            deliveredPressure = nominalDeliveryPressure;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject well : WaterWellSystem;
+
+        require constraint {
+            well.deliveredWater.flow >= 20.0 and
+            well.deliveredWater.pressure >= 200.0 and
+            well.deliveredWater.water.meetsLocalDrinkingStandard == true
+        }
+
+        doc
+        /*
+         The water well system shall provide treated, pressurized water from the aquifer
+         to the distribution outlet whenever demand exists and sufficient groundwater is
+         available.
+        */
+    }
+
+    requirement def PumpProtectionRequirement {
+        subject well : WaterWellSystem;
+
+        require constraint {
+            well.levelSensor.measuredWaterLevel >= well.minimumOperatingWaterLevel
+            or well.pump.PumpOperatingState == well.pump.PumpOperatingState::LowWaterProtection
+        }
+
+        doc
+        /*
+         The system shall stop pumping when water level falls below the minimum safe
+         submergence level to prevent dry-run damage.
+        */
+    }
+
+    requirement def PressureControlRequirement {
+        subject well : WaterWellSystem;
+
+        require constraint {
+            well.pressureTank.outlet.pressure <= well.maximumSafePressure
+        }
+
+        doc
+        /*
+         The controller shall prevent delivery pressure from exceeding the maximum
+         safe hydraulic pressure of the well system.
+        */
+    }
+
+    requirement def WaterQualityRequirement {
+        subject well : WaterWellSystem;
+
+        require constraint {
+            well.qualitySensor.measuredTurbidity <= 1.0 and
+            well.deliveredWater.water.dissolvedSolids <= 500.0
+        }
+
+        doc
+        /*
+         Delivered water shall meet basic potable water quality targets for turbidity
+         and dissolved solids after filtration.
+        */
+    }
+
+    requirement def EnergyRequirement {
+        subject well : WaterWellSystem;
+
+        require constraint {
+            well.powerSupply.nominalVoltage == 240.0 and
+            well.powerSupply.availablePower >= well.pump.ratedPower
+        }
+
+        doc
+        /*
+         The electrical supply shall provide sufficient voltage and power for normal
+         pump operation.
+        */
+    }
+
+    satisfy PrimaryFunctionRequirement by WaterWellSystem;
+    satisfy PumpProtectionRequirement by WaterWellSystem::controller;
+    satisfy PressureControlRequirement by WaterWellSystem::controller;
+    satisfy WaterQualityRequirement by WaterWellSystem::filter;
+    satisfy EnergyRequirement by WaterWellSystem::powerSupply;
+}

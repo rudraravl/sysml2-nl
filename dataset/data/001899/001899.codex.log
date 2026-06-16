@@ -1,0 +1,983 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-_wv6wlqe
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019ebaba-3930-73f1-bc7a-5152e136a584
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a system based on a Windmill and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package WindmillSystemModel {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def WindSpeed :> speed {
+        unit = "m/s";
+    }
+
+    attribute def RotationalSpeed :> frequency {
+        unit = "rpm";
+    }
+
+    attribute def Torque :> ISQ::torque {
+        unit = "N*m";
+    }
+
+    attribute def ElectricalPower :> power {
+        unit = "kW";
+    }
+
+    attribute def Voltage :> electricPotential {
+        unit = "V";
+    }
+
+    attribute def Current :> electricCurrent {
+        unit = "A";
+    }
+
+    attribute def WaterFlowRate :> volumeFlowRate {
+        unit = "L/min";
+    }
+
+    attribute def Energy :> ISQ::energy {
+        unit = "kWh";
+    }
+
+    attribute def BladePitchAngle :> planeAngle {
+        unit = "deg";
+    }
+
+    item def AirFlow {
+        attribute speed : WindSpeed;
+        attribute density : massDensity = 1.225 [kg/m^3];
+        attribute directionAngle : planeAngle;
+    }
+
+    item def MechanicalRotation {
+        attribute shaftSpeed : RotationalSpeed;
+        attribute shaftTorque : Torque;
+    }
+
+    item def ElectricPowerFlow {
+        attribute voltage : Voltage;
+        attribute current : Current;
+        attribute realPower : ElectricalPower;
+    }
+
+    item def WaterFlow {
+        attribute flowRate : WaterFlowRate;
+        attribute pressure : pressure;
+    }
+
+    item def ControlSignal {
+        attribute commandCode : String;
+        attribute setPoint : Real;
+    }
+
+    port def AirCapturePort {
+        in item wind : AirFlow;
+    }
+
+    port def RotationPort {
+        out item rotationOut : MechanicalRotation;
+        in item rotationIn : MechanicalRotation;
+    }
+
+    port def ElectricPort {
+        out item electricOut : ElectricPowerFlow;
+        in item electricIn : ElectricPowerFlow;
+    }
+
+    port def WaterPort {
+        in item waterIn : WaterFlow;
+        out item waterOut : WaterFlow;
+    }
+
+    port def ControlPort {
+        in item commandIn : ControlSignal;
+        out item statusOut : ControlSignal;
+    }
+
+    part def RotorAssembly {
+        attribute bladeCount : Integer = 4;
+        attribute rotorDiameter : length = 18 [m];
+        attribute sweptArea : area = 254.47 [m^2];
+        attribute cutInWindSpeed : WindSpeed = 3.5 [m/s];
+        attribute ratedWindSpeed : WindSpeed = 11.0 [m/s];
+        attribute cutOutWindSpeed : WindSpeed = 25.0 [m/s];
+        attribute maximumRotorSpeed : RotationalSpeed = 42 [rpm];
+        attribute pitchAngle : BladePitchAngle = 6 [deg];
+
+        port airPort : AirCapturePort;
+        port shaftPort : RotationPort;
+
+        action captureWindEnergy {
+            in item incomingWind : AirFlow;
+            out item rotorRotation : MechanicalRotation;
+
+            first start;
+            then evaluateWind;
+            then convertAerodynamicForce;
+            then limitRotorSpeed;
+            then done;
+
+            action evaluateWind {
+                in item incomingWind : AirFlow;
+                out attribute usableWind : Boolean;
+            }
+
+            action convertAerodynamicForce {
+                in item incomingWind : AirFlow;
+                out item rotorRotation : MechanicalRotation;
+            }
+
+            action limitRotorSpeed {
+                inout item rotorRotation : MechanicalRotation;
+            }
+        }
+    }
+
+    part def YawAndPitchController {
+        attribute yawAngle : planeAngle = 0 [deg];
+        attribute targetYawAngle : planeAngle = 0 [deg];
+        attribute featherPitchAngle : BladePitchAngle = 85 [deg];
+        attribute optimumPitchAngle : BladePitchAngle = 6 [deg];
+
+        port controlPort : ControlPort;
+
+        action alignRotorToWind {
+            in item measuredWind : AirFlow;
+            out item actuatorCommand : ControlSignal;
+        }
+
+        action featherBladesForProtection {
+            out item actuatorCommand : ControlSignal;
+        }
+    }
+
+    part def Gearbox {
+        attribute gearRatio : Real = 18.0;
+        attribute mechanicalEfficiency : Real = 0.93;
+
+        port lowSpeedShaft : RotationPort;
+        port highSpeedShaft : RotationPort;
+
+        action increaseShaftSpeed {
+            in item lowSpeedRotation : MechanicalRotation;
+            out item highSpeedRotation : MechanicalRotation;
+        }
+    }
+
+    part def Generator {
+        attribute ratedPower : ElectricalPower = 75 [kW];
+        attribute nominalVoltage : Voltage = 480 [V];
+        attribute conversionEfficiency : Real = 0.91;
+
+        port mechanicalInput : RotationPort;
+        port electricalOutput : ElectricPort;
+
+        action convertRotationToElectricity {
+            in item shaftRotation : MechanicalRotation;
+            out item generatedPower : ElectricPowerFlow;
+        }
+    }
+
+    part def MechanicalPump {
+        attribute ratedFlowRate : WaterFlowRate = 120 [L/min];
+        attribute ratedHead : length = 35 [m];
+        attribute pumpEfficiency : Real = 0.72;
+
+        port mechanicalInput : RotationPort;
+        port suctionPort : WaterPort;
+        port dischargePort : WaterPort;
+
+        action pumpWater {
+            in item shaftRotation : MechanicalRotation;
+            in item sourceWater : WaterFlow;
+            out item deliveredWater : WaterFlow;
+        }
+    }
+
+    part def PowerConditioningUnit {
+        attribute dcBusVoltage : Voltage = 650 [V];
+        attribute outputVoltage : Voltage = 240 [V];
+        attribute outputFrequency : frequency = 60 [Hz];
+        attribute conditioningEfficiency : Real = 0.96;
+
+        port generatorInput : ElectricPort;
+        port loadOutput : ElectricPort;
+        port controlPort : ControlPort;
+
+        action regulatePower {
+            in item rawPower : ElectricPowerFlow;
+            out item usablePower : ElectricPowerFlow;
+        }
+    }
+
+    part def BatteryStorage {
+        attribute nominalCapacity : Energy = 120 [kWh];
+        attribute stateOfCharge : Real = 0.65;
+        attribute minimumStateOfCharge : Real = 0.20;
+        attribute maximumStateOfCharge : Real = 0.95;
+        attribute roundTripEfficiency : Real = 0.89;
+
+        port storagePort : ElectricPort;
+
+        action chargeBattery {
+            in item surplusPower : ElectricPowerFlow;
+        }
+
+        action dischargeBattery {
+            out item suppliedPower : ElectricPowerFlow;
+        }
+    }
+
+    part def SupervisoryController {
+        attribute operatingMode : String = "Standby";
+        attribute windAvailable : Boolean = false;
+        attribute gridDemandPresent : Boolean = false;
+        attribute waterDemandPresent : Boolean = false;
+        attribute faultPresent : Boolean = false;
+
+        port controlPort : ControlPort;
+
+        action monitorConditions {
+            in item wind : AirFlow;
+            out attribute windAvailable : Boolean;
+        }
+
+        action selectOperatingMode {
+            in attribute windAvailable : Boolean;
+            in attribute waterDemandPresent : Boolean;
+            in attribute gridDemandPresent : Boolean;
+            out item modeCommand : ControlSignal;
+        }
+
+        state def WindmillOperatingStateMachine {
+            state Off;
+            state Standby;
+            state Starting;
+            state GeneratingElectricity;
+            state PumpingWater;
+            state HybridOperation;
+            state HighWindProtection;
+            state Faulted;
+            state Maintenance;
+
+            transition initial then Off;
+            transition Off_to_Standby
+                first Off
+                accept item command : ControlSignal
+                if command.commandCode == "ENABLE"
+                then Standby;
+
+            transition Standby_to_Starting
+                first Standby
+                accept item wind : AirFlow
+                if wind.speed >= 3.5 [m/s] and wind.speed < 25.0 [m/s]
+                then Starting;
+
+            transition Starting_to_GeneratingElectricity
+                first Starting
+                accept item demand : ControlSignal
+                if demand.commandCode == "ELECTRIC_DEMAND"
+                then GeneratingElectricity;
+
+            transition Starting_to_PumpingWater
+                first Starting
+                accept item demand : ControlSignal
+                if demand.commandCode == "WATER_DEMAND"
+                then PumpingWater;
+
+            transition Starting_to_HybridOperation
+                first Starting
+                accept item demand : ControlSignal
+                if demand.commandCode == "HYBRID_DEMAND"
+                then HybridOperation;
+
+            transition Any_to_HighWindProtection
+                first Standby, Starting, GeneratingElectricity, PumpingWater, HybridOperation
+                accept item wind : AirFlow
+                if wind.speed >= 25.0 [m/s]
+                then HighWindProtection;
+
+            transition HighWindProtection_to_Standby
+                first HighWindProtection
+                accept item wind : AirFlow
+                if wind.speed < 20.0 [m/s]
+                then Standby;
+
+            transition Any_to_Faulted
+                first Starting, GeneratingElectricity, PumpingWater, HybridOperation, HighWindProtection
+                accept item fault : ControlSignal
+                if fault.commandCode == "FAULT_DETECTED"
+                then Faulted;
+
+            transition Faulted_to_Maintenance
+                first Faulted
+                accept item command : ControlSignal
+                if command.commandCode == "SERVICE"
+                then Maintenance;
+
+            transition Maintenance_to_Standby
+                first Maintenance
+                accept item command : ControlSignal
+                if command.commandCode == "SERVICE_COMPLETE"
+                then Standby;
+
+            transition Standby_to_Off
+                first Standby
+                accept item command : ControlSignal
+                if command.commandCode == "DISABLE"
+                then Off;
+        }
+    }
+
+    part def WindmillSystem {
+        attribute systemRatedPower : ElectricalPower = 75 [kW];
+        attribute nominalWaterDelivery : WaterFlowRate = 120 [L/min];
+        attribute primaryFunction : String =
+            "Convert kinetic energy from moving air into useful mechanical shaft power, then deliver that power as regulated electricity, pumped water, or both according to demand.";
+
+        port ambientAir : AirCapturePort;
+        port electricalService : ElectricPort;
+        port waterSource : WaterPort;
+        port waterDelivery : WaterPort;
+        port operatorControl : ControlPort;
+
+        part rotor : RotorAssembly;
+        part yawPitch : YawAndPitchController;
+        part gearbox : Gearbox;
+        part generator : Generator;
+        part pump : MechanicalPump;
+        part conditioner : PowerConditioningUnit;
+        part battery : BatteryStorage;
+        part controller : SupervisoryController;
+
+        connection windToRotor connect ambientAir to rotor.airPort;
+        connection rotorToGearbox connect rotor.shaftPort to gearbox.lowSpeedShaft;
+        connection gearboxToGenerator connect gearbox.highSpeedShaft to generator.mechanicalInput;
+        connection gearboxToPump connect gearbox.highSpeedShaft to pump.mechanicalInput;
+        connection generatorToConditioner connect generator.electricalOutput to conditioner.generatorInput;
+        connection conditionerToService connect conditioner.loadOutput to electricalService;
+        connection conditionerToBattery connect conditioner.loadOutput to battery.storagePort;
+        connection sourceToPump connect waterSource to pump.suctionPort;
+        connection pumpToDelivery connect pump.dischargePort to waterDelivery;
+        connection operatorToController connect operatorControl to controller.controlPort;
+        connection controllerToYawPitch connect controller.controlPort to yawPitch.controlPort;
+        connection controllerToConditioner connect controller.controlPort to conditioner.controlPort;
+
+        action operateWindmill {
+            in item wind : AirFlow;
+            in item demandCommand : ControlSignal;
+            in item inletWater : WaterFlow;
+            out item deliveredElectricity : ElectricPowerFlow;
+            out item deliveredWater : WaterFlow;
+
+            first senseWind;
+            then chooseMode;
+            then alignRotor;
+            then captureEnergy;
+            then transmitPower;
+            then distributeUsefulOutput;
+            then reportStatus;
+
+            action senseWind {
+                in item wind : AirFlow;
+                out attribute windUsable : Boolean;
+            }
+
+            action chooseMode {
+                in item demandCommand : ControlSignal;
+                in attribute windUsable : Boolean;
+                out item operatingCommand : ControlSignal;
+            }
+
+            action alignRotor {
+                in item wind : AirFlow;
+                out item pitchYawCommand : ControlSignal;
+            }
+
+            action captureEnergy {
+                in item wind : AirFlow;
+                out item rotorPower : MechanicalRotation;
+            }
+
+            action transmitPower {
+                in item rotorPower : MechanicalRotation;
+                out item highSpeedPower : MechanicalRotation;
+            }
+
+            action distributeUsefulOutput {
+                in item highSpeedPower : MechanicalRotation;
+                in item inletWater : WaterFlow;
+                out item deliveredElectricity : ElectricPowerFlow;
+                out item deliveredWater : WaterFlow;
+            }
+
+            action reportStatus {
+                out item status : ControlSignal;
+            }
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : WindmillSystem;
+
+        doc /* The windmill system shall convert wind energy into useful mechanical work and deliver that work as electricity, pumped water, or simultaneous hybrid service at a high level without requiring continuous external fuel. */
+
+        require constraint {
+            system.systemRatedPower >= 75 [kW] and
+            system.nominalWaterDelivery >= 120 [L/min]
+        }
+    }
+
+    requirement def WindCaptureRequirement {
+        subject rotor : RotorAssembly;
+
+        require constraint {
+            rotor.cutInWindSpeed <= 3.5 [m/s] and
+            rotor.ratedWindSpeed <= 11.0 [m/s] and
+            rotor.cutOutWindSpeed >= 25.0 [m/s]
+        }
+    }
+
+    requirement def ElectricalOutputRequirement {
+        subject generator : Generator;
+
+        require constraint {
+            generator.ratedPower >= 75 [kW] and
+            generator.nominalVoltage == 480 [V] and
+            generator.conversionEfficiency >= 0.90
+        }
+    }
+
+    requirement def WaterDeliveryRequirement {
+        subject pump : MechanicalPump;
+
+        require constraint {
+            pump.ratedFlowRate >= 120 [L/min] and
+            pump.ratedHead >= 35 [m] and
+            pump.pumpEfficiency >= 0.70
+        }
+    }
+
+    requirement def HighWindProtectionRequirement {
+        subject rotor : RotorAssembly;
+
+        require constraint {
+            rotor.cutOutWindSpeed <= 25.0 [m/s] and
+            rotor.pitchAngle <= 85 [deg]
+        }
+    }
+
+    requirement def EnergyStorageRequirement {
+        subject storage : BatteryStorage;
+
+        require constraint {
+            storage.nominalCapacity >= 120 [kWh] and
+            storage.minimumStateOfCharge >= 0.20 and
+            storage.maximumStateOfCharge <= 0.95
+        }
+    }
+
+    satisfy PrimaryFunctionSatisfaction by WindmillSystem;
+    satisfy WindCaptureSatisfaction by RotorAssembly;
+    satisfy ElectricalOutputSatisfaction by Generator;
+    satisfy WaterDeliverySatisfaction by MechanicalPump;
+    satisfy HighWindProtectionSatisfaction by YawAndPitchController;
+    satisfy EnergyStorageSatisfaction by BatteryStorage;
+}
+tokens used
+3,856
+package WindmillSystemModel {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def WindSpeed :> speed {
+        unit = "m/s";
+    }
+
+    attribute def RotationalSpeed :> frequency {
+        unit = "rpm";
+    }
+
+    attribute def Torque :> ISQ::torque {
+        unit = "N*m";
+    }
+
+    attribute def ElectricalPower :> power {
+        unit = "kW";
+    }
+
+    attribute def Voltage :> electricPotential {
+        unit = "V";
+    }
+
+    attribute def Current :> electricCurrent {
+        unit = "A";
+    }
+
+    attribute def WaterFlowRate :> volumeFlowRate {
+        unit = "L/min";
+    }
+
+    attribute def Energy :> ISQ::energy {
+        unit = "kWh";
+    }
+
+    attribute def BladePitchAngle :> planeAngle {
+        unit = "deg";
+    }
+
+    item def AirFlow {
+        attribute speed : WindSpeed;
+        attribute density : massDensity = 1.225 [kg/m^3];
+        attribute directionAngle : planeAngle;
+    }
+
+    item def MechanicalRotation {
+        attribute shaftSpeed : RotationalSpeed;
+        attribute shaftTorque : Torque;
+    }
+
+    item def ElectricPowerFlow {
+        attribute voltage : Voltage;
+        attribute current : Current;
+        attribute realPower : ElectricalPower;
+    }
+
+    item def WaterFlow {
+        attribute flowRate : WaterFlowRate;
+        attribute pressure : pressure;
+    }
+
+    item def ControlSignal {
+        attribute commandCode : String;
+        attribute setPoint : Real;
+    }
+
+    port def AirCapturePort {
+        in item wind : AirFlow;
+    }
+
+    port def RotationPort {
+        out item rotationOut : MechanicalRotation;
+        in item rotationIn : MechanicalRotation;
+    }
+
+    port def ElectricPort {
+        out item electricOut : ElectricPowerFlow;
+        in item electricIn : ElectricPowerFlow;
+    }
+
+    port def WaterPort {
+        in item waterIn : WaterFlow;
+        out item waterOut : WaterFlow;
+    }
+
+    port def ControlPort {
+        in item commandIn : ControlSignal;
+        out item statusOut : ControlSignal;
+    }
+
+    part def RotorAssembly {
+        attribute bladeCount : Integer = 4;
+        attribute rotorDiameter : length = 18 [m];
+        attribute sweptArea : area = 254.47 [m^2];
+        attribute cutInWindSpeed : WindSpeed = 3.5 [m/s];
+        attribute ratedWindSpeed : WindSpeed = 11.0 [m/s];
+        attribute cutOutWindSpeed : WindSpeed = 25.0 [m/s];
+        attribute maximumRotorSpeed : RotationalSpeed = 42 [rpm];
+        attribute pitchAngle : BladePitchAngle = 6 [deg];
+
+        port airPort : AirCapturePort;
+        port shaftPort : RotationPort;
+
+        action captureWindEnergy {
+            in item incomingWind : AirFlow;
+            out item rotorRotation : MechanicalRotation;
+
+            first start;
+            then evaluateWind;
+            then convertAerodynamicForce;
+            then limitRotorSpeed;
+            then done;
+
+            action evaluateWind {
+                in item incomingWind : AirFlow;
+                out attribute usableWind : Boolean;
+            }
+
+            action convertAerodynamicForce {
+                in item incomingWind : AirFlow;
+                out item rotorRotation : MechanicalRotation;
+            }
+
+            action limitRotorSpeed {
+                inout item rotorRotation : MechanicalRotation;
+            }
+        }
+    }
+
+    part def YawAndPitchController {
+        attribute yawAngle : planeAngle = 0 [deg];
+        attribute targetYawAngle : planeAngle = 0 [deg];
+        attribute featherPitchAngle : BladePitchAngle = 85 [deg];
+        attribute optimumPitchAngle : BladePitchAngle = 6 [deg];
+
+        port controlPort : ControlPort;
+
+        action alignRotorToWind {
+            in item measuredWind : AirFlow;
+            out item actuatorCommand : ControlSignal;
+        }
+
+        action featherBladesForProtection {
+            out item actuatorCommand : ControlSignal;
+        }
+    }
+
+    part def Gearbox {
+        attribute gearRatio : Real = 18.0;
+        attribute mechanicalEfficiency : Real = 0.93;
+
+        port lowSpeedShaft : RotationPort;
+        port highSpeedShaft : RotationPort;
+
+        action increaseShaftSpeed {
+            in item lowSpeedRotation : MechanicalRotation;
+            out item highSpeedRotation : MechanicalRotation;
+        }
+    }
+
+    part def Generator {
+        attribute ratedPower : ElectricalPower = 75 [kW];
+        attribute nominalVoltage : Voltage = 480 [V];
+        attribute conversionEfficiency : Real = 0.91;
+
+        port mechanicalInput : RotationPort;
+        port electricalOutput : ElectricPort;
+
+        action convertRotationToElectricity {
+            in item shaftRotation : MechanicalRotation;
+            out item generatedPower : ElectricPowerFlow;
+        }
+    }
+
+    part def MechanicalPump {
+        attribute ratedFlowRate : WaterFlowRate = 120 [L/min];
+        attribute ratedHead : length = 35 [m];
+        attribute pumpEfficiency : Real = 0.72;
+
+        port mechanicalInput : RotationPort;
+        port suctionPort : WaterPort;
+        port dischargePort : WaterPort;
+
+        action pumpWater {
+            in item shaftRotation : MechanicalRotation;
+            in item sourceWater : WaterFlow;
+            out item deliveredWater : WaterFlow;
+        }
+    }
+
+    part def PowerConditioningUnit {
+        attribute dcBusVoltage : Voltage = 650 [V];
+        attribute outputVoltage : Voltage = 240 [V];
+        attribute outputFrequency : frequency = 60 [Hz];
+        attribute conditioningEfficiency : Real = 0.96;
+
+        port generatorInput : ElectricPort;
+        port loadOutput : ElectricPort;
+        port controlPort : ControlPort;
+
+        action regulatePower {
+            in item rawPower : ElectricPowerFlow;
+            out item usablePower : ElectricPowerFlow;
+        }
+    }
+
+    part def BatteryStorage {
+        attribute nominalCapacity : Energy = 120 [kWh];
+        attribute stateOfCharge : Real = 0.65;
+        attribute minimumStateOfCharge : Real = 0.20;
+        attribute maximumStateOfCharge : Real = 0.95;
+        attribute roundTripEfficiency : Real = 0.89;
+
+        port storagePort : ElectricPort;
+
+        action chargeBattery {
+            in item surplusPower : ElectricPowerFlow;
+        }
+
+        action dischargeBattery {
+            out item suppliedPower : ElectricPowerFlow;
+        }
+    }
+
+    part def SupervisoryController {
+        attribute operatingMode : String = "Standby";
+        attribute windAvailable : Boolean = false;
+        attribute gridDemandPresent : Boolean = false;
+        attribute waterDemandPresent : Boolean = false;
+        attribute faultPresent : Boolean = false;
+
+        port controlPort : ControlPort;
+
+        action monitorConditions {
+            in item wind : AirFlow;
+            out attribute windAvailable : Boolean;
+        }
+
+        action selectOperatingMode {
+            in attribute windAvailable : Boolean;
+            in attribute waterDemandPresent : Boolean;
+            in attribute gridDemandPresent : Boolean;
+            out item modeCommand : ControlSignal;
+        }
+
+        state def WindmillOperatingStateMachine {
+            state Off;
+            state Standby;
+            state Starting;
+            state GeneratingElectricity;
+            state PumpingWater;
+            state HybridOperation;
+            state HighWindProtection;
+            state Faulted;
+            state Maintenance;
+
+            transition initial then Off;
+            transition Off_to_Standby
+                first Off
+                accept item command : ControlSignal
+                if command.commandCode == "ENABLE"
+                then Standby;
+
+            transition Standby_to_Starting
+                first Standby
+                accept item wind : AirFlow
+                if wind.speed >= 3.5 [m/s] and wind.speed < 25.0 [m/s]
+                then Starting;
+
+            transition Starting_to_GeneratingElectricity
+                first Starting
+                accept item demand : ControlSignal
+                if demand.commandCode == "ELECTRIC_DEMAND"
+                then GeneratingElectricity;
+
+            transition Starting_to_PumpingWater
+                first Starting
+                accept item demand : ControlSignal
+                if demand.commandCode == "WATER_DEMAND"
+                then PumpingWater;
+
+            transition Starting_to_HybridOperation
+                first Starting
+                accept item demand : ControlSignal
+                if demand.commandCode == "HYBRID_DEMAND"
+                then HybridOperation;
+
+            transition Any_to_HighWindProtection
+                first Standby, Starting, GeneratingElectricity, PumpingWater, HybridOperation
+                accept item wind : AirFlow
+                if wind.speed >= 25.0 [m/s]
+                then HighWindProtection;
+
+            transition HighWindProtection_to_Standby
+                first HighWindProtection
+                accept item wind : AirFlow
+                if wind.speed < 20.0 [m/s]
+                then Standby;
+
+            transition Any_to_Faulted
+                first Starting, GeneratingElectricity, PumpingWater, HybridOperation, HighWindProtection
+                accept item fault : ControlSignal
+                if fault.commandCode == "FAULT_DETECTED"
+                then Faulted;
+
+            transition Faulted_to_Maintenance
+                first Faulted
+                accept item command : ControlSignal
+                if command.commandCode == "SERVICE"
+                then Maintenance;
+
+            transition Maintenance_to_Standby
+                first Maintenance
+                accept item command : ControlSignal
+                if command.commandCode == "SERVICE_COMPLETE"
+                then Standby;
+
+            transition Standby_to_Off
+                first Standby
+                accept item command : ControlSignal
+                if command.commandCode == "DISABLE"
+                then Off;
+        }
+    }
+
+    part def WindmillSystem {
+        attribute systemRatedPower : ElectricalPower = 75 [kW];
+        attribute nominalWaterDelivery : WaterFlowRate = 120 [L/min];
+        attribute primaryFunction : String =
+            "Convert kinetic energy from moving air into useful mechanical shaft power, then deliver that power as regulated electricity, pumped water, or both according to demand.";
+
+        port ambientAir : AirCapturePort;
+        port electricalService : ElectricPort;
+        port waterSource : WaterPort;
+        port waterDelivery : WaterPort;
+        port operatorControl : ControlPort;
+
+        part rotor : RotorAssembly;
+        part yawPitch : YawAndPitchController;
+        part gearbox : Gearbox;
+        part generator : Generator;
+        part pump : MechanicalPump;
+        part conditioner : PowerConditioningUnit;
+        part battery : BatteryStorage;
+        part controller : SupervisoryController;
+
+        connection windToRotor connect ambientAir to rotor.airPort;
+        connection rotorToGearbox connect rotor.shaftPort to gearbox.lowSpeedShaft;
+        connection gearboxToGenerator connect gearbox.highSpeedShaft to generator.mechanicalInput;
+        connection gearboxToPump connect gearbox.highSpeedShaft to pump.mechanicalInput;
+        connection generatorToConditioner connect generator.electricalOutput to conditioner.generatorInput;
+        connection conditionerToService connect conditioner.loadOutput to electricalService;
+        connection conditionerToBattery connect conditioner.loadOutput to battery.storagePort;
+        connection sourceToPump connect waterSource to pump.suctionPort;
+        connection pumpToDelivery connect pump.dischargePort to waterDelivery;
+        connection operatorToController connect operatorControl to controller.controlPort;
+        connection controllerToYawPitch connect controller.controlPort to yawPitch.controlPort;
+        connection controllerToConditioner connect controller.controlPort to conditioner.controlPort;
+
+        action operateWindmill {
+            in item wind : AirFlow;
+            in item demandCommand : ControlSignal;
+            in item inletWater : WaterFlow;
+            out item deliveredElectricity : ElectricPowerFlow;
+            out item deliveredWater : WaterFlow;
+
+            first senseWind;
+            then chooseMode;
+            then alignRotor;
+            then captureEnergy;
+            then transmitPower;
+            then distributeUsefulOutput;
+            then reportStatus;
+
+            action senseWind {
+                in item wind : AirFlow;
+                out attribute windUsable : Boolean;
+            }
+
+            action chooseMode {
+                in item demandCommand : ControlSignal;
+                in attribute windUsable : Boolean;
+                out item operatingCommand : ControlSignal;
+            }
+
+            action alignRotor {
+                in item wind : AirFlow;
+                out item pitchYawCommand : ControlSignal;
+            }
+
+            action captureEnergy {
+                in item wind : AirFlow;
+                out item rotorPower : MechanicalRotation;
+            }
+
+            action transmitPower {
+                in item rotorPower : MechanicalRotation;
+                out item highSpeedPower : MechanicalRotation;
+            }
+
+            action distributeUsefulOutput {
+                in item highSpeedPower : MechanicalRotation;
+                in item inletWater : WaterFlow;
+                out item deliveredElectricity : ElectricPowerFlow;
+                out item deliveredWater : WaterFlow;
+            }
+
+            action reportStatus {
+                out item status : ControlSignal;
+            }
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : WindmillSystem;
+
+        doc /* The windmill system shall convert wind energy into useful mechanical work and deliver that work as electricity, pumped water, or simultaneous hybrid service at a high level without requiring continuous external fuel. */
+
+        require constraint {
+            system.systemRatedPower >= 75 [kW] and
+            system.nominalWaterDelivery >= 120 [L/min]
+        }
+    }
+
+    requirement def WindCaptureRequirement {
+        subject rotor : RotorAssembly;
+
+        require constraint {
+            rotor.cutInWindSpeed <= 3.5 [m/s] and
+            rotor.ratedWindSpeed <= 11.0 [m/s] and
+            rotor.cutOutWindSpeed >= 25.0 [m/s]
+        }
+    }
+
+    requirement def ElectricalOutputRequirement {
+        subject generator : Generator;
+
+        require constraint {
+            generator.ratedPower >= 75 [kW] and
+            generator.nominalVoltage == 480 [V] and
+            generator.conversionEfficiency >= 0.90
+        }
+    }
+
+    requirement def WaterDeliveryRequirement {
+        subject pump : MechanicalPump;
+
+        require constraint {
+            pump.ratedFlowRate >= 120 [L/min] and
+            pump.ratedHead >= 35 [m] and
+            pump.pumpEfficiency >= 0.70
+        }
+    }
+
+    requirement def HighWindProtectionRequirement {
+        subject rotor : RotorAssembly;
+
+        require constraint {
+            rotor.cutOutWindSpeed <= 25.0 [m/s] and
+            rotor.pitchAngle <= 85 [deg]
+        }
+    }
+
+    requirement def EnergyStorageRequirement {
+        subject storage : BatteryStorage;
+
+        require constraint {
+            storage.nominalCapacity >= 120 [kWh] and
+            storage.minimumStateOfCharge >= 0.20 and
+            storage.maximumStateOfCharge <= 0.95
+        }
+    }
+
+    satisfy PrimaryFunctionSatisfaction by WindmillSystem;
+    satisfy WindCaptureSatisfaction by RotorAssembly;
+    satisfy ElectricalOutputSatisfaction by Generator;
+    satisfy WaterDeliverySatisfaction by MechanicalPump;
+    satisfy HighWindProtectionSatisfaction by YawAndPitchController;
+    satisfy EnergyStorageSatisfaction by BatteryStorage;
+}

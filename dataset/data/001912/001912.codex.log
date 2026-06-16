@@ -1,0 +1,887 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-8p64h5gv
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019ebac7-c088-7d61-b8fb-ab83485d67a7
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a Defense Advanced Research Projects Agency and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package DARPA_InspiredResearchAgencyModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+
+  item def ResearchProposal {
+    attribute title : String;
+    attribute technicalRisk : RiskScore;
+    attribute expectedTransitionValue : UtilityScore;
+    attribute requestedFunding : MoneyUSD;
+    attribute proposedDuration : TimeMonth;
+  }
+
+  item def ResearchContract {
+    attribute contractId : String;
+    attribute obligatedFunding : MoneyUSD;
+    attribute periodOfPerformance : TimeMonth;
+    attribute milestoneCount : Integer;
+  }
+
+  item def TechnicalReport {
+    attribute maturityLevel : TechnologyReadinessLevel;
+    attribute demonstratedPerformance : UtilityScore;
+    attribute submittedAtMonth : TimeMonth;
+  }
+
+  item def TransitionPackage {
+    attribute receivingOrganization : String;
+    attribute validatedCapabilityGain : UtilityScore;
+    attribute transitionReadiness : TechnologyReadinessLevel;
+  }
+
+  item def StrategicNeed {
+    attribute missionArea : String;
+    attribute urgency : UtilityScore;
+    attribute capabilityGapSeverity : UtilityScore;
+  }
+
+  value def MoneyUSD {
+    unit "$";
+    quantity kind MonetaryAmount;
+  }
+
+  value def TimeMonth {
+    unit "mo";
+    quantity kind Time;
+  }
+
+  value def RiskScore {
+    unit "score";
+    quantity kind Dimensionless;
+  }
+
+  value def UtilityScore {
+    unit "score";
+    quantity kind Dimensionless;
+  }
+
+  value def TechnologyReadinessLevel {
+    unit "TRL";
+    quantity kind Dimensionless;
+  }
+
+  port def ProposalIntakePort {
+    in item proposal : ResearchProposal;
+  }
+
+  port def ContractAwardPort {
+    out item contract : ResearchContract;
+  }
+
+  port def ReportPort {
+    in item report : TechnicalReport;
+  }
+
+  port def TransitionPort {
+    out item package : TransitionPackage;
+  }
+
+  port def StrategicNeedPort {
+    in item need : StrategicNeed;
+  }
+
+  port def FundingPort {
+    out item contract : ResearchContract;
+  }
+
+  port def OversightPort {
+    in item report : TechnicalReport;
+    out item correctiveDirection : StrategicNeed;
+  }
+
+  part def PerformerOrganization {
+    attribute name : String;
+    attribute availablePrincipalInvestigators : Integer;
+    attribute laboratoryCapacity : UtilityScore;
+
+    port awards : ContractAwardPort;
+    port reports : ReportPort;
+  }
+
+  part def DefenseCustomer {
+    attribute organizationName : String;
+    attribute operationalPriority : UtilityScore;
+
+    port needs : StrategicNeedPort;
+    port transitions : TransitionPort;
+  }
+
+  part def ProgramManager {
+    attribute name : String;
+    attribute activePrograms : Integer;
+    attribute annualBudgetAuthority : MoneyUSD;
+    attribute maximumAcceptedTechnicalRisk : RiskScore;
+
+    port needIn : StrategicNeedPort;
+    port proposalIn : ProposalIntakePort;
+    port awardOut : ContractAwardPort;
+    port reportIn : ReportPort;
+    port transitionOut : TransitionPort;
+
+    perform action defineProgram;
+    perform action selectPortfolio;
+    perform action monitorMilestones;
+    perform action prepareTransition;
+  }
+
+  part def ResearchOffice {
+    attribute officeName : String;
+    attribute missionFocus : String;
+    attribute annualBudget : MoneyUSD;
+    attribute proposalReviewCapacityPerMonth : Integer;
+
+    part manager[1..12] : ProgramManager;
+
+    port needInput : StrategicNeedPort;
+    port proposalInput : ProposalIntakePort;
+    port contractOutput : ContractAwardPort;
+    port reportInput : ReportPort;
+    port transitionOutput : TransitionPort;
+  }
+
+  part def ContractingOffice {
+    attribute staffCount : Integer;
+    attribute awardCycleTime : TimeMonth;
+    attribute complianceReviewThreshold : MoneyUSD;
+
+    port selectedProposalInput : ProposalIntakePort;
+    port fundingOutput : FundingPort;
+  }
+
+  part def IndependentTestTeam {
+    attribute testCapacityPerQuarter : Integer;
+    attribute measurementConfidence : UtilityScore;
+
+    port reportInput : ReportPort;
+    port validatedReportOutput : ReportPort;
+  }
+
+  part def AgencyLeadership {
+    attribute strategicPlanningHorizon : TimeMonth;
+    attribute portfolioRiskTolerance : RiskScore;
+    attribute annualAppropriation : MoneyUSD;
+
+    port needsInput : StrategicNeedPort;
+    port oversightInput : OversightPort;
+  }
+
+  part def DARPAStyleResearchAgency {
+    attribute agencyName : String = "Advanced Defense Research Projects Agency";
+    attribute primaryFunction : String =
+      "Create technological surprise by funding and managing high-risk, high-payoff research programs that address strategic defense capability gaps.";
+    attribute annualResearchBudget : MoneyUSD;
+    attribute targetAverageProgramDuration : TimeMonth;
+    attribute minimumTransitionReadiness : TechnologyReadinessLevel;
+
+    part leadership : AgencyLeadership;
+    part tacticalTechnologyOffice : ResearchOffice;
+    part informationInnovationOffice : ResearchOffice;
+    part defenseSciencesOffice : ResearchOffice;
+    part contracting : ContractingOffice;
+    part independentTest : IndependentTestTeam;
+    part universityPerformer : PerformerOrganization;
+    part industryPerformer : PerformerOrganization;
+    part governmentLabPerformer : PerformerOrganization;
+    part combatantCommandCustomer : DefenseCustomer;
+    part acquisitionCustomer : DefenseCustomer;
+
+    port externalNeeds : StrategicNeedPort;
+    port proposalGateway : ProposalIntakePort;
+    port transitionGateway : TransitionPort;
+    port oversightGateway : OversightPort;
+
+    connection needFlow1 connect externalNeeds to leadership.needsInput;
+    connection needFlow2 connect combatantCommandCustomer.needs to tacticalTechnologyOffice.needInput;
+    connection needFlow3 connect acquisitionCustomer.needs to informationInnovationOffice.needInput;
+
+    connection proposalFlow1 connect proposalGateway to tacticalTechnologyOffice.proposalInput;
+    connection proposalFlow2 connect proposalGateway to informationInnovationOffice.proposalInput;
+    connection proposalFlow3 connect proposalGateway to defenseSciencesOffice.proposalInput;
+
+    connection awardFlow1 connect tacticalTechnologyOffice.contractOutput to universityPerformer.awards;
+    connection awardFlow2 connect informationInnovationOffice.contractOutput to industryPerformer.awards;
+    connection awardFlow3 connect defenseSciencesOffice.contractOutput to governmentLabPerformer.awards;
+
+    connection contractFundingFlow connect contracting.fundingOutput to industryPerformer.awards;
+
+    connection reportFlow1 connect universityPerformer.reports to independentTest.reportInput;
+    connection reportFlow2 connect industryPerformer.reports to independentTest.reportInput;
+    connection reportFlow3 connect governmentLabPerformer.reports to independentTest.reportInput;
+
+    connection validatedReportFlow1 connect independentTest.validatedReportOutput to tacticalTechnologyOffice.reportInput;
+    connection validatedReportFlow2 connect independentTest.validatedReportOutput to informationInnovationOffice.reportInput;
+    connection validatedReportFlow3 connect independentTest.validatedReportOutput to defenseSciencesOffice.reportInput;
+
+    connection transitionFlow1 connect tacticalTechnologyOffice.transitionOutput to combatantCommandCustomer.transitions;
+    connection transitionFlow2 connect informationInnovationOffice.transitionOutput to acquisitionCustomer.transitions;
+    connection transitionFlow3 connect defenseSciencesOffice.transitionOutput to transitionGateway;
+  }
+
+  action def DefineProgram {
+    in item need : StrategicNeed;
+    out item solicitation : ResearchProposal;
+
+    constraint gapMustBeSignificant {
+      need.capabilityGapSeverity >= 7.0
+    }
+  }
+
+  action def SelectPortfolio {
+    in item candidateProposal[1..*] : ResearchProposal;
+    out item selectedProposal[1..*] : ResearchProposal;
+
+    constraint highRiskHighPayoff {
+      selectedProposal.technicalRisk >= 6.0 and
+      selectedProposal.expectedTransitionValue >= 8.0
+    }
+  }
+
+  action def AwardContract {
+    in item selectedProposal : ResearchProposal;
+    out item contract : ResearchContract;
+
+    constraint fundingWithinRequest {
+      contract.obligatedFunding <= selectedProposal.requestedFunding
+    }
+  }
+
+  action def MonitorMilestones {
+    in item report : TechnicalReport;
+    out item correctiveDirection : StrategicNeed;
+
+    constraint adequateProgress {
+      report.maturityLevel >= 3.0 or
+      report.demonstratedPerformance >= 6.0
+    }
+  }
+
+  action def TransitionCapability {
+    in item finalReport : TechnicalReport;
+    out item transitionPackage : TransitionPackage;
+
+    constraint readyForTransition {
+      finalReport.maturityLevel >= 6.0 and
+      finalReport.demonstratedPerformance >= 8.0
+    }
+  }
+
+  state def ProgramLifecycle {
+    entry action DefineProgram;
+
+    state StrategicGapIdentified;
+    state SolicitationReleased;
+    state ProposalsEvaluated;
+    state ContractAwarded;
+    state ResearchExecution;
+    state IndependentValidation;
+    state TransitionPrepared;
+    state ProgramClosed;
+    state ProgramTerminated;
+
+    transition first StrategicGapIdentified;
+    transition StrategicGapIdentified to SolicitationReleased
+      accept StrategicNeed
+      then DefineProgram;
+
+    transition SolicitationReleased to ProposalsEvaluated
+      accept ResearchProposal
+      then SelectPortfolio;
+
+    transition ProposalsEvaluated to ContractAwarded
+      accept ResearchProposal
+      then AwardContract;
+
+    transition ContractAwarded to ResearchExecution
+      accept ResearchContract;
+
+    transition ResearchExecution to IndependentValidation
+      accept TechnicalReport
+      then MonitorMilestones;
+
+    transition IndependentValidation to ResearchExecution
+      if report.maturityLevel < 6.0 and report.demonstratedPerformance >= 6.0;
+
+    transition IndependentValidation to TransitionPrepared
+      if report.maturityLevel >= 6.0 and report.demonstratedPerformance >= 8.0
+      then TransitionCapability;
+
+    transition IndependentValidation to ProgramTerminated
+      if report.demonstratedPerformance < 4.0;
+
+    transition TransitionPrepared to ProgramClosed
+      accept TransitionPackage;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject agency : DARPAStyleResearchAgency;
+
+    require constraint {
+      agency.primaryFunction ==
+      "Create technological surprise by funding and managing high-risk, high-payoff research programs that address strategic defense capability gaps."
+    }
+  }
+
+  requirement def HighRiskHighPayoffRequirement {
+    subject proposal : ResearchProposal;
+
+    require constraint {
+      proposal.technicalRisk >= 6.0 and
+      proposal.expectedTransitionValue >= 8.0
+    }
+  }
+
+  requirement def ProgramDurationRequirement {
+    subject agency : DARPAStyleResearchAgency;
+
+    require constraint {
+      agency.targetAverageProgramDuration <= 60.0 [TimeMonth]
+    }
+  }
+
+  requirement def TransitionReadinessRequirement {
+    subject package : TransitionPackage;
+
+    require constraint {
+      package.transitionReadiness >= 6.0 [TechnologyReadinessLevel] and
+      package.validatedCapabilityGain >= 8.0 [UtilityScore]
+    }
+  }
+
+  requirement def PortfolioBudgetRequirement {
+    subject agency : DARPAStyleResearchAgency;
+
+    require constraint {
+      agency.annualResearchBudget <= agency.leadership.annualAppropriation
+    }
+  }
+
+  part agencyInstance : DARPAStyleResearchAgency {
+    attribute annualResearchBudget = 4250000000.0 [MoneyUSD];
+    attribute targetAverageProgramDuration = 48.0 [TimeMonth];
+    attribute minimumTransitionReadiness = 6.0 [TechnologyReadinessLevel];
+
+    part leadership {
+      attribute strategicPlanningHorizon = 120.0 [TimeMonth];
+      attribute portfolioRiskTolerance = 8.0 [RiskScore];
+      attribute annualAppropriation = 4500000000.0 [MoneyUSD];
+    }
+
+    part tacticalTechnologyOffice {
+      attribute officeName = "Tactical Technology Office";
+      attribute missionFocus = "Autonomy, platforms, sensing, and resilient operational systems";
+      attribute annualBudget = 1400000000.0 [MoneyUSD];
+      attribute proposalReviewCapacityPerMonth = 80;
+    }
+
+    part informationInnovationOffice {
+      attribute officeName = "Information Innovation Office";
+      attribute missionFocus = "Cyber, artificial intelligence, information advantage, and secure computation";
+      attribute annualBudget = 1100000000.0 [MoneyUSD];
+      attribute proposalReviewCapacityPerMonth = 95;
+    }
+
+    part defenseSciencesOffice {
+      attribute officeName = "Defense Sciences Office";
+      attribute missionFocus = "Foundational science, materials, biology, mathematics, and breakthrough concepts";
+      attribute annualBudget = 900000000.0 [MoneyUSD];
+      attribute proposalReviewCapacityPerMonth = 70;
+    }
+
+    part contracting {
+      attribute staffCount = 160;
+      attribute awardCycleTime = 4.0 [TimeMonth];
+      attribute complianceReviewThreshold = 10000000.0 [MoneyUSD];
+    }
+
+    part independentTest {
+      attribute testCapacityPerQuarter = 24;
+      attribute measurementConfidence = 9.0 [UtilityScore];
+    }
+
+    part universityPerformer {
+      attribute name = "University Research Consortium";
+      attribute availablePrincipalInvestigators = 42;
+      attribute laboratoryCapacity = 8.0 [UtilityScore];
+    }
+
+    part industryPerformer {
+      attribute name = "Advanced Systems Industry Team";
+      attribute availablePrincipalInvestigators = 65;
+      attribute laboratoryCapacity = 9.0 [UtilityScore];
+    }
+
+    part governmentLabPerformer {
+      attribute name = "Government Laboratory Partner";
+      attribute availablePrincipalInvestigators = 31;
+      attribute laboratoryCapacity = 8.5 [UtilityScore];
+    }
+
+    part combatantCommandCustomer {
+      attribute organizationName = "Operational Defense Customer";
+      attribute operationalPriority = 9.0 [UtilityScore];
+    }
+
+    part acquisitionCustomer {
+      attribute organizationName = "Defense Acquisition Transition Customer";
+      attribute operationalPriority = 8.0 [UtilityScore];
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by agencyInstance;
+  satisfy ProgramDurationRequirement by agencyInstance;
+  satisfy PortfolioBudgetRequirement by agencyInstance;
+}
+tokens used
+3,611
+package DARPA_InspiredResearchAgencyModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+
+  item def ResearchProposal {
+    attribute title : String;
+    attribute technicalRisk : RiskScore;
+    attribute expectedTransitionValue : UtilityScore;
+    attribute requestedFunding : MoneyUSD;
+    attribute proposedDuration : TimeMonth;
+  }
+
+  item def ResearchContract {
+    attribute contractId : String;
+    attribute obligatedFunding : MoneyUSD;
+    attribute periodOfPerformance : TimeMonth;
+    attribute milestoneCount : Integer;
+  }
+
+  item def TechnicalReport {
+    attribute maturityLevel : TechnologyReadinessLevel;
+    attribute demonstratedPerformance : UtilityScore;
+    attribute submittedAtMonth : TimeMonth;
+  }
+
+  item def TransitionPackage {
+    attribute receivingOrganization : String;
+    attribute validatedCapabilityGain : UtilityScore;
+    attribute transitionReadiness : TechnologyReadinessLevel;
+  }
+
+  item def StrategicNeed {
+    attribute missionArea : String;
+    attribute urgency : UtilityScore;
+    attribute capabilityGapSeverity : UtilityScore;
+  }
+
+  value def MoneyUSD {
+    unit "$";
+    quantity kind MonetaryAmount;
+  }
+
+  value def TimeMonth {
+    unit "mo";
+    quantity kind Time;
+  }
+
+  value def RiskScore {
+    unit "score";
+    quantity kind Dimensionless;
+  }
+
+  value def UtilityScore {
+    unit "score";
+    quantity kind Dimensionless;
+  }
+
+  value def TechnologyReadinessLevel {
+    unit "TRL";
+    quantity kind Dimensionless;
+  }
+
+  port def ProposalIntakePort {
+    in item proposal : ResearchProposal;
+  }
+
+  port def ContractAwardPort {
+    out item contract : ResearchContract;
+  }
+
+  port def ReportPort {
+    in item report : TechnicalReport;
+  }
+
+  port def TransitionPort {
+    out item package : TransitionPackage;
+  }
+
+  port def StrategicNeedPort {
+    in item need : StrategicNeed;
+  }
+
+  port def FundingPort {
+    out item contract : ResearchContract;
+  }
+
+  port def OversightPort {
+    in item report : TechnicalReport;
+    out item correctiveDirection : StrategicNeed;
+  }
+
+  part def PerformerOrganization {
+    attribute name : String;
+    attribute availablePrincipalInvestigators : Integer;
+    attribute laboratoryCapacity : UtilityScore;
+
+    port awards : ContractAwardPort;
+    port reports : ReportPort;
+  }
+
+  part def DefenseCustomer {
+    attribute organizationName : String;
+    attribute operationalPriority : UtilityScore;
+
+    port needs : StrategicNeedPort;
+    port transitions : TransitionPort;
+  }
+
+  part def ProgramManager {
+    attribute name : String;
+    attribute activePrograms : Integer;
+    attribute annualBudgetAuthority : MoneyUSD;
+    attribute maximumAcceptedTechnicalRisk : RiskScore;
+
+    port needIn : StrategicNeedPort;
+    port proposalIn : ProposalIntakePort;
+    port awardOut : ContractAwardPort;
+    port reportIn : ReportPort;
+    port transitionOut : TransitionPort;
+
+    perform action defineProgram;
+    perform action selectPortfolio;
+    perform action monitorMilestones;
+    perform action prepareTransition;
+  }
+
+  part def ResearchOffice {
+    attribute officeName : String;
+    attribute missionFocus : String;
+    attribute annualBudget : MoneyUSD;
+    attribute proposalReviewCapacityPerMonth : Integer;
+
+    part manager[1..12] : ProgramManager;
+
+    port needInput : StrategicNeedPort;
+    port proposalInput : ProposalIntakePort;
+    port contractOutput : ContractAwardPort;
+    port reportInput : ReportPort;
+    port transitionOutput : TransitionPort;
+  }
+
+  part def ContractingOffice {
+    attribute staffCount : Integer;
+    attribute awardCycleTime : TimeMonth;
+    attribute complianceReviewThreshold : MoneyUSD;
+
+    port selectedProposalInput : ProposalIntakePort;
+    port fundingOutput : FundingPort;
+  }
+
+  part def IndependentTestTeam {
+    attribute testCapacityPerQuarter : Integer;
+    attribute measurementConfidence : UtilityScore;
+
+    port reportInput : ReportPort;
+    port validatedReportOutput : ReportPort;
+  }
+
+  part def AgencyLeadership {
+    attribute strategicPlanningHorizon : TimeMonth;
+    attribute portfolioRiskTolerance : RiskScore;
+    attribute annualAppropriation : MoneyUSD;
+
+    port needsInput : StrategicNeedPort;
+    port oversightInput : OversightPort;
+  }
+
+  part def DARPAStyleResearchAgency {
+    attribute agencyName : String = "Advanced Defense Research Projects Agency";
+    attribute primaryFunction : String =
+      "Create technological surprise by funding and managing high-risk, high-payoff research programs that address strategic defense capability gaps.";
+    attribute annualResearchBudget : MoneyUSD;
+    attribute targetAverageProgramDuration : TimeMonth;
+    attribute minimumTransitionReadiness : TechnologyReadinessLevel;
+
+    part leadership : AgencyLeadership;
+    part tacticalTechnologyOffice : ResearchOffice;
+    part informationInnovationOffice : ResearchOffice;
+    part defenseSciencesOffice : ResearchOffice;
+    part contracting : ContractingOffice;
+    part independentTest : IndependentTestTeam;
+    part universityPerformer : PerformerOrganization;
+    part industryPerformer : PerformerOrganization;
+    part governmentLabPerformer : PerformerOrganization;
+    part combatantCommandCustomer : DefenseCustomer;
+    part acquisitionCustomer : DefenseCustomer;
+
+    port externalNeeds : StrategicNeedPort;
+    port proposalGateway : ProposalIntakePort;
+    port transitionGateway : TransitionPort;
+    port oversightGateway : OversightPort;
+
+    connection needFlow1 connect externalNeeds to leadership.needsInput;
+    connection needFlow2 connect combatantCommandCustomer.needs to tacticalTechnologyOffice.needInput;
+    connection needFlow3 connect acquisitionCustomer.needs to informationInnovationOffice.needInput;
+
+    connection proposalFlow1 connect proposalGateway to tacticalTechnologyOffice.proposalInput;
+    connection proposalFlow2 connect proposalGateway to informationInnovationOffice.proposalInput;
+    connection proposalFlow3 connect proposalGateway to defenseSciencesOffice.proposalInput;
+
+    connection awardFlow1 connect tacticalTechnologyOffice.contractOutput to universityPerformer.awards;
+    connection awardFlow2 connect informationInnovationOffice.contractOutput to industryPerformer.awards;
+    connection awardFlow3 connect defenseSciencesOffice.contractOutput to governmentLabPerformer.awards;
+
+    connection contractFundingFlow connect contracting.fundingOutput to industryPerformer.awards;
+
+    connection reportFlow1 connect universityPerformer.reports to independentTest.reportInput;
+    connection reportFlow2 connect industryPerformer.reports to independentTest.reportInput;
+    connection reportFlow3 connect governmentLabPerformer.reports to independentTest.reportInput;
+
+    connection validatedReportFlow1 connect independentTest.validatedReportOutput to tacticalTechnologyOffice.reportInput;
+    connection validatedReportFlow2 connect independentTest.validatedReportOutput to informationInnovationOffice.reportInput;
+    connection validatedReportFlow3 connect independentTest.validatedReportOutput to defenseSciencesOffice.reportInput;
+
+    connection transitionFlow1 connect tacticalTechnologyOffice.transitionOutput to combatantCommandCustomer.transitions;
+    connection transitionFlow2 connect informationInnovationOffice.transitionOutput to acquisitionCustomer.transitions;
+    connection transitionFlow3 connect defenseSciencesOffice.transitionOutput to transitionGateway;
+  }
+
+  action def DefineProgram {
+    in item need : StrategicNeed;
+    out item solicitation : ResearchProposal;
+
+    constraint gapMustBeSignificant {
+      need.capabilityGapSeverity >= 7.0
+    }
+  }
+
+  action def SelectPortfolio {
+    in item candidateProposal[1..*] : ResearchProposal;
+    out item selectedProposal[1..*] : ResearchProposal;
+
+    constraint highRiskHighPayoff {
+      selectedProposal.technicalRisk >= 6.0 and
+      selectedProposal.expectedTransitionValue >= 8.0
+    }
+  }
+
+  action def AwardContract {
+    in item selectedProposal : ResearchProposal;
+    out item contract : ResearchContract;
+
+    constraint fundingWithinRequest {
+      contract.obligatedFunding <= selectedProposal.requestedFunding
+    }
+  }
+
+  action def MonitorMilestones {
+    in item report : TechnicalReport;
+    out item correctiveDirection : StrategicNeed;
+
+    constraint adequateProgress {
+      report.maturityLevel >= 3.0 or
+      report.demonstratedPerformance >= 6.0
+    }
+  }
+
+  action def TransitionCapability {
+    in item finalReport : TechnicalReport;
+    out item transitionPackage : TransitionPackage;
+
+    constraint readyForTransition {
+      finalReport.maturityLevel >= 6.0 and
+      finalReport.demonstratedPerformance >= 8.0
+    }
+  }
+
+  state def ProgramLifecycle {
+    entry action DefineProgram;
+
+    state StrategicGapIdentified;
+    state SolicitationReleased;
+    state ProposalsEvaluated;
+    state ContractAwarded;
+    state ResearchExecution;
+    state IndependentValidation;
+    state TransitionPrepared;
+    state ProgramClosed;
+    state ProgramTerminated;
+
+    transition first StrategicGapIdentified;
+    transition StrategicGapIdentified to SolicitationReleased
+      accept StrategicNeed
+      then DefineProgram;
+
+    transition SolicitationReleased to ProposalsEvaluated
+      accept ResearchProposal
+      then SelectPortfolio;
+
+    transition ProposalsEvaluated to ContractAwarded
+      accept ResearchProposal
+      then AwardContract;
+
+    transition ContractAwarded to ResearchExecution
+      accept ResearchContract;
+
+    transition ResearchExecution to IndependentValidation
+      accept TechnicalReport
+      then MonitorMilestones;
+
+    transition IndependentValidation to ResearchExecution
+      if report.maturityLevel < 6.0 and report.demonstratedPerformance >= 6.0;
+
+    transition IndependentValidation to TransitionPrepared
+      if report.maturityLevel >= 6.0 and report.demonstratedPerformance >= 8.0
+      then TransitionCapability;
+
+    transition IndependentValidation to ProgramTerminated
+      if report.demonstratedPerformance < 4.0;
+
+    transition TransitionPrepared to ProgramClosed
+      accept TransitionPackage;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject agency : DARPAStyleResearchAgency;
+
+    require constraint {
+      agency.primaryFunction ==
+      "Create technological surprise by funding and managing high-risk, high-payoff research programs that address strategic defense capability gaps."
+    }
+  }
+
+  requirement def HighRiskHighPayoffRequirement {
+    subject proposal : ResearchProposal;
+
+    require constraint {
+      proposal.technicalRisk >= 6.0 and
+      proposal.expectedTransitionValue >= 8.0
+    }
+  }
+
+  requirement def ProgramDurationRequirement {
+    subject agency : DARPAStyleResearchAgency;
+
+    require constraint {
+      agency.targetAverageProgramDuration <= 60.0 [TimeMonth]
+    }
+  }
+
+  requirement def TransitionReadinessRequirement {
+    subject package : TransitionPackage;
+
+    require constraint {
+      package.transitionReadiness >= 6.0 [TechnologyReadinessLevel] and
+      package.validatedCapabilityGain >= 8.0 [UtilityScore]
+    }
+  }
+
+  requirement def PortfolioBudgetRequirement {
+    subject agency : DARPAStyleResearchAgency;
+
+    require constraint {
+      agency.annualResearchBudget <= agency.leadership.annualAppropriation
+    }
+  }
+
+  part agencyInstance : DARPAStyleResearchAgency {
+    attribute annualResearchBudget = 4250000000.0 [MoneyUSD];
+    attribute targetAverageProgramDuration = 48.0 [TimeMonth];
+    attribute minimumTransitionReadiness = 6.0 [TechnologyReadinessLevel];
+
+    part leadership {
+      attribute strategicPlanningHorizon = 120.0 [TimeMonth];
+      attribute portfolioRiskTolerance = 8.0 [RiskScore];
+      attribute annualAppropriation = 4500000000.0 [MoneyUSD];
+    }
+
+    part tacticalTechnologyOffice {
+      attribute officeName = "Tactical Technology Office";
+      attribute missionFocus = "Autonomy, platforms, sensing, and resilient operational systems";
+      attribute annualBudget = 1400000000.0 [MoneyUSD];
+      attribute proposalReviewCapacityPerMonth = 80;
+    }
+
+    part informationInnovationOffice {
+      attribute officeName = "Information Innovation Office";
+      attribute missionFocus = "Cyber, artificial intelligence, information advantage, and secure computation";
+      attribute annualBudget = 1100000000.0 [MoneyUSD];
+      attribute proposalReviewCapacityPerMonth = 95;
+    }
+
+    part defenseSciencesOffice {
+      attribute officeName = "Defense Sciences Office";
+      attribute missionFocus = "Foundational science, materials, biology, mathematics, and breakthrough concepts";
+      attribute annualBudget = 900000000.0 [MoneyUSD];
+      attribute proposalReviewCapacityPerMonth = 70;
+    }
+
+    part contracting {
+      attribute staffCount = 160;
+      attribute awardCycleTime = 4.0 [TimeMonth];
+      attribute complianceReviewThreshold = 10000000.0 [MoneyUSD];
+    }
+
+    part independentTest {
+      attribute testCapacityPerQuarter = 24;
+      attribute measurementConfidence = 9.0 [UtilityScore];
+    }
+
+    part universityPerformer {
+      attribute name = "University Research Consortium";
+      attribute availablePrincipalInvestigators = 42;
+      attribute laboratoryCapacity = 8.0 [UtilityScore];
+    }
+
+    part industryPerformer {
+      attribute name = "Advanced Systems Industry Team";
+      attribute availablePrincipalInvestigators = 65;
+      attribute laboratoryCapacity = 9.0 [UtilityScore];
+    }
+
+    part governmentLabPerformer {
+      attribute name = "Government Laboratory Partner";
+      attribute availablePrincipalInvestigators = 31;
+      attribute laboratoryCapacity = 8.5 [UtilityScore];
+    }
+
+    part combatantCommandCustomer {
+      attribute organizationName = "Operational Defense Customer";
+      attribute operationalPriority = 9.0 [UtilityScore];
+    }
+
+    part acquisitionCustomer {
+      attribute organizationName = "Defense Acquisition Transition Customer";
+      attribute operationalPriority = 8.0 [UtilityScore];
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by agencyInstance;
+  satisfy ProgramDurationRequirement by agencyInstance;
+  satisfy PortfolioBudgetRequirement by agencyInstance;
+}

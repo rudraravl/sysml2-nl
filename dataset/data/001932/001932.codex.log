@@ -1,0 +1,1639 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-acxfmd3s
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019ebadf-7294-7733-8870-abe3b8a80c10
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a system based on a Spaceflight and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package SpaceflightSystemModel {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def MassValue :> ISQ::mass {
+        unit = SI::kg;
+    }
+
+    attribute def LengthValue :> ISQ::length {
+        unit = SI::m;
+    }
+
+    attribute def TimeValue :> ISQ::time {
+        unit = SI::s;
+    }
+
+    attribute def VelocityValue :> ISQ::speed {
+        unit = SI::m / SI::s;
+    }
+
+    attribute def AccelerationValue :> ISQ::acceleration {
+        unit = SI::m / SI::s^2;
+    }
+
+    attribute def ForceValue :> ISQ::force {
+        unit = SI::N;
+    }
+
+    attribute def EnergyValue :> ISQ::energy {
+        unit = SI::J;
+    }
+
+    attribute def PowerValue :> ISQ::power {
+        unit = SI::W;
+    }
+
+    attribute def TemperatureValue :> ISQ::thermodynamicTemperature {
+        unit = SI::K;
+    }
+
+    attribute def PressureValue :> ISQ::pressure {
+        unit = SI::Pa;
+    }
+
+    attribute def AngleValue :> ISQ::planeAngle {
+        unit = SI::rad;
+    }
+
+    enum def MissionPhase {
+        enum preparation;
+        enum launch;
+        enum ascent;
+        enum orbitalInsertion;
+        enum onOrbitOperations;
+        enum deorbit;
+        enum reentry;
+        enum landing;
+        enum safe;
+        enum abort;
+    }
+
+    enum def VehicleMode {
+        enum unpowered;
+        enum standby;
+        enum powered;
+        enum autonomousGuidance;
+        enum manualOverride;
+        enum contingency;
+    }
+
+    item def Crew {
+        attribute count : Integer;
+        attribute totalMass : MassValue;
+        attribute metabolicHeatLoad : PowerValue;
+    }
+
+    item def Payload {
+        attribute payloadMass : MassValue;
+        attribute payloadVolume : Real;
+        attribute requiredPower : PowerValue;
+        attribute thermalLimitLow : TemperatureValue;
+        attribute thermalLimitHigh : TemperatureValue;
+    }
+
+    item def Propellant {
+        attribute oxidizerMass : MassValue;
+        attribute fuelMass : MassValue;
+        attribute mixtureRatio : Real;
+        attribute storagePressure : PressureValue;
+        attribute storageTemperature : TemperatureValue;
+    }
+
+    item def ThrustVector {
+        attribute magnitude : ForceValue;
+        attribute pitchAngle : AngleValue;
+        attribute yawAngle : AngleValue;
+    }
+
+    item def TelemetryPacket {
+        attribute timestamp : TimeValue;
+        attribute phase : MissionPhase;
+        attribute vehicleMode : VehicleMode;
+        attribute altitude : LengthValue;
+        attribute velocity : VelocityValue;
+        attribute acceleration : AccelerationValue;
+        attribute cabinPressure : PressureValue;
+        attribute propellantRemaining : MassValue;
+        attribute electricalPowerAvailable : PowerValue;
+    }
+
+    item def CommandPacket {
+        attribute timestamp : TimeValue;
+        attribute targetPhase : MissionPhase;
+        attribute engineEnable : Boolean;
+        attribute abortRequested : Boolean;
+        attribute attitudePitchCommand : AngleValue;
+        attribute attitudeYawCommand : AngleValue;
+        attribute attitudeRollCommand : AngleValue;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Real;
+        attribute current : Real;
+        attribute availablePower : PowerValue;
+        attribute storedEnergy : EnergyValue;
+    }
+
+    item def HeatLoad {
+        attribute heatRate : PowerValue;
+        attribute sinkTemperature : TemperatureValue;
+        attribute sourceTemperature : TemperatureValue;
+    }
+
+    item def AtmosphereFlow {
+        attribute dynamicPressure : PressureValue;
+        attribute freeStreamVelocity : VelocityValue;
+        attribute externalTemperature : TemperatureValue;
+    }
+
+    port def CrewTransferPort {
+        inout item crew : Crew;
+    }
+
+    port def PayloadTransferPort {
+        inout item payload : Payload;
+    }
+
+    port def PropellantPort {
+        inout item propellant : Propellant;
+    }
+
+    port def ThrustPort {
+        out item thrust : ThrustVector;
+    }
+
+    port def TelemetryPort {
+        out item telemetry : TelemetryPacket;
+    }
+
+    port def CommandPort {
+        in item command : CommandPacket;
+    }
+
+    port def PowerPort {
+        inout item power : ElectricalPower;
+    }
+
+    port def ThermalPort {
+        inout item heat : HeatLoad;
+    }
+
+    port def AerodynamicPort {
+        in item atmosphere : AtmosphereFlow;
+    }
+
+    part def PropulsionSystem {
+        attribute dryMass : MassValue;
+        attribute maximumThrust : ForceValue;
+        attribute minimumThrottleFraction : Real;
+        attribute maximumBurnDuration : TimeValue;
+        attribute specificImpulse : TimeValue;
+        attribute propellantRemaining : MassValue;
+
+        port propellantIn : PropellantPort;
+        port thrustOut : ThrustPort;
+        port powerIn : PowerPort;
+        port commandIn : CommandPort;
+        port telemetryOut : TelemetryPort;
+        port thermalOut : ThermalPort;
+
+        action def IgniteEngines {
+            in item command : CommandPacket;
+            in item propellant : Propellant;
+            out item thrust : ThrustVector;
+        }
+
+        action def ThrottleEngines {
+            in throttleFraction : Real;
+            out item thrust : ThrustVector;
+        }
+
+        action def ShutdownEngines {
+            out item thrust : ThrustVector;
+        }
+
+        state def PropulsionStateMachine {
+            state Off;
+            state Chilldown;
+            state Ready;
+            state Burning;
+            state Shutdown;
+            state Fault;
+
+            entry; then Off;
+
+            transition first Off then Chilldown
+                accept CommandPacket
+                if command.engineEnable == true;
+
+            transition first Chilldown then Ready
+                if propellantRemaining > 0 [SI::kg];
+
+            transition first Ready then Burning
+                accept CommandPacket
+                if command.engineEnable == true;
+
+            transition first Burning then Shutdown
+                accept CommandPacket
+                if command.engineEnable == false;
+
+            transition first Burning then Fault
+                if propellantRemaining <= 0 [SI::kg];
+
+            transition first Shutdown then Off;
+
+            transition first Fault then Off
+                accept CommandPacket
+                if command.abortRequested == false;
+        }
+    }
+
+    part def GuidanceNavigationControl {
+        attribute computerMass : MassValue;
+        attribute updatePeriod : TimeValue;
+        attribute navigationUncertainty : LengthValue;
+        attribute attitudeError : AngleValue;
+        attribute targetOrbitAltitude : LengthValue;
+        attribute targetOrbitVelocity : VelocityValue;
+
+        port commandIn : CommandPort;
+        port commandOut : CommandPort;
+        port telemetryIn : TelemetryPort;
+        port telemetryOut : TelemetryPort;
+        port powerIn : PowerPort;
+
+        action def EstimateTrajectory {
+            in item telemetry : TelemetryPacket;
+            out estimatedAltitude : LengthValue;
+            out estimatedVelocity : VelocityValue;
+        }
+
+        action def ComputeGuidanceCommand {
+            in estimatedAltitude : LengthValue;
+            in estimatedVelocity : VelocityValue;
+            out item command : CommandPacket;
+        }
+
+        action def ExecuteAbortGuidance {
+            in item telemetry : TelemetryPacket;
+            out item command : CommandPacket;
+        }
+
+        state def GNCStateMachine {
+            state Standby;
+            state Aligning;
+            state LaunchGuidance;
+            state AscentGuidance;
+            state OrbitGuidance;
+            state EntryGuidance;
+            state AbortGuidance;
+
+            entry; then Standby;
+
+            transition first Standby then Aligning
+                accept CommandPacket
+                if command.targetPhase == MissionPhase::preparation;
+
+            transition first Aligning then LaunchGuidance
+                accept CommandPacket
+                if command.targetPhase == MissionPhase::launch;
+
+            transition first LaunchGuidance then AscentGuidance
+                if telemetry.phase == MissionPhase::ascent;
+
+            transition first AscentGuidance then OrbitGuidance
+                if telemetry.phase == MissionPhase::orbitalInsertion;
+
+            transition first OrbitGuidance then EntryGuidance
+                if telemetry.phase == MissionPhase::deorbit;
+
+            transition first EntryGuidance then Standby
+                if telemetry.phase == MissionPhase::landing;
+
+            transition first Standby then AbortGuidance
+                accept CommandPacket
+                if command.abortRequested == true;
+
+            transition first LaunchGuidance then AbortGuidance
+                accept CommandPacket
+                if command.abortRequested == true;
+
+            transition first AscentGuidance then AbortGuidance
+                accept CommandPacket
+                if command.abortRequested == true;
+        }
+    }
+
+    part def CrewModule {
+        attribute dryMass : MassValue;
+        attribute pressurizedVolume : Real;
+        attribute nominalCabinPressure : PressureValue;
+        attribute oxygenReserveMass : MassValue;
+        attribute crewCapacity : Integer;
+        attribute heatShieldMass : MassValue;
+
+        port crewPort : CrewTransferPort;
+        port commandIn : CommandPort;
+        port telemetryOut : TelemetryPort;
+        port powerIn : PowerPort;
+        port thermalOut : ThermalPort;
+        port aeroIn : AerodynamicPort;
+
+        action def MaintainHabitableEnvironment {
+            in crewCount : Integer;
+            out cabinPressure : PressureValue;
+            out cabinTemperature : TemperatureValue;
+        }
+
+        action def ProtectDuringReentry {
+            in item atmosphere : AtmosphereFlow;
+            out item heat : HeatLoad;
+        }
+
+        state def CrewModuleStateMachine {
+            state Unoccupied;
+            state OccupiedNominal;
+            state PressureRegulation;
+            state ReentryProtection;
+            state RecoverySafe;
+            state Emergency;
+
+            entry; then Unoccupied;
+
+            transition first Unoccupied then OccupiedNominal
+                accept Crew
+                if crew.count > 0;
+
+            transition first OccupiedNominal then PressureRegulation
+                if telemetry.cabinPressure < 95000 [SI::Pa];
+
+            transition first PressureRegulation then OccupiedNominal
+                if telemetry.cabinPressure >= 95000 [SI::Pa];
+
+            transition first OccupiedNominal then ReentryProtection
+                if telemetry.phase == MissionPhase::reentry;
+
+            transition first ReentryProtection then RecoverySafe
+                if telemetry.phase == MissionPhase::landing;
+
+            transition first OccupiedNominal then Emergency
+                accept CommandPacket
+                if command.abortRequested == true;
+        }
+    }
+
+    part def PayloadBay {
+        attribute bayMass : MassValue;
+        attribute payloadCapacityMass : MassValue;
+        attribute payloadCapacityVolume : Real;
+        attribute payloadPowerLimit : PowerValue;
+        attribute payloadTemperatureLowLimit : TemperatureValue;
+        attribute payloadTemperatureHighLimit : TemperatureValue;
+
+        port payloadPort : PayloadTransferPort;
+        port powerOut : PowerPort;
+        port thermalIn : ThermalPort;
+        port telemetryOut : TelemetryPort;
+
+        action def SecurePayload {
+            in item payload : Payload;
+        }
+
+        action def SupplyPayloadPower {
+            in item power : ElectricalPower;
+            out payloadPower : PowerValue;
+        }
+
+        action def RegulatePayloadTemperature {
+            in item heat : HeatLoad;
+            out payloadTemperature : TemperatureValue;
+        }
+    }
+
+    part def PowerSystem {
+        attribute batteryMass : MassValue;
+        attribute solarArrayArea : Real;
+        attribute storedEnergyCapacity : EnergyValue;
+        attribute peakOutputPower : PowerValue;
+        attribute minimumReserveEnergy : EnergyValue;
+
+        port powerToPropulsion : PowerPort;
+        port powerToGNC : PowerPort;
+        port powerToCrewModule : PowerPort;
+        port powerToPayload : PowerPort;
+        port telemetryOut : TelemetryPort;
+
+        action def GeneratePower {
+            out item power : ElectricalPower;
+        }
+
+        action def DistributePower {
+            in item power : ElectricalPower;
+            out propulsionPower : PowerValue;
+            out avionicsPower : PowerValue;
+            out crewPower : PowerValue;
+            out payloadPower : PowerValue;
+        }
+
+        state def PowerStateMachine {
+            state Off;
+            state BatteryOnly;
+            state SolarCharging;
+            state PeakLoad;
+            state ReserveProtection;
+
+            entry; then Off;
+
+            transition first Off then BatteryOnly
+                accept CommandPacket
+                if command.targetPhase == MissionPhase::preparation;
+
+            transition first BatteryOnly then PeakLoad
+                if telemetry.phase == MissionPhase::launch or telemetry.phase == MissionPhase::ascent;
+
+            transition first PeakLoad then SolarCharging
+                if telemetry.phase == MissionPhase::onOrbitOperations;
+
+            transition first SolarCharging then BatteryOnly
+                if telemetry.phase == MissionPhase::deorbit;
+
+            transition first BatteryOnly then ReserveProtection
+                if telemetry.electricalPowerAvailable < 500 [SI::W];
+        }
+    }
+
+    part def ThermalControlSystem {
+        attribute radiatorArea : Real;
+        attribute coolantMass : MassValue;
+        attribute maximumHeatRejection : PowerValue;
+        attribute minimumOperatingTemperature : TemperatureValue;
+        attribute maximumOperatingTemperature : TemperatureValue;
+
+        port heatFromCrewModule : ThermalPort;
+        port heatFromPayload : ThermalPort;
+        port heatFromPropulsion : ThermalPort;
+        port powerIn : PowerPort;
+        port telemetryOut : TelemetryPort;
+
+        action def CollectHeat {
+            in crewHeat : PowerValue;
+            in payloadHeat : PowerValue;
+            in propulsionHeat : PowerValue;
+            out totalHeat : PowerValue;
+        }
+
+        action def RejectHeat {
+            in totalHeat : PowerValue;
+            out radiatorHeatRate : PowerValue;
+        }
+    }
+
+    part def LaunchVehicleAdapter {
+        attribute adapterMass : MassValue;
+        attribute separationForce : ForceValue;
+        attribute maximumPayloadInterfaceLoad : ForceValue;
+
+        port payloadInterface : PayloadTransferPort;
+        port commandIn : CommandPort;
+        port telemetryOut : TelemetryPort;
+
+        action def HoldDuringAscent {
+            in acceleration : AccelerationValue;
+            out interfaceLoad : ForceValue;
+        }
+
+        action def SeparatePayload {
+            in item command : CommandPacket;
+        }
+    }
+
+    part def SpaceflightVehicle {
+        attribute vehicleDryMass : MassValue = 18500 [SI::kg];
+        attribute grossLiftoffMass : MassValue = 482000 [SI::kg];
+        attribute maximumCrew : Integer = 4;
+        attribute designPayloadMass : MassValue = 6000 [SI::kg];
+        attribute targetOrbitAltitude : LengthValue = 400000 [SI::m];
+        attribute targetOrbitVelocity : VelocityValue = 7660 [SI::m / SI::s];
+        attribute maximumAscentAcceleration : AccelerationValue = 39.2 [SI::m / SI::s^2];
+        attribute nominalMissionDuration : TimeValue = 604800 [SI::s];
+
+        port crewAccess : CrewTransferPort;
+        port payloadAccess : PayloadTransferPort;
+        port propellantLoad : PropellantPort;
+        port commandUplink : CommandPort;
+        port telemetryDownlink : TelemetryPort;
+        port externalAtmosphere : AerodynamicPort;
+
+        part propulsion : PropulsionSystem {
+            attribute dryMass = 4200 [SI::kg];
+            attribute maximumThrust = 7600000 [SI::N];
+            attribute minimumThrottleFraction = 0.35;
+            attribute maximumBurnDuration = 540 [SI::s];
+            attribute specificImpulse = 355 [SI::s];
+            attribute propellantRemaining = 410000 [SI::kg];
+        }
+
+        part gnc : GuidanceNavigationControl {
+            attribute computerMass = 180 [SI::kg];
+            attribute updatePeriod = 0.02 [SI::s];
+            attribute navigationUncertainty = 15 [SI::m];
+            attribute attitudeError = 0.0017 [SI::rad];
+            attribute targetOrbitAltitude = 400000 [SI::m];
+            attribute targetOrbitVelocity = 7660 [SI::m / SI::s];
+        }
+
+        part crewModule : CrewModule {
+            attribute dryMass = 7300 [SI::kg];
+            attribute pressurizedVolume = 9.5;
+            attribute nominalCabinPressure = 101325 [SI::Pa];
+            attribute oxygenReserveMass = 120 [SI::kg];
+            attribute crewCapacity = 4;
+            attribute heatShieldMass = 920 [SI::kg];
+        }
+
+        part payloadBay : PayloadBay {
+            attribute bayMass = 1600 [SI::kg];
+            attribute payloadCapacityMass = 6000 [SI::kg];
+            attribute payloadCapacityVolume = 24.0;
+            attribute payloadPowerLimit = 2500 [SI::W];
+            attribute payloadTemperatureLowLimit = 273 [SI::K];
+            attribute payloadTemperatureHighLimit = 313 [SI::K];
+        }
+
+        part power : PowerSystem {
+            attribute batteryMass = 850 [SI::kg];
+            attribute solarArrayArea = 42.0;
+            attribute storedEnergyCapacity = 540000000 [SI::J];
+            attribute peakOutputPower = 18000 [SI::W];
+            attribute minimumReserveEnergy = 72000000 [SI::J];
+        }
+
+        part thermal : ThermalControlSystem {
+            attribute radiatorArea = 32.0;
+            attribute coolantMass = 240 [SI::kg];
+            attribute maximumHeatRejection = 15000 [SI::W];
+            attribute minimumOperatingTemperature = 263 [SI::K];
+            attribute maximumOperatingTemperature = 323 [SI::K];
+        }
+
+        part adapter : LaunchVehicleAdapter {
+            attribute adapterMass = 950 [SI::kg];
+            attribute separationForce = 12000 [SI::N];
+            attribute maximumPayloadInterfaceLoad = 180000 [SI::N];
+        }
+
+        connect crewAccess to crewModule.crewPort;
+        connect payloadAccess to payloadBay.payloadPort;
+        connect payloadBay.payloadPort to adapter.payloadInterface;
+        connect propellantLoad to propulsion.propellantIn;
+        connect commandUplink to gnc.commandIn;
+        connect commandUplink to crewModule.commandIn;
+        connect commandUplink to propulsion.commandIn;
+        connect commandUplink to adapter.commandIn;
+        connect gnc.commandOut to propulsion.commandIn;
+        connect telemetryDownlink to gnc.telemetryOut;
+        connect telemetryDownlink to propulsion.telemetryOut;
+        connect telemetryDownlink to crewModule.telemetryOut;
+        connect telemetryDownlink to payloadBay.telemetryOut;
+        connect telemetryDownlink to power.telemetryOut;
+        connect telemetryDownlink to thermal.telemetryOut;
+        connect externalAtmosphere to crewModule.aeroIn;
+        connect power.powerToPropulsion to propulsion.powerIn;
+        connect power.powerToGNC to gnc.powerIn;
+        connect power.powerToCrewModule to crewModule.powerIn;
+        connect power.powerToPayload to payloadBay.powerOut;
+        connect thermal.heatFromCrewModule to crewModule.thermalOut;
+        connect thermal.heatFromPayload to payloadBay.thermalIn;
+        connect thermal.heatFromPropulsion to propulsion.thermalOut;
+
+        action def PerformSpaceflightMission {
+            in item crew : Crew;
+            in item payload : Payload;
+            in item propellant : Propellant;
+            in item launchCommand : CommandPacket;
+            out item missionTelemetry : TelemetryPacket;
+
+            first startPreparation;
+            then loadCrewAndPayload;
+            then loadPropellant;
+            then launchAndAscend;
+            then insertIntoOrbit;
+            then operateInOrbit;
+            then deorbitAndReenter;
+            then landAndSafing;
+
+            action startPreparation {
+                out phase : MissionPhase = MissionPhase::preparation;
+            }
+
+            action loadCrewAndPayload {
+                in item crew : Crew;
+                in item payload : Payload;
+            }
+
+            action loadPropellant {
+                in item propellant : Propellant;
+            }
+
+            action launchAndAscend {
+                in item launchCommand : CommandPacket;
+                out ascentVelocity : VelocityValue;
+                out ascentAltitude : LengthValue;
+            }
+
+            action insertIntoOrbit {
+                in ascentVelocity : VelocityValue;
+                in ascentAltitude : LengthValue;
+                out achievedOrbitAltitude : LengthValue;
+                out achievedOrbitVelocity : VelocityValue;
+            }
+
+            action operateInOrbit {
+                in achievedOrbitAltitude : LengthValue;
+                in achievedOrbitVelocity : VelocityValue;
+                out scienceOperationsComplete : Boolean;
+            }
+
+            action deorbitAndReenter {
+                in scienceOperationsComplete : Boolean;
+                out reentryHeatingManaged : Boolean;
+            }
+
+            action landAndSafing {
+                in reentryHeatingManaged : Boolean;
+                out item missionTelemetry : TelemetryPacket;
+            }
+        }
+
+        state def VehicleMissionStateMachine {
+            state GroundPreparation;
+            state ReadyForLaunch;
+            state Liftoff;
+            state PoweredAscent;
+            state MainEngineCutoff;
+            state OrbitInsertion;
+            state OrbitalOperations;
+            state DeorbitBurn;
+            state AtmosphericReentry;
+            state Landing;
+            state MissionSafe;
+            state AbortMode;
+
+            entry; then GroundPreparation;
+
+            transition first GroundPreparation then ReadyForLaunch
+                if propulsion.propellantRemaining >= 410000 [SI::kg];
+
+            transition first ReadyForLaunch then Liftoff
+                accept CommandPacket
+                if command.targetPhase == MissionPhase::launch and command.engineEnable == true;
+
+            transition first Liftoff then PoweredAscent
+                if telemetry.altitude > 100 [SI::m];
+
+            transition first PoweredAscent then MainEngineCutoff
+                if telemetry.velocity >= 7600 [SI::m / SI::s];
+
+            transition first MainEngineCutoff then OrbitInsertion
+                if telemetry.altitude >= 180000 [SI::m];
+
+            transition first OrbitInsertion then OrbitalOperations
+                if telemetry.altitude >= targetOrbitAltitude and telemetry.velocity >= targetOrbitVelocity;
+
+            transition first OrbitalOperations then DeorbitBurn
+                accept CommandPacket
+                if command.targetPhase == MissionPhase::deorbit;
+
+            transition first DeorbitBurn then AtmosphericReentry
+                if telemetry.altitude < 120000 [SI::m];
+
+            transition first AtmosphericReentry then Landing
+                if telemetry.altitude < 1000 [SI::m];
+
+            transition first Landing then MissionSafe
+                if telemetry.velocity < 1 [SI::m / SI::s];
+
+            transition first GroundPreparation then AbortMode
+                accept CommandPacket
+                if command.abortRequested == true;
+
+            transition first ReadyForLaunch then AbortMode
+                accept CommandPacket
+                if command.abortRequested == true;
+
+            transition first Liftoff then AbortMode
+                accept CommandPacket
+                if command.abortRequested == true;
+
+            transition first PoweredAscent then AbortMode
+                accept CommandPacket
+                if command.abortRequested == true;
+        }
+    }
+
+    part spaceflightSystem : SpaceflightVehicle;
+
+    requirement def PrimaryFunctionRequirement {
+        subject vehicle : SpaceflightVehicle;
+
+        doc
+        /*
+         * The spaceflight system shall transport crew and payload from the ground
+         * to a defined orbital destination, sustain safe orbital operations, and
+         * return the crew module safely through reentry and landing.
+         */
+
+        require constraint {
+            vehicle.maximumCrew >= 1 and
+            vehicle.designPayloadMass >= 1000 [SI::kg] and
+            vehicle.targetOrbitAltitude >= 160000 [SI::m] and
+            vehicle.targetOrbitVelocity >= 7500 [SI::m / SI::s]
+        }
+    }
+
+    requirement def CrewSafetyRequirement {
+        subject vehicle : SpaceflightVehicle;
+
+        require constraint {
+            vehicle.crewModule.crewCapacity >= vehicle.maximumCrew and
+            vehicle.crewModule.nominalCabinPressure >= 95000 [SI::Pa] and
+            vehicle.crewModule.nominalCabinPressure <= 105000 [SI::Pa]
+        }
+    }
+
+    requirement def PayloadDeliveryRequirement {
+        subject vehicle : SpaceflightVehicle;
+
+        require constraint {
+            vehicle.payloadBay.payloadCapacityMass >= vehicle.designPayloadMass and
+            vehicle.payloadBay.payloadPowerLimit >= 2000 [SI::W]
+        }
+    }
+
+    requirement def AscentPerformanceRequirement {
+        subject vehicle : SpaceflightVehicle;
+
+        require constraint {
+            vehicle.propulsion.maximumThrust > vehicle.grossLiftoffMass * 9.80665 [SI::m / SI::s^2] and
+            vehicle.maximumAscentAcceleration <= 40 [SI::m / SI::s^2]
+        }
+    }
+
+    requirement def MissionEnergyRequirement {
+        subject vehicle : SpaceflightVehicle;
+
+        require constraint {
+            vehicle.power.storedEnergyCapacity >= 500000000 [SI::J] and
+            vehicle.power.peakOutputPower >= 15000 [SI::W] and
+            vehicle.power.minimumReserveEnergy >= 70000000 [SI::J]
+        }
+    }
+
+    requirement def ThermalManagementRequirement {
+        subject vehicle : SpaceflightVehicle;
+
+        require constraint {
+            vehicle.thermal.maximumHeatRejection >= 12000 [SI::W] and
+            vehicle.thermal.minimumOperatingTemperature <= 273 [SI::K] and
+            vehicle.thermal.maximumOperatingTemperature >= 313 [SI::K]
+        }
+    }
+
+    requirement def AbortCapabilityRequirement {
+        subject vehicle : SpaceflightVehicle;
+
+        require constraint {
+            vehicle.gnc.updatePeriod <= 0.05 [SI::s] and
+            vehicle.propulsion.minimumThrottleFraction <= 0.40
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by spaceflightSystem;
+    satisfy CrewSafetyRequirement by spaceflightSystem;
+    satisfy PayloadDeliveryRequirement by spaceflightSystem;
+    satisfy AscentPerformanceRequirement by spaceflightSystem;
+    satisfy MissionEnergyRequirement by spaceflightSystem;
+    satisfy ThermalManagementRequirement by spaceflightSystem;
+    satisfy AbortCapabilityRequirement by spaceflightSystem;
+}
+tokens used
+6,827
+package SpaceflightSystemModel {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def MassValue :> ISQ::mass {
+        unit = SI::kg;
+    }
+
+    attribute def LengthValue :> ISQ::length {
+        unit = SI::m;
+    }
+
+    attribute def TimeValue :> ISQ::time {
+        unit = SI::s;
+    }
+
+    attribute def VelocityValue :> ISQ::speed {
+        unit = SI::m / SI::s;
+    }
+
+    attribute def AccelerationValue :> ISQ::acceleration {
+        unit = SI::m / SI::s^2;
+    }
+
+    attribute def ForceValue :> ISQ::force {
+        unit = SI::N;
+    }
+
+    attribute def EnergyValue :> ISQ::energy {
+        unit = SI::J;
+    }
+
+    attribute def PowerValue :> ISQ::power {
+        unit = SI::W;
+    }
+
+    attribute def TemperatureValue :> ISQ::thermodynamicTemperature {
+        unit = SI::K;
+    }
+
+    attribute def PressureValue :> ISQ::pressure {
+        unit = SI::Pa;
+    }
+
+    attribute def AngleValue :> ISQ::planeAngle {
+        unit = SI::rad;
+    }
+
+    enum def MissionPhase {
+        enum preparation;
+        enum launch;
+        enum ascent;
+        enum orbitalInsertion;
+        enum onOrbitOperations;
+        enum deorbit;
+        enum reentry;
+        enum landing;
+        enum safe;
+        enum abort;
+    }
+
+    enum def VehicleMode {
+        enum unpowered;
+        enum standby;
+        enum powered;
+        enum autonomousGuidance;
+        enum manualOverride;
+        enum contingency;
+    }
+
+    item def Crew {
+        attribute count : Integer;
+        attribute totalMass : MassValue;
+        attribute metabolicHeatLoad : PowerValue;
+    }
+
+    item def Payload {
+        attribute payloadMass : MassValue;
+        attribute payloadVolume : Real;
+        attribute requiredPower : PowerValue;
+        attribute thermalLimitLow : TemperatureValue;
+        attribute thermalLimitHigh : TemperatureValue;
+    }
+
+    item def Propellant {
+        attribute oxidizerMass : MassValue;
+        attribute fuelMass : MassValue;
+        attribute mixtureRatio : Real;
+        attribute storagePressure : PressureValue;
+        attribute storageTemperature : TemperatureValue;
+    }
+
+    item def ThrustVector {
+        attribute magnitude : ForceValue;
+        attribute pitchAngle : AngleValue;
+        attribute yawAngle : AngleValue;
+    }
+
+    item def TelemetryPacket {
+        attribute timestamp : TimeValue;
+        attribute phase : MissionPhase;
+        attribute vehicleMode : VehicleMode;
+        attribute altitude : LengthValue;
+        attribute velocity : VelocityValue;
+        attribute acceleration : AccelerationValue;
+        attribute cabinPressure : PressureValue;
+        attribute propellantRemaining : MassValue;
+        attribute electricalPowerAvailable : PowerValue;
+    }
+
+    item def CommandPacket {
+        attribute timestamp : TimeValue;
+        attribute targetPhase : MissionPhase;
+        attribute engineEnable : Boolean;
+        attribute abortRequested : Boolean;
+        attribute attitudePitchCommand : AngleValue;
+        attribute attitudeYawCommand : AngleValue;
+        attribute attitudeRollCommand : AngleValue;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Real;
+        attribute current : Real;
+        attribute availablePower : PowerValue;
+        attribute storedEnergy : EnergyValue;
+    }
+
+    item def HeatLoad {
+        attribute heatRate : PowerValue;
+        attribute sinkTemperature : TemperatureValue;
+        attribute sourceTemperature : TemperatureValue;
+    }
+
+    item def AtmosphereFlow {
+        attribute dynamicPressure : PressureValue;
+        attribute freeStreamVelocity : VelocityValue;
+        attribute externalTemperature : TemperatureValue;
+    }
+
+    port def CrewTransferPort {
+        inout item crew : Crew;
+    }
+
+    port def PayloadTransferPort {
+        inout item payload : Payload;
+    }
+
+    port def PropellantPort {
+        inout item propellant : Propellant;
+    }
+
+    port def ThrustPort {
+        out item thrust : ThrustVector;
+    }
+
+    port def TelemetryPort {
+        out item telemetry : TelemetryPacket;
+    }
+
+    port def CommandPort {
+        in item command : CommandPacket;
+    }
+
+    port def PowerPort {
+        inout item power : ElectricalPower;
+    }
+
+    port def ThermalPort {
+        inout item heat : HeatLoad;
+    }
+
+    port def AerodynamicPort {
+        in item atmosphere : AtmosphereFlow;
+    }
+
+    part def PropulsionSystem {
+        attribute dryMass : MassValue;
+        attribute maximumThrust : ForceValue;
+        attribute minimumThrottleFraction : Real;
+        attribute maximumBurnDuration : TimeValue;
+        attribute specificImpulse : TimeValue;
+        attribute propellantRemaining : MassValue;
+
+        port propellantIn : PropellantPort;
+        port thrustOut : ThrustPort;
+        port powerIn : PowerPort;
+        port commandIn : CommandPort;
+        port telemetryOut : TelemetryPort;
+        port thermalOut : ThermalPort;
+
+        action def IgniteEngines {
+            in item command : CommandPacket;
+            in item propellant : Propellant;
+            out item thrust : ThrustVector;
+        }
+
+        action def ThrottleEngines {
+            in throttleFraction : Real;
+            out item thrust : ThrustVector;
+        }
+
+        action def ShutdownEngines {
+            out item thrust : ThrustVector;
+        }
+
+        state def PropulsionStateMachine {
+            state Off;
+            state Chilldown;
+            state Ready;
+            state Burning;
+            state Shutdown;
+            state Fault;
+
+            entry; then Off;
+
+            transition first Off then Chilldown
+                accept CommandPacket
+                if command.engineEnable == true;
+
+            transition first Chilldown then Ready
+                if propellantRemaining > 0 [SI::kg];
+
+            transition first Ready then Burning
+                accept CommandPacket
+                if command.engineEnable == true;
+
+            transition first Burning then Shutdown
+                accept CommandPacket
+                if command.engineEnable == false;
+
+            transition first Burning then Fault
+                if propellantRemaining <= 0 [SI::kg];
+
+            transition first Shutdown then Off;
+
+            transition first Fault then Off
+                accept CommandPacket
+                if command.abortRequested == false;
+        }
+    }
+
+    part def GuidanceNavigationControl {
+        attribute computerMass : MassValue;
+        attribute updatePeriod : TimeValue;
+        attribute navigationUncertainty : LengthValue;
+        attribute attitudeError : AngleValue;
+        attribute targetOrbitAltitude : LengthValue;
+        attribute targetOrbitVelocity : VelocityValue;
+
+        port commandIn : CommandPort;
+        port commandOut : CommandPort;
+        port telemetryIn : TelemetryPort;
+        port telemetryOut : TelemetryPort;
+        port powerIn : PowerPort;
+
+        action def EstimateTrajectory {
+            in item telemetry : TelemetryPacket;
+            out estimatedAltitude : LengthValue;
+            out estimatedVelocity : VelocityValue;
+        }
+
+        action def ComputeGuidanceCommand {
+            in estimatedAltitude : LengthValue;
+            in estimatedVelocity : VelocityValue;
+            out item command : CommandPacket;
+        }
+
+        action def ExecuteAbortGuidance {
+            in item telemetry : TelemetryPacket;
+            out item command : CommandPacket;
+        }
+
+        state def GNCStateMachine {
+            state Standby;
+            state Aligning;
+            state LaunchGuidance;
+            state AscentGuidance;
+            state OrbitGuidance;
+            state EntryGuidance;
+            state AbortGuidance;
+
+            entry; then Standby;
+
+            transition first Standby then Aligning
+                accept CommandPacket
+                if command.targetPhase == MissionPhase::preparation;
+
+            transition first Aligning then LaunchGuidance
+                accept CommandPacket
+                if command.targetPhase == MissionPhase::launch;
+
+            transition first LaunchGuidance then AscentGuidance
+                if telemetry.phase == MissionPhase::ascent;
+
+            transition first AscentGuidance then OrbitGuidance
+                if telemetry.phase == MissionPhase::orbitalInsertion;
+
+            transition first OrbitGuidance then EntryGuidance
+                if telemetry.phase == MissionPhase::deorbit;
+
+            transition first EntryGuidance then Standby
+                if telemetry.phase == MissionPhase::landing;
+
+            transition first Standby then AbortGuidance
+                accept CommandPacket
+                if command.abortRequested == true;
+
+            transition first LaunchGuidance then AbortGuidance
+                accept CommandPacket
+                if command.abortRequested == true;
+
+            transition first AscentGuidance then AbortGuidance
+                accept CommandPacket
+                if command.abortRequested == true;
+        }
+    }
+
+    part def CrewModule {
+        attribute dryMass : MassValue;
+        attribute pressurizedVolume : Real;
+        attribute nominalCabinPressure : PressureValue;
+        attribute oxygenReserveMass : MassValue;
+        attribute crewCapacity : Integer;
+        attribute heatShieldMass : MassValue;
+
+        port crewPort : CrewTransferPort;
+        port commandIn : CommandPort;
+        port telemetryOut : TelemetryPort;
+        port powerIn : PowerPort;
+        port thermalOut : ThermalPort;
+        port aeroIn : AerodynamicPort;
+
+        action def MaintainHabitableEnvironment {
+            in crewCount : Integer;
+            out cabinPressure : PressureValue;
+            out cabinTemperature : TemperatureValue;
+        }
+
+        action def ProtectDuringReentry {
+            in item atmosphere : AtmosphereFlow;
+            out item heat : HeatLoad;
+        }
+
+        state def CrewModuleStateMachine {
+            state Unoccupied;
+            state OccupiedNominal;
+            state PressureRegulation;
+            state ReentryProtection;
+            state RecoverySafe;
+            state Emergency;
+
+            entry; then Unoccupied;
+
+            transition first Unoccupied then OccupiedNominal
+                accept Crew
+                if crew.count > 0;
+
+            transition first OccupiedNominal then PressureRegulation
+                if telemetry.cabinPressure < 95000 [SI::Pa];
+
+            transition first PressureRegulation then OccupiedNominal
+                if telemetry.cabinPressure >= 95000 [SI::Pa];
+
+            transition first OccupiedNominal then ReentryProtection
+                if telemetry.phase == MissionPhase::reentry;
+
+            transition first ReentryProtection then RecoverySafe
+                if telemetry.phase == MissionPhase::landing;
+
+            transition first OccupiedNominal then Emergency
+                accept CommandPacket
+                if command.abortRequested == true;
+        }
+    }
+
+    part def PayloadBay {
+        attribute bayMass : MassValue;
+        attribute payloadCapacityMass : MassValue;
+        attribute payloadCapacityVolume : Real;
+        attribute payloadPowerLimit : PowerValue;
+        attribute payloadTemperatureLowLimit : TemperatureValue;
+        attribute payloadTemperatureHighLimit : TemperatureValue;
+
+        port payloadPort : PayloadTransferPort;
+        port powerOut : PowerPort;
+        port thermalIn : ThermalPort;
+        port telemetryOut : TelemetryPort;
+
+        action def SecurePayload {
+            in item payload : Payload;
+        }
+
+        action def SupplyPayloadPower {
+            in item power : ElectricalPower;
+            out payloadPower : PowerValue;
+        }
+
+        action def RegulatePayloadTemperature {
+            in item heat : HeatLoad;
+            out payloadTemperature : TemperatureValue;
+        }
+    }
+
+    part def PowerSystem {
+        attribute batteryMass : MassValue;
+        attribute solarArrayArea : Real;
+        attribute storedEnergyCapacity : EnergyValue;
+        attribute peakOutputPower : PowerValue;
+        attribute minimumReserveEnergy : EnergyValue;
+
+        port powerToPropulsion : PowerPort;
+        port powerToGNC : PowerPort;
+        port powerToCrewModule : PowerPort;
+        port powerToPayload : PowerPort;
+        port telemetryOut : TelemetryPort;
+
+        action def GeneratePower {
+            out item power : ElectricalPower;
+        }
+
+        action def DistributePower {
+            in item power : ElectricalPower;
+            out propulsionPower : PowerValue;
+            out avionicsPower : PowerValue;
+            out crewPower : PowerValue;
+            out payloadPower : PowerValue;
+        }
+
+        state def PowerStateMachine {
+            state Off;
+            state BatteryOnly;
+            state SolarCharging;
+            state PeakLoad;
+            state ReserveProtection;
+
+            entry; then Off;
+
+            transition first Off then BatteryOnly
+                accept CommandPacket
+                if command.targetPhase == MissionPhase::preparation;
+
+            transition first BatteryOnly then PeakLoad
+                if telemetry.phase == MissionPhase::launch or telemetry.phase == MissionPhase::ascent;
+
+            transition first PeakLoad then SolarCharging
+                if telemetry.phase == MissionPhase::onOrbitOperations;
+
+            transition first SolarCharging then BatteryOnly
+                if telemetry.phase == MissionPhase::deorbit;
+
+            transition first BatteryOnly then ReserveProtection
+                if telemetry.electricalPowerAvailable < 500 [SI::W];
+        }
+    }
+
+    part def ThermalControlSystem {
+        attribute radiatorArea : Real;
+        attribute coolantMass : MassValue;
+        attribute maximumHeatRejection : PowerValue;
+        attribute minimumOperatingTemperature : TemperatureValue;
+        attribute maximumOperatingTemperature : TemperatureValue;
+
+        port heatFromCrewModule : ThermalPort;
+        port heatFromPayload : ThermalPort;
+        port heatFromPropulsion : ThermalPort;
+        port powerIn : PowerPort;
+        port telemetryOut : TelemetryPort;
+
+        action def CollectHeat {
+            in crewHeat : PowerValue;
+            in payloadHeat : PowerValue;
+            in propulsionHeat : PowerValue;
+            out totalHeat : PowerValue;
+        }
+
+        action def RejectHeat {
+            in totalHeat : PowerValue;
+            out radiatorHeatRate : PowerValue;
+        }
+    }
+
+    part def LaunchVehicleAdapter {
+        attribute adapterMass : MassValue;
+        attribute separationForce : ForceValue;
+        attribute maximumPayloadInterfaceLoad : ForceValue;
+
+        port payloadInterface : PayloadTransferPort;
+        port commandIn : CommandPort;
+        port telemetryOut : TelemetryPort;
+
+        action def HoldDuringAscent {
+            in acceleration : AccelerationValue;
+            out interfaceLoad : ForceValue;
+        }
+
+        action def SeparatePayload {
+            in item command : CommandPacket;
+        }
+    }
+
+    part def SpaceflightVehicle {
+        attribute vehicleDryMass : MassValue = 18500 [SI::kg];
+        attribute grossLiftoffMass : MassValue = 482000 [SI::kg];
+        attribute maximumCrew : Integer = 4;
+        attribute designPayloadMass : MassValue = 6000 [SI::kg];
+        attribute targetOrbitAltitude : LengthValue = 400000 [SI::m];
+        attribute targetOrbitVelocity : VelocityValue = 7660 [SI::m / SI::s];
+        attribute maximumAscentAcceleration : AccelerationValue = 39.2 [SI::m / SI::s^2];
+        attribute nominalMissionDuration : TimeValue = 604800 [SI::s];
+
+        port crewAccess : CrewTransferPort;
+        port payloadAccess : PayloadTransferPort;
+        port propellantLoad : PropellantPort;
+        port commandUplink : CommandPort;
+        port telemetryDownlink : TelemetryPort;
+        port externalAtmosphere : AerodynamicPort;
+
+        part propulsion : PropulsionSystem {
+            attribute dryMass = 4200 [SI::kg];
+            attribute maximumThrust = 7600000 [SI::N];
+            attribute minimumThrottleFraction = 0.35;
+            attribute maximumBurnDuration = 540 [SI::s];
+            attribute specificImpulse = 355 [SI::s];
+            attribute propellantRemaining = 410000 [SI::kg];
+        }
+
+        part gnc : GuidanceNavigationControl {
+            attribute computerMass = 180 [SI::kg];
+            attribute updatePeriod = 0.02 [SI::s];
+            attribute navigationUncertainty = 15 [SI::m];
+            attribute attitudeError = 0.0017 [SI::rad];
+            attribute targetOrbitAltitude = 400000 [SI::m];
+            attribute targetOrbitVelocity = 7660 [SI::m / SI::s];
+        }
+
+        part crewModule : CrewModule {
+            attribute dryMass = 7300 [SI::kg];
+            attribute pressurizedVolume = 9.5;
+            attribute nominalCabinPressure = 101325 [SI::Pa];
+            attribute oxygenReserveMass = 120 [SI::kg];
+            attribute crewCapacity = 4;
+            attribute heatShieldMass = 920 [SI::kg];
+        }
+
+        part payloadBay : PayloadBay {
+            attribute bayMass = 1600 [SI::kg];
+            attribute payloadCapacityMass = 6000 [SI::kg];
+            attribute payloadCapacityVolume = 24.0;
+            attribute payloadPowerLimit = 2500 [SI::W];
+            attribute payloadTemperatureLowLimit = 273 [SI::K];
+            attribute payloadTemperatureHighLimit = 313 [SI::K];
+        }
+
+        part power : PowerSystem {
+            attribute batteryMass = 850 [SI::kg];
+            attribute solarArrayArea = 42.0;
+            attribute storedEnergyCapacity = 540000000 [SI::J];
+            attribute peakOutputPower = 18000 [SI::W];
+            attribute minimumReserveEnergy = 72000000 [SI::J];
+        }
+
+        part thermal : ThermalControlSystem {
+            attribute radiatorArea = 32.0;
+            attribute coolantMass = 240 [SI::kg];
+            attribute maximumHeatRejection = 15000 [SI::W];
+            attribute minimumOperatingTemperature = 263 [SI::K];
+            attribute maximumOperatingTemperature = 323 [SI::K];
+        }
+
+        part adapter : LaunchVehicleAdapter {
+            attribute adapterMass = 950 [SI::kg];
+            attribute separationForce = 12000 [SI::N];
+            attribute maximumPayloadInterfaceLoad = 180000 [SI::N];
+        }
+
+        connect crewAccess to crewModule.crewPort;
+        connect payloadAccess to payloadBay.payloadPort;
+        connect payloadBay.payloadPort to adapter.payloadInterface;
+        connect propellantLoad to propulsion.propellantIn;
+        connect commandUplink to gnc.commandIn;
+        connect commandUplink to crewModule.commandIn;
+        connect commandUplink to propulsion.commandIn;
+        connect commandUplink to adapter.commandIn;
+        connect gnc.commandOut to propulsion.commandIn;
+        connect telemetryDownlink to gnc.telemetryOut;
+        connect telemetryDownlink to propulsion.telemetryOut;
+        connect telemetryDownlink to crewModule.telemetryOut;
+        connect telemetryDownlink to payloadBay.telemetryOut;
+        connect telemetryDownlink to power.telemetryOut;
+        connect telemetryDownlink to thermal.telemetryOut;
+        connect externalAtmosphere to crewModule.aeroIn;
+        connect power.powerToPropulsion to propulsion.powerIn;
+        connect power.powerToGNC to gnc.powerIn;
+        connect power.powerToCrewModule to crewModule.powerIn;
+        connect power.powerToPayload to payloadBay.powerOut;
+        connect thermal.heatFromCrewModule to crewModule.thermalOut;
+        connect thermal.heatFromPayload to payloadBay.thermalIn;
+        connect thermal.heatFromPropulsion to propulsion.thermalOut;
+
+        action def PerformSpaceflightMission {
+            in item crew : Crew;
+            in item payload : Payload;
+            in item propellant : Propellant;
+            in item launchCommand : CommandPacket;
+            out item missionTelemetry : TelemetryPacket;
+
+            first startPreparation;
+            then loadCrewAndPayload;
+            then loadPropellant;
+            then launchAndAscend;
+            then insertIntoOrbit;
+            then operateInOrbit;
+            then deorbitAndReenter;
+            then landAndSafing;
+
+            action startPreparation {
+                out phase : MissionPhase = MissionPhase::preparation;
+            }
+
+            action loadCrewAndPayload {
+                in item crew : Crew;
+                in item payload : Payload;
+            }
+
+            action loadPropellant {
+                in item propellant : Propellant;
+            }
+
+            action launchAndAscend {
+                in item launchCommand : CommandPacket;
+                out ascentVelocity : VelocityValue;
+                out ascentAltitude : LengthValue;
+            }
+
+            action insertIntoOrbit {
+                in ascentVelocity : VelocityValue;
+                in ascentAltitude : LengthValue;
+                out achievedOrbitAltitude : LengthValue;
+                out achievedOrbitVelocity : VelocityValue;
+            }
+
+            action operateInOrbit {
+                in achievedOrbitAltitude : LengthValue;
+                in achievedOrbitVelocity : VelocityValue;
+                out scienceOperationsComplete : Boolean;
+            }
+
+            action deorbitAndReenter {
+                in scienceOperationsComplete : Boolean;
+                out reentryHeatingManaged : Boolean;
+            }
+
+            action landAndSafing {
+                in reentryHeatingManaged : Boolean;
+                out item missionTelemetry : TelemetryPacket;
+            }
+        }
+
+        state def VehicleMissionStateMachine {
+            state GroundPreparation;
+            state ReadyForLaunch;
+            state Liftoff;
+            state PoweredAscent;
+            state MainEngineCutoff;
+            state OrbitInsertion;
+            state OrbitalOperations;
+            state DeorbitBurn;
+            state AtmosphericReentry;
+            state Landing;
+            state MissionSafe;
+            state AbortMode;
+
+            entry; then GroundPreparation;
+
+            transition first GroundPreparation then ReadyForLaunch
+                if propulsion.propellantRemaining >= 410000 [SI::kg];
+
+            transition first ReadyForLaunch then Liftoff
+                accept CommandPacket
+                if command.targetPhase == MissionPhase::launch and command.engineEnable == true;
+
+            transition first Liftoff then PoweredAscent
+                if telemetry.altitude > 100 [SI::m];
+
+            transition first PoweredAscent then MainEngineCutoff
+                if telemetry.velocity >= 7600 [SI::m / SI::s];
+
+            transition first MainEngineCutoff then OrbitInsertion
+                if telemetry.altitude >= 180000 [SI::m];
+
+            transition first OrbitInsertion then OrbitalOperations
+                if telemetry.altitude >= targetOrbitAltitude and telemetry.velocity >= targetOrbitVelocity;
+
+            transition first OrbitalOperations then DeorbitBurn
+                accept CommandPacket
+                if command.targetPhase == MissionPhase::deorbit;
+
+            transition first DeorbitBurn then AtmosphericReentry
+                if telemetry.altitude < 120000 [SI::m];
+
+            transition first AtmosphericReentry then Landing
+                if telemetry.altitude < 1000 [SI::m];
+
+            transition first Landing then MissionSafe
+                if telemetry.velocity < 1 [SI::m / SI::s];
+
+            transition first GroundPreparation then AbortMode
+                accept CommandPacket
+                if command.abortRequested == true;
+
+            transition first ReadyForLaunch then AbortMode
+                accept CommandPacket
+                if command.abortRequested == true;
+
+            transition first Liftoff then AbortMode
+                accept CommandPacket
+                if command.abortRequested == true;
+
+            transition first PoweredAscent then AbortMode
+                accept CommandPacket
+                if command.abortRequested == true;
+        }
+    }
+
+    part spaceflightSystem : SpaceflightVehicle;
+
+    requirement def PrimaryFunctionRequirement {
+        subject vehicle : SpaceflightVehicle;
+
+        doc
+        /*
+         * The spaceflight system shall transport crew and payload from the ground
+         * to a defined orbital destination, sustain safe orbital operations, and
+         * return the crew module safely through reentry and landing.
+         */
+
+        require constraint {
+            vehicle.maximumCrew >= 1 and
+            vehicle.designPayloadMass >= 1000 [SI::kg] and
+            vehicle.targetOrbitAltitude >= 160000 [SI::m] and
+            vehicle.targetOrbitVelocity >= 7500 [SI::m / SI::s]
+        }
+    }
+
+    requirement def CrewSafetyRequirement {
+        subject vehicle : SpaceflightVehicle;
+
+        require constraint {
+            vehicle.crewModule.crewCapacity >= vehicle.maximumCrew and
+            vehicle.crewModule.nominalCabinPressure >= 95000 [SI::Pa] and
+            vehicle.crewModule.nominalCabinPressure <= 105000 [SI::Pa]
+        }
+    }
+
+    requirement def PayloadDeliveryRequirement {
+        subject vehicle : SpaceflightVehicle;
+
+        require constraint {
+            vehicle.payloadBay.payloadCapacityMass >= vehicle.designPayloadMass and
+            vehicle.payloadBay.payloadPowerLimit >= 2000 [SI::W]
+        }
+    }
+
+    requirement def AscentPerformanceRequirement {
+        subject vehicle : SpaceflightVehicle;
+
+        require constraint {
+            vehicle.propulsion.maximumThrust > vehicle.grossLiftoffMass * 9.80665 [SI::m / SI::s^2] and
+            vehicle.maximumAscentAcceleration <= 40 [SI::m / SI::s^2]
+        }
+    }
+
+    requirement def MissionEnergyRequirement {
+        subject vehicle : SpaceflightVehicle;
+
+        require constraint {
+            vehicle.power.storedEnergyCapacity >= 500000000 [SI::J] and
+            vehicle.power.peakOutputPower >= 15000 [SI::W] and
+            vehicle.power.minimumReserveEnergy >= 70000000 [SI::J]
+        }
+    }
+
+    requirement def ThermalManagementRequirement {
+        subject vehicle : SpaceflightVehicle;
+
+        require constraint {
+            vehicle.thermal.maximumHeatRejection >= 12000 [SI::W] and
+            vehicle.thermal.minimumOperatingTemperature <= 273 [SI::K] and
+            vehicle.thermal.maximumOperatingTemperature >= 313 [SI::K]
+        }
+    }
+
+    requirement def AbortCapabilityRequirement {
+        subject vehicle : SpaceflightVehicle;
+
+        require constraint {
+            vehicle.gnc.updatePeriod <= 0.05 [SI::s] and
+            vehicle.propulsion.minimumThrottleFraction <= 0.40
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by spaceflightSystem;
+    satisfy CrewSafetyRequirement by spaceflightSystem;
+    satisfy PayloadDeliveryRequirement by spaceflightSystem;
+    satisfy AscentPerformanceRequirement by spaceflightSystem;
+    satisfy MissionEnergyRequirement by spaceflightSystem;
+    satisfy ThermalManagementRequirement by spaceflightSystem;
+    satisfy AbortCapabilityRequirement by spaceflightSystem;
+}

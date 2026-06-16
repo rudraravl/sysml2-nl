@@ -1,0 +1,1131 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-e114e5av
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019ebac3-5f86-7c73-a901-cf53bc99a83d
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a system based on a California Institute of Technology and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package CaliforniaInstituteOfTechnologySystemModel {
+
+  unit def watt;
+  unit def kilowatt :> watt;
+  unit def joule;
+  unit def terabyte;
+  unit def gigabit_per_second;
+  unit def kelvin;
+  unit def degree_Celsius;
+  unit def meter;
+  unit def square_meter;
+  unit def percent;
+  unit def count;
+  unit def hour;
+  unit def day;
+  unit def year;
+
+  attribute def Power_kW :> ScalarValues::Real {
+    unit = kilowatt;
+  }
+
+  attribute def Energy_J :> ScalarValues::Real {
+    unit = joule;
+  }
+
+  attribute def DataVolume_TB :> ScalarValues::Real {
+    unit = terabyte;
+  }
+
+  attribute def DataRate_Gbps :> ScalarValues::Real {
+    unit = gigabit_per_second;
+  }
+
+  attribute def Temperature_C :> ScalarValues::Real {
+    unit = degree_Celsius;
+  }
+
+  attribute def Length_m :> ScalarValues::Real {
+    unit = meter;
+  }
+
+  attribute def Area_m2 :> ScalarValues::Real {
+    unit = square_meter;
+  }
+
+  attribute def Availability_percent :> ScalarValues::Real {
+    unit = percent;
+  }
+
+  attribute def Count :> ScalarValues::Integer {
+    unit = count;
+  }
+
+  attribute def Duration_hr :> ScalarValues::Real {
+    unit = hour;
+  }
+
+  item def ResearchQuestion {
+    attribute field: ScalarValues::String;
+    attribute hypothesis: ScalarValues::String;
+    attribute priority: ScalarValues::Integer;
+  }
+
+  item def ExperimentalSample {
+    attribute sampleId: ScalarValues::String;
+    attribute mass_kg: ScalarValues::Real;
+    attribute storageTemperature: Temperature_C;
+    attribute hazardClass: ScalarValues::String;
+  }
+
+  item def ObservationData {
+    attribute datasetId: ScalarValues::String;
+    attribute volume: DataVolume_TB;
+    attribute acquisitionRate: DataRate_Gbps;
+    attribute calibrationStatus: ScalarValues::String;
+  }
+
+  item def SimulationModel {
+    attribute modelId: ScalarValues::String;
+    attribute domain: ScalarValues::String;
+    attribute computeHoursRequired: Duration_hr;
+  }
+
+  item def PeerReviewedPublication {
+    attribute title: ScalarValues::String;
+    attribute doi: ScalarValues::String;
+    attribute citationCount: Count;
+  }
+
+  item def EducationRecord {
+    attribute studentId: ScalarValues::String;
+    attribute program: ScalarValues::String;
+    attribute completedResearchUnits: Count;
+  }
+
+  item def GrantFunding {
+    attribute sponsor: ScalarValues::String;
+    attribute awardId: ScalarValues::String;
+    attribute amountUSD: ScalarValues::Real;
+  }
+
+  item def EmergencyAlert {
+    attribute alertType: ScalarValues::String;
+    attribute severity: ScalarValues::Integer;
+    attribute location: ScalarValues::String;
+  }
+
+  port def ResearchQuestionPort {
+    in item question: ResearchQuestion;
+  }
+
+  port def SamplePort {
+    in item sampleIn: ExperimentalSample;
+    out item sampleOut: ExperimentalSample;
+  }
+
+  port def DataPort {
+    in item dataIn: ObservationData;
+    out item dataOut: ObservationData;
+  }
+
+  port def SimulationPort {
+    in item modelIn: SimulationModel;
+    out item resultData: ObservationData;
+  }
+
+  port def PublicationPort {
+    out item publication: PeerReviewedPublication;
+  }
+
+  port def EducationPort {
+    in item studentRecordIn: EducationRecord;
+    out item studentRecordOut: EducationRecord;
+  }
+
+  port def FundingPort {
+    in item grant: GrantFunding;
+  }
+
+  port def SafetyPort {
+    out item alert: EmergencyAlert;
+  }
+
+  port def ElectricalPowerPort {
+    in attribute suppliedPower: Power_kW;
+    out attribute consumedPower: Power_kW;
+  }
+
+  port def ThermalPort {
+    in attribute ambientTemperature: Temperature_C;
+    out attribute rejectedHeat: Power_kW;
+  }
+
+  action def FormResearchProgram {
+    in item question: ResearchQuestion;
+    in item grant: GrantFunding;
+    out item approvedQuestion: ResearchQuestion;
+  }
+
+  action def ConductExperiment {
+    in item question: ResearchQuestion;
+    in item sample: ExperimentalSample;
+    out item rawData: ObservationData;
+  }
+
+  action def RunComputation {
+    in item model: SimulationModel;
+    in item rawData: ObservationData;
+    out item analyzedData: ObservationData;
+  }
+
+  action def ValidateFindings {
+    in item analyzedData: ObservationData;
+    out item validatedData: ObservationData;
+  }
+
+  action def PublishKnowledge {
+    in item validatedData: ObservationData;
+    out item publication: PeerReviewedPublication;
+  }
+
+  action def EducateResearcher {
+    in item studentRecordIn: EducationRecord;
+    in item validatedData: ObservationData;
+    out item studentRecordOut: EducationRecord;
+  }
+
+  state def InstituteOperatingState {
+    entry action InitializeInfrastructure;
+    exit action ArchiveOperationalRecord;
+
+    state AcademicTermActive;
+    state ProposalReview;
+    state ResearchExecution;
+    state DataAnalysis;
+    state PublicationAndTransfer;
+    state EmergencyResponse;
+    state MaintenanceShutdown;
+
+    transition first AcademicTermActive;
+
+    transition AcademicTermActive_to_ProposalReview
+      first AcademicTermActive
+      then ProposalReview;
+
+    transition ProposalReview_to_ResearchExecution
+      first ProposalReview
+      then ResearchExecution;
+
+    transition ResearchExecution_to_DataAnalysis
+      first ResearchExecution
+      then DataAnalysis;
+
+    transition DataAnalysis_to_PublicationAndTransfer
+      first DataAnalysis
+      then PublicationAndTransfer;
+
+    transition PublicationAndTransfer_to_AcademicTermActive
+      first PublicationAndTransfer
+      then AcademicTermActive;
+
+    transition Any_to_EmergencyResponse
+      first AcademicTermActive
+      then EmergencyResponse;
+
+    transition EmergencyResponse_to_MaintenanceShutdown
+      first EmergencyResponse
+      then MaintenanceShutdown;
+
+    transition MaintenanceShutdown_to_AcademicTermActive
+      first MaintenanceShutdown
+      then AcademicTermActive;
+  }
+
+  part def LaboratoryComplex {
+    attribute floorArea: Area_m2;
+    attribute activeLabs: Count;
+    attribute maximumSamples: Count;
+    attribute nominalPowerDemand: Power_kW;
+    attribute targetTemperature: Temperature_C;
+
+    port samples: SamplePort;
+    port researchQuestions: ResearchQuestionPort;
+    port data: DataPort;
+    port power: ElectricalPowerPort;
+    port thermal: ThermalPort;
+    port safety: SafetyPort;
+
+    action experiment: ConductExperiment;
+  }
+
+  part def ObservatoryNetwork {
+    attribute telescopeCount: Count;
+    attribute maximumBaseline: Length_m;
+    attribute nightlyDataVolume: DataVolume_TB;
+    attribute domeTemperatureLimit: Temperature_C;
+    attribute nominalPowerDemand: Power_kW;
+
+    port researchQuestions: ResearchQuestionPort;
+    port observations: DataPort;
+    port power: ElectricalPowerPort;
+    port thermal: ThermalPort;
+    port safety: SafetyPort;
+  }
+
+  part def HighPerformanceComputingCenter {
+    attribute computeNodeCount: Count;
+    attribute storageCapacity: DataVolume_TB;
+    attribute internalNetworkRate: DataRate_Gbps;
+    attribute nominalPowerDemand: Power_kW;
+    attribute coolingSetPoint: Temperature_C;
+
+    port simulation: SimulationPort;
+    port data: DataPort;
+    port power: ElectricalPowerPort;
+    port thermal: ThermalPort;
+
+    action compute: RunComputation;
+  }
+
+  part def AcademicDivision {
+    attribute facultyCount: Count;
+    attribute graduateStudentCount: Count;
+    attribute undergraduateStudentCount: Count;
+    attribute annualCourseOfferings: Count;
+
+    port questions: ResearchQuestionPort;
+    port education: EducationPort;
+    port publications: PublicationPort;
+
+    action trainResearcher: EducateResearcher;
+  }
+
+  part def TechnologyTransferOffice {
+    attribute activePatents: Count;
+    attribute startupLicensesPerYear: Count;
+
+    port publications: PublicationPort;
+    port data: DataPort;
+  }
+
+  part def SponsoredResearchOffice {
+    attribute annualGrantCount: Count;
+    attribute annualFundingUSD: ScalarValues::Real;
+
+    port funding: FundingPort;
+    port questions: ResearchQuestionPort;
+
+    action approveProgram: FormResearchProgram;
+  }
+
+  part def CampusUtilityPlant {
+    attribute electricalCapacity: Power_kW;
+    attribute coolingCapacity: Power_kW;
+    attribute backupEnergyStorage: Energy_J;
+    attribute availability: Availability_percent;
+
+    port labPower: ElectricalPowerPort;
+    port observatoryPower: ElectricalPowerPort;
+    port computePower: ElectricalPowerPort;
+    port labThermal: ThermalPort;
+    port observatoryThermal: ThermalPort;
+    port computeThermal: ThermalPort;
+  }
+
+  part def SafetyAndContinuitySystem {
+    attribute monitoredZones: Count;
+    attribute responseTimeTarget: Duration_hr;
+    attribute operationalAvailability: Availability_percent;
+
+    port labSafety: SafetyPort;
+    port observatorySafety: SafetyPort;
+    port campusAlert: SafetyPort;
+  }
+
+  part def CaltechResearchAndEducationSystem {
+    doc /* The system's primary high-level function is to generate new scientific and engineering knowledge by combining focused education, frontier research facilities, computation, validation, publication, and technology transfer. */
+
+    attribute annualValidatedDiscoveries: Count;
+    attribute annualGraduates: Count;
+    attribute publicationOutputPerYear: Count;
+    attribute campusAvailability: Availability_percent;
+    attribute totalResearchDataPerYear: DataVolume_TB;
+
+    port externalQuestions: ResearchQuestionPort;
+    port externalFunding: FundingPort;
+    port externalPublications: PublicationPort;
+    port externalEducation: EducationPort;
+    port externalSafetyAlerts: SafetyPort;
+
+    part labs: LaboratoryComplex {
+      attribute floorArea = 85000;
+      attribute activeLabs = 320;
+      attribute maximumSamples = 200000;
+      attribute nominalPowerDemand = 18000;
+      attribute targetTemperature = 21;
+    }
+
+    part observatories: ObservatoryNetwork {
+      attribute telescopeCount = 6;
+      attribute maximumBaseline = 1200;
+      attribute nightlyDataVolume = 95;
+      attribute domeTemperatureLimit = 5;
+      attribute nominalPowerDemand = 4200;
+    }
+
+    part compute: HighPerformanceComputingCenter {
+      attribute computeNodeCount = 18000;
+      attribute storageCapacity = 62000;
+      attribute internalNetworkRate = 800;
+      attribute nominalPowerDemand = 26000;
+      attribute coolingSetPoint = 24;
+    }
+
+    part academics: AcademicDivision {
+      attribute facultyCount = 310;
+      attribute graduateStudentCount = 1500;
+      attribute undergraduateStudentCount = 1050;
+      attribute annualCourseOfferings = 780;
+    }
+
+    part sponsoredResearch: SponsoredResearchOffice {
+      attribute annualGrantCount = 1450;
+      attribute annualFundingUSD = 520000000;
+    }
+
+    part transferOffice: TechnologyTransferOffice {
+      attribute activePatents = 900;
+      attribute startupLicensesPerYear = 25;
+    }
+
+    part utilities: CampusUtilityPlant {
+      attribute electricalCapacity = 65000;
+      attribute coolingCapacity = 44000;
+      attribute backupEnergyStorage = 190000000000;
+      attribute availability = 99.95;
+    }
+
+    part safety: SafetyAndContinuitySystem {
+      attribute monitoredZones = 540;
+      attribute responseTimeTarget = 0.08;
+      attribute operationalAvailability = 99.99;
+    }
+
+    perform action formProgram: FormResearchProgram;
+    perform action labExperiment: ConductExperiment;
+    perform action computationalAnalysis: RunComputation;
+    perform action validate: ValidateFindings;
+    perform action publish: PublishKnowledge;
+    perform action educate: EducateResearcher;
+
+    exhibit state operations: InstituteOperatingState;
+
+    connection fundingToSponsoredResearch
+      connect externalFunding to sponsoredResearch.funding;
+
+    connection sponsoredQuestionsToAcademicDivision
+      connect sponsoredResearch.questions to academics.questions;
+
+    connection academicQuestionsToLabs
+      connect academics.questions to labs.researchQuestions;
+
+    connection academicQuestionsToObservatories
+      connect academics.questions to observatories.researchQuestions;
+
+    connection labDataToCompute
+      connect labs.data to compute.data;
+
+    connection observatoryDataToCompute
+      connect observatories.observations to compute.data;
+
+    connection computeResultsToAcademics
+      connect compute.data to academics.publications;
+
+    connection academicPublicationsToTransfer
+      connect academics.publications to transferOffice.publications;
+
+    connection transferPublicationsToExternal
+      connect transferOffice.publications to externalPublications;
+
+    connection academicEducationToExternal
+      connect academics.education to externalEducation;
+
+    connection utilityPowerToLabs
+      connect utilities.labPower to labs.power;
+
+    connection utilityPowerToObservatories
+      connect utilities.observatoryPower to observatories.power;
+
+    connection utilityPowerToCompute
+      connect utilities.computePower to compute.power;
+
+    connection utilityCoolingToLabs
+      connect utilities.labThermal to labs.thermal;
+
+    connection utilityCoolingToObservatories
+      connect utilities.observatoryThermal to observatories.thermal;
+
+    connection utilityCoolingToCompute
+      connect utilities.computeThermal to compute.thermal;
+
+    connection labSafetyToContinuity
+      connect labs.safety to safety.labSafety;
+
+    connection observatorySafetyToContinuity
+      connect observatories.safety to safety.observatorySafety;
+
+    connection continuityToExternalAlert
+      connect safety.campusAlert to externalSafetyAlerts;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc /* The institute system shall produce validated scientific and engineering knowledge while educating researchers. */
+    subject system: CaltechResearchAndEducationSystem;
+
+    require constraint {
+      system.annualValidatedDiscoveries >= 120
+    }
+  }
+
+  requirement def ResearchThroughputRequirement {
+    subject system: CaltechResearchAndEducationSystem;
+
+    require constraint {
+      system.publicationOutputPerYear >= 2500
+    }
+  }
+
+  requirement def EducationRequirement {
+    subject system: CaltechResearchAndEducationSystem;
+
+    require constraint {
+      system.annualGraduates >= 450
+    }
+  }
+
+  requirement def AvailabilityRequirement {
+    subject system: CaltechResearchAndEducationSystem;
+
+    require constraint {
+      system.campusAvailability >= 99.5
+    }
+  }
+
+  requirement def DataCapacityRequirement {
+    subject system: CaltechResearchAndEducationSystem;
+
+    require constraint {
+      system.totalResearchDataPerYear >= 25000
+    }
+  }
+
+  requirement def ComputeCenterStorageRequirement {
+    subject hpc: HighPerformanceComputingCenter;
+
+    require constraint {
+      hpc.storageCapacity >= 50000
+    }
+  }
+
+  requirement def UtilityCapacityRequirement {
+    subject plant: CampusUtilityPlant;
+
+    require constraint {
+      plant.electricalCapacity >=
+        plant.labPower.consumedPower +
+        plant.observatoryPower.consumedPower +
+        plant.computePower.consumedPower
+    }
+  }
+
+  requirement def SafetyResponseRequirement {
+    subject continuity: SafetyAndContinuitySystem;
+
+    require constraint {
+      continuity.responseTimeTarget <= 0.1
+    }
+  }
+
+  part caltechSystem: CaltechResearchAndEducationSystem {
+    attribute annualValidatedDiscoveries = 160;
+    attribute annualGraduates = 520;
+    attribute publicationOutputPerYear = 3200;
+    attribute campusAvailability = 99.92;
+    attribute totalResearchDataPerYear = 41000;
+
+    satisfy PrimaryFunctionRequirement by caltechSystem;
+    satisfy ResearchThroughputRequirement by caltechSystem;
+    satisfy EducationRequirement by caltechSystem;
+    satisfy AvailabilityRequirement by caltechSystem;
+    satisfy DataCapacityRequirement by caltechSystem;
+    satisfy ComputeCenterStorageRequirement by compute;
+    satisfy UtilityCapacityRequirement by utilities;
+    satisfy SafetyResponseRequirement by safety;
+  }
+}
+tokens used
+4,217
+package CaliforniaInstituteOfTechnologySystemModel {
+
+  unit def watt;
+  unit def kilowatt :> watt;
+  unit def joule;
+  unit def terabyte;
+  unit def gigabit_per_second;
+  unit def kelvin;
+  unit def degree_Celsius;
+  unit def meter;
+  unit def square_meter;
+  unit def percent;
+  unit def count;
+  unit def hour;
+  unit def day;
+  unit def year;
+
+  attribute def Power_kW :> ScalarValues::Real {
+    unit = kilowatt;
+  }
+
+  attribute def Energy_J :> ScalarValues::Real {
+    unit = joule;
+  }
+
+  attribute def DataVolume_TB :> ScalarValues::Real {
+    unit = terabyte;
+  }
+
+  attribute def DataRate_Gbps :> ScalarValues::Real {
+    unit = gigabit_per_second;
+  }
+
+  attribute def Temperature_C :> ScalarValues::Real {
+    unit = degree_Celsius;
+  }
+
+  attribute def Length_m :> ScalarValues::Real {
+    unit = meter;
+  }
+
+  attribute def Area_m2 :> ScalarValues::Real {
+    unit = square_meter;
+  }
+
+  attribute def Availability_percent :> ScalarValues::Real {
+    unit = percent;
+  }
+
+  attribute def Count :> ScalarValues::Integer {
+    unit = count;
+  }
+
+  attribute def Duration_hr :> ScalarValues::Real {
+    unit = hour;
+  }
+
+  item def ResearchQuestion {
+    attribute field: ScalarValues::String;
+    attribute hypothesis: ScalarValues::String;
+    attribute priority: ScalarValues::Integer;
+  }
+
+  item def ExperimentalSample {
+    attribute sampleId: ScalarValues::String;
+    attribute mass_kg: ScalarValues::Real;
+    attribute storageTemperature: Temperature_C;
+    attribute hazardClass: ScalarValues::String;
+  }
+
+  item def ObservationData {
+    attribute datasetId: ScalarValues::String;
+    attribute volume: DataVolume_TB;
+    attribute acquisitionRate: DataRate_Gbps;
+    attribute calibrationStatus: ScalarValues::String;
+  }
+
+  item def SimulationModel {
+    attribute modelId: ScalarValues::String;
+    attribute domain: ScalarValues::String;
+    attribute computeHoursRequired: Duration_hr;
+  }
+
+  item def PeerReviewedPublication {
+    attribute title: ScalarValues::String;
+    attribute doi: ScalarValues::String;
+    attribute citationCount: Count;
+  }
+
+  item def EducationRecord {
+    attribute studentId: ScalarValues::String;
+    attribute program: ScalarValues::String;
+    attribute completedResearchUnits: Count;
+  }
+
+  item def GrantFunding {
+    attribute sponsor: ScalarValues::String;
+    attribute awardId: ScalarValues::String;
+    attribute amountUSD: ScalarValues::Real;
+  }
+
+  item def EmergencyAlert {
+    attribute alertType: ScalarValues::String;
+    attribute severity: ScalarValues::Integer;
+    attribute location: ScalarValues::String;
+  }
+
+  port def ResearchQuestionPort {
+    in item question: ResearchQuestion;
+  }
+
+  port def SamplePort {
+    in item sampleIn: ExperimentalSample;
+    out item sampleOut: ExperimentalSample;
+  }
+
+  port def DataPort {
+    in item dataIn: ObservationData;
+    out item dataOut: ObservationData;
+  }
+
+  port def SimulationPort {
+    in item modelIn: SimulationModel;
+    out item resultData: ObservationData;
+  }
+
+  port def PublicationPort {
+    out item publication: PeerReviewedPublication;
+  }
+
+  port def EducationPort {
+    in item studentRecordIn: EducationRecord;
+    out item studentRecordOut: EducationRecord;
+  }
+
+  port def FundingPort {
+    in item grant: GrantFunding;
+  }
+
+  port def SafetyPort {
+    out item alert: EmergencyAlert;
+  }
+
+  port def ElectricalPowerPort {
+    in attribute suppliedPower: Power_kW;
+    out attribute consumedPower: Power_kW;
+  }
+
+  port def ThermalPort {
+    in attribute ambientTemperature: Temperature_C;
+    out attribute rejectedHeat: Power_kW;
+  }
+
+  action def FormResearchProgram {
+    in item question: ResearchQuestion;
+    in item grant: GrantFunding;
+    out item approvedQuestion: ResearchQuestion;
+  }
+
+  action def ConductExperiment {
+    in item question: ResearchQuestion;
+    in item sample: ExperimentalSample;
+    out item rawData: ObservationData;
+  }
+
+  action def RunComputation {
+    in item model: SimulationModel;
+    in item rawData: ObservationData;
+    out item analyzedData: ObservationData;
+  }
+
+  action def ValidateFindings {
+    in item analyzedData: ObservationData;
+    out item validatedData: ObservationData;
+  }
+
+  action def PublishKnowledge {
+    in item validatedData: ObservationData;
+    out item publication: PeerReviewedPublication;
+  }
+
+  action def EducateResearcher {
+    in item studentRecordIn: EducationRecord;
+    in item validatedData: ObservationData;
+    out item studentRecordOut: EducationRecord;
+  }
+
+  state def InstituteOperatingState {
+    entry action InitializeInfrastructure;
+    exit action ArchiveOperationalRecord;
+
+    state AcademicTermActive;
+    state ProposalReview;
+    state ResearchExecution;
+    state DataAnalysis;
+    state PublicationAndTransfer;
+    state EmergencyResponse;
+    state MaintenanceShutdown;
+
+    transition first AcademicTermActive;
+
+    transition AcademicTermActive_to_ProposalReview
+      first AcademicTermActive
+      then ProposalReview;
+
+    transition ProposalReview_to_ResearchExecution
+      first ProposalReview
+      then ResearchExecution;
+
+    transition ResearchExecution_to_DataAnalysis
+      first ResearchExecution
+      then DataAnalysis;
+
+    transition DataAnalysis_to_PublicationAndTransfer
+      first DataAnalysis
+      then PublicationAndTransfer;
+
+    transition PublicationAndTransfer_to_AcademicTermActive
+      first PublicationAndTransfer
+      then AcademicTermActive;
+
+    transition Any_to_EmergencyResponse
+      first AcademicTermActive
+      then EmergencyResponse;
+
+    transition EmergencyResponse_to_MaintenanceShutdown
+      first EmergencyResponse
+      then MaintenanceShutdown;
+
+    transition MaintenanceShutdown_to_AcademicTermActive
+      first MaintenanceShutdown
+      then AcademicTermActive;
+  }
+
+  part def LaboratoryComplex {
+    attribute floorArea: Area_m2;
+    attribute activeLabs: Count;
+    attribute maximumSamples: Count;
+    attribute nominalPowerDemand: Power_kW;
+    attribute targetTemperature: Temperature_C;
+
+    port samples: SamplePort;
+    port researchQuestions: ResearchQuestionPort;
+    port data: DataPort;
+    port power: ElectricalPowerPort;
+    port thermal: ThermalPort;
+    port safety: SafetyPort;
+
+    action experiment: ConductExperiment;
+  }
+
+  part def ObservatoryNetwork {
+    attribute telescopeCount: Count;
+    attribute maximumBaseline: Length_m;
+    attribute nightlyDataVolume: DataVolume_TB;
+    attribute domeTemperatureLimit: Temperature_C;
+    attribute nominalPowerDemand: Power_kW;
+
+    port researchQuestions: ResearchQuestionPort;
+    port observations: DataPort;
+    port power: ElectricalPowerPort;
+    port thermal: ThermalPort;
+    port safety: SafetyPort;
+  }
+
+  part def HighPerformanceComputingCenter {
+    attribute computeNodeCount: Count;
+    attribute storageCapacity: DataVolume_TB;
+    attribute internalNetworkRate: DataRate_Gbps;
+    attribute nominalPowerDemand: Power_kW;
+    attribute coolingSetPoint: Temperature_C;
+
+    port simulation: SimulationPort;
+    port data: DataPort;
+    port power: ElectricalPowerPort;
+    port thermal: ThermalPort;
+
+    action compute: RunComputation;
+  }
+
+  part def AcademicDivision {
+    attribute facultyCount: Count;
+    attribute graduateStudentCount: Count;
+    attribute undergraduateStudentCount: Count;
+    attribute annualCourseOfferings: Count;
+
+    port questions: ResearchQuestionPort;
+    port education: EducationPort;
+    port publications: PublicationPort;
+
+    action trainResearcher: EducateResearcher;
+  }
+
+  part def TechnologyTransferOffice {
+    attribute activePatents: Count;
+    attribute startupLicensesPerYear: Count;
+
+    port publications: PublicationPort;
+    port data: DataPort;
+  }
+
+  part def SponsoredResearchOffice {
+    attribute annualGrantCount: Count;
+    attribute annualFundingUSD: ScalarValues::Real;
+
+    port funding: FundingPort;
+    port questions: ResearchQuestionPort;
+
+    action approveProgram: FormResearchProgram;
+  }
+
+  part def CampusUtilityPlant {
+    attribute electricalCapacity: Power_kW;
+    attribute coolingCapacity: Power_kW;
+    attribute backupEnergyStorage: Energy_J;
+    attribute availability: Availability_percent;
+
+    port labPower: ElectricalPowerPort;
+    port observatoryPower: ElectricalPowerPort;
+    port computePower: ElectricalPowerPort;
+    port labThermal: ThermalPort;
+    port observatoryThermal: ThermalPort;
+    port computeThermal: ThermalPort;
+  }
+
+  part def SafetyAndContinuitySystem {
+    attribute monitoredZones: Count;
+    attribute responseTimeTarget: Duration_hr;
+    attribute operationalAvailability: Availability_percent;
+
+    port labSafety: SafetyPort;
+    port observatorySafety: SafetyPort;
+    port campusAlert: SafetyPort;
+  }
+
+  part def CaltechResearchAndEducationSystem {
+    doc /* The system's primary high-level function is to generate new scientific and engineering knowledge by combining focused education, frontier research facilities, computation, validation, publication, and technology transfer. */
+
+    attribute annualValidatedDiscoveries: Count;
+    attribute annualGraduates: Count;
+    attribute publicationOutputPerYear: Count;
+    attribute campusAvailability: Availability_percent;
+    attribute totalResearchDataPerYear: DataVolume_TB;
+
+    port externalQuestions: ResearchQuestionPort;
+    port externalFunding: FundingPort;
+    port externalPublications: PublicationPort;
+    port externalEducation: EducationPort;
+    port externalSafetyAlerts: SafetyPort;
+
+    part labs: LaboratoryComplex {
+      attribute floorArea = 85000;
+      attribute activeLabs = 320;
+      attribute maximumSamples = 200000;
+      attribute nominalPowerDemand = 18000;
+      attribute targetTemperature = 21;
+    }
+
+    part observatories: ObservatoryNetwork {
+      attribute telescopeCount = 6;
+      attribute maximumBaseline = 1200;
+      attribute nightlyDataVolume = 95;
+      attribute domeTemperatureLimit = 5;
+      attribute nominalPowerDemand = 4200;
+    }
+
+    part compute: HighPerformanceComputingCenter {
+      attribute computeNodeCount = 18000;
+      attribute storageCapacity = 62000;
+      attribute internalNetworkRate = 800;
+      attribute nominalPowerDemand = 26000;
+      attribute coolingSetPoint = 24;
+    }
+
+    part academics: AcademicDivision {
+      attribute facultyCount = 310;
+      attribute graduateStudentCount = 1500;
+      attribute undergraduateStudentCount = 1050;
+      attribute annualCourseOfferings = 780;
+    }
+
+    part sponsoredResearch: SponsoredResearchOffice {
+      attribute annualGrantCount = 1450;
+      attribute annualFundingUSD = 520000000;
+    }
+
+    part transferOffice: TechnologyTransferOffice {
+      attribute activePatents = 900;
+      attribute startupLicensesPerYear = 25;
+    }
+
+    part utilities: CampusUtilityPlant {
+      attribute electricalCapacity = 65000;
+      attribute coolingCapacity = 44000;
+      attribute backupEnergyStorage = 190000000000;
+      attribute availability = 99.95;
+    }
+
+    part safety: SafetyAndContinuitySystem {
+      attribute monitoredZones = 540;
+      attribute responseTimeTarget = 0.08;
+      attribute operationalAvailability = 99.99;
+    }
+
+    perform action formProgram: FormResearchProgram;
+    perform action labExperiment: ConductExperiment;
+    perform action computationalAnalysis: RunComputation;
+    perform action validate: ValidateFindings;
+    perform action publish: PublishKnowledge;
+    perform action educate: EducateResearcher;
+
+    exhibit state operations: InstituteOperatingState;
+
+    connection fundingToSponsoredResearch
+      connect externalFunding to sponsoredResearch.funding;
+
+    connection sponsoredQuestionsToAcademicDivision
+      connect sponsoredResearch.questions to academics.questions;
+
+    connection academicQuestionsToLabs
+      connect academics.questions to labs.researchQuestions;
+
+    connection academicQuestionsToObservatories
+      connect academics.questions to observatories.researchQuestions;
+
+    connection labDataToCompute
+      connect labs.data to compute.data;
+
+    connection observatoryDataToCompute
+      connect observatories.observations to compute.data;
+
+    connection computeResultsToAcademics
+      connect compute.data to academics.publications;
+
+    connection academicPublicationsToTransfer
+      connect academics.publications to transferOffice.publications;
+
+    connection transferPublicationsToExternal
+      connect transferOffice.publications to externalPublications;
+
+    connection academicEducationToExternal
+      connect academics.education to externalEducation;
+
+    connection utilityPowerToLabs
+      connect utilities.labPower to labs.power;
+
+    connection utilityPowerToObservatories
+      connect utilities.observatoryPower to observatories.power;
+
+    connection utilityPowerToCompute
+      connect utilities.computePower to compute.power;
+
+    connection utilityCoolingToLabs
+      connect utilities.labThermal to labs.thermal;
+
+    connection utilityCoolingToObservatories
+      connect utilities.observatoryThermal to observatories.thermal;
+
+    connection utilityCoolingToCompute
+      connect utilities.computeThermal to compute.thermal;
+
+    connection labSafetyToContinuity
+      connect labs.safety to safety.labSafety;
+
+    connection observatorySafetyToContinuity
+      connect observatories.safety to safety.observatorySafety;
+
+    connection continuityToExternalAlert
+      connect safety.campusAlert to externalSafetyAlerts;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc /* The institute system shall produce validated scientific and engineering knowledge while educating researchers. */
+    subject system: CaltechResearchAndEducationSystem;
+
+    require constraint {
+      system.annualValidatedDiscoveries >= 120
+    }
+  }
+
+  requirement def ResearchThroughputRequirement {
+    subject system: CaltechResearchAndEducationSystem;
+
+    require constraint {
+      system.publicationOutputPerYear >= 2500
+    }
+  }
+
+  requirement def EducationRequirement {
+    subject system: CaltechResearchAndEducationSystem;
+
+    require constraint {
+      system.annualGraduates >= 450
+    }
+  }
+
+  requirement def AvailabilityRequirement {
+    subject system: CaltechResearchAndEducationSystem;
+
+    require constraint {
+      system.campusAvailability >= 99.5
+    }
+  }
+
+  requirement def DataCapacityRequirement {
+    subject system: CaltechResearchAndEducationSystem;
+
+    require constraint {
+      system.totalResearchDataPerYear >= 25000
+    }
+  }
+
+  requirement def ComputeCenterStorageRequirement {
+    subject hpc: HighPerformanceComputingCenter;
+
+    require constraint {
+      hpc.storageCapacity >= 50000
+    }
+  }
+
+  requirement def UtilityCapacityRequirement {
+    subject plant: CampusUtilityPlant;
+
+    require constraint {
+      plant.electricalCapacity >=
+        plant.labPower.consumedPower +
+        plant.observatoryPower.consumedPower +
+        plant.computePower.consumedPower
+    }
+  }
+
+  requirement def SafetyResponseRequirement {
+    subject continuity: SafetyAndContinuitySystem;
+
+    require constraint {
+      continuity.responseTimeTarget <= 0.1
+    }
+  }
+
+  part caltechSystem: CaltechResearchAndEducationSystem {
+    attribute annualValidatedDiscoveries = 160;
+    attribute annualGraduates = 520;
+    attribute publicationOutputPerYear = 3200;
+    attribute campusAvailability = 99.92;
+    attribute totalResearchDataPerYear = 41000;
+
+    satisfy PrimaryFunctionRequirement by caltechSystem;
+    satisfy ResearchThroughputRequirement by caltechSystem;
+    satisfy EducationRequirement by caltechSystem;
+    satisfy AvailabilityRequirement by caltechSystem;
+    satisfy DataCapacityRequirement by caltechSystem;
+    satisfy ComputeCenterStorageRequirement by compute;
+    satisfy UtilityCapacityRequirement by utilities;
+    satisfy SafetyResponseRequirement by safety;
+  }
+}

@@ -1,0 +1,1319 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-ygrivuyf
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019ebaca-5121-7770-89aa-5966897b447c
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a system based on a Extra-vehicular activity and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package ExtraVehicularActivitySystemModel {
+
+  import ScalarValues::*;
+  import SI::*;
+  import ISQ::*;
+
+  attribute def Duration {
+    value seconds : Real;
+  }
+
+  attribute def Temperature {
+    value kelvin : Real;
+  }
+
+  attribute def Pressure {
+    value pascal : Real;
+  }
+
+  attribute def Mass {
+    value kilogram : Real;
+  }
+
+  attribute def Volume {
+    value cubicMeter : Real;
+  }
+
+  attribute def Energy {
+    value joule : Real;
+  }
+
+  attribute def Power {
+    value watt : Real;
+  }
+
+  attribute def FlowRate {
+    value kilogramPerSecond : Real;
+  }
+
+  attribute def Percent {
+    value ratio : Real;
+  }
+
+  attribute def Distance {
+    value meter : Real;
+  }
+
+  attribute def DataRate {
+    value bitPerSecond : Real;
+  }
+
+  attribute def Force {
+    value newton : Real;
+  }
+
+  item def Oxygen {
+    attribute purity : Percent;
+    attribute pressure : Pressure;
+    attribute flowRate : FlowRate;
+  }
+
+  item def CarbonDioxide {
+    attribute partialPressure : Pressure;
+  }
+
+  item def CoolingWater {
+    attribute temperature : Temperature;
+    attribute flowRate : FlowRate;
+  }
+
+  item def ElectricalPower {
+    attribute voltage : Real;
+    attribute current : Real;
+    attribute availablePower : Power;
+  }
+
+  item def VoiceData {
+    attribute dataRate : DataRate;
+    attribute encrypted : Boolean;
+  }
+
+  item def TelemetryData {
+    attribute suitPressure : Pressure;
+    attribute oxygenRemaining : Percent;
+    attribute batteryRemaining : Percent;
+    attribute carbonDioxideLevel : Pressure;
+    attribute crewHeartRate : Real;
+    attribute suitTemperature : Temperature;
+  }
+
+  item def CommandData {
+    attribute commandId : String;
+    attribute authorized : Boolean;
+  }
+
+  item def MechanicalLoad {
+    attribute loadForce : Force;
+    attribute attachmentVerified : Boolean;
+  }
+
+  item def Tool {
+    attribute toolId : String;
+    attribute mass : Mass;
+    attribute tethered : Boolean;
+    attribute powered : Boolean;
+  }
+
+  item def SampleContainer {
+    attribute sampleMassCapacity : Mass;
+    attribute sealed : Boolean;
+  }
+
+  port def OxygenPort {
+    out item oxygen : Oxygen;
+  }
+
+  port def VentPort {
+    in item carbonDioxide : CarbonDioxide;
+  }
+
+  port def CoolingPort {
+    inout item coolingWater : CoolingWater;
+  }
+
+  port def PowerPort {
+    inout item power : ElectricalPower;
+  }
+
+  port def DataPort {
+    inout item telemetry : TelemetryData;
+    in item command : CommandData;
+  }
+
+  port def VoicePort {
+    inout item voice : VoiceData;
+  }
+
+  port def ToolPort {
+    inout item tool : Tool;
+    out item mechanicalLoad : MechanicalLoad;
+  }
+
+  port def TetherPort {
+    inout item mechanicalLoad : MechanicalLoad;
+  }
+
+  part def ExtravehicularActivitySystem {
+    doc /* Primary function: enable an astronaut to safely perform mission tasks outside a pressurized spacecraft by providing life support, mobility, communication, power, thermal control, navigation, tool handling, monitoring, and emergency return capability. */
+
+    attribute plannedEvaDuration : Duration = 21600 [s];
+    attribute maximumCrewRange : Distance = 120 [m];
+    attribute minimumReserveOxygen : Percent = 0.18;
+    attribute minimumReserveBattery : Percent = 0.20;
+    attribute nominalSuitPressure : Pressure = 29600 [Pa];
+
+    port missionControlData : DataPort;
+    port missionControlVoice : VoicePort;
+
+    part crewMember : EvaCrewMember;
+    part suit : PressureSuit;
+    part lifeSupport : PortableLifeSupportSystem;
+    part communication : CommunicationSubsystem;
+    part navigation : NavigationSubsystem;
+    part toolCarrier : ToolCarrier;
+    part safetyTether : SafetyTether;
+    part airlockInterface : AirlockInterface;
+    part taskWorksite : ExternalWorksite;
+    part emergencyReturn : EmergencyReturnSubsystem;
+
+    connect lifeSupport.oxygenSupply to suit.oxygenInlet;
+    connect suit.exhalationOutlet to lifeSupport.co2Inlet;
+    connect lifeSupport.coolingLoop to suit.coolingGarmentLoop;
+    connect lifeSupport.powerBus to suit.suitPower;
+    connect lifeSupport.telemetryBus to communication.telemetryInterface;
+    connect communication.externalData to missionControlData;
+    connect communication.voiceInterface to missionControlVoice;
+    connect navigation.navData to communication.telemetryInterface;
+    connect toolCarrier.toolInterface to suit.toolInterface;
+    connect safetyTether.vehicleAnchor to airlockInterface.tetherAnchor;
+    connect safetyTether.crewAnchor to suit.tetherAnchor;
+    connect emergencyReturn.commandInterface to communication.telemetryInterface;
+    connect emergencyReturn.propulsiveLoadPath to suit.tetherAnchor;
+    connect crewMember.suitInterface to suit.crewInterface;
+    connect toolCarrier.worksiteToolPort to taskWorksite.toolPort;
+
+    perform action conductEva : ConductEvaAction {
+      in crew = crewMember;
+      inout evaSuit = suit;
+      inout plss = lifeSupport;
+      inout comm = communication;
+      inout nav = navigation;
+      inout tools = toolCarrier;
+      inout tether = safetyTether;
+      inout worksite = taskWorksite;
+      inout returnSystem = emergencyReturn;
+    }
+
+    exhibit state evaOperationalState : EvaSystemStateMachine;
+  }
+
+  part def EvaCrewMember {
+    attribute crewId : String;
+    attribute metabolicRate : Power = 420 [W];
+    attribute heartRate : Real;
+    attribute coreTemperature : Temperature = 310.15 [K];
+
+    port suitInterface : DataPort;
+  }
+
+  part def PressureSuit {
+    attribute internalPressure : Pressure = 29600 [Pa];
+    attribute leakRate : FlowRate = 0.00002 [kg/s];
+    attribute mobilityTorqueMargin : Percent = 0.35;
+    attribute visorTransmittance : Percent = 0.72;
+    attribute micrometeoroidProtectionRating : Real = 0.995;
+
+    port oxygenInlet : OxygenPort;
+    port exhalationOutlet : VentPort;
+    port coolingGarmentLoop : CoolingPort;
+    port suitPower : PowerPort;
+    port crewInterface : DataPort;
+    port toolInterface : ToolPort;
+    port tetherAnchor : TetherPort;
+
+    part helmet : HelmetAssembly;
+    part torso : HardUpperTorso;
+    part gloves : GloveSet;
+    part boots : BootSet;
+    part liquidCoolingGarment : LiquidCoolingVentilationGarment;
+    part biomedicalSensors : BiomedicalSensorSet;
+  }
+
+  part def HelmetAssembly {
+    attribute visorTemperature : Temperature = 294.15 [K];
+    attribute sunShieldDeployed : Boolean = false;
+    attribute lightLevel : Real;
+  }
+
+  part def HardUpperTorso {
+    attribute structureMass : Mass = 16.5 [kg];
+    attribute attachmentLocksEngaged : Boolean = true;
+  }
+
+  part def GloveSet {
+    attribute fingertipForceCapability : Force = 45 [N];
+    attribute heaterPower : Power = 12 [W];
+  }
+
+  part def BootSet {
+    attribute restraintCompatible : Boolean = true;
+    attribute soleGripCoefficient : Real = 0.78;
+  }
+
+  part def LiquidCoolingVentilationGarment {
+    attribute waterFlowRate : FlowRate = 0.003 [kg/s];
+    attribute inletTemperature : Temperature = 285.15 [K];
+    attribute outletTemperature : Temperature = 292.15 [K];
+  }
+
+  part def BiomedicalSensorSet {
+    attribute heartRateAccuracy : Percent = 0.98;
+    attribute oxygenSaturation : Percent = 0.97;
+    attribute sensorOperational : Boolean = true;
+  }
+
+  part def PortableLifeSupportSystem {
+    attribute oxygenMass : Mass = 1.2 [kg];
+    attribute oxygenReserveFraction : Percent = 0.30;
+    attribute batteryEnergy : Energy = 2200000 [J];
+    attribute batteryStateOfCharge : Percent = 1.0;
+    attribute carbonDioxidePartialPressure : Pressure = 350 [Pa];
+    attribute waterInventory : Mass = 4.0 [kg];
+    attribute fanPower : Power = 18 [W];
+    attribute pumpPower : Power = 22 [W];
+
+    port oxygenSupply : OxygenPort;
+    port co2Inlet : VentPort;
+    port coolingLoop : CoolingPort;
+    port powerBus : PowerPort;
+    port telemetryBus : DataPort;
+
+    part oxygenTank : OxygenStorageTank;
+    part pressureRegulator : OxygenPressureRegulator;
+    part carbonDioxideRemoval : CarbonDioxideRemovalAssembly;
+    part thermalControl : ThermalControlAssembly;
+    part battery : BatteryAssembly;
+    part controller : LifeSupportController;
+  }
+
+  part def OxygenStorageTank {
+    attribute storagePressure : Pressure = 20600000 [Pa];
+    attribute usableOxygenMass : Mass = 1.2 [kg];
+    attribute tankTemperature : Temperature = 293.15 [K];
+  }
+
+  part def OxygenPressureRegulator {
+    attribute outletPressure : Pressure = 29600 [Pa];
+    attribute regulationTolerance : Percent = 0.03;
+  }
+
+  part def CarbonDioxideRemovalAssembly {
+    attribute removalEfficiency : Percent = 0.96;
+    attribute sorbentCapacity : Mass = 0.42 [kg];
+    attribute bedTemperature : Temperature = 298.15 [K];
+  }
+
+  part def ThermalControlAssembly {
+    attribute heatRejectionCapacity : Power = 520 [W];
+    attribute sublimatorWaterRate : FlowRate = 0.00009 [kg/s];
+    attribute coolantSetpoint : Temperature = 288.15 [K];
+  }
+
+  part def BatteryAssembly {
+    attribute nominalVoltage : Real = 28.0;
+    attribute capacity : Energy = 2200000 [J];
+    attribute maximumContinuousPower : Power = 650 [W];
+  }
+
+  part def LifeSupportController {
+    attribute controlCyclePeriod : Duration = 1 [s];
+    attribute faultDetected : Boolean = false;
+    attribute autonomousModeEnabled : Boolean = true;
+  }
+
+  part def CommunicationSubsystem {
+    attribute primaryLinkAvailable : Boolean = true;
+    attribute backupLinkAvailable : Boolean = true;
+    attribute voiceLatency : Duration = 0.4 [s];
+    attribute telemetryRate : DataRate = 128000 [bit/s];
+
+    port telemetryInterface : DataPort;
+    port voiceInterface : VoicePort;
+    port externalData : DataPort;
+
+    part radio : RadioTransceiver;
+    part antenna : SuitAntenna;
+    part audio : AudioInterface;
+  }
+
+  part def RadioTransceiver {
+    attribute transmitPower : Power = 8 [W];
+    attribute receiveSensitivity : Real = -112.0;
+    attribute encryptionEnabled : Boolean = true;
+  }
+
+  part def SuitAntenna {
+    attribute gain : Real = 4.5;
+    attribute coverageFraction : Percent = 0.92;
+  }
+
+  part def AudioInterface {
+    attribute microphoneOperational : Boolean = true;
+    attribute speakerOperational : Boolean = true;
+    attribute noiseSuppressionEnabled : Boolean = true;
+  }
+
+  part def NavigationSubsystem {
+    attribute relativePositionError : Distance = 0.6 [m];
+    attribute inertialDriftRate : Real = 0.02;
+    attribute hazardProximityWarningDistance : Distance = 2.0 [m];
+
+    port navData : DataPort;
+
+    part inertialUnit : InertialMeasurementUnit;
+    part visualMarkers : VisualNavigationMarkerTracker;
+    part rangeFinder : RangeFinder;
+  }
+
+  part def InertialMeasurementUnit {
+    attribute updateRate : Real = 100.0;
+    attribute operational : Boolean = true;
+  }
+
+  part def VisualNavigationMarkerTracker {
+    attribute markerLock : Boolean = true;
+    attribute fieldOfView : Real = 120.0;
+  }
+
+  part def RangeFinder {
+    attribute maximumRange : Distance = 150 [m];
+    attribute rangeAccuracy : Distance = 0.15 [m];
+  }
+
+  part def ToolCarrier {
+    attribute totalToolMass : Mass = 18 [kg];
+    attribute retainedToolCount : Integer = 8;
+    attribute poweredToolEnergyBudget : Energy = 180000 [J];
+
+    port toolInterface : ToolPort;
+    port worksiteToolPort : ToolPort;
+
+    part tetheredPowerDriver : PoweredTool;
+    part sampleBag : SampleContainerAssembly;
+    part restraintHook : RestraintTool;
+  }
+
+  part def PoweredTool {
+    attribute toolId : String = "EVA-DRV-01";
+    attribute outputTorque : Real = 18.0;
+    attribute batteryEnergy : Energy = 90000 [J];
+    attribute tethered : Boolean = true;
+  }
+
+  part def SampleContainerAssembly {
+    attribute containerCount : Integer = 4;
+    attribute totalSampleCapacity : Mass = 2.5 [kg];
+    attribute contaminationSealIntegrity : Percent = 0.995;
+  }
+
+  part def RestraintTool {
+    attribute ratedLoad : Force = 890 [N];
+    attribute locked : Boolean = false;
+  }
+
+  part def SafetyTether {
+    attribute length : Distance = 26 [m];
+    attribute ratedLoad : Force = 2200 [N];
+    attribute reelLocked : Boolean = true;
+    attribute integrityVerified : Boolean = true;
+
+    port crewAnchor : TetherPort;
+    port vehicleAnchor : TetherPort;
+  }
+
+  part def AirlockInterface {
+    attribute hatchClosed : Boolean = true;
+    attribute depressurized : Boolean = false;
+    attribute prebreatheComplete : Boolean = false;
+    attribute repressurizationAvailable : Boolean = true;
+
+    port tetherAnchor : TetherPort;
+  }
+
+  part def ExternalWorksite {
+    attribute worksiteId : String = "ORBITAL-SERVICE-PANEL-A";
+    attribute taskCompletionFraction : Percent = 0.0;
+    attribute illuminationLevel : Real = 650.0;
+    attribute handrailAvailable : Boolean = true;
+
+    port toolPort : ToolPort;
+  }
+
+  part def EmergencyReturnSubsystem {
+    attribute enabled : Boolean = true;
+    attribute deltaVCapability : Real = 3.0;
+    attribute propellantMass : Mass = 1.4 [kg];
+    attribute activationTime : Duration = 2 [s];
+
+    port commandInterface : DataPort;
+    port propulsiveLoadPath : TetherPort;
+  }
+
+  action def ConductEvaAction {
+    in crew : EvaCrewMember;
+    inout evaSuit : PressureSuit;
+    inout plss : PortableLifeSupportSystem;
+    inout comm : CommunicationSubsystem;
+    inout nav : NavigationSubsystem;
+    inout tools : ToolCarrier;
+    inout tether : SafetyTether;
+    inout worksite : ExternalWorksite;
+    inout returnSystem : EmergencyReturnSubsystem;
+
+    first start;
+    then prepareAirlock;
+    then verifyLifeSupport;
+    then exitAirlock;
+    then translateToWorksite;
+    then performExternalTask;
+    then returnToAirlock;
+    then repressurize;
+    then end;
+
+    action prepareAirlock {
+      out prebreatheComplete : Boolean = true;
+    }
+
+    action verifyLifeSupport {
+      out goForEva : Boolean;
+    }
+
+    action exitAirlock {
+      out hatchClear : Boolean = true;
+    }
+
+    action translateToWorksite {
+      out arrived : Boolean = true;
+    }
+
+    action performExternalTask {
+      out taskCompletionFraction : Percent = 1.0;
+    }
+
+    action returnToAirlock {
+      out crewInside : Boolean = true;
+    }
+
+    action repressurize {
+      out safeToDoffSuit : Boolean = true;
+    }
+  }
+
+  state def EvaSystemStateMachine {
+    entry action initializeTelemetry;
+
+    state Standby;
+    state Prebreathe;
+    state AirlockDepressurization;
+    state Egress;
+    state Translation;
+    state WorksiteOperations;
+    state Contingency;
+    state Ingress;
+    state Repressurization;
+    state Complete;
+
+    transition first Standby;
+    transition Standby_to_Prebreathe
+      first Standby
+      then Prebreathe
+      accept CommandData
+      if command.authorized;
+
+    transition Prebreathe_to_Depressurization
+      first Prebreathe
+      then AirlockDepressurization
+      if prebreatheTimerExpired and suitPressureStable;
+
+    transition Depressurization_to_Egress
+      first AirlockDepressurization
+      then Egress
+      if airlockPressureBelowThreshold and tether.integrityVerified;
+
+    transition Egress_to_Translation
+      first Egress
+      then Translation
+      if crewClearOfHatch;
+
+    transition Translation_to_WorksiteOperations
+      first Translation
+      then WorksiteOperations
+      if worksiteReached and communicationLinkValid;
+
+    transition WorksiteOperations_to_Ingress
+      first WorksiteOperations
+      then Ingress
+      if plannedTasksComplete or consumableReserveReached;
+
+    transition Any_to_Contingency
+      first Standby
+      then Contingency
+      if criticalFaultDetected;
+
+    transition Contingency_to_Ingress
+      first Contingency
+      then Ingress
+      if emergencyReturnPathEstablished;
+
+    transition Ingress_to_Repressurization
+      first Ingress
+      then Repressurization
+      if crewInsideAirlock and hatchClosed;
+
+    transition Repressurization_to_Complete
+      first Repressurization
+      then Complete
+      if airlockPressureNominal and suitDoffAuthorized;
+  }
+
+  requirement def ProvidePrimaryEvaFunction {
+    doc /* The system shall enable one suited crew member to perform external mission tasks outside a pressurized spacecraft while preserving life, maintaining communication, supporting mobility, and enabling return to the airlock. */
+  }
+
+  requirement def MaintainCrewLifeSupport {
+    doc /* The system shall maintain breathable oxygen, carbon dioxide removal, pressure control, and thermal control for at least six hours of external activity. */
+
+    attribute requiredDuration : Duration = 21600 [s];
+    attribute minimumSuitPressure : Pressure = 27000 [Pa];
+    attribute maximumSuitPressure : Pressure = 32000 [Pa];
+    attribute maximumCarbonDioxidePartialPressure : Pressure = 1000 [Pa];
+  }
+
+  requirement def MaintainCommunication {
+    doc /* The system shall provide continuous two-way voice and telemetry communication between the crew member and mission control during nominal EVA operations. */
+
+    attribute minimumTelemetryRate : DataRate = 64000 [bit/s];
+    attribute maximumVoiceLatency : Duration = 1 [s];
+    attribute requiredCoverageFraction : Percent = 0.90;
+  }
+
+  requirement def SupportCrewMobility {
+    doc /* The system shall allow controlled translation from the airlock to the external worksite and back while keeping the crew member physically restrained to the vehicle. */
+
+    attribute maximumRangeFromAirlock : Distance = 120 [m];
+    attribute minimumTetherLoadRating : Force = 2000 [N];
+  }
+
+  requirement def ProvideEmergencyReturn {
+    doc /* The system shall provide an emergency return capability when communication loss, tether failure, excessive drift, or life-support critical fault is detected. */
+
+    attribute maximumActivationTime : Duration = 5 [s];
+    attribute minimumDeltaVCapability : Real = 2.5;
+  }
+
+  requirement def ManageConsumableReserves {
+    doc /* The system shall preserve consumable reserves sufficient for safe return before oxygen, battery, cooling water, or carbon dioxide removal capacity reaches a critical limit. */
+
+    attribute minimumOxygenReserve : Percent = 0.18;
+    attribute minimumBatteryReserve : Percent = 0.20;
+    attribute minimumCoolingWaterReserve : Percent = 0.15;
+  }
+
+  requirement def EnableExternalTaskExecution {
+    doc /* The system shall provide restrained tool access, powered tool support, sample containment, and worksite interface capability for maintenance or exploration tasks. */
+
+    attribute minimumToolRetentionIntegrity : Percent = 0.99;
+    attribute minimumPoweredToolEnergy : Energy = 90000 [J];
+  }
+
+  satisfy ProvidePrimaryEvaFunction by ExtravehicularActivitySystem;
+  satisfy MaintainCrewLifeSupport by PortableLifeSupportSystem;
+  satisfy MaintainCrewLifeSupport by PressureSuit;
+  satisfy MaintainCommunication by CommunicationSubsystem;
+  satisfy SupportCrewMobility by SafetyTether;
+  satisfy SupportCrewMobility by NavigationSubsystem;
+  satisfy ProvideEmergencyReturn by EmergencyReturnSubsystem;
+  satisfy ManageConsumableReserves by PortableLifeSupportSystem;
+  satisfy EnableExternalTaskExecution by ToolCarrier;
+  satisfy EnableExternalTaskExecution by ExternalWorksite;
+
+  concern def CrewSurvival;
+  concern def MissionTaskCompletion;
+  concern def VehicleSafety;
+  concern def EmergencyRecovery;
+
+  view def EvaOperationalView {
+    expose ExtravehicularActivitySystem;
+    expose PressureSuit;
+    expose PortableLifeSupportSystem;
+    expose CommunicationSubsystem;
+    expose NavigationSubsystem;
+    expose SafetyTether;
+    expose EmergencyReturnSubsystem;
+    expose ProvidePrimaryEvaFunction;
+    expose MaintainCrewLifeSupport;
+    expose MaintainCommunication;
+    expose SupportCrewMobility;
+    expose ProvideEmergencyReturn;
+  }
+
+}
+tokens used
+5,934
+package ExtraVehicularActivitySystemModel {
+
+  import ScalarValues::*;
+  import SI::*;
+  import ISQ::*;
+
+  attribute def Duration {
+    value seconds : Real;
+  }
+
+  attribute def Temperature {
+    value kelvin : Real;
+  }
+
+  attribute def Pressure {
+    value pascal : Real;
+  }
+
+  attribute def Mass {
+    value kilogram : Real;
+  }
+
+  attribute def Volume {
+    value cubicMeter : Real;
+  }
+
+  attribute def Energy {
+    value joule : Real;
+  }
+
+  attribute def Power {
+    value watt : Real;
+  }
+
+  attribute def FlowRate {
+    value kilogramPerSecond : Real;
+  }
+
+  attribute def Percent {
+    value ratio : Real;
+  }
+
+  attribute def Distance {
+    value meter : Real;
+  }
+
+  attribute def DataRate {
+    value bitPerSecond : Real;
+  }
+
+  attribute def Force {
+    value newton : Real;
+  }
+
+  item def Oxygen {
+    attribute purity : Percent;
+    attribute pressure : Pressure;
+    attribute flowRate : FlowRate;
+  }
+
+  item def CarbonDioxide {
+    attribute partialPressure : Pressure;
+  }
+
+  item def CoolingWater {
+    attribute temperature : Temperature;
+    attribute flowRate : FlowRate;
+  }
+
+  item def ElectricalPower {
+    attribute voltage : Real;
+    attribute current : Real;
+    attribute availablePower : Power;
+  }
+
+  item def VoiceData {
+    attribute dataRate : DataRate;
+    attribute encrypted : Boolean;
+  }
+
+  item def TelemetryData {
+    attribute suitPressure : Pressure;
+    attribute oxygenRemaining : Percent;
+    attribute batteryRemaining : Percent;
+    attribute carbonDioxideLevel : Pressure;
+    attribute crewHeartRate : Real;
+    attribute suitTemperature : Temperature;
+  }
+
+  item def CommandData {
+    attribute commandId : String;
+    attribute authorized : Boolean;
+  }
+
+  item def MechanicalLoad {
+    attribute loadForce : Force;
+    attribute attachmentVerified : Boolean;
+  }
+
+  item def Tool {
+    attribute toolId : String;
+    attribute mass : Mass;
+    attribute tethered : Boolean;
+    attribute powered : Boolean;
+  }
+
+  item def SampleContainer {
+    attribute sampleMassCapacity : Mass;
+    attribute sealed : Boolean;
+  }
+
+  port def OxygenPort {
+    out item oxygen : Oxygen;
+  }
+
+  port def VentPort {
+    in item carbonDioxide : CarbonDioxide;
+  }
+
+  port def CoolingPort {
+    inout item coolingWater : CoolingWater;
+  }
+
+  port def PowerPort {
+    inout item power : ElectricalPower;
+  }
+
+  port def DataPort {
+    inout item telemetry : TelemetryData;
+    in item command : CommandData;
+  }
+
+  port def VoicePort {
+    inout item voice : VoiceData;
+  }
+
+  port def ToolPort {
+    inout item tool : Tool;
+    out item mechanicalLoad : MechanicalLoad;
+  }
+
+  port def TetherPort {
+    inout item mechanicalLoad : MechanicalLoad;
+  }
+
+  part def ExtravehicularActivitySystem {
+    doc /* Primary function: enable an astronaut to safely perform mission tasks outside a pressurized spacecraft by providing life support, mobility, communication, power, thermal control, navigation, tool handling, monitoring, and emergency return capability. */
+
+    attribute plannedEvaDuration : Duration = 21600 [s];
+    attribute maximumCrewRange : Distance = 120 [m];
+    attribute minimumReserveOxygen : Percent = 0.18;
+    attribute minimumReserveBattery : Percent = 0.20;
+    attribute nominalSuitPressure : Pressure = 29600 [Pa];
+
+    port missionControlData : DataPort;
+    port missionControlVoice : VoicePort;
+
+    part crewMember : EvaCrewMember;
+    part suit : PressureSuit;
+    part lifeSupport : PortableLifeSupportSystem;
+    part communication : CommunicationSubsystem;
+    part navigation : NavigationSubsystem;
+    part toolCarrier : ToolCarrier;
+    part safetyTether : SafetyTether;
+    part airlockInterface : AirlockInterface;
+    part taskWorksite : ExternalWorksite;
+    part emergencyReturn : EmergencyReturnSubsystem;
+
+    connect lifeSupport.oxygenSupply to suit.oxygenInlet;
+    connect suit.exhalationOutlet to lifeSupport.co2Inlet;
+    connect lifeSupport.coolingLoop to suit.coolingGarmentLoop;
+    connect lifeSupport.powerBus to suit.suitPower;
+    connect lifeSupport.telemetryBus to communication.telemetryInterface;
+    connect communication.externalData to missionControlData;
+    connect communication.voiceInterface to missionControlVoice;
+    connect navigation.navData to communication.telemetryInterface;
+    connect toolCarrier.toolInterface to suit.toolInterface;
+    connect safetyTether.vehicleAnchor to airlockInterface.tetherAnchor;
+    connect safetyTether.crewAnchor to suit.tetherAnchor;
+    connect emergencyReturn.commandInterface to communication.telemetryInterface;
+    connect emergencyReturn.propulsiveLoadPath to suit.tetherAnchor;
+    connect crewMember.suitInterface to suit.crewInterface;
+    connect toolCarrier.worksiteToolPort to taskWorksite.toolPort;
+
+    perform action conductEva : ConductEvaAction {
+      in crew = crewMember;
+      inout evaSuit = suit;
+      inout plss = lifeSupport;
+      inout comm = communication;
+      inout nav = navigation;
+      inout tools = toolCarrier;
+      inout tether = safetyTether;
+      inout worksite = taskWorksite;
+      inout returnSystem = emergencyReturn;
+    }
+
+    exhibit state evaOperationalState : EvaSystemStateMachine;
+  }
+
+  part def EvaCrewMember {
+    attribute crewId : String;
+    attribute metabolicRate : Power = 420 [W];
+    attribute heartRate : Real;
+    attribute coreTemperature : Temperature = 310.15 [K];
+
+    port suitInterface : DataPort;
+  }
+
+  part def PressureSuit {
+    attribute internalPressure : Pressure = 29600 [Pa];
+    attribute leakRate : FlowRate = 0.00002 [kg/s];
+    attribute mobilityTorqueMargin : Percent = 0.35;
+    attribute visorTransmittance : Percent = 0.72;
+    attribute micrometeoroidProtectionRating : Real = 0.995;
+
+    port oxygenInlet : OxygenPort;
+    port exhalationOutlet : VentPort;
+    port coolingGarmentLoop : CoolingPort;
+    port suitPower : PowerPort;
+    port crewInterface : DataPort;
+    port toolInterface : ToolPort;
+    port tetherAnchor : TetherPort;
+
+    part helmet : HelmetAssembly;
+    part torso : HardUpperTorso;
+    part gloves : GloveSet;
+    part boots : BootSet;
+    part liquidCoolingGarment : LiquidCoolingVentilationGarment;
+    part biomedicalSensors : BiomedicalSensorSet;
+  }
+
+  part def HelmetAssembly {
+    attribute visorTemperature : Temperature = 294.15 [K];
+    attribute sunShieldDeployed : Boolean = false;
+    attribute lightLevel : Real;
+  }
+
+  part def HardUpperTorso {
+    attribute structureMass : Mass = 16.5 [kg];
+    attribute attachmentLocksEngaged : Boolean = true;
+  }
+
+  part def GloveSet {
+    attribute fingertipForceCapability : Force = 45 [N];
+    attribute heaterPower : Power = 12 [W];
+  }
+
+  part def BootSet {
+    attribute restraintCompatible : Boolean = true;
+    attribute soleGripCoefficient : Real = 0.78;
+  }
+
+  part def LiquidCoolingVentilationGarment {
+    attribute waterFlowRate : FlowRate = 0.003 [kg/s];
+    attribute inletTemperature : Temperature = 285.15 [K];
+    attribute outletTemperature : Temperature = 292.15 [K];
+  }
+
+  part def BiomedicalSensorSet {
+    attribute heartRateAccuracy : Percent = 0.98;
+    attribute oxygenSaturation : Percent = 0.97;
+    attribute sensorOperational : Boolean = true;
+  }
+
+  part def PortableLifeSupportSystem {
+    attribute oxygenMass : Mass = 1.2 [kg];
+    attribute oxygenReserveFraction : Percent = 0.30;
+    attribute batteryEnergy : Energy = 2200000 [J];
+    attribute batteryStateOfCharge : Percent = 1.0;
+    attribute carbonDioxidePartialPressure : Pressure = 350 [Pa];
+    attribute waterInventory : Mass = 4.0 [kg];
+    attribute fanPower : Power = 18 [W];
+    attribute pumpPower : Power = 22 [W];
+
+    port oxygenSupply : OxygenPort;
+    port co2Inlet : VentPort;
+    port coolingLoop : CoolingPort;
+    port powerBus : PowerPort;
+    port telemetryBus : DataPort;
+
+    part oxygenTank : OxygenStorageTank;
+    part pressureRegulator : OxygenPressureRegulator;
+    part carbonDioxideRemoval : CarbonDioxideRemovalAssembly;
+    part thermalControl : ThermalControlAssembly;
+    part battery : BatteryAssembly;
+    part controller : LifeSupportController;
+  }
+
+  part def OxygenStorageTank {
+    attribute storagePressure : Pressure = 20600000 [Pa];
+    attribute usableOxygenMass : Mass = 1.2 [kg];
+    attribute tankTemperature : Temperature = 293.15 [K];
+  }
+
+  part def OxygenPressureRegulator {
+    attribute outletPressure : Pressure = 29600 [Pa];
+    attribute regulationTolerance : Percent = 0.03;
+  }
+
+  part def CarbonDioxideRemovalAssembly {
+    attribute removalEfficiency : Percent = 0.96;
+    attribute sorbentCapacity : Mass = 0.42 [kg];
+    attribute bedTemperature : Temperature = 298.15 [K];
+  }
+
+  part def ThermalControlAssembly {
+    attribute heatRejectionCapacity : Power = 520 [W];
+    attribute sublimatorWaterRate : FlowRate = 0.00009 [kg/s];
+    attribute coolantSetpoint : Temperature = 288.15 [K];
+  }
+
+  part def BatteryAssembly {
+    attribute nominalVoltage : Real = 28.0;
+    attribute capacity : Energy = 2200000 [J];
+    attribute maximumContinuousPower : Power = 650 [W];
+  }
+
+  part def LifeSupportController {
+    attribute controlCyclePeriod : Duration = 1 [s];
+    attribute faultDetected : Boolean = false;
+    attribute autonomousModeEnabled : Boolean = true;
+  }
+
+  part def CommunicationSubsystem {
+    attribute primaryLinkAvailable : Boolean = true;
+    attribute backupLinkAvailable : Boolean = true;
+    attribute voiceLatency : Duration = 0.4 [s];
+    attribute telemetryRate : DataRate = 128000 [bit/s];
+
+    port telemetryInterface : DataPort;
+    port voiceInterface : VoicePort;
+    port externalData : DataPort;
+
+    part radio : RadioTransceiver;
+    part antenna : SuitAntenna;
+    part audio : AudioInterface;
+  }
+
+  part def RadioTransceiver {
+    attribute transmitPower : Power = 8 [W];
+    attribute receiveSensitivity : Real = -112.0;
+    attribute encryptionEnabled : Boolean = true;
+  }
+
+  part def SuitAntenna {
+    attribute gain : Real = 4.5;
+    attribute coverageFraction : Percent = 0.92;
+  }
+
+  part def AudioInterface {
+    attribute microphoneOperational : Boolean = true;
+    attribute speakerOperational : Boolean = true;
+    attribute noiseSuppressionEnabled : Boolean = true;
+  }
+
+  part def NavigationSubsystem {
+    attribute relativePositionError : Distance = 0.6 [m];
+    attribute inertialDriftRate : Real = 0.02;
+    attribute hazardProximityWarningDistance : Distance = 2.0 [m];
+
+    port navData : DataPort;
+
+    part inertialUnit : InertialMeasurementUnit;
+    part visualMarkers : VisualNavigationMarkerTracker;
+    part rangeFinder : RangeFinder;
+  }
+
+  part def InertialMeasurementUnit {
+    attribute updateRate : Real = 100.0;
+    attribute operational : Boolean = true;
+  }
+
+  part def VisualNavigationMarkerTracker {
+    attribute markerLock : Boolean = true;
+    attribute fieldOfView : Real = 120.0;
+  }
+
+  part def RangeFinder {
+    attribute maximumRange : Distance = 150 [m];
+    attribute rangeAccuracy : Distance = 0.15 [m];
+  }
+
+  part def ToolCarrier {
+    attribute totalToolMass : Mass = 18 [kg];
+    attribute retainedToolCount : Integer = 8;
+    attribute poweredToolEnergyBudget : Energy = 180000 [J];
+
+    port toolInterface : ToolPort;
+    port worksiteToolPort : ToolPort;
+
+    part tetheredPowerDriver : PoweredTool;
+    part sampleBag : SampleContainerAssembly;
+    part restraintHook : RestraintTool;
+  }
+
+  part def PoweredTool {
+    attribute toolId : String = "EVA-DRV-01";
+    attribute outputTorque : Real = 18.0;
+    attribute batteryEnergy : Energy = 90000 [J];
+    attribute tethered : Boolean = true;
+  }
+
+  part def SampleContainerAssembly {
+    attribute containerCount : Integer = 4;
+    attribute totalSampleCapacity : Mass = 2.5 [kg];
+    attribute contaminationSealIntegrity : Percent = 0.995;
+  }
+
+  part def RestraintTool {
+    attribute ratedLoad : Force = 890 [N];
+    attribute locked : Boolean = false;
+  }
+
+  part def SafetyTether {
+    attribute length : Distance = 26 [m];
+    attribute ratedLoad : Force = 2200 [N];
+    attribute reelLocked : Boolean = true;
+    attribute integrityVerified : Boolean = true;
+
+    port crewAnchor : TetherPort;
+    port vehicleAnchor : TetherPort;
+  }
+
+  part def AirlockInterface {
+    attribute hatchClosed : Boolean = true;
+    attribute depressurized : Boolean = false;
+    attribute prebreatheComplete : Boolean = false;
+    attribute repressurizationAvailable : Boolean = true;
+
+    port tetherAnchor : TetherPort;
+  }
+
+  part def ExternalWorksite {
+    attribute worksiteId : String = "ORBITAL-SERVICE-PANEL-A";
+    attribute taskCompletionFraction : Percent = 0.0;
+    attribute illuminationLevel : Real = 650.0;
+    attribute handrailAvailable : Boolean = true;
+
+    port toolPort : ToolPort;
+  }
+
+  part def EmergencyReturnSubsystem {
+    attribute enabled : Boolean = true;
+    attribute deltaVCapability : Real = 3.0;
+    attribute propellantMass : Mass = 1.4 [kg];
+    attribute activationTime : Duration = 2 [s];
+
+    port commandInterface : DataPort;
+    port propulsiveLoadPath : TetherPort;
+  }
+
+  action def ConductEvaAction {
+    in crew : EvaCrewMember;
+    inout evaSuit : PressureSuit;
+    inout plss : PortableLifeSupportSystem;
+    inout comm : CommunicationSubsystem;
+    inout nav : NavigationSubsystem;
+    inout tools : ToolCarrier;
+    inout tether : SafetyTether;
+    inout worksite : ExternalWorksite;
+    inout returnSystem : EmergencyReturnSubsystem;
+
+    first start;
+    then prepareAirlock;
+    then verifyLifeSupport;
+    then exitAirlock;
+    then translateToWorksite;
+    then performExternalTask;
+    then returnToAirlock;
+    then repressurize;
+    then end;
+
+    action prepareAirlock {
+      out prebreatheComplete : Boolean = true;
+    }
+
+    action verifyLifeSupport {
+      out goForEva : Boolean;
+    }
+
+    action exitAirlock {
+      out hatchClear : Boolean = true;
+    }
+
+    action translateToWorksite {
+      out arrived : Boolean = true;
+    }
+
+    action performExternalTask {
+      out taskCompletionFraction : Percent = 1.0;
+    }
+
+    action returnToAirlock {
+      out crewInside : Boolean = true;
+    }
+
+    action repressurize {
+      out safeToDoffSuit : Boolean = true;
+    }
+  }
+
+  state def EvaSystemStateMachine {
+    entry action initializeTelemetry;
+
+    state Standby;
+    state Prebreathe;
+    state AirlockDepressurization;
+    state Egress;
+    state Translation;
+    state WorksiteOperations;
+    state Contingency;
+    state Ingress;
+    state Repressurization;
+    state Complete;
+
+    transition first Standby;
+    transition Standby_to_Prebreathe
+      first Standby
+      then Prebreathe
+      accept CommandData
+      if command.authorized;
+
+    transition Prebreathe_to_Depressurization
+      first Prebreathe
+      then AirlockDepressurization
+      if prebreatheTimerExpired and suitPressureStable;
+
+    transition Depressurization_to_Egress
+      first AirlockDepressurization
+      then Egress
+      if airlockPressureBelowThreshold and tether.integrityVerified;
+
+    transition Egress_to_Translation
+      first Egress
+      then Translation
+      if crewClearOfHatch;
+
+    transition Translation_to_WorksiteOperations
+      first Translation
+      then WorksiteOperations
+      if worksiteReached and communicationLinkValid;
+
+    transition WorksiteOperations_to_Ingress
+      first WorksiteOperations
+      then Ingress
+      if plannedTasksComplete or consumableReserveReached;
+
+    transition Any_to_Contingency
+      first Standby
+      then Contingency
+      if criticalFaultDetected;
+
+    transition Contingency_to_Ingress
+      first Contingency
+      then Ingress
+      if emergencyReturnPathEstablished;
+
+    transition Ingress_to_Repressurization
+      first Ingress
+      then Repressurization
+      if crewInsideAirlock and hatchClosed;
+
+    transition Repressurization_to_Complete
+      first Repressurization
+      then Complete
+      if airlockPressureNominal and suitDoffAuthorized;
+  }
+
+  requirement def ProvidePrimaryEvaFunction {
+    doc /* The system shall enable one suited crew member to perform external mission tasks outside a pressurized spacecraft while preserving life, maintaining communication, supporting mobility, and enabling return to the airlock. */
+  }
+
+  requirement def MaintainCrewLifeSupport {
+    doc /* The system shall maintain breathable oxygen, carbon dioxide removal, pressure control, and thermal control for at least six hours of external activity. */
+
+    attribute requiredDuration : Duration = 21600 [s];
+    attribute minimumSuitPressure : Pressure = 27000 [Pa];
+    attribute maximumSuitPressure : Pressure = 32000 [Pa];
+    attribute maximumCarbonDioxidePartialPressure : Pressure = 1000 [Pa];
+  }
+
+  requirement def MaintainCommunication {
+    doc /* The system shall provide continuous two-way voice and telemetry communication between the crew member and mission control during nominal EVA operations. */
+
+    attribute minimumTelemetryRate : DataRate = 64000 [bit/s];
+    attribute maximumVoiceLatency : Duration = 1 [s];
+    attribute requiredCoverageFraction : Percent = 0.90;
+  }
+
+  requirement def SupportCrewMobility {
+    doc /* The system shall allow controlled translation from the airlock to the external worksite and back while keeping the crew member physically restrained to the vehicle. */
+
+    attribute maximumRangeFromAirlock : Distance = 120 [m];
+    attribute minimumTetherLoadRating : Force = 2000 [N];
+  }
+
+  requirement def ProvideEmergencyReturn {
+    doc /* The system shall provide an emergency return capability when communication loss, tether failure, excessive drift, or life-support critical fault is detected. */
+
+    attribute maximumActivationTime : Duration = 5 [s];
+    attribute minimumDeltaVCapability : Real = 2.5;
+  }
+
+  requirement def ManageConsumableReserves {
+    doc /* The system shall preserve consumable reserves sufficient for safe return before oxygen, battery, cooling water, or carbon dioxide removal capacity reaches a critical limit. */
+
+    attribute minimumOxygenReserve : Percent = 0.18;
+    attribute minimumBatteryReserve : Percent = 0.20;
+    attribute minimumCoolingWaterReserve : Percent = 0.15;
+  }
+
+  requirement def EnableExternalTaskExecution {
+    doc /* The system shall provide restrained tool access, powered tool support, sample containment, and worksite interface capability for maintenance or exploration tasks. */
+
+    attribute minimumToolRetentionIntegrity : Percent = 0.99;
+    attribute minimumPoweredToolEnergy : Energy = 90000 [J];
+  }
+
+  satisfy ProvidePrimaryEvaFunction by ExtravehicularActivitySystem;
+  satisfy MaintainCrewLifeSupport by PortableLifeSupportSystem;
+  satisfy MaintainCrewLifeSupport by PressureSuit;
+  satisfy MaintainCommunication by CommunicationSubsystem;
+  satisfy SupportCrewMobility by SafetyTether;
+  satisfy SupportCrewMobility by NavigationSubsystem;
+  satisfy ProvideEmergencyReturn by EmergencyReturnSubsystem;
+  satisfy ManageConsumableReserves by PortableLifeSupportSystem;
+  satisfy EnableExternalTaskExecution by ToolCarrier;
+  satisfy EnableExternalTaskExecution by ExternalWorksite;
+
+  concern def CrewSurvival;
+  concern def MissionTaskCompletion;
+  concern def VehicleSafety;
+  concern def EmergencyRecovery;
+
+  view def EvaOperationalView {
+    expose ExtravehicularActivitySystem;
+    expose PressureSuit;
+    expose PortableLifeSupportSystem;
+    expose CommunicationSubsystem;
+    expose NavigationSubsystem;
+    expose SafetyTether;
+    expose EmergencyReturnSubsystem;
+    expose ProvidePrimaryEvaFunction;
+    expose MaintainCrewLifeSupport;
+    expose MaintainCommunication;
+    expose SupportCrewMobility;
+    expose ProvideEmergencyReturn;
+  }
+
+}

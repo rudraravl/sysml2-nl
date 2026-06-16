@@ -1,0 +1,645 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-efemjf40
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019ebaa9-8956-71d3-8ad4-499a29554ee6
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a Transistor and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package TransistorSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Voltage :> Real {
+        unit = V;
+    }
+
+    attribute def Current :> Real {
+        unit = A;
+    }
+
+    attribute def Resistance :> Real {
+        unit = Ohm;
+    }
+
+    attribute def Power :> Real {
+        unit = W;
+    }
+
+    attribute def Gain :> Real;
+
+    attribute def Temperature :> Real {
+        unit = K;
+    }
+
+    item def ElectricalChargeCarrier;
+    item def Electron :> ElectricalChargeCarrier;
+    item def ControlSignal {
+        attribute baseEmitterVoltage : Voltage;
+        attribute baseCurrent : Current;
+    }
+
+    port def ElectricalPin {
+        inout item carrier : ElectricalChargeCarrier;
+        attribute voltage : Voltage;
+        attribute current : Current;
+    }
+
+    port def SignalInputPort {
+        in item signal : ControlSignal;
+        attribute inputVoltage : Voltage;
+        attribute inputCurrent : Current;
+    }
+
+    port def SignalOutputPort {
+        out item switchedCurrent : ElectricalChargeCarrier;
+        attribute outputVoltage : Voltage;
+        attribute outputCurrent : Current;
+    }
+
+    part def NPNTransistor {
+        port collector : ElectricalPin;
+        port base : SignalInputPort;
+        port emitter : ElectricalPin;
+
+        attribute collectorEmitterVoltage : Voltage;
+        attribute baseEmitterVoltage : Voltage;
+        attribute collectorCurrent : Current;
+        attribute baseCurrent : Current;
+        attribute currentGainBeta : Gain;
+        attribute junctionTemperature : Temperature;
+        attribute dissipatedPower : Power;
+
+        attribute saturationVoltage : Voltage = 0.2 [V];
+        attribute turnOnBaseEmitterVoltage : Voltage = 0.7 [V];
+        attribute maximumCollectorCurrent : Current = 0.6 [A];
+        attribute maximumDissipatedPower : Power = 0.5 [W];
+
+        action conduct {
+            in control : ControlSignal;
+            out controlledCollectorCurrent : Current;
+
+            first start;
+            then evaluateJunction;
+
+            action evaluateJunction {
+                if control.baseEmitterVoltage >= turnOnBaseEmitterVoltage then enableCollectorPath;
+                else blockCollectorPath;
+            }
+
+            action enableCollectorPath {
+                controlledCollectorCurrent = control.baseCurrent * currentGainBeta;
+            }
+
+            action blockCollectorPath {
+                controlledCollectorCurrent = 0.0 [A];
+            }
+
+            then limitCurrent;
+            action limitCurrent {
+                if controlledCollectorCurrent > maximumCollectorCurrent then
+                    controlledCollectorCurrent = maximumCollectorCurrent;
+            }
+
+            then done;
+        }
+
+        state def OperatingState {
+            entry action sampleElectricalConditions;
+
+            state Off;
+            state Active;
+            state Saturated;
+            state OverLimit;
+
+            transition first Off;
+
+            transition Off_to_Active
+                first Off
+                accept when baseEmitterVoltage >= turnOnBaseEmitterVoltage
+                then Active;
+
+            transition Active_to_Off
+                first Active
+                accept when baseEmitterVoltage < turnOnBaseEmitterVoltage
+                then Off;
+
+            transition Active_to_Saturated
+                first Active
+                accept when collectorEmitterVoltage <= saturationVoltage
+                then Saturated;
+
+            transition Saturated_to_Active
+                first Saturated
+                accept when collectorEmitterVoltage > saturationVoltage
+                then Active;
+
+            transition Any_to_OverLimit
+                first Off, Active, Saturated
+                accept when collectorCurrent > maximumCollectorCurrent or dissipatedPower > maximumDissipatedPower
+                then OverLimit;
+
+            transition OverLimit_to_Off
+                first OverLimit
+                accept when baseEmitterVoltage < turnOnBaseEmitterVoltage and dissipatedPower <= maximumDissipatedPower
+                then Off;
+        }
+    }
+
+    part def BiasNetwork {
+        port supply : ElectricalPin;
+        port baseDrive : SignalInputPort;
+        port ground : ElectricalPin;
+
+        attribute biasResistance : Resistance = 10000.0 [Ohm];
+        attribute biasVoltage : Voltage = 5.0 [V];
+        attribute baseDriveCurrent : Current;
+    }
+
+    part def Load {
+        port highSide : ElectricalPin;
+        port lowSide : ElectricalPin;
+
+        attribute loadResistance : Resistance = 100.0 [Ohm];
+        attribute loadCurrent : Current;
+        attribute loadVoltage : Voltage;
+        attribute consumedPower : Power;
+    }
+
+    part def DirectCurrentSupply {
+        port positive : ElectricalPin;
+        port reference : ElectricalPin;
+
+        attribute nominalVoltage : Voltage = 5.0 [V];
+        attribute maximumCurrent : Current = 1.0 [A];
+    }
+
+    part def TransistorBasedSwitch {
+        part supply : DirectCurrentSupply;
+        part transistor : NPNTransistor {
+            attribute currentGainBeta = 100.0;
+        }
+        part baseBias : BiasNetwork;
+        part collectorLoad : Load;
+
+        port commandInput : SignalInputPort;
+        port switchedOutput : SignalOutputPort;
+        port ground : ElectricalPin;
+
+        attribute inputLogicHighThreshold : Voltage = 2.0 [V];
+        attribute inputLogicLowThreshold : Voltage = 0.8 [V];
+        attribute outputOnVoltage : Voltage;
+        attribute outputOffLeakageCurrent : Current;
+        attribute switchingPowerLoss : Power;
+
+        connect supply.positive to collectorLoad.highSide;
+        connect collectorLoad.lowSide to transistor.collector;
+        connect transistor.emitter to supply.reference;
+        connect supply.reference to ground;
+        connect commandInput to baseBias.baseDrive;
+        connect baseBias.baseDrive to transistor.base;
+        connect transistor.collector to switchedOutput;
+
+        action switchLoad {
+            in command : ControlSignal;
+            out loadEnergized : Boolean;
+
+            first receiveCommand;
+
+            action receiveCommand {
+                baseBias.baseDrive.signal = command;
+            }
+
+            then driveBase;
+
+            action driveBase {
+                transistor.base.inputVoltage = command.baseEmitterVoltage;
+                transistor.base.inputCurrent = command.baseCurrent;
+            }
+
+            then controlCollectorPath;
+
+            action controlCollectorPath {
+                perform transistor.conduct(command)
+                    return controlledCollectorCurrent = collectorLoad.loadCurrent;
+            }
+
+            then determineOutput;
+
+            action determineOutput {
+                if collectorLoad.loadCurrent > 0.0 [A] then
+                    loadEnergized = true;
+                else
+                    loadEnergized = false;
+            }
+
+            then done;
+        }
+
+        state def SwitchState {
+            state OpenCircuit;
+            state AmplifyingControlSignal;
+            state ClosedCircuit;
+            state FaultLimited;
+
+            transition first OpenCircuit;
+
+            transition Open_to_Amplifying
+                first OpenCircuit
+                accept when transistor.baseEmitterVoltage >= transistor.turnOnBaseEmitterVoltage
+                then AmplifyingControlSignal;
+
+            transition Amplifying_to_Closed
+                first AmplifyingControlSignal
+                accept when transistor.collectorEmitterVoltage <= transistor.saturationVoltage
+                then ClosedCircuit;
+
+            transition Closed_to_Open
+                first ClosedCircuit
+                accept when transistor.baseEmitterVoltage < transistor.turnOnBaseEmitterVoltage
+                then OpenCircuit;
+
+            transition Any_to_FaultLimited
+                first OpenCircuit, AmplifyingControlSignal, ClosedCircuit
+                accept when transistor.collectorCurrent > transistor.maximumCollectorCurrent
+                then FaultLimited;
+
+            transition FaultLimited_to_Open
+                first FaultLimited
+                accept when transistor.baseEmitterVoltage < transistor.turnOnBaseEmitterVoltage
+                then OpenCircuit;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject switchSystem : TransistorBasedSwitch;
+
+        doc /* The transistor-based system shall use a small base input signal to control a larger collector-emitter current, thereby providing high-level electronic switching and current amplification between an input command and an output load path. */
+
+        require constraint {
+            switchSystem.commandInput.inputVoltage >= switchSystem.inputLogicHighThreshold implies
+            switchSystem.collectorLoad.loadCurrent > 0.0 [A]
+        }
+
+        require constraint {
+            switchSystem.commandInput.inputVoltage <= switchSystem.inputLogicLowThreshold implies
+            switchSystem.collectorLoad.loadCurrent == 0.0 [A]
+        }
+    }
+
+    requirement def ElectricalLimitRequirement {
+        subject transistor : NPNTransistor;
+
+        doc /* The transistor shall remain within its collector current and power dissipation ratings during normal operation. */
+
+        require constraint {
+            transistor.collectorCurrent <= transistor.maximumCollectorCurrent
+        }
+
+        require constraint {
+            transistor.dissipatedPower <= transistor.maximumDissipatedPower
+        }
+    }
+
+    requirement def IsolationOfControlAndLoadRequirement {
+        subject switchSystem : TransistorBasedSwitch;
+
+        doc /* The base input network shall control the load current without placing the load current through the command input interface. */
+
+        require constraint {
+            switchSystem.commandInput.inputCurrent < switchSystem.collectorLoad.loadCurrent
+        }
+    }
+
+    part transistorSwitchSystem : TransistorBasedSwitch;
+
+    satisfy PrimaryFunctionRequirement by transistorSwitchSystem;
+    satisfy ElectricalLimitRequirement by transistorSwitchSystem.transistor;
+    satisfy IsolationOfControlAndLoadRequirement by transistorSwitchSystem;
+}
+tokens used
+3,386
+package TransistorSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Voltage :> Real {
+        unit = V;
+    }
+
+    attribute def Current :> Real {
+        unit = A;
+    }
+
+    attribute def Resistance :> Real {
+        unit = Ohm;
+    }
+
+    attribute def Power :> Real {
+        unit = W;
+    }
+
+    attribute def Gain :> Real;
+
+    attribute def Temperature :> Real {
+        unit = K;
+    }
+
+    item def ElectricalChargeCarrier;
+    item def Electron :> ElectricalChargeCarrier;
+    item def ControlSignal {
+        attribute baseEmitterVoltage : Voltage;
+        attribute baseCurrent : Current;
+    }
+
+    port def ElectricalPin {
+        inout item carrier : ElectricalChargeCarrier;
+        attribute voltage : Voltage;
+        attribute current : Current;
+    }
+
+    port def SignalInputPort {
+        in item signal : ControlSignal;
+        attribute inputVoltage : Voltage;
+        attribute inputCurrent : Current;
+    }
+
+    port def SignalOutputPort {
+        out item switchedCurrent : ElectricalChargeCarrier;
+        attribute outputVoltage : Voltage;
+        attribute outputCurrent : Current;
+    }
+
+    part def NPNTransistor {
+        port collector : ElectricalPin;
+        port base : SignalInputPort;
+        port emitter : ElectricalPin;
+
+        attribute collectorEmitterVoltage : Voltage;
+        attribute baseEmitterVoltage : Voltage;
+        attribute collectorCurrent : Current;
+        attribute baseCurrent : Current;
+        attribute currentGainBeta : Gain;
+        attribute junctionTemperature : Temperature;
+        attribute dissipatedPower : Power;
+
+        attribute saturationVoltage : Voltage = 0.2 [V];
+        attribute turnOnBaseEmitterVoltage : Voltage = 0.7 [V];
+        attribute maximumCollectorCurrent : Current = 0.6 [A];
+        attribute maximumDissipatedPower : Power = 0.5 [W];
+
+        action conduct {
+            in control : ControlSignal;
+            out controlledCollectorCurrent : Current;
+
+            first start;
+            then evaluateJunction;
+
+            action evaluateJunction {
+                if control.baseEmitterVoltage >= turnOnBaseEmitterVoltage then enableCollectorPath;
+                else blockCollectorPath;
+            }
+
+            action enableCollectorPath {
+                controlledCollectorCurrent = control.baseCurrent * currentGainBeta;
+            }
+
+            action blockCollectorPath {
+                controlledCollectorCurrent = 0.0 [A];
+            }
+
+            then limitCurrent;
+            action limitCurrent {
+                if controlledCollectorCurrent > maximumCollectorCurrent then
+                    controlledCollectorCurrent = maximumCollectorCurrent;
+            }
+
+            then done;
+        }
+
+        state def OperatingState {
+            entry action sampleElectricalConditions;
+
+            state Off;
+            state Active;
+            state Saturated;
+            state OverLimit;
+
+            transition first Off;
+
+            transition Off_to_Active
+                first Off
+                accept when baseEmitterVoltage >= turnOnBaseEmitterVoltage
+                then Active;
+
+            transition Active_to_Off
+                first Active
+                accept when baseEmitterVoltage < turnOnBaseEmitterVoltage
+                then Off;
+
+            transition Active_to_Saturated
+                first Active
+                accept when collectorEmitterVoltage <= saturationVoltage
+                then Saturated;
+
+            transition Saturated_to_Active
+                first Saturated
+                accept when collectorEmitterVoltage > saturationVoltage
+                then Active;
+
+            transition Any_to_OverLimit
+                first Off, Active, Saturated
+                accept when collectorCurrent > maximumCollectorCurrent or dissipatedPower > maximumDissipatedPower
+                then OverLimit;
+
+            transition OverLimit_to_Off
+                first OverLimit
+                accept when baseEmitterVoltage < turnOnBaseEmitterVoltage and dissipatedPower <= maximumDissipatedPower
+                then Off;
+        }
+    }
+
+    part def BiasNetwork {
+        port supply : ElectricalPin;
+        port baseDrive : SignalInputPort;
+        port ground : ElectricalPin;
+
+        attribute biasResistance : Resistance = 10000.0 [Ohm];
+        attribute biasVoltage : Voltage = 5.0 [V];
+        attribute baseDriveCurrent : Current;
+    }
+
+    part def Load {
+        port highSide : ElectricalPin;
+        port lowSide : ElectricalPin;
+
+        attribute loadResistance : Resistance = 100.0 [Ohm];
+        attribute loadCurrent : Current;
+        attribute loadVoltage : Voltage;
+        attribute consumedPower : Power;
+    }
+
+    part def DirectCurrentSupply {
+        port positive : ElectricalPin;
+        port reference : ElectricalPin;
+
+        attribute nominalVoltage : Voltage = 5.0 [V];
+        attribute maximumCurrent : Current = 1.0 [A];
+    }
+
+    part def TransistorBasedSwitch {
+        part supply : DirectCurrentSupply;
+        part transistor : NPNTransistor {
+            attribute currentGainBeta = 100.0;
+        }
+        part baseBias : BiasNetwork;
+        part collectorLoad : Load;
+
+        port commandInput : SignalInputPort;
+        port switchedOutput : SignalOutputPort;
+        port ground : ElectricalPin;
+
+        attribute inputLogicHighThreshold : Voltage = 2.0 [V];
+        attribute inputLogicLowThreshold : Voltage = 0.8 [V];
+        attribute outputOnVoltage : Voltage;
+        attribute outputOffLeakageCurrent : Current;
+        attribute switchingPowerLoss : Power;
+
+        connect supply.positive to collectorLoad.highSide;
+        connect collectorLoad.lowSide to transistor.collector;
+        connect transistor.emitter to supply.reference;
+        connect supply.reference to ground;
+        connect commandInput to baseBias.baseDrive;
+        connect baseBias.baseDrive to transistor.base;
+        connect transistor.collector to switchedOutput;
+
+        action switchLoad {
+            in command : ControlSignal;
+            out loadEnergized : Boolean;
+
+            first receiveCommand;
+
+            action receiveCommand {
+                baseBias.baseDrive.signal = command;
+            }
+
+            then driveBase;
+
+            action driveBase {
+                transistor.base.inputVoltage = command.baseEmitterVoltage;
+                transistor.base.inputCurrent = command.baseCurrent;
+            }
+
+            then controlCollectorPath;
+
+            action controlCollectorPath {
+                perform transistor.conduct(command)
+                    return controlledCollectorCurrent = collectorLoad.loadCurrent;
+            }
+
+            then determineOutput;
+
+            action determineOutput {
+                if collectorLoad.loadCurrent > 0.0 [A] then
+                    loadEnergized = true;
+                else
+                    loadEnergized = false;
+            }
+
+            then done;
+        }
+
+        state def SwitchState {
+            state OpenCircuit;
+            state AmplifyingControlSignal;
+            state ClosedCircuit;
+            state FaultLimited;
+
+            transition first OpenCircuit;
+
+            transition Open_to_Amplifying
+                first OpenCircuit
+                accept when transistor.baseEmitterVoltage >= transistor.turnOnBaseEmitterVoltage
+                then AmplifyingControlSignal;
+
+            transition Amplifying_to_Closed
+                first AmplifyingControlSignal
+                accept when transistor.collectorEmitterVoltage <= transistor.saturationVoltage
+                then ClosedCircuit;
+
+            transition Closed_to_Open
+                first ClosedCircuit
+                accept when transistor.baseEmitterVoltage < transistor.turnOnBaseEmitterVoltage
+                then OpenCircuit;
+
+            transition Any_to_FaultLimited
+                first OpenCircuit, AmplifyingControlSignal, ClosedCircuit
+                accept when transistor.collectorCurrent > transistor.maximumCollectorCurrent
+                then FaultLimited;
+
+            transition FaultLimited_to_Open
+                first FaultLimited
+                accept when transistor.baseEmitterVoltage < transistor.turnOnBaseEmitterVoltage
+                then OpenCircuit;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject switchSystem : TransistorBasedSwitch;
+
+        doc /* The transistor-based system shall use a small base input signal to control a larger collector-emitter current, thereby providing high-level electronic switching and current amplification between an input command and an output load path. */
+
+        require constraint {
+            switchSystem.commandInput.inputVoltage >= switchSystem.inputLogicHighThreshold implies
+            switchSystem.collectorLoad.loadCurrent > 0.0 [A]
+        }
+
+        require constraint {
+            switchSystem.commandInput.inputVoltage <= switchSystem.inputLogicLowThreshold implies
+            switchSystem.collectorLoad.loadCurrent == 0.0 [A]
+        }
+    }
+
+    requirement def ElectricalLimitRequirement {
+        subject transistor : NPNTransistor;
+
+        doc /* The transistor shall remain within its collector current and power dissipation ratings during normal operation. */
+
+        require constraint {
+            transistor.collectorCurrent <= transistor.maximumCollectorCurrent
+        }
+
+        require constraint {
+            transistor.dissipatedPower <= transistor.maximumDissipatedPower
+        }
+    }
+
+    requirement def IsolationOfControlAndLoadRequirement {
+        subject switchSystem : TransistorBasedSwitch;
+
+        doc /* The base input network shall control the load current without placing the load current through the command input interface. */
+
+        require constraint {
+            switchSystem.commandInput.inputCurrent < switchSystem.collectorLoad.loadCurrent
+        }
+    }
+
+    part transistorSwitchSystem : TransistorBasedSwitch;
+
+    satisfy PrimaryFunctionRequirement by transistorSwitchSystem;
+    satisfy ElectricalLimitRequirement by transistorSwitchSystem.transistor;
+    satisfy IsolationOfControlAndLoadRequirement by transistorSwitchSystem;
+}

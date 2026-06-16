@@ -1,0 +1,350 @@
+package SolderBasedJoiningSystemModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def TemperatureCelsius :> Real {
+    unit = "degC";
+  }
+
+  attribute def TimeSecond :> Real {
+    unit = "s";
+  }
+
+  attribute def LengthMillimeter :> Real {
+    unit = "mm";
+  }
+
+  attribute def MassGram :> Real {
+    unit = "g";
+  }
+
+  attribute def PowerWatt :> Real {
+    unit = "W";
+  }
+
+  attribute def ElectricalResistanceMilliohm :> Real {
+    unit = "mOhm";
+  }
+
+  attribute def ForceNewton :> Real {
+    unit = "N";
+  }
+
+  item def ThermalEnergy {
+    attribute heatPower : PowerWatt;
+    attribute deliveryTime : TimeSecond;
+  }
+
+  item def MoltenSolder {
+    attribute alloyName : String;
+    attribute temperature : TemperatureCelsius;
+    attribute viscosityIndex : Real;
+    attribute mass : MassGram;
+  }
+
+  item def SolidifiedSolderJoint {
+    attribute jointThickness : LengthMillimeter;
+    attribute electricalResistance : ElectricalResistanceMilliohm;
+    attribute shearStrength : ForceNewton;
+    attribute voidFraction : Real;
+  }
+
+  item def FluxResidue {
+    attribute mass : MassGram;
+    attribute ionicContaminationIndex : Real;
+  }
+
+  item def WorkpieceSurface {
+    attribute surfaceTemperature : TemperatureCelsius;
+    attribute oxideLevel : Real;
+    attribute wettableArea : LengthMillimeter;
+  }
+
+  port def ThermalInputPort {
+    in item suppliedHeat : ThermalEnergy;
+  }
+
+  port def SolderDeliveryPort {
+    out item solderFlow : MoltenSolder;
+  }
+
+  port def FluxPort {
+    out item residue : FluxResidue;
+  }
+
+  port def JointOutputPort {
+    out item completedJoint : SolidifiedSolderJoint;
+  }
+
+  port def WorkpieceInterfacePort {
+    inout item surface : WorkpieceSurface;
+  }
+
+  part def SolderAlloy {
+    attribute alloyName : String = "SAC305 tin-silver-copper";
+    attribute tinPercent : Real = 96.5;
+    attribute silverPercent : Real = 3.0;
+    attribute copperPercent : Real = 0.5;
+    attribute solidusTemperature : TemperatureCelsius = 217.0;
+    attribute liquidusTemperature : TemperatureCelsius = 220.0;
+    attribute recommendedPeakTemperature : TemperatureCelsius = 245.0;
+    attribute suppliedMass : MassGram = 0.45;
+
+    port delivery : SolderDeliveryPort;
+  }
+
+  part def FluxCore {
+    attribute fluxType : String = "no-clean rosin mildly activated";
+    attribute activationTemperature : TemperatureCelsius = 150.0;
+    attribute oxideRemovalCapability : Real = 0.82;
+    attribute residueMassLimit : MassGram = 0.015;
+
+    port fluxResidueOut : FluxPort;
+  }
+
+  part def HeatingTool {
+    attribute nominalPower : PowerWatt = 65.0;
+    attribute standbyTemperature : TemperatureCelsius = 180.0;
+    attribute setpointTemperature : TemperatureCelsius = 350.0;
+    attribute tipTemperatureTolerance : TemperatureCelsius = 5.0;
+    attribute maximumContactTime : TimeSecond = 6.0;
+
+    port heatOut : ThermalInputPort;
+
+    action heatContact {
+      in targetTemperature : TemperatureCelsius;
+      in contactTime : TimeSecond;
+      out deliveredEnergy : ThermalEnergy;
+    }
+  }
+
+  part def WorkpiecePair {
+    attribute conductorMaterial : String = "copper";
+    attribute platingMaterial : String = "tin";
+    attribute padWidth : LengthMillimeter = 1.20;
+    attribute leadWidth : LengthMillimeter = 0.50;
+    attribute initialOxideLevel : Real = 0.40;
+    attribute maximumSafeTemperature : TemperatureCelsius = 260.0;
+
+    port interface : WorkpieceInterfacePort;
+  }
+
+  part def JointInspectionSensor {
+    attribute minimumAcceptableShearStrength : ForceNewton = 18.0;
+    attribute maximumAcceptableResistance : ElectricalResistanceMilliohm = 25.0;
+    attribute maximumAcceptableVoidFraction : Real = 0.08;
+
+    action inspectJoint {
+      in joint : SolidifiedSolderJoint;
+      out accepted : Boolean;
+    }
+  }
+
+  action def RemoveOxides {
+    in flux : FluxCore;
+    in surfaceBefore : WorkpieceSurface;
+    out surfaceAfter : WorkpieceSurface;
+  }
+
+  action def MeltSolder {
+    in solder : SolderAlloy;
+    in heat : ThermalEnergy;
+    out molten : MoltenSolder;
+  }
+
+  action def WetWorkpiece {
+    in molten : MoltenSolder;
+    in surface : WorkpieceSurface;
+    out wettedSurface : WorkpieceSurface;
+  }
+
+  action def SolidifyJoint {
+    in molten : MoltenSolder;
+    in wettedSurface : WorkpieceSurface;
+    out joint : SolidifiedSolderJoint;
+  }
+
+  action def CreateConductiveMechanicalJoint {
+    in solder : SolderAlloy;
+    in flux : FluxCore;
+    in heat : ThermalEnergy;
+    in workpiece : WorkpieceSurface;
+    out joint : SolidifiedSolderJoint;
+
+    first start;
+    then cleanSurface : RemoveOxides {
+      in flux = solderingSystem.flux;
+      in surfaceBefore = workpiece;
+    }
+    then melt : MeltSolder {
+      in solder = solder;
+      in heat = heat;
+    }
+    then wet : WetWorkpiece {
+      in molten = melt.molten;
+      in surface = cleanSurface.surfaceAfter;
+    }
+    then freeze : SolidifyJoint {
+      in molten = wet.molten;
+      in wettedSurface = wet.wettedSurface;
+    }
+    then done;
+  }
+
+  state def SolderingProcessStateMachine {
+    state idle;
+    state preheating;
+    state fluxActivated;
+    state solderMolten;
+    state wetting;
+    state cooling;
+    state inspected;
+    state reworkRequired;
+    state complete;
+
+    transition initial then idle;
+    transition idle then preheating
+      accept startSoldering;
+
+    transition preheating then fluxActivated
+      if workpieceSurfaceTemperature >= 150.0;
+
+    transition fluxActivated then solderMolten
+      if solderTemperature >= 220.0;
+
+    transition solderMolten then wetting
+      if oxideLevel <= 0.10;
+
+    transition wetting then cooling
+      if wettableAreaCovered >= 0.95;
+
+    transition cooling then inspected
+      if jointTemperature <= 80.0;
+
+    transition inspected then complete
+      if jointAccepted == true;
+
+    transition inspected then reworkRequired
+      if jointAccepted == false;
+
+    transition reworkRequired then preheating
+      accept rework;
+  }
+
+  part def SolderBasedJoiningSystem {
+    doc
+      /* Primary function: use solder alloy, flux, and controlled heat to form a low-resistance mechanical and electrical bond between metallic workpieces. */
+
+    part solder : SolderAlloy;
+    part flux : FluxCore;
+    part heater : HeatingTool;
+    part workpieces : WorkpiecePair;
+    part inspection : JointInspectionSensor;
+
+    port heatInput : ThermalInputPort;
+    port solderOutput : SolderDeliveryPort;
+    port fluxResidueOutput : FluxPort;
+    port workpieceInterface : WorkpieceInterfacePort;
+    port jointOutput : JointOutputPort;
+
+    attribute targetJointThickness : LengthMillimeter = 0.18;
+    attribute maximumProcessTime : TimeSecond = 30.0;
+    attribute peakProcessTemperature : TemperatureCelsius = 245.0;
+    attribute completedJointResistance : ElectricalResistanceMilliohm;
+    attribute completedJointStrength : ForceNewton;
+
+    connect heater.heatOut to heatInput;
+    connect solder.delivery to solderOutput;
+    connect flux.fluxResidueOut to fluxResidueOutput;
+    connect workpieces.interface to workpieceInterface;
+
+    perform action createJoint : CreateConductiveMechanicalJoint;
+
+    exhibit state processStates : SolderingProcessStateMachine;
+  }
+
+  constraint def PeakTemperatureLimit {
+    in peak : TemperatureCelsius;
+    in maximumSafe : TemperatureCelsius;
+    constraint peak <= maximumSafe;
+  }
+
+  constraint def AcceptableJointResistance {
+    in resistance : ElectricalResistanceMilliohm;
+    constraint resistance <= 25.0;
+  }
+
+  constraint def AcceptableJointStrength {
+    in strength : ForceNewton;
+    constraint strength >= 18.0;
+  }
+
+  constraint def AcceptableJointGeometry {
+    in thickness : LengthMillimeter;
+    constraint thickness >= 0.10 and thickness <= 0.30;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject system : SolderBasedJoiningSystem;
+
+    doc
+      /* The system shall form a permanent solder joint that mechanically secures and electrically connects metallic workpieces by melting solder, wetting the surfaces, and solidifying into a conductive bond. */
+  }
+
+  requirement def ThermalControlRequirement {
+    subject system : SolderBasedJoiningSystem;
+
+    require constraint {
+      system.peakProcessTemperature <= system.workpieces.maximumSafeTemperature
+    }
+  }
+
+  requirement def JointElectricalRequirement {
+    subject joint : SolidifiedSolderJoint;
+
+    require constraint {
+      joint.electricalResistance <= 25.0
+    }
+  }
+
+  requirement def JointMechanicalRequirement {
+    subject joint : SolidifiedSolderJoint;
+
+    require constraint {
+      joint.shearStrength >= 18.0
+    }
+  }
+
+  requirement def JointGeometryRequirement {
+    subject joint : SolidifiedSolderJoint;
+
+    require constraint {
+      joint.jointThickness >= 0.10 and joint.jointThickness <= 0.30
+    }
+  }
+
+  requirement def ResidueRequirement {
+    subject flux : FluxCore;
+
+    require constraint {
+      flux.residueMassLimit <= 0.015
+    }
+  }
+
+  requirement def ProcessTimeRequirement {
+    subject system : SolderBasedJoiningSystem;
+
+    require constraint {
+      system.maximumProcessTime <= 30.0
+    }
+  }
+
+  part solderingSystem : SolderBasedJoiningSystem;
+
+  satisfy PrimaryFunctionRequirement by solderingSystem;
+  satisfy ThermalControlRequirement by solderingSystem;
+  satisfy ProcessTimeRequirement by solderingSystem;
+  satisfy ResidueRequirement by solderingSystem.flux;
+
+}

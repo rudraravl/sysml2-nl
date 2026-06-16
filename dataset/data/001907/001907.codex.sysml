@@ -1,0 +1,813 @@
+package AvionicsSystemModel {
+
+    import ScalarValues::*;
+    import Quantities::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Voltage :> Real {
+        unit = V;
+    }
+
+    attribute def Current :> Real {
+        unit = A;
+    }
+
+    attribute def Power :> Real {
+        unit = W;
+    }
+
+    attribute def Frequency :> Real {
+        unit = Hz;
+    }
+
+    attribute def Altitude :> Real {
+        unit = m;
+    }
+
+    attribute def Airspeed :> Real {
+        unit = m / s;
+    }
+
+    attribute def Distance :> Real {
+        unit = m;
+    }
+
+    attribute def Angle :> Real {
+        unit = rad;
+    }
+
+    attribute def AngularRate :> Real {
+        unit = rad / s;
+    }
+
+    attribute def Temperature :> Real {
+        unit = K;
+    }
+
+    attribute def TimeDuration :> Real {
+        unit = s;
+    }
+
+    attribute def IntegrityLevel :> Integer;
+
+    enum def FlightPhase {
+        enum preflight;
+        enum taxi;
+        enum takeoff;
+        enum climb;
+        enum cruise;
+        enum descent;
+        enum approach;
+        enum landing;
+        enum postflight;
+    }
+
+    enum def AvionicsMode {
+        enum off;
+        enum initialization;
+        enum standby;
+        enum normal;
+        enum degraded;
+        enum emergency;
+        enum maintenance;
+    }
+
+    enum def AlertSeverity {
+        enum advisory;
+        enum caution;
+        enum warning;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Voltage;
+        attribute current : Current;
+        attribute power : Power;
+        attribute frequency : Frequency;
+    }
+
+    item def AircraftState {
+        attribute pressureAltitude : Altitude;
+        attribute radioAltitude : Altitude;
+        attribute indicatedAirspeed : Airspeed;
+        attribute trueAirspeed : Airspeed;
+        attribute verticalSpeed : Airspeed;
+        attribute heading : Angle;
+        attribute rollAngle : Angle;
+        attribute pitchAngle : Angle;
+        attribute yawRate : AngularRate;
+        attribute latitude : Angle;
+        attribute longitude : Angle;
+        attribute groundSpeed : Airspeed;
+        attribute flightPhase : FlightPhase;
+    }
+
+    item def NavigationSolution {
+        attribute latitude : Angle;
+        attribute longitude : Angle;
+        attribute altitude : Altitude;
+        attribute groundSpeed : Airspeed;
+        attribute trackAngle : Angle;
+        attribute estimatedPositionError : Distance;
+        attribute integrity : IntegrityLevel;
+        attribute valid : Boolean;
+    }
+
+    item def FlightPlanLeg {
+        attribute legIdentifier : String;
+        attribute targetLatitude : Angle;
+        attribute targetLongitude : Angle;
+        attribute targetAltitude : Altitude;
+        attribute targetSpeed : Airspeed;
+        attribute requiredNavigationPerformance : Distance;
+    }
+
+    item def GuidanceCommand {
+        attribute commandedHeading : Angle;
+        attribute commandedAltitude : Altitude;
+        attribute commandedAirspeed : Airspeed;
+        attribute lateralDeviation : Distance;
+        attribute verticalDeviation : Distance;
+        attribute valid : Boolean;
+    }
+
+    item def DisplaySymbology {
+        attribute primaryFlightDataValid : Boolean;
+        attribute navigationDataValid : Boolean;
+        attribute alertDataValid : Boolean;
+        attribute selectedFlightPhase : FlightPhase;
+    }
+
+    item def CrewCommand {
+        attribute selectedHeading : Angle;
+        attribute selectedAltitude : Altitude;
+        attribute selectedAirspeed : Airspeed;
+        attribute autopilotEngageRequest : Boolean;
+        attribute flightDirectorEnableRequest : Boolean;
+        attribute acknowledgeAlertRequest : Boolean;
+    }
+
+    item def RadioSignal {
+        attribute carrierFrequency : Frequency;
+        attribute signalPower : Power;
+        attribute modulationValid : Boolean;
+    }
+
+    item def SurveillanceTrack {
+        attribute intruderRange : Distance;
+        attribute intruderBearing : Angle;
+        attribute intruderAltitude : Altitude;
+        attribute closureRate : Airspeed;
+        attribute threat : Boolean;
+    }
+
+    item def HealthStatus {
+        attribute operational : Boolean;
+        attribute degraded : Boolean;
+        attribute faultCode : String;
+        attribute timeSinceLastValidData : TimeDuration;
+        attribute internalTemperature : Temperature;
+    }
+
+    item def AlertMessage {
+        attribute severity : AlertSeverity;
+        attribute messageText : String;
+        attribute active : Boolean;
+        attribute acknowledged : Boolean;
+    }
+
+    port def PowerInputPort {
+        in item powerIn : ElectricalPower;
+    }
+
+    port def PowerOutputPort {
+        out item powerOut : ElectricalPower;
+    }
+
+    port def SensorDataOutPort {
+        out item aircraftStateOut : AircraftState;
+    }
+
+    port def SensorDataInPort {
+        in item aircraftStateIn : AircraftState;
+    }
+
+    port def NavigationOutPort {
+        out item navigationOut : NavigationSolution;
+    }
+
+    port def NavigationInPort {
+        in item navigationIn : NavigationSolution;
+    }
+
+    port def FlightPlanOutPort {
+        out item activeLegOut : FlightPlanLeg;
+    }
+
+    port def FlightPlanInPort {
+        in item activeLegIn : FlightPlanLeg;
+    }
+
+    port def GuidanceOutPort {
+        out item guidanceOut : GuidanceCommand;
+    }
+
+    port def GuidanceInPort {
+        in item guidanceIn : GuidanceCommand;
+    }
+
+    port def CrewCommandInPort {
+        in item crewCommandIn : CrewCommand;
+    }
+
+    port def CrewCommandOutPort {
+        out item crewCommandOut : CrewCommand;
+    }
+
+    port def DisplayOutPort {
+        out item displayOut : DisplaySymbology;
+    }
+
+    port def DisplayInPort {
+        in item displayIn : DisplaySymbology;
+    }
+
+    port def RadioInPort {
+        in item radioIn : RadioSignal;
+    }
+
+    port def RadioOutPort {
+        out item radioOut : RadioSignal;
+    }
+
+    port def SurveillanceOutPort {
+        out item surveillanceOut : SurveillanceTrack;
+    }
+
+    port def SurveillanceInPort {
+        in item surveillanceIn : SurveillanceTrack;
+    }
+
+    port def HealthOutPort {
+        out item healthOut : HealthStatus;
+    }
+
+    port def HealthInPort {
+        in item healthIn : HealthStatus;
+    }
+
+    port def AlertOutPort {
+        out item alertOut : AlertMessage;
+    }
+
+    port def AlertInPort {
+        in item alertIn : AlertMessage;
+    }
+
+    part def PowerDistributionUnit {
+        attribute nominalInputVoltage : Voltage = 28.0 [V];
+        attribute maximumContinuousPower : Power = 2500.0 [W];
+
+        port mainPower : PowerInputPort;
+        port protectedPower : PowerOutputPort;
+        port health : HealthOutPort;
+
+        perform action distributeProtectedPower {
+            in item sourcePower : ElectricalPower;
+            out item avionicsPower : ElectricalPower;
+            out item status : HealthStatus;
+        }
+    }
+
+    part def AirDataInertialReferenceUnit {
+        attribute updateRate : Frequency = 100.0 [Hz];
+        attribute maximumAlignmentTime : TimeDuration = 300.0 [s];
+
+        port power : PowerInputPort;
+        port sensedState : SensorDataOutPort;
+        port health : HealthOutPort;
+
+        perform action computeAircraftState {
+            out item state : AircraftState;
+            out item status : HealthStatus;
+        }
+
+        state def ADIRUOperatingState {
+            entry; then off;
+
+            state off;
+            state aligning;
+            state valid;
+            state degraded;
+            state failed;
+
+            transition off_to_aligning first off then aligning
+                accept CrewCommand
+                if powerAvailable;
+
+            transition aligning_to_valid first aligning then valid
+                if alignmentComplete;
+
+            transition valid_to_degraded first valid then degraded
+                if sensorDisagreementDetected;
+
+            transition degraded_to_valid first degraded then valid
+                if sensorAgreementRestored;
+
+            transition valid_to_failed first valid then failed
+                if criticalSensorFailure;
+
+            transition degraded_to_failed first degraded then failed
+                if insufficientSensorData;
+
+            transition failed_to_aligning first failed then aligning
+                accept CrewCommand
+                if resetRequested;
+        }
+    }
+
+    part def GlobalNavigationReceiver {
+        attribute updateRate : Frequency = 10.0 [Hz];
+        attribute alertLimit : Distance = 185.2 [m];
+
+        port power : PowerInputPort;
+        port radioSignal : RadioInPort;
+        port aircraftState : SensorDataInPort;
+        port navigation : NavigationOutPort;
+        port health : HealthOutPort;
+
+        perform action computeNavigationSolution {
+            in item inertialState : AircraftState;
+            in item satelliteSignal : RadioSignal;
+            out item solution : NavigationSolution;
+            out item status : HealthStatus;
+        }
+    }
+
+    part def FlightManagementComputer {
+        attribute routeCapacity : Integer = 128;
+        attribute requiredUpdatePeriod : TimeDuration = 1.0 [s];
+
+        port power : PowerInputPort;
+        port navigation : NavigationInPort;
+        port crewCommand : CrewCommandInPort;
+        port activeLeg : FlightPlanOutPort;
+        port guidance : GuidanceOutPort;
+        port health : HealthOutPort;
+
+        perform action sequenceFlightPlan {
+            in item presentPosition : NavigationSolution;
+            in item crewSelection : CrewCommand;
+            out item activeFlightPlanLeg : FlightPlanLeg;
+        }
+
+        perform action computeGuidance {
+            in item presentPosition : NavigationSolution;
+            in item activeFlightPlanLeg : FlightPlanLeg;
+            in item crewSelection : CrewCommand;
+            out item command : GuidanceCommand;
+        }
+
+        state def FMSOperatingState {
+            entry; then notInitialized;
+
+            state notInitialized;
+            state databaseLoading;
+            state ready;
+            state navigating;
+            state degradedNavigation;
+            state failed;
+
+            transition notInitialized_to_databaseLoading first notInitialized then databaseLoading
+                if powerAvailable;
+
+            transition databaseLoading_to_ready first databaseLoading then ready
+                if navigationDatabaseValid;
+
+            transition ready_to_navigating first ready then navigating
+                accept CrewCommand
+                if activeFlightPlanLoaded;
+
+            transition navigating_to_degradedNavigation first navigating then degradedNavigation
+                if navigationIntegrityLow;
+
+            transition degradedNavigation_to_navigating first degradedNavigation then navigating
+                if navigationIntegrityAcceptable;
+
+            transition navigating_to_failed first navigating then failed
+                if computationFaultDetected;
+
+            transition degradedNavigation_to_failed first degradedNavigation then failed
+                if computationFaultDetected;
+        }
+    }
+
+    part def AutopilotFlightDirectorComputer {
+        attribute controlUpdateRate : Frequency = 50.0 [Hz];
+        attribute maximumGuidanceLatency : TimeDuration = 0.2 [s];
+
+        port power : PowerInputPort;
+        port aircraftState : SensorDataInPort;
+        port guidance : GuidanceInPort;
+        port crewCommand : CrewCommandInPort;
+        port health : HealthOutPort;
+
+        perform action computeFlightDirectorCommands {
+            in item currentState : AircraftState;
+            in item guidanceCommand : GuidanceCommand;
+            in item crewSelection : CrewCommand;
+            out item status : HealthStatus;
+        }
+
+        state def AFDSOperatingState {
+            entry; then disengaged;
+
+            state disengaged;
+            state flightDirectorOnly;
+            state autopilotEngaged;
+            state degraded;
+            state emergencyDisconnect;
+
+            transition disengaged_to_flightDirectorOnly first disengaged then flightDirectorOnly
+                accept CrewCommand
+                if flightDirectorEnableRequested;
+
+            transition flightDirectorOnly_to_autopilotEngaged first flightDirectorOnly then autopilotEngaged
+                accept CrewCommand
+                if autopilotEngageRequested and guidanceValid;
+
+            transition autopilotEngaged_to_flightDirectorOnly first autopilotEngaged then flightDirectorOnly
+                accept CrewCommand
+                if autopilotDisconnectRequested;
+
+            transition autopilotEngaged_to_degraded first autopilotEngaged then degraded
+                if sensorOrGuidanceDegraded;
+
+            transition degraded_to_flightDirectorOnly first degraded then flightDirectorOnly
+                if crewAcceptsManualControl;
+
+            transition autopilotEngaged_to_emergencyDisconnect first autopilotEngaged then emergencyDisconnect
+                if invalidAttitudeOrOverspeedDetected;
+        }
+    }
+
+    part def CommunicationRadioSystem {
+        attribute vhfLowerFrequency : Frequency = 118000000.0 [Hz];
+        attribute vhfUpperFrequency : Frequency = 136975000.0 [Hz];
+
+        port power : PowerInputPort;
+        port receivedSignal : RadioInPort;
+        port transmittedSignal : RadioOutPort;
+        port health : HealthOutPort;
+
+        perform action manageVoiceAndDataCommunication {
+            in item inboundSignal : RadioSignal;
+            out item outboundSignal : RadioSignal;
+            out item status : HealthStatus;
+        }
+    }
+
+    part def SurveillanceSystem {
+        attribute interrogationFrequency : Frequency = 1030000000.0 [Hz];
+        attribute replyFrequency : Frequency = 1090000000.0 [Hz];
+        attribute alertLookaheadTime : TimeDuration = 40.0 [s];
+
+        port power : PowerInputPort;
+        port radioSignal : RadioInPort;
+        port aircraftState : SensorDataInPort;
+        port track : SurveillanceOutPort;
+        port alert : AlertOutPort;
+        port health : HealthOutPort;
+
+        perform action assessTrafficThreat {
+            in item currentState : AircraftState;
+            in item surveillanceSignal : RadioSignal;
+            out item track : SurveillanceTrack;
+            out item alert : AlertMessage;
+        }
+    }
+
+    part def CrewInterfaceSystem {
+        attribute displayRefreshRate : Frequency = 60.0 [Hz];
+        attribute maximumAlertAcknowledgeLatency : TimeDuration = 1.0 [s];
+
+        port power : PowerInputPort;
+        port displayData : DisplayInPort;
+        port alert : AlertInPort;
+        port crewCommand : CrewCommandOutPort;
+        port health : HealthOutPort;
+
+        perform action presentFlightInformation {
+            in item symbology : DisplaySymbology;
+            in item activeAlert : AlertMessage;
+            out item crewSelection : CrewCommand;
+            out item status : HealthStatus;
+        }
+    }
+
+    part def PrimaryFlightDisplayComputer {
+        attribute refreshRate : Frequency = 60.0 [Hz];
+        attribute maximumDataAge : TimeDuration = 0.5 [s];
+
+        port power : PowerInputPort;
+        port aircraftState : SensorDataInPort;
+        port navigation : NavigationInPort;
+        port guidance : GuidanceInPort;
+        port alert : AlertInPort;
+        port display : DisplayOutPort;
+        port health : HealthOutPort;
+
+        perform action composePrimaryFlightDisplay {
+            in item state : AircraftState;
+            in item nav : NavigationSolution;
+            in item command : GuidanceCommand;
+            in item alertMessage : AlertMessage;
+            out item symbology : DisplaySymbology;
+            out item status : HealthStatus;
+        }
+    }
+
+    part def IntegratedModularAvionicsCabinet {
+        attribute processorRedundancyCount : Integer = 2;
+        attribute networkBackboneRate : Frequency = 100000000.0 [Hz];
+
+        port power : PowerInputPort;
+        port distributedPower : PowerOutputPort;
+        port health : HealthOutPort;
+
+        part powerDistribution : PowerDistributionUnit;
+        part adiru : AirDataInertialReferenceUnit;
+        part navigationReceiver : GlobalNavigationReceiver;
+        part flightManagementComputer : FlightManagementComputer;
+        part autopilotComputer : AutopilotFlightDirectorComputer;
+        part communicationRadio : CommunicationRadioSystem;
+        part surveillanceSystem : SurveillanceSystem;
+        part displayComputer : PrimaryFlightDisplayComputer;
+        part crewInterface : CrewInterfaceSystem;
+
+        connect power to powerDistribution.mainPower;
+        connect powerDistribution.protectedPower to distributedPower;
+
+        connect distributedPower to adiru.power;
+        connect distributedPower to navigationReceiver.power;
+        connect distributedPower to flightManagementComputer.power;
+        connect distributedPower to autopilotComputer.power;
+        connect distributedPower to communicationRadio.power;
+        connect distributedPower to surveillanceSystem.power;
+        connect distributedPower to displayComputer.power;
+        connect distributedPower to crewInterface.power;
+
+        connect adiru.sensedState to navigationReceiver.aircraftState;
+        connect adiru.sensedState to autopilotComputer.aircraftState;
+        connect adiru.sensedState to surveillanceSystem.aircraftState;
+        connect adiru.sensedState to displayComputer.aircraftState;
+
+        connect navigationReceiver.navigation to flightManagementComputer.navigation;
+        connect navigationReceiver.navigation to displayComputer.navigation;
+
+        connect flightManagementComputer.guidance to autopilotComputer.guidance;
+        connect flightManagementComputer.guidance to displayComputer.guidance;
+
+        connect crewInterface.crewCommand to flightManagementComputer.crewCommand;
+        connect crewInterface.crewCommand to autopilotComputer.crewCommand;
+
+        connect surveillanceSystem.alert to displayComputer.alert;
+        connect surveillanceSystem.alert to crewInterface.alert;
+
+        connect displayComputer.display to crewInterface.displayData;
+
+        connect powerDistribution.health to health;
+        connect adiru.health to health;
+        connect navigationReceiver.health to health;
+        connect flightManagementComputer.health to health;
+        connect autopilotComputer.health to health;
+        connect communicationRadio.health to health;
+        connect surveillanceSystem.health to health;
+        connect displayComputer.health to health;
+        connect crewInterface.health to health;
+    }
+
+    part def AvionicsSystem {
+        doc /* The avionics system acquires aircraft sensor data, computes navigation and flight guidance, supports communication and surveillance, presents integrated flight information to the crew, and manages alerts so the aircraft can be operated safely through all flight phases. */
+
+        attribute systemMode : AvionicsMode;
+        attribute nominalBusVoltage : Voltage = 28.0 [V];
+        attribute maximumAvionicsPower : Power = 2500.0 [W];
+        attribute maximumCriticalDataLatency : TimeDuration = 0.5 [s];
+
+        port aircraftPower : PowerInputPort;
+        port antennaRadioInput : RadioInPort;
+        port radioTransmitOutput : RadioOutPort;
+        port crewDisplayOutput : DisplayOutPort;
+        port crewControlInput : CrewCommandInPort;
+        port systemHealthOutput : HealthOutPort;
+        port systemAlertOutput : AlertOutPort;
+
+        part cabinet : IntegratedModularAvionicsCabinet;
+
+        connect aircraftPower to cabinet.power;
+        connect antennaRadioInput to cabinet.navigationReceiver.radioSignal;
+        connect antennaRadioInput to cabinet.communicationRadio.receivedSignal;
+        connect antennaRadioInput to cabinet.surveillanceSystem.radioSignal;
+        connect cabinet.communicationRadio.transmittedSignal to radioTransmitOutput;
+        connect cabinet.displayComputer.display to crewDisplayOutput;
+        connect crewControlInput to cabinet.flightManagementComputer.crewCommand;
+        connect crewControlInput to cabinet.autopilotComputer.crewCommand;
+        connect cabinet.health to systemHealthOutput;
+        connect cabinet.surveillanceSystem.alert to systemAlertOutput;
+
+        perform action operateAvionics {
+            in item aircraftPowerInput : ElectricalPower;
+            in item externalRadioSignal : RadioSignal;
+            in item pilotSelection : CrewCommand;
+            out item flightDisplay : DisplaySymbology;
+            out item transmittedRadioSignal : RadioSignal;
+            out item health : HealthStatus;
+            out item alert : AlertMessage;
+
+            first startPowerDistribution;
+            then acquireAircraftState;
+            then computeNavigation;
+            then calculateFlightGuidance;
+            then assessSurveillance;
+            then composeCrewDisplay;
+            then transmitCommunication;
+            then monitorHealth;
+
+            action startPowerDistribution {
+                in item aircraftPowerInput : ElectricalPower;
+                out item avionicsPower : ElectricalPower;
+            }
+
+            action acquireAircraftState {
+                in item avionicsPower : ElectricalPower;
+                out item measuredState : AircraftState;
+            }
+
+            action computeNavigation {
+                in item measuredState : AircraftState;
+                in item externalRadioSignal : RadioSignal;
+                out item navigationSolution : NavigationSolution;
+            }
+
+            action calculateFlightGuidance {
+                in item navigationSolution : NavigationSolution;
+                in item pilotSelection : CrewCommand;
+                out item guidanceCommand : GuidanceCommand;
+            }
+
+            action assessSurveillance {
+                in item measuredState : AircraftState;
+                in item externalRadioSignal : RadioSignal;
+                out item trafficAlert : AlertMessage;
+            }
+
+            action composeCrewDisplay {
+                in item measuredState : AircraftState;
+                in item navigationSolution : NavigationSolution;
+                in item guidanceCommand : GuidanceCommand;
+                in item trafficAlert : AlertMessage;
+                out item flightDisplay : DisplaySymbology;
+            }
+
+            action transmitCommunication {
+                in item externalRadioSignal : RadioSignal;
+                out item transmittedRadioSignal : RadioSignal;
+            }
+
+            action monitorHealth {
+                in item avionicsPower : ElectricalPower;
+                out item health : HealthStatus;
+            }
+        }
+
+        state def AvionicsSystemState {
+            entry; then poweredOff;
+
+            state poweredOff;
+            state initializing;
+            state standby;
+            state normalOperation;
+            state degradedOperation;
+            state emergencyOperation;
+            state maintenanceMode;
+            state shutdown;
+
+            transition poweredOff_to_initializing first poweredOff then initializing
+                if aircraftPowerAvailable;
+
+            transition initializing_to_standby first initializing then standby
+                if builtInTestPassed and sensorAlignmentComplete;
+
+            transition standby_to_normalOperation first standby then normalOperation
+                accept CrewCommand
+                if flightCrewSelectsOperationalMode;
+
+            transition normalOperation_to_degradedOperation first normalOperation then degradedOperation
+                if nonCriticalFunctionLost or dataIntegrityReduced;
+
+            transition degradedOperation_to_normalOperation first degradedOperation then normalOperation
+                if redundancyRestored and dataIntegrityNominal;
+
+            transition normalOperation_to_emergencyOperation first normalOperation then emergencyOperation
+                if criticalAlertActive;
+
+            transition degradedOperation_to_emergencyOperation first degradedOperation then emergencyOperation
+                if criticalAlertActive;
+
+            transition emergencyOperation_to_degradedOperation first emergencyOperation then degradedOperation
+                if criticalAlertCleared and degradedFunctionRemains;
+
+            transition standby_to_maintenanceMode first standby then maintenanceMode
+                accept CrewCommand
+                if maintenanceAccessAuthorized;
+
+            transition maintenanceMode_to_standby first maintenanceMode then standby
+                accept CrewCommand
+                if maintenanceSessionClosed;
+
+            transition standby_to_shutdown first standby then shutdown
+                if aircraftPowerRemoved;
+
+            transition normalOperation_to_shutdown first normalOperation then shutdown
+                if aircraftPowerRemoved;
+
+            transition degradedOperation_to_shutdown first degradedOperation then shutdown
+                if aircraftPowerRemoved;
+
+            transition emergencyOperation_to_shutdown first emergencyOperation then shutdown
+                if aircraftPowerRemoved;
+        }
+    }
+
+    requirement def PrimaryAvionicsFunctionRequirement {
+        doc /* The avionics system shall provide integrated aircraft sensing, navigation, guidance, communication, surveillance, display, alerting, and health monitoring functions to support safe flight operation. */
+        subject avionics : AvionicsSystem;
+
+        require constraint {
+            avionics.maximumCriticalDataLatency <= 0.5 [s]
+        }
+    }
+
+    requirement def NavigationIntegrityRequirement {
+        doc /* The avionics system shall provide a valid navigation solution with bounded position error during normal flight operation. */
+        subject nav : GlobalNavigationReceiver;
+
+        require constraint {
+            nav.alertLimit <= 185.2 [m]
+        }
+    }
+
+    requirement def FlightDisplayUpdateRequirement {
+        doc /* The avionics system shall refresh primary flight display symbology frequently enough for crew monitoring and manual control. */
+        subject display : PrimaryFlightDisplayComputer;
+
+        require constraint {
+            display.refreshRate >= 30.0 [Hz]
+        }
+    }
+
+    requirement def PowerContinuityRequirement {
+        doc /* The avionics system shall distribute protected electrical power to critical avionics functions while aircraft power is available. */
+        subject pdu : PowerDistributionUnit;
+
+        require constraint {
+            pdu.nominalInputVoltage == 28.0 [V] and pdu.maximumContinuousPower >= 2000.0 [W]
+        }
+    }
+
+    requirement def SurveillanceAlertRequirement {
+        doc /* The avionics system shall detect traffic threats and issue crew alerts with sufficient lookahead time for avoidance action. */
+        subject surveillance : SurveillanceSystem;
+
+        require constraint {
+            surveillance.alertLookaheadTime >= 30.0 [s]
+        }
+    }
+
+    requirement def CrewInterfaceRequirement {
+        doc /* The avionics system shall present flight, navigation, guidance, and alert information to the flight crew and accept crew selections. */
+        subject interface : CrewInterfaceSystem;
+
+        require constraint {
+            interface.displayRefreshRate >= 30.0 [Hz] and interface.maximumAlertAcknowledgeLatency <= 1.0 [s]
+        }
+    }
+
+    requirement def AutopilotGuidanceLatencyRequirement {
+        doc /* The avionics system shall provide timely flight director and autopilot guidance based on current aircraft state and active flight plan guidance. */
+        subject afds : AutopilotFlightDirectorComputer;
+
+        require constraint {
+            afds.maximumGuidanceLatency <= 0.2 [s]
+        }
+    }
+
+    satisfy PrimaryAvionicsFunctionRequirement by AvionicsSystem;
+    satisfy NavigationIntegrityRequirement by GlobalNavigationReceiver;
+    satisfy FlightDisplayUpdateRequirement by PrimaryFlightDisplayComputer;
+    satisfy PowerContinuityRequirement by PowerDistributionUnit;
+    satisfy SurveillanceAlertRequirement by SurveillanceSystem;
+    satisfy CrewInterfaceRequirement by CrewInterfaceSystem;
+    satisfy AutopilotGuidanceLatencyRequirement by AutopilotFlightDirectorComputer;
+}

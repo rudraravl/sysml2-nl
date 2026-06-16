@@ -1,0 +1,501 @@
+package SteamEngineSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Pressure :> Real {
+        unit = "Pa";
+    }
+
+    attribute def Temperature :> Real {
+        unit = "K";
+    }
+
+    attribute def MassFlowRate :> Real {
+        unit = "kg/s";
+    }
+
+    attribute def VolumeFlowRate :> Real {
+        unit = "m^3/s";
+    }
+
+    attribute def RotationalSpeed :> Real {
+        unit = "rev/min";
+    }
+
+    attribute def Torque :> Real {
+        unit = "N*m";
+    }
+
+    attribute def Power :> Real {
+        unit = "W";
+    }
+
+    attribute def Force :> Real {
+        unit = "N";
+    }
+
+    attribute def Displacement :> Real {
+        unit = "m";
+    }
+
+    item def Water {
+        attribute temperature : Temperature;
+        attribute pressure : Pressure;
+    }
+
+    item def Steam {
+        attribute temperature : Temperature;
+        attribute pressure : Pressure;
+        attribute massFlowRate : MassFlowRate;
+        attribute drynessFraction : Real;
+    }
+
+    item def Fuel {
+        attribute lowerHeatingValue : Real;
+        attribute massFlowRate : MassFlowRate;
+    }
+
+    item def ExhaustGas {
+        attribute temperature : Temperature;
+        attribute massFlowRate : MassFlowRate;
+    }
+
+    item def MechanicalRotation {
+        attribute speed : RotationalSpeed;
+        attribute torque : Torque;
+        attribute shaftPower : Power;
+    }
+
+    item def ReciprocatingMotion {
+        attribute pistonForce : Force;
+        attribute strokePosition : Displacement;
+    }
+
+    port def FluidInPort {
+        in item fluid;
+    }
+
+    port def FluidOutPort {
+        out item fluid;
+    }
+
+    port def FuelInPort {
+        in item fuel : Fuel;
+    }
+
+    port def SteamInPort {
+        in item steam : Steam;
+    }
+
+    port def SteamOutPort {
+        out item steam : Steam;
+    }
+
+    port def WaterInPort {
+        in item water : Water;
+    }
+
+    port def ExhaustOutPort {
+        out item exhaust : ExhaustGas;
+    }
+
+    port def MotionOutPort {
+        out item rotation : MechanicalRotation;
+    }
+
+    port def MotionInPort {
+        in item rotation : MechanicalRotation;
+    }
+
+    port def ReciprocatingPort {
+        inout item motion : ReciprocatingMotion;
+    }
+
+    part def Firebox {
+        port fuelIn : FuelInPort;
+        port exhaustOut : ExhaustOutPort;
+
+        attribute combustionTemperature : Temperature = 1300 [K];
+        attribute thermalOutput : Power;
+
+        action burnFuel {
+            in item suppliedFuel : Fuel;
+            out item exhaust : ExhaustGas;
+            out attribute heatRelease : Power;
+        }
+    }
+
+    part def Boiler {
+        port waterIn : WaterInPort;
+        port steamOut : SteamOutPort;
+        port exhaustOut : ExhaustOutPort;
+
+        attribute nominalPressure : Pressure = 900000 [Pa];
+        attribute maximumSafePressure : Pressure = 1200000 [Pa];
+        attribute steamTemperature : Temperature = 453 [K];
+        attribute waterInventory : Real;
+        attribute heatTransferRate : Power;
+
+        action evaporateWater {
+            in item feedwater : Water;
+            out item generatedSteam : Steam;
+        }
+
+        state machine BoilerOperatingState {
+            state Cold;
+            state Heating;
+            state SteamRaising;
+            state AtPressure;
+            state OverPressure;
+            state Shutdown;
+
+            initial then Cold;
+
+            transition Cold_to_Heating
+                first Cold
+                then Heating
+                accept StartCommand;
+
+            transition Heating_to_SteamRaising
+                first Heating
+                then SteamRaising
+                if steamTemperature >= 373 [K];
+
+            transition SteamRaising_to_AtPressure
+                first SteamRaising
+                then AtPressure
+                if nominalPressure <= maximumSafePressure;
+
+            transition AtPressure_to_OverPressure
+                first AtPressure
+                then OverPressure
+                if nominalPressure > maximumSafePressure;
+
+            transition OverPressure_to_Shutdown
+                first OverPressure
+                then Shutdown
+                accept SafetyTrip;
+
+            transition AtPressure_to_Shutdown
+                first AtPressure
+                then Shutdown
+                accept StopCommand;
+        }
+    }
+
+    part def ThrottleValve {
+        port steamIn : SteamInPort;
+        port steamOut : SteamOutPort;
+
+        attribute openingFraction : Real = 0.75;
+        attribute commandedOpening : Real;
+
+        action regulateSteamFlow {
+            in item supplySteam : Steam;
+            out item admittedSteam : Steam;
+        }
+    }
+
+    part def DoubleActingCylinder {
+        port steamIn : SteamInPort;
+        port exhaustOut : SteamOutPort;
+        port reciprocatingMotion : ReciprocatingPort;
+
+        attribute bore : Displacement = 0.30 [m];
+        attribute stroke : Displacement = 0.60 [m];
+        attribute indicatedPower : Power;
+        attribute meanEffectivePressure : Pressure;
+
+        action expandSteam {
+            in item admittedSteam : Steam;
+            out item exhaustSteam : Steam;
+            out item pistonMotion : ReciprocatingMotion;
+        }
+
+        state machine CylinderCycle {
+            state Admission;
+            state Expansion;
+            state Exhaust;
+            state Compression;
+
+            initial then Admission;
+
+            transition Admission_to_Expansion
+                first Admission
+                then Expansion
+                if reciprocatingMotion.motion.strokePosition >= 0.15 [m];
+
+            transition Expansion_to_Exhaust
+                first Expansion
+                then Exhaust
+                if reciprocatingMotion.motion.strokePosition >= stroke;
+
+            transition Exhaust_to_Compression
+                first Exhaust
+                then Compression
+                if reciprocatingMotion.motion.strokePosition <= 0.15 [m];
+
+            transition Compression_to_Admission
+                first Compression
+                then Admission
+                if reciprocatingMotion.motion.strokePosition <= 0.0 [m];
+        }
+    }
+
+    part def ConnectingRod {
+        port pistonEnd : ReciprocatingPort;
+        port crankEnd : ReciprocatingPort;
+
+        attribute rodLength : Displacement = 1.20 [m];
+
+        action transmitForce {
+            in item pistonMotion : ReciprocatingMotion;
+            out item crankMotion : ReciprocatingMotion;
+        }
+    }
+
+    part def Crankshaft {
+        port reciprocatingInput : ReciprocatingPort;
+        port rotationOut : MotionOutPort;
+
+        attribute crankRadius : Displacement = 0.30 [m];
+        attribute rotationalSpeed : RotationalSpeed = 180 [rev/min];
+        attribute outputTorque : Torque;
+        attribute outputPower : Power;
+
+        action convertReciprocationToRotation {
+            in item pistonMotion : ReciprocatingMotion;
+            out item shaftRotation : MechanicalRotation;
+        }
+    }
+
+    part def Flywheel {
+        port rotationIn : MotionInPort;
+        port rotationOut : MotionOutPort;
+
+        attribute momentOfInertia : Real;
+        attribute storedKineticEnergy : Real;
+        attribute smoothedSpeed : RotationalSpeed;
+
+        action smoothTorquePulses {
+            in item pulsatingRotation : MechanicalRotation;
+            out item steadyRotation : MechanicalRotation;
+        }
+    }
+
+    part def Governor {
+        port sensedRotation : MotionInPort;
+
+        attribute targetSpeed : RotationalSpeed = 180 [rev/min];
+        attribute measuredSpeed : RotationalSpeed;
+        attribute valveCommand : Real;
+
+        action regulateSpeed {
+            in item shaftRotation : MechanicalRotation;
+            out attribute throttleOpening : Real;
+        }
+    }
+
+    part def Condenser {
+        port steamIn : SteamInPort;
+        port waterOut : FluidOutPort;
+
+        attribute condenserPressure : Pressure = 20000 [Pa];
+        attribute condensateTemperature : Temperature = 330 [K];
+
+        action condenseExhaustSteam {
+            in item exhaustSteam : Steam;
+            out item condensate : Water;
+        }
+    }
+
+    part def FeedwaterPump {
+        port waterIn : WaterInPort;
+        port waterOut : FluidOutPort;
+        port driveInput : MotionInPort;
+
+        attribute dischargePressure : Pressure = 950000 [Pa];
+        attribute pumpFlowRate : VolumeFlowRate;
+
+        action pumpCondensateToBoiler {
+            in item condensate : Water;
+            in item pumpDrive : MechanicalRotation;
+            out item feedwater : Water;
+        }
+    }
+
+    part def SteamEngine {
+        port fuelSupply : FuelInPort;
+        port waterSupply : WaterInPort;
+        port powerOutput : MotionOutPort;
+        port exhaustOutlet : ExhaustOutPort;
+
+        attribute ratedPower : Power = 75000 [W];
+        attribute ratedSpeed : RotationalSpeed = 180 [rev/min];
+        attribute nominalSteamPressure : Pressure = 900000 [Pa];
+        attribute thermalEfficiency : Real = 0.12;
+
+        part firebox : Firebox;
+        part boiler : Boiler;
+        part throttle : ThrottleValve;
+        part cylinder : DoubleActingCylinder;
+        part connectingRod : ConnectingRod;
+        part crankshaft : Crankshaft;
+        part flywheel : Flywheel;
+        part governor : Governor;
+        part condenser : Condenser;
+        part feedwaterPump : FeedwaterPump;
+
+        connect fuelSupply to firebox.fuelIn;
+        connect waterSupply to boiler.waterIn;
+        connect firebox.exhaustOut to exhaustOutlet;
+        connect boiler.steamOut to throttle.steamOut;
+        connect throttle.steamOut to cylinder.steamIn;
+        connect cylinder.reciprocatingMotion to connectingRod.pistonEnd;
+        connect connectingRod.crankEnd to crankshaft.reciprocatingInput;
+        connect crankshaft.rotationOut to flywheel.rotationIn;
+        connect flywheel.rotationOut to powerOutput;
+        connect flywheel.rotationOut to governor.sensedRotation;
+        connect cylinder.exhaustOut to condenser.steamIn;
+        connect condenser.waterOut to feedwaterPump.waterIn;
+        connect flywheel.rotationOut to feedwaterPump.driveInput;
+        connect feedwaterPump.waterOut to boiler.waterIn;
+
+        action convertFuelAndWaterToRotaryPower {
+            in item fuel : Fuel;
+            in item water : Water;
+            out item shaftPower : MechanicalRotation;
+
+            first startCombustion : firebox.burnFuel;
+            then raiseSteam : boiler.evaporateWater;
+            then meterSteam : throttle.regulateSteamFlow;
+            then producePistonMotion : cylinder.expandSteam;
+            then transmitPistonForce : connectingRod.transmitForce;
+            then rotateShaft : crankshaft.convertReciprocationToRotation;
+            then smoothOutput : flywheel.smoothTorquePulses;
+        }
+
+        state machine EngineOperatingState {
+            state Stopped;
+            state Starting;
+            state Warming;
+            state Running;
+            state Governing;
+            state LowWaterTrip;
+            state OverPressureTrip;
+            state Stopping;
+
+            initial then Stopped;
+
+            transition Stopped_to_Starting
+                first Stopped
+                then Starting
+                accept StartCommand;
+
+            transition Starting_to_Warming
+                first Starting
+                then Warming
+                if boiler.steamTemperature >= 373 [K];
+
+            transition Warming_to_Running
+                first Warming
+                then Running
+                if boiler.nominalPressure >= nominalSteamPressure;
+
+            transition Running_to_Governing
+                first Running
+                then Governing
+                if governor.measuredSpeed > governor.targetSpeed;
+
+            transition Governing_to_Running
+                first Governing
+                then Running
+                if governor.measuredSpeed <= governor.targetSpeed;
+
+            transition Running_to_LowWaterTrip
+                first Running
+                then LowWaterTrip
+                if boiler.waterInventory < 0.20;
+
+            transition Running_to_OverPressureTrip
+                first Running
+                then OverPressureTrip
+                if boiler.nominalPressure > boiler.maximumSafePressure;
+
+            transition Running_to_Stopping
+                first Running
+                then Stopping
+                accept StopCommand;
+
+            transition Stopping_to_Stopped
+                first Stopping
+                then Stopped
+                if crankshaft.rotationalSpeed <= 0 [rev/min];
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject engine : SteamEngine;
+
+        doc
+        /*
+         The steam engine shall convert thermal energy released by fuel combustion into controlled rotary mechanical power by heating water into pressurized steam, expanding that steam in a cylinder to create reciprocating piston motion, and converting the piston motion through a crankshaft and flywheel into usable shaft rotation.
+        */
+
+        require constraint {
+            engine.powerOutput.rotation.shaftPower >= 1 [W]
+        }
+    }
+
+    requirement def SteamGenerationRequirement {
+        subject engine : SteamEngine;
+
+        require constraint {
+            engine.boiler.nominalPressure >= 800000 [Pa] and
+            engine.boiler.nominalPressure <= engine.boiler.maximumSafePressure
+        }
+    }
+
+    requirement def RatedPowerRequirement {
+        subject engine : SteamEngine;
+
+        require constraint {
+            engine.powerOutput.rotation.shaftPower >= engine.ratedPower
+        }
+    }
+
+    requirement def SpeedControlRequirement {
+        subject engine : SteamEngine;
+
+        require constraint {
+            engine.governor.measuredSpeed >= 160 [rev/min] and
+            engine.governor.measuredSpeed <= 200 [rev/min]
+        }
+    }
+
+    requirement def BoilerSafetyRequirement {
+        subject engine : SteamEngine;
+
+        require constraint {
+            engine.boiler.nominalPressure <= engine.boiler.maximumSafePressure
+        }
+    }
+
+    requirement def CondensateRecoveryRequirement {
+        subject engine : SteamEngine;
+
+        require constraint {
+            engine.feedwaterPump.dischargePressure > engine.boiler.nominalPressure
+        }
+    }
+
+    part steamEngineSystem : SteamEngine;
+
+    satisfy PrimaryFunctionRequirement by steamEngineSystem;
+    satisfy SteamGenerationRequirement by steamEngineSystem;
+    satisfy RatedPowerRequirement by steamEngineSystem;
+    satisfy SpeedControlRequirement by steamEngineSystem;
+    satisfy BoilerSafetyRequirement by steamEngineSystem;
+    satisfy CondensateRecoveryRequirement by steamEngineSystem;
+}

@@ -1,0 +1,531 @@
+package SaverySteamPumpSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Pressure :> Real {
+        unit = "kPa";
+    }
+
+    attribute def Temperature :> Real {
+        unit = "degC";
+    }
+
+    attribute def VolumeFlowRate :> Real {
+        unit = "L/min";
+    }
+
+    attribute def WaterVolume :> Real {
+        unit = "L";
+    }
+
+    attribute def HeatFlowRate :> Real {
+        unit = "kW";
+    }
+
+    attribute def Height :> Real {
+        unit = "m";
+    }
+
+    attribute def TimeDuration :> Real {
+        unit = "s";
+    }
+
+    item def Fuel {
+        attribute heatingValue : HeatFlowRate;
+    }
+
+    item def ThermalEnergy {
+        attribute rate : HeatFlowRate;
+        attribute sourceTemperature : Temperature;
+    }
+
+    item def Steam {
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute flowRate : VolumeFlowRate;
+    }
+
+    item def Condensate {
+        attribute temperature : Temperature;
+        attribute volume : WaterVolume;
+    }
+
+    item def MineWater {
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute flowRate : VolumeFlowRate;
+    }
+
+    item def CoolingWater {
+        attribute temperature : Temperature;
+        attribute flowRate : VolumeFlowRate;
+    }
+
+    item def ExhaustGas {
+        attribute temperature : Temperature;
+        attribute flowRate : VolumeFlowRate;
+    }
+
+    port def FuelInlet {
+        in item fuel : Fuel;
+    }
+
+    port def HeatOutlet {
+        out item heat : ThermalEnergy;
+    }
+
+    port def SteamOutlet {
+        out item steam : Steam;
+    }
+
+    port def SteamInlet {
+        in item steam : Steam;
+    }
+
+    port def WaterInlet {
+        in item water : MineWater;
+    }
+
+    port def WaterOutlet {
+        out item water : MineWater;
+    }
+
+    port def CoolingWaterInlet {
+        in item water : CoolingWater;
+    }
+
+    port def CondensateOutlet {
+        out item condensate : Condensate;
+    }
+
+    port def ExhaustOutlet {
+        out item exhaust : ExhaustGas;
+    }
+
+    port def HeatInlet {
+        in item heat : ThermalEnergy;
+    }
+
+    part def Furnace {
+        port fuelIn : FuelInlet;
+        port heatOut : HeatOutlet;
+        port exhaustOut : ExhaustOutlet;
+
+        attribute nominalThermalOutput : HeatFlowRate = 18.0;
+        attribute fireboxTemperature : Temperature = 850.0;
+
+        action burnFuel {
+            in item fuel : Fuel;
+            out item heat : ThermalEnergy;
+            out item exhaust : ExhaustGas;
+
+            first startCombustion;
+            then transferHeat;
+            then dischargeExhaust;
+
+            action startCombustion;
+            action transferHeat;
+            action dischargeExhaust;
+        }
+    }
+
+    part def Boiler {
+        port heatIn : HeatInlet;
+        port steamOut : SteamOutlet;
+        port condensateMakeupIn : CoolingWaterInlet;
+
+        attribute operatingPressure : Pressure = 220.0;
+        attribute operatingTemperature : Temperature = 134.0;
+        attribute waterInventory : WaterVolume = 95.0;
+        attribute maximumSafePressure : Pressure = 280.0;
+
+        action generateSteam {
+            in item heat : ThermalEnergy;
+            out item steam : Steam;
+
+            first receiveHeat;
+            then boilWater;
+            then regulatePressure;
+            then deliverSteam;
+
+            action receiveHeat;
+            action boilWater;
+            action regulatePressure;
+            action deliverSteam;
+        }
+
+        state def BoilerOperation {
+            state cold;
+            state warming;
+            state steaming;
+            state overPressure;
+            state shutdown;
+
+            entry action initializeWaterLevel;
+
+            transition first cold then warming;
+            transition warming then steaming
+                if operatingTemperature >= 100.0 and operatingPressure >= 110.0;
+            transition steaming then overPressure
+                if operatingPressure > maximumSafePressure;
+            transition overPressure then steaming
+                if operatingPressure <= 240.0;
+            transition steaming then shutdown
+                if waterInventory < 20.0;
+
+            action initializeWaterLevel;
+        }
+
+        exhibit state boilerState : BoilerOperation;
+    }
+
+    part def SteamValve {
+        port steamIn : SteamInlet;
+        port steamOut : SteamOutlet;
+
+        attribute openFraction : Real = 0.0;
+        attribute leakageFlow : VolumeFlowRate = 0.1;
+
+        action openValve {
+            out attribute commandedOpenFraction : Real;
+        }
+
+        action closeValve {
+            out attribute commandedOpenFraction : Real;
+        }
+    }
+
+    part def InjectionValve {
+        port coolingWaterIn : CoolingWaterInlet;
+        port coolingWaterOut : CoolingWaterInlet;
+
+        attribute openFraction : Real = 0.0;
+        attribute nominalInjectionFlow : VolumeFlowRate = 8.0;
+
+        action injectCoolingWater {
+            in item water : CoolingWater;
+            out item deliveredWater : CoolingWater;
+        }
+    }
+
+    part def CheckValve {
+        port upstream : WaterInlet;
+        port downstream : WaterOutlet;
+
+        attribute crackingPressure : Pressure = 5.0;
+        attribute reverseLeakage : VolumeFlowRate = 0.05;
+
+        action permitForwardFlow {
+            in item incomingWater : MineWater;
+            out item outgoingWater : MineWater;
+        }
+
+        action blockReverseFlow;
+    }
+
+    part def ReceiverVessel {
+        port steamIn : SteamInlet;
+        port coolingWaterIn : CoolingWaterInlet;
+        port suctionWaterIn : WaterInlet;
+        port dischargeWaterOut : WaterOutlet;
+        port condensateOut : CondensateOutlet;
+
+        attribute internalPressure : Pressure = 101.0;
+        attribute internalTemperature : Temperature = 35.0;
+        attribute capacity : WaterVolume = 150.0;
+        attribute containedWater : WaterVolume = 35.0;
+        attribute vacuumPressure : Pressure = 35.0;
+        attribute dischargePressure : Pressure = 210.0;
+
+        action admitSteam {
+            in item steam : Steam;
+            out attribute newPressure : Pressure;
+        }
+
+        action condenseSteam {
+            in item coolingWater : CoolingWater;
+            out item condensate : Condensate;
+            out attribute newPressure : Pressure;
+        }
+
+        action drawWaterFromSump {
+            in item sourceWater : MineWater;
+            out attribute filledVolume : WaterVolume;
+        }
+
+        action forceWaterToDischarge {
+            in item steam : Steam;
+            out item deliveredWater : MineWater;
+        }
+
+        state def PumpingCycle {
+            state idle;
+            state steamAdmission;
+            state dischargeStroke;
+            state condensation;
+            state suctionStroke;
+            state ready;
+
+            transition first idle then steamAdmission;
+            transition steamAdmission then dischargeStroke
+                if internalPressure >= dischargePressure;
+            transition dischargeStroke then condensation
+                if containedWater <= 15.0;
+            transition condensation then suctionStroke
+                if internalPressure <= vacuumPressure;
+            transition suctionStroke then ready
+                if containedWater >= 120.0;
+            transition ready then steamAdmission;
+
+            entry action resetCycleTimer;
+            action resetCycleTimer;
+        }
+
+        exhibit state vesselCycle : PumpingCycle;
+    }
+
+    part def SaveryController {
+        attribute cyclePeriod : TimeDuration = 45.0;
+        attribute steamAdmissionTime : TimeDuration = 12.0;
+        attribute condensationTime : TimeDuration = 10.0;
+        attribute suctionTime : TimeDuration = 18.0;
+
+        action operateCycle {
+            out attribute steamValveCommand : Real;
+            out attribute injectionValveCommand : Real;
+
+            first closeInjectionValve;
+            then openSteamValve;
+            then holdForDischarge;
+            then closeSteamValve;
+            then openInjectionValve;
+            then holdForCondensation;
+            then closeInjectionValve;
+            then allowSuctionFill;
+
+            action closeInjectionValve;
+            action openSteamValve;
+            action holdForDischarge;
+            action closeSteamValve;
+            action openInjectionValve;
+            action holdForCondensation;
+            action closeInjectionValve;
+            action allowSuctionFill;
+        }
+
+        state def ControlMode {
+            state stopped;
+            state starting;
+            state automaticCycle;
+            state pressureRelief;
+            state secured;
+
+            transition first stopped then starting;
+            transition starting then automaticCycle;
+            transition automaticCycle then pressureRelief
+                if boilerPressureSignal > 280.0;
+            transition pressureRelief then automaticCycle
+                if boilerPressureSignal < 240.0;
+            transition automaticCycle then secured
+                if stopCommand == true;
+
+            attribute boilerPressureSignal : Pressure;
+            attribute stopCommand : Boolean = false;
+        }
+
+        exhibit state mode : ControlMode;
+    }
+
+    part def MineSump {
+        port waterOut : WaterOutlet;
+
+        attribute waterLevel : Height = 6.0;
+        attribute sourceTemperature : Temperature = 12.0;
+        attribute availableVolume : WaterVolume = 20000.0;
+    }
+
+    part def DischargeTank {
+        port waterIn : WaterInlet;
+
+        attribute elevationAbovePump : Height = 8.0;
+        attribute receivedVolume : WaterVolume = 0.0;
+        attribute deliveryPressure : Pressure = 180.0;
+    }
+
+    part def SaverySteamPump {
+        doc /* Primary high-level function: use steam pressure and rapid steam condensation to create alternating pressure and vacuum in a receiver vessel, lifting water from a low source and forcing it to a higher discharge point. */
+
+        port fuelSupply : FuelInlet;
+        port coolingWaterSupply : CoolingWaterInlet;
+        port mineWaterSource : WaterInlet;
+        port pumpedWaterDischarge : WaterOutlet;
+        port exhaustRelease : ExhaustOutlet;
+
+        part furnace : Furnace;
+        part boiler : Boiler;
+        part steamValve : SteamValve;
+        part injectionValve : InjectionValve;
+        part suctionCheckValve : CheckValve {
+            attribute crackingPressure = 3.0;
+        }
+        part dischargeCheckValve : CheckValve {
+            attribute crackingPressure = 8.0;
+        }
+        part receiver : ReceiverVessel;
+        part controller : SaveryController;
+
+        attribute ratedLiftHeight : Height = 7.5;
+        attribute ratedDischargeHeight : Height = 8.0;
+        attribute ratedPumpingRate : VolumeFlowRate = 55.0;
+        attribute nominalSteamPressure : Pressure = 220.0;
+        attribute maximumOperatingPressure : Pressure = 280.0;
+        attribute cycleTime : TimeDuration = 45.0;
+
+        connect fuelSupply to furnace.fuelIn;
+        connect furnace.heatOut to boiler.heatIn;
+        connect furnace.exhaustOut to exhaustRelease;
+        connect boiler.steamOut to steamValve.steamIn;
+        connect steamValve.steamOut to receiver.steamIn;
+        connect coolingWaterSupply to injectionValve.coolingWaterIn;
+        connect injectionValve.coolingWaterOut to receiver.coolingWaterIn;
+        connect mineWaterSource to suctionCheckValve.upstream;
+        connect suctionCheckValve.downstream to receiver.suctionWaterIn;
+        connect receiver.dischargeWaterOut to dischargeCheckValve.upstream;
+        connect dischargeCheckValve.downstream to pumpedWaterDischarge;
+
+        action pumpWater {
+            in item fuel : Fuel;
+            in item coolingWater : CoolingWater;
+            in item sourceWater : MineWater;
+            out item deliveredWater : MineWater;
+
+            first furnace.burnFuel;
+            then boiler.generateSteam;
+            then controller.operateCycle;
+            then receiver.admitSteam;
+            then receiver.forceWaterToDischarge;
+            then receiver.condenseSteam;
+            then receiver.drawWaterFromSump;
+        }
+
+        state def SystemOperation {
+            state off;
+            state heatingBoiler;
+            state primingReceiver;
+            state cyclicPumping;
+            state lowWaterStop;
+            state overPressureRelief;
+            state shutdown;
+
+            transition first off then heatingBoiler;
+            transition heatingBoiler then primingReceiver
+                if boiler.operatingPressure >= 110.0;
+            transition primingReceiver then cyclicPumping
+                if receiver.containedWater >= 80.0;
+            transition cyclicPumping then overPressureRelief
+                if boiler.operatingPressure > maximumOperatingPressure;
+            transition overPressureRelief then cyclicPumping
+                if boiler.operatingPressure <= nominalSteamPressure;
+            transition cyclicPumping then lowWaterStop
+                if boiler.waterInventory < 20.0;
+            transition lowWaterStop then shutdown;
+            transition cyclicPumping then shutdown
+                if commandedStop == true;
+
+            attribute commandedStop : Boolean = false;
+        }
+
+        exhibit state operatingState : SystemOperation;
+    }
+
+    part def SaveryInstallation {
+        part sump : MineSump;
+        part pump : SaverySteamPump;
+        part tank : DischargeTank;
+
+        port fuelDelivery : FuelInlet;
+        port coolingWaterDelivery : CoolingWaterInlet;
+        port exhaustVent : ExhaustOutlet;
+
+        connect fuelDelivery to pump.fuelSupply;
+        connect coolingWaterDelivery to pump.coolingWaterSupply;
+        connect sump.waterOut to pump.mineWaterSource;
+        connect pump.pumpedWaterDischarge to tank.waterIn;
+        connect pump.exhaustRelease to exhaustVent;
+
+        attribute installationPurpose : String = "Drain accumulated mine water by converting fuel heat into steam-driven pumping work using a Savery-style vacuum and pressure receiver.";
+        attribute installedLiftHeight : Height = 6.5;
+        attribute installedDischargeHeight : Height = 7.8;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The system shall raise water from a low mine sump to an elevated discharge tank using a steam-powered pressure and condensation vacuum cycle based on Thomas Savery's engine. */
+        subject pump : SaverySteamPump;
+        require constraint {
+            pump.ratedPumpingRate >= 40.0 and
+            pump.ratedLiftHeight >= 6.0 and
+            pump.ratedDischargeHeight >= 7.0
+        }
+    }
+
+    requirement def SteamPressureRequirement {
+        doc /* The boiler shall provide steam pressure sufficient to force water from the receiver vessel to the discharge tank while remaining below the safe operating limit. */
+        subject pump : SaverySteamPump;
+        require constraint {
+            pump.nominalSteamPressure >= 180.0 and
+            pump.maximumOperatingPressure <= 280.0
+        }
+    }
+
+    requirement def VacuumSuctionRequirement {
+        doc /* The receiver vessel shall condense admitted steam rapidly enough to form a vacuum that draws mine water through the suction check valve. */
+        subject receiver : ReceiverVessel;
+        require constraint {
+            receiver.vacuumPressure <= 45.0 and
+            receiver.capacity >= 120.0
+        }
+    }
+
+    requirement def CheckValveRequirement {
+        doc /* Suction and discharge check valves shall enforce one-way water movement during alternating suction and pressure strokes. */
+        subject pump : SaverySteamPump;
+        require constraint {
+            pump.suctionCheckValve.reverseLeakage <= 0.1 and
+            pump.dischargeCheckValve.reverseLeakage <= 0.1
+        }
+    }
+
+    requirement def CycleControlRequirement {
+        doc /* The controller shall sequence steam admission, discharge, condensation, and suction filling without simultaneous full steam and cooling-water admission. */
+        subject controller : SaveryController;
+        require constraint {
+            controller.steamAdmissionTime > 0.0 and
+            controller.condensationTime > 0.0 and
+            controller.suctionTime > 0.0 and
+            controller.cyclePeriod >=
+                controller.steamAdmissionTime +
+                controller.condensationTime +
+                controller.suctionTime
+        }
+    }
+
+    requirement def SafetyRequirement {
+        doc /* The system shall enter pressure relief or shutdown when boiler pressure exceeds the maximum operating pressure or boiler water inventory is insufficient. */
+        subject pump : SaverySteamPump;
+        require constraint {
+            pump.maximumOperatingPressure <= pump.boiler.maximumSafePressure and
+            pump.boiler.waterInventory >= 20.0
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by SaverySteamPump;
+    satisfy SteamPressureRequirement by SaverySteamPump;
+    satisfy VacuumSuctionRequirement by ReceiverVessel;
+    satisfy CheckValveRequirement by SaverySteamPump;
+    satisfy CycleControlRequirement by SaveryController;
+    satisfy SafetyRequirement by SaverySteamPump;
+
+    part saveryMineDrainageSystem : SaveryInstallation;
+}
