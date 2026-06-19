@@ -1,17 +1,11 @@
-"""Phase 2: synthesize KerML/SysML v2 test harness blocks from extracted topology."""
+"""Synthesize SysML v2 ExecutionHarness blocks from extracted topology."""
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, List, Optional
 
-from .extractor import classify_topology
-from .models import (
-    ExecutionRequest,
-    ExtractedTopology,
-    HarnessBuildResult,
-    HarnessMetadata,
-    ModelProfile,
-)
+from .extractor import classify_kind
+from .models import ExecutionRequest, ExtractedTopology, ModelKind
 
 
 def _format_value(value: Any) -> str:
@@ -24,298 +18,182 @@ def _ref(name: str, topology: ExtractedTopology) -> str:
     return topology.quoted_name(name)
 
 
-def build_harness_block(
-    topology: ExtractedTopology,
-    request: ExecutionRequest,
-) -> HarnessBuildResult:
-    """Build profile-specific harness and metadata."""
-    profile = classify_topology(topology)
-    if profile == ModelProfile.ACTION_COMPOSITE:
-        return _build_action_composite_harness(topology, request, profile)
-    if profile == ModelProfile.ANALYSIS_TOOL:
-        return _build_analysis_tool_harness(topology, request, profile)
-    if profile == ModelProfile.PART_STATE:
-        return _build_part_state_harness(topology, request, profile)
-    return _build_structural_only_harness(topology, request, profile)
+def build_harness_block(topology: ExtractedTopology, request: ExecutionRequest) -> str:
+    """Build a model-kind-specific harness package."""
+    kind = classify_kind(topology)
+    if kind == "behavioral":
+        return _build_behavioral_harness(topology, request)
+    if kind == "structural":
+        return _build_structural_harness(topology, request)
+    return _build_empty_harness()
 
 
-def _build_structural_only_harness(
-    topology: ExtractedTopology,
-    request: ExecutionRequest,
-    profile: ModelProfile,
-) -> HarnessBuildResult:
-    lines = [
+def _build_empty_harness() -> str:
+    return "\n".join(
+        [
+            "// --- Test harness (auto-generated) ---",
+            "package ExecutionHarness {",
+            "    // empty model: no probes generated",
+            "}",
+        ]
+    )
+
+
+def _build_behavioral_harness(topology: ExtractedTopology, request: ExecutionRequest) -> str:
+    lines: List[str] = [
         "// --- Test harness (auto-generated) ---",
         "package ExecutionHarness {",
-        "    // structural-only model: no behavioral probes required",
-        "}",
     ]
-    meta = HarnessMetadata(
-        profile=profile,
-        probes_emitted=0,
-        probes_runnable=False,
-        skipped_reasons=["no behavioral surface detected"],
-    )
-    return HarnessBuildResult(harness_block="\n".join(lines), metadata=meta)
 
-
-def _build_analysis_tool_harness(
-    topology: ExtractedTopology,
-    request: ExecutionRequest,
-    profile: ModelProfile,
-) -> HarnessBuildResult:
-    lines = [
-        "// --- Test harness (auto-generated) ---",
-        "package ExecutionHarness {",
-        "    // analysis/tooling action model: external tool execution not exercised here",
-    ]
-    for ad in topology.action_defs[:3]:
-        lines.append(f"    // action def: {_ref(ad.name, topology)} (ToolExecution metadata)")
-    lines.append("}")
-    meta = HarnessMetadata(
-        profile=profile,
-        probes_emitted=0,
-        probes_runnable=False,
-        primary_target=topology.action_defs[0].name if topology.action_defs else None,
-        skipped_reasons=["analysis_tool_execution_requires_external_tool"],
-    )
-    return HarnessBuildResult(harness_block="\n".join(lines), metadata=meta)
-
-
-def _build_action_composite_harness(
-    topology: ExtractedTopology,
-    request: ExecutionRequest,
-    profile: ModelProfile,
-) -> HarnessBuildResult:
-    skipped: List[str] = []
     root = topology.primary_package()
-    composite = topology.primary_composite_usage()
-
-    if request.target_behaviors:
-        target_name = request.target_behaviors[0]
-        composite = next(
-            (u for u in topology.action_usages if u.name == target_name),
-            composite,
-        )
-
-    lines: List[str] = [
-        "// --- Test harness (auto-generated) ---",
-        "package ExecutionHarness {",
-    ]
-
     if root:
-        lines.append(f"    private import {_ref(root, topology)}::Usages::*;")
         lines.append(f"    private import {_ref(root, topology)}::Definitions::*;")
-    else:
-        skipped.append("no root package for cross-package imports")
+        if topology.action_usages:
+            lines.append(f"    private import {_ref(root, topology)}::Usages::*;")
 
-    has_assign = False
-    has_perform = False
-    probes_emitted = 0
-    pin_names: List[str] = []
+    sim = request.simulation_vectors or {}
+    composite = topology.primary_composite_usage()
+    action_def = topology.primary_action_def()
 
-    if not composite:
-        skipped.append("no composite action usage extracted")
-        lines.append("    // ACTION_COMPOSITE profile but no runnable target")
-    else:
-        target_ref = _ref(composite.name, topology)
-        type_ref = (
-            _ref(composite.type_ref, topology) if composite.type_ref else target_ref
-        )
-        sim = request.simulation_vectors or {}
+    # Action probe: bind input pins via validated `in pin = value` syntax
+    if composite or action_def:
+        type_ref = None
+        pin_names: List[str] = []
+        probe_name = "actionProbe"
 
-        lines.append("")
-        lines.append("    action def SentinelActionProbe {")
-        probes_emitted += 1
+        if composite:
+            type_ref = composite.type_ref or composite.name
+            pin_names = list(composite.inputs)
+            probe_name = f"{composite.name.replace(' ', '_')}Probe"
+        elif action_def:
+            type_ref = action_def.name
+            pin_names = list(action_def.inputs)
 
-        pin_names = composite.inputs or []
-        if not pin_names and composite.type_ref:
-            for ad in topology.action_defs:
-                if ad.name == composite.type_ref:
-                    pin_names = ad.inputs
-                    break
+        if type_ref:
+            if not pin_names and composite and composite.type_ref:
+                for ad in topology.action_defs:
+                    if ad.name == composite.type_ref:
+                        pin_names = list(ad.inputs)
+                        break
 
-        assign_lines: List[str] = []
-        for pin in pin_names:
-            if pin in sim:
-                assign_lines.append(f"            assign {pin} = {_format_value(sim[pin])};")
-                has_assign = True
-
-        accept_comments: List[str] = []
-        for accept in topology.accept_actions:
-            sig_ref = _ref(accept.signal_type, topology)
-            accept_comments.append(
-                f"            // accept trigger: {accept.action_name} "
-                f"<- {accept.signal_param}: {sig_ref}"
-            )
-            accept_comments.append(
-                f"            // TODO: kernel send/trigger for {accept.signal_param} "
-                f"when API confirmed"
-            )
-
-        # Reference the action *definition* via usage:Type (see dataset 000216), not
-        # `action run : 'provide power'` which nests a usage as an untyped sub-action.
-        if assign_lines or accept_comments:
-            lines.append(f"        perform action {target_ref}: {type_ref} {{")
-            lines.extend(assign_lines)
-            lines.extend(accept_comments)
-            if topology.flows:
-                lines.append("            // extracted item flows:")
-                for flow in topology.flows[:8]:
-                    lines.append(f"            //   {flow.source} -> {flow.target}")
-            lines.append("        }")
-        else:
-            if pin_names:
-                for pin in pin_names:
+            lines.append("")
+            lines.append(f"    action {probe_name} : {_ref(type_ref, topology)} {{")
+            for pin in pin_names:
+                if pin in sim:
+                    lines.append(f"        in {pin} = {_format_value(sim[pin])};")
+                else:
                     lines.append(
-                        f"        // in pin {pin}: provide simulation_vectors to assign"
+                        f"        // TODO(human): provide simulation value for in pin {pin}"
                     )
-            lines.append(f"        perform action {target_ref}: {type_ref};")
+            lines.append("    }")
 
-        lines.append("    }")
-        lines.append("")
-        lines.append("    action sentinelActionRun : SentinelActionProbe {")
-        lines.append("    }")
-        has_perform = True
-        probes_emitted += 1
+    # Accept/send event stubs
+    for accept in topology.accept_actions:
+        sig = _ref(accept.signal_type, topology)
+        lines.append(
+            f"    // TODO(human): kernel cannot send/trigger {accept.signal_param} "
+            f"({sig}); inject event when API available"
+        )
+    for send in topology.send_actions:
+        sig = _ref(send.signal_type, topology)
+        lines.append(
+            f"    // TODO(human): kernel cannot send {sig} from {send.action_name}; "
+            f"inject when API available"
+        )
 
-    if topology.successions:
+    # State machine: exhibit on a part subject when possible
+    if topology.state_machines:
+        sm = topology.state_machines[0]
+        part_def = topology.primary_part_def()
         lines.append("")
-        lines.append("    // control successions (static trace checklist):")
-        for succ in topology.successions[:12]:
-            lines.append(f"    //   first {succ.source} then {succ.target}")
+        if part_def:
+            lines.append(f"    part testSubject : {_ref(part_def, topology)} {{")
+            lines.append(f"        exhibit state sm : {_ref(sm.name, topology)};")
+            lines.append("    }")
+        else:
+            lines.append(f"    // state machine: {_ref(sm.name, topology)}")
+
+        triggers = [
+            t.trigger
+            for t in sm.transitions
+            if t.trigger and t.trigger_kind == "accept"
+        ]
+        if triggers:
+            trigger_list = ", ".join(triggers)
+            lines.append(
+                f"    // TODO(human): drive state transitions via events: {trigger_list}"
+            )
+        elif sm.transitions:
+            trans_summary = "; ".join(
+                f"{t.source or '?'} -> {t.target or '?'}"
+                for t in sm.transitions[:8]
+            )
+            lines.append(
+                f"    // TODO(human): drive state transitions: {trans_summary}"
+            )
 
     lines.append("}")
-
-    if composite and pin_names and not has_assign:
-        skipped.append("no assign probes emitted for input pins (provide simulation_vectors)")
-
-    probes_runnable = (
-        composite is not None
-        and bool(root)
-        and not any(s.startswith("no composite") or s.startswith("no root package") for s in skipped)
-        and (not pin_names or has_assign)
-    )
-
-    meta = HarnessMetadata(
-        profile=profile,
-        probes_emitted=probes_emitted,
-        probes_runnable=probes_runnable,
-        primary_target=composite.name if composite else None,
-        skipped_reasons=skipped,
-        has_perform_probe=has_perform,
-        has_assign_probe=has_assign,
-        has_assert_probe=False,
-    )
-    return HarnessBuildResult(harness_block="\n".join(lines), metadata=meta)
+    return "\n".join(lines)
 
 
-def _build_part_state_harness(
-    topology: ExtractedTopology,
-    request: ExecutionRequest,
-    profile: ModelProfile,
-) -> HarnessBuildResult:
+def _build_structural_harness(topology: ExtractedTopology, request: ExecutionRequest) -> str:
     lines: List[str] = [
         "// --- Test harness (auto-generated) ---",
         "package ExecutionHarness {",
     ]
+
+    root = topology.primary_package()
+    if root:
+        lines.append(f"    private import {_ref(root, topology)}::*;")
 
     part_def = topology.primary_part_def()
-    part_inst_name = "sentinelTestSubject"
-    skipped: List[str] = []
-    probes_emitted = 0
-    has_assign = False
-    has_assert = False
-    has_perform = False
+    sim = request.simulation_vectors or {}
 
     if part_def:
-        lines.append(f"    part {part_inst_name} :> {part_def};")
-        probes_emitted += 1
-    elif topology.part_instances:
-        lines.append(f"    // instance-only model: {topology.part_instances[0]}")
+        lines.append(f"    part testSubject : {_ref(part_def, topology)};")
     else:
-        skipped.append("no part def for structural subject")
+        lines.append("    // TODO(human): no part def found; cannot instantiate subject")
 
-    target_behaviors = request.target_behaviors or topology.state_machines
-    sim = request.simulation_vectors or {}
-    invariants = request.target_invariants or [c.name for c in topology.constraints]
-
-    emit_behavior = bool(target_behaviors) or bool(part_def)
-    emit_constraint = bool(invariants) or bool(topology.constraints) or bool(sim)
-
-    if emit_behavior:
-        lines.append("")
-        lines.append("    action def SentinelBehaviorProbe {")
-        if target_behaviors:
-            sm = target_behaviors[0]
-            lines.append(f"        // target state machine / behavior: {sm}")
-            if part_def:
-                lines.append(f"        in part subject :> {part_def};")
-            lines.append(f"        // perform {topology.quoted_name(sm)};")
-            has_perform = True
-        elif part_def:
-            lines.append(f"        in part subject :> {part_def};")
-        lines.append("    }")
-        lines.append("")
-        lines.append("    action sentinelBehaviorRun : SentinelBehaviorProbe {")
-        if part_def:
-            lines.append(f"        bind subject = {part_inst_name};")
-        lines.append("    }")
-        probes_emitted += 1
-
-    if emit_constraint and part_def:
-        lines.append("")
-        lines.append("    action def SentinelConstraintProbe {")
-        lines.append(f"        in part subject :> {part_def};")
-
+    # Value injection for attributes without defaults
+    unbound_attrs = [a for a in topology.attributes if not a.has_default]
+    if sim:
         for key, value in sim.items():
-            lines.append(f"        assign subject.{key} = {_format_value(value)};")
-            has_assign = True
+            attr = next((a for a in topology.attributes if a.name == key), None)
+            if attr and attr.has_default:
+                lines.append(
+                    f"    // TODO(human): cannot override default-valued attribute {key}; "
+                    f"kernel rejects binding override"
+                )
+            elif part_def:
+                lines.append(
+                    f"    // TODO(human): inject {key} = {_format_value(value)} "
+                    f"(attribute value injection not yet supported)"
+                )
+    elif unbound_attrs:
+        names = ", ".join(a.name for a in unbound_attrs[:8])
+        lines.append(f"    // TODO(human): define boundary input values for: {names}")
 
-        for inv in invariants[:10]:
-            if inv and not inv.startswith("constraint_"):
-                lines.append(f"        assert {inv};")
-                has_assert = True
-
-        if topology.constraints and not invariants:
-            for c in topology.constraints[:10]:
-                if c.name and not c.name.startswith("constraint_"):
-                    lines.append(f"        assert {c.name};")
-                    has_assert = True
-
-        lines.append("    }")
-        lines.append("")
-        lines.append("    action sentinelConstraintRun : SentinelConstraintProbe {")
-        lines.append(f"        bind subject = {part_inst_name};")
-        lines.append("    }")
-        probes_emitted += 1
-    elif emit_constraint and not part_def:
-        skipped.append("constraints present but no part def to bind subject")
+    # Assert constraints (requires boolean expression body; left as TODO when not parsed)
+    named_constraints = [
+        c for c in topology.constraints if c.name and not c.name.startswith("constraint_")
+    ]
+    if named_constraints:
+        for c in named_constraints[:10]:
+            lines.append(
+                f"    // TODO(human): assert constraint {c.name} {{ "
+                f"testSubject.<attr> <= <limit> }}"
+            )
+    elif topology.constraints:
+        lines.append(
+            "    // TODO(human): constraints found but no boolean expression to assert"
+        )
 
     lines.append("}")
-
-    probes_runnable = probes_emitted > 0 and (part_def is not None or has_perform)
-    if not probes_runnable and (topology.constraints or topology.state_machines):
-        skipped.append("insufficient probes for part/state model")
-
-    meta = HarnessMetadata(
-        profile=profile,
-        probes_emitted=probes_emitted,
-        probes_runnable=probes_runnable,
-        primary_target=part_def or (target_behaviors[0] if target_behaviors else None),
-        skipped_reasons=skipped,
-        has_perform_probe=has_perform,
-        has_assign_probe=has_assign,
-        has_assert_probe=has_assert,
-    )
-    return HarnessBuildResult(harness_block="\n".join(lines), metadata=meta)
+    return "\n".join(lines)
 
 
-def build_consolidated_payload(
-    candidate_sysml: str,
-    harness_block: str,
-) -> str:
-    """Append synthesized harness to immutable candidate source."""
+def build_consolidated_payload(candidate_sysml: str, harness_block: str) -> str:
+    """Append synthesized harness to candidate source."""
     base = candidate_sysml.rstrip()
     harness = harness_block.strip()
     return f"{base}\n\n{harness}\n"

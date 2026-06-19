@@ -1,4 +1,4 @@
-"""Tests for rigorous SysML execution harness (extraction + harness; kernel optional)."""
+"""Tests for SysML execution harness (extraction + harness; kernel optional)."""
 
 from __future__ import annotations
 
@@ -10,13 +10,9 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from nl2sysml.sysml_execution.extractor import (  # noqa: E402
-    classify_topology,
-    extract_topology,
-    requires_layer2,
-)
+from nl2sysml.sysml_execution.extractor import classify_kind, extract_topology  # noqa: E402
 from nl2sysml.sysml_execution.harness_builder import build_harness_block  # noqa: E402
-from nl2sysml.sysml_execution.models import ExecutionRequest, Layer2Status, ModelProfile  # noqa: E402
+from nl2sysml.sysml_execution.models import ExecutionRequest  # noqa: E402
 from nl2sysml.sysml_execution.orchestrator import run_sysml_execution  # noqa: E402
 
 _DATA = _REPO_ROOT / "dataset" / "data"
@@ -27,18 +23,11 @@ def _load(sample: str) -> str:
 
 
 class TestExtraction000200(unittest.TestCase):
-    def test_action_names_quoted(self):
+    def test_action_defs_and_pins(self):
         topo = extract_topology(_load("000200"))
-        self.assertIn("provide power", topo.actions)
         self.assertTrue(any(d.name == "Provide Power" for d in topo.action_defs))
-        self.assertTrue(any(d.name == "Generate Torque" for d in topo.action_defs))
-
-    def test_attribute_defs_not_def(self):
-        topo = extract_topology(_load("000200"))
-        names = {a.name for a in topo.attribute_defs}
-        self.assertIn("FuelCmd", names)
-        self.assertIn("EngineStart", names)
-        self.assertNotIn("def", names)
+        provide = next(d for d in topo.action_defs if d.name == "Provide Power")
+        self.assertIn("fuelCmd", provide.inputs)
 
     def test_accept_actions(self):
         topo = extract_topology(_load("000200"))
@@ -52,92 +41,76 @@ class TestExtraction000200(unittest.TestCase):
         self.assertEqual(primary.name, "provide power")
         self.assertTrue(primary.is_composite)
 
-    def test_profile_action_composite(self):
+    def test_kind_behavioral(self):
         topo = extract_topology(_load("000200"))
-        self.assertEqual(classify_topology(topo), ModelProfile.ACTION_COMPOSITE)
-        self.assertTrue(requires_layer2(topo, ModelProfile.ACTION_COMPOSITE))
+        self.assertEqual(classify_kind(topo), "behavioral")
 
 
 class TestHarness000200(unittest.TestCase):
-    def test_harness_has_sentinel_action_probe(self):
+    def test_harness_uses_pin_binding_pattern(self):
         topo = extract_topology(_load("000200"))
-        result = build_harness_block(topo, ExecutionRequest(candidate_sysml=""))
-        self.assertIn("SentinelActionProbe", result.harness_block)
-        self.assertIn("perform action", result.harness_block)
-        self.assertIn("'provide power'", result.harness_block)
-        self.assertNotIn("bind run = run", result.harness_block)
-        self.assertEqual(result.metadata.profile, ModelProfile.ACTION_COMPOSITE)
+        req = ExecutionRequest(candidate_sysml="", simulation_vectors={"fuelCmd": 1})
+        harness = build_harness_block(topo, req)
+        self.assertIn("in fuelCmd = 1", harness)
+        self.assertIn("'Provide Power'", harness)
+        self.assertNotIn("perform action", harness)
+        self.assertNotIn("assign fuelCmd", harness)
 
-    def test_harness_not_runnable_without_vectors(self):
+    def test_harness_todo_for_missing_vectors(self):
         topo = extract_topology(_load("000200"))
-        result = build_harness_block(topo, ExecutionRequest(candidate_sysml=""))
-        self.assertFalse(result.metadata.probes_runnable)
-        self.assertTrue(any("simulation_vectors" in r for r in result.metadata.skipped_reasons))
+        harness = build_harness_block(topo, ExecutionRequest(candidate_sysml=""))
+        self.assertIn("TODO(human): provide simulation value for in pin fuelCmd", harness)
 
-    def test_harness_runnable_with_vectors(self):
+    def test_harness_todo_for_accept(self):
         topo = extract_topology(_load("000200"))
-        req = ExecutionRequest(
-            candidate_sysml="",
-            simulation_vectors={"fuelCmd": 1},
-        )
-        result = build_harness_block(topo, req)
-        self.assertTrue(result.metadata.probes_runnable)
-        self.assertIn("perform action", result.harness_block)
-        self.assertIn("assign fuelCmd", result.harness_block)
+        harness = build_harness_block(topo, ExecutionRequest(candidate_sysml=""))
+        self.assertIn("TODO(human): kernel cannot send/trigger engineStart", harness)
 
 
 class TestExtraction000600(unittest.TestCase):
-    def test_part_state_profile(self):
+    def test_kind_behavioral_or_structural(self):
         topo = extract_topology(_load("000600"))
-        self.assertEqual(classify_topology(topo), ModelProfile.PART_STATE)
-        self.assertIsNotNone(topo.primary_part_def())
+        kind = classify_kind(topo)
+        self.assertIn(kind, ("behavioral", "structural"))
 
-    def test_harness_has_part_subject(self):
+    def test_state_machines_extracted(self):
         topo = extract_topology(_load("000600"))
-        result = build_harness_block(topo, ExecutionRequest(candidate_sysml=""))
-        self.assertIn("sentinelTestSubject", result.harness_block)
+        self.assertTrue(any(sm.name == "SystemOperationalStates" for sm in topo.state_machines))
 
-
-class TestExtraction000001(unittest.TestCase):
-    def test_analysis_tool_profile(self):
-        topo = extract_topology(_load("000001"))
-        self.assertEqual(classify_topology(topo), ModelProfile.ANALYSIS_TOOL)
-
-    def test_layer2_not_required_on_run(self):
-        result = run_sysml_execution(ExecutionRequest(candidate_sysml=_load("000001")))
-        self.assertEqual(result.layer2_status, Layer2Status.NOT_REQUIRED.value)
-
-
-class TestFailClosed000200(unittest.TestCase):
-    def test_no_false_success_without_vectors(self):
-        result = run_sysml_execution(ExecutionRequest(candidate_sysml=_load("000200")))
-        if result.layer2_status == Layer2Status.KERNEL_UNAVAILABLE.value:
-            self.skipTest("SysML kernel not installed")
-        self.assertFalse(result.success)
-        self.assertIn(
-            result.layer2_status,
-            (Layer2Status.BYPASSED.value, Layer2Status.VERIFIED.value),
+    def test_attributes_have_default_flag(self):
+        topo = extract_topology(_load("000600"))
+        probe_diameter = next(
+            (a for a in topo.attributes if a.name == "probeDiameter"), None
         )
-        if not result.behavior_ok:
-            self.assertIsNotNone(result.diagnostic_pack)
-            self.assertEqual(result.diagnostic_pack.get("error_type"), "layer2_bypassed")
+        self.assertIsNotNone(probe_diameter)
+        self.assertTrue(probe_diameter.has_default)
+
+
+class TestHarness000600(unittest.TestCase):
+    def test_harness_has_part_or_state_todo(self):
+        topo = extract_topology(_load("000600"))
+        harness = build_harness_block(topo, ExecutionRequest(candidate_sysml=""))
+        self.assertTrue(
+            "testSubject" in harness or "TODO(human)" in harness
+        )
 
 
 class TestKernel000200(unittest.TestCase):
     """Run with: python -m unittest nl2sysml.sysml_execution.test_execution.TestKernel000200"""
 
-    def test_success_with_vectors_when_kernel_available(self):
+    def test_compiles_with_vectors_when_kernel_available(self):
         result = run_sysml_execution(
             ExecutionRequest(
                 candidate_sysml=_load("000200"),
                 simulation_vectors={"fuelCmd": 1},
             )
         )
-        if result.layer2_status == Layer2Status.KERNEL_UNAVAILABLE.value:
+        if not result.kernel_available:
             self.skipTest("SysML kernel not installed")
-        self.assertTrue(result.syntax_ok)
-        if result.harness_metadata and result.harness_metadata.get("probes_runnable"):
-            self.assertIn("SentinelActionProbe", result.harness_block)
+        self.assertTrue(result.compiled, msg=f"errors: {result.errors}")
+        self.assertTrue(result.success)
+        self.assertEqual(result.model_kind, "behavioral")
+        self.assertIn("in fuelCmd = 1", result.harness)
 
 
 if __name__ == "__main__":

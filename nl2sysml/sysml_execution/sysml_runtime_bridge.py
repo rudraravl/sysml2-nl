@@ -1,4 +1,4 @@
-"""Phase 3: headless Jupyter SysML kernel execution via jupyter_client / ZeroMQ."""
+"""Headless Jupyter SysML kernel execution via jupyter_client / ZeroMQ."""
 
 from __future__ import annotations
 
@@ -8,20 +8,8 @@ from typing import Any, Dict, List, Optional
 
 from .models import KernelExecutionOutput
 
-# OMG SysML Jupyter kernel (Java) emits:
-#   - iopub execute_result with content.data["text/plain"] on success
-#   - iopub stream (stderr) with "ERROR:..." on parse/semantic failures
-# It does NOT reliably populate content["text"] on iopub (unlike IPython).
-
 
 def _apply_jupyter_path_override(explicit: Optional[str] = None) -> None:
-    """
-    Optional kernelspec search path override.
-
-    By default KernelManager uses the active Python environment (project ``.venv``),
-    where ``jupyter kernelspec install`` registers ``kernels/sysml``. Only set
-    ``jupyter_path`` or ``SYSML_JUPYTER_PATH`` for non-standard layouts.
-    """
     override = explicit or os.environ.get("SYSML_JUPYTER_PATH")
     if not override:
         return
@@ -48,18 +36,6 @@ def _message_text(content: Dict[str, Any]) -> str:
     return ""
 
 
-def _serialize_message(msg: Dict[str, Any]) -> Dict[str, Any]:
-    header = msg.get("header") or {}
-    content = msg.get("content") or {}
-    return {
-        "msg_type": header.get("msg_type"),
-        "msg_id": header.get("msg_id"),
-        "parent_msg_id": (msg.get("parent_header") or {}).get("msg_id"),
-        "content": content,
-        "text": _message_text(content),
-    }
-
-
 def _kernel_spec_available(kernel_name: str) -> bool:
     try:
         from jupyter_client.kernelspec import KernelSpecManager
@@ -78,10 +54,7 @@ def execute_sysml_candidate(
     kernel_ready_timeout_sec: float = 180.0,
 ) -> KernelExecutionOutput:
     """
-    Headless SysML v2 kernel session: start kernel, execute payload, collect outputs, shutdown.
-
-    The reference Java kernel returns primary output on iopub ``execute_result`` (``text/plain``)
-    and diagnostics on iopub ``stream`` stderr (often prefixed with ``ERROR:``).
+    Start SysML kernel, execute payload, collect stdout/errors, shutdown.
     """
     _apply_jupyter_path_override(jupyter_path)
 
@@ -89,32 +62,23 @@ def execute_sysml_candidate(
         from jupyter_client.manager import KernelManager
     except ImportError as exc:
         return KernelExecutionOutput(
-            execution_status_payload="",
             kernel_available=False,
             bridge_error=f"jupyter_client not installed: {exc}",
         )
 
     if not _kernel_spec_available(kernel_name):
-        hint = (
-            f"Jupyter kernelspec '{kernel_name}' not found in the active environment. "
-            "From the project root with .venv activated: "
-            "``jupyter kernelspec list`` should show sysml under "
-            "``.venv/share/jupyter/kernels/sysml``. "
-            "Or set SYSML_JUPYTER_PATH to an alternate share/jupyter directory."
-        )
         return KernelExecutionOutput(
-            execution_status_payload="",
             kernel_available=False,
-            bridge_error=hint,
+            bridge_error=(
+                f"Jupyter kernelspec '{kernel_name}' not found. "
+                "Activate .venv and run: jupyter kernelspec list"
+            ),
         )
 
-    manager: Optional[KernelManager] = None
+    manager = None
     client = None
-    raw_messages: List[Dict[str, Any]] = []
     stdout_lines: List[str] = []
-    stderr_lines: List[str] = []
     error_lines: List[str] = []
-    shell_reply: Optional[Dict[str, Any]] = None
 
     try:
         manager = KernelManager(kernel_name=kernel_name)
@@ -133,26 +97,21 @@ def execute_sysml_candidate(
             except Exception:
                 continue
 
-            serialized = _serialize_message(msg)
-            raw_messages.append(serialized)
-
-            parent_id = serialized.get("parent_msg_id")
+            header = msg.get("header") or {}
+            parent_id = (msg.get("parent_header") or {}).get("msg_id")
             if parent_id and parent_id != msg_id:
                 continue
 
-            msg_type = serialized.get("msg_type")
-            text = serialized.get("text") or ""
-            content = serialized.get("content") or {}
+            msg_type = header.get("msg_type")
+            content = msg.get("content") or {}
+            text = _message_text(content)
 
             if msg_type == "stream":
                 stream_name = content.get("name", "stdout")
-                line = text
                 if stream_name == "stderr":
-                    stderr_lines.append(line)
-                    if line.lstrip().upper().startswith("ERROR"):
-                        error_lines.append(line)
+                    error_lines.append(text)
                 else:
-                    stdout_lines.append(line)
+                    stdout_lines.append(text)
             elif msg_type == "error":
                 error_lines.append(text or str(content))
             elif msg_type == "execute_result":
@@ -170,42 +129,25 @@ def execute_sysml_candidate(
                 break
             if (shell_msg.get("parent_header") or {}).get("msg_id") != msg_id:
                 continue
-            shell_reply = _serialize_message(shell_msg)
-            raw_messages.append(shell_reply)
-            reply_text = shell_reply.get("text") or ""
-            status = (shell_reply.get("content") or {}).get("status")
+            content = shell_msg.get("content") or {}
+            reply_text = _message_text(content)
+            status = content.get("status")
             if status == "error":
                 error_lines.append(reply_text or "execute_reply status=error")
             elif reply_text.strip():
                 stdout_lines.append(reply_text)
             break
 
-        status_payload = "\n".join(
-            part.strip()
-            for part in stdout_lines + stderr_lines + error_lines
-            if part and str(part).strip()
-        )
         return KernelExecutionOutput(
-            execution_status_payload=status_payload,
-            stdout_lines=stdout_lines,
-            stderr_lines=stderr_lines,
-            error_lines=error_lines,
-            raw_kernel_messages=raw_messages,
-            shell_reply=shell_reply,
+            stdout=stdout_lines,
+            errors=error_lines,
             kernel_available=True,
         )
 
     except Exception as exc:
-        partial = "\n".join(
-            p for p in stdout_lines + stderr_lines + error_lines if p
-        )
         return KernelExecutionOutput(
-            execution_status_payload=partial,
-            stdout_lines=stdout_lines,
-            stderr_lines=stderr_lines,
-            error_lines=error_lines + [str(exc)],
-            raw_kernel_messages=raw_messages,
-            shell_reply=shell_reply,
+            stdout=stdout_lines,
+            errors=error_lines + [str(exc)],
             kernel_available=False,
             bridge_error=str(exc),
         )

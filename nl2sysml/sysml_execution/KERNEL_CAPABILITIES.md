@@ -1,36 +1,36 @@
-# SysML Jupyter kernel — Layer 2 capabilities
+# SysML Jupyter kernel — MVP harness capabilities
 
-This documents what the OMG Java SysML kernel (`org.omg.sysml.jupyter.kernel.ISysML`) supports for the execution harness, based on local spike runs and observed production behavior.
+This documents what the OMG Java SysML kernel (`org.omg.sysml.jupyter.kernel.ISysML`) supports for the execution harness, based on local spike runs (June 2026).
 
 ## Confirmed (parse / load)
 
 | Pattern | Kernel behavior |
 |---------|-----------------|
 | Full model + `package ExecutionHarness` append | Loads all packages; stdout lists package names and UUIDs |
-| `action def`, composite `action` usages, `flow`, `first`/`then`, `accept` | Parsed if syntactically valid |
-| `assign` inside action bodies | Accepted at parse time when types resolve |
-| `perform action 'usage': 'ActionDef'` | Preferred harness pattern for composite actions (not `action run : 'usage'`) |
-| `assert <constraintName>` | Parsed; **no** pass/fail output in stdout unless kernel adds evaluation later |
-| `private import 'Root'::Usages::*` | Parsed when root package and nested packages exist |
+| `action probe : 'ActionDef' { in pin = value; }` | **Compiles** — validated input binding pattern |
+| `action def Probe { perform action x : 'ActionDef'; }` | **Compiles** — perform without inline assign block |
+| `part testSubject : 'PartDef';` | **Compiles** — structural instantiation |
+| `assert constraint name { subject.attr <= limit }` | **Compiles** when body is a boolean expression |
+| `private import 'Root'::Definitions::*` | Parsed when root package and nested packages exist |
 
 ## Not observed (simulation / runtime)
 
 | Pattern | Current behavior |
 |---------|------------------|
-| `perform` on state machines / actions | No execution trace in `text/plain` output |
-| `send` / triggering `accept` actions | No documented magic in headless execute; harness uses TODO comments |
-| Item-flow value propagation (`wheelTorque1`, etc.) | Not verified at runtime |
-| Constraint satisfaction reporting | No structured manifest in kernel stdout |
+| `perform` with inline `{ assign ... }` inside action def | **Parse error** — do not use |
+| `attribute :>> attr = value` on default-valued attribute | **Error**: "Cannot override a binding feature value" |
+| `perform` on state machines / stepping transitions | No execution trace in stdout |
+| `send` / triggering `accept` actions | No documented headless API |
+| Constraint satisfaction reporting | No structured pass/fail in stdout |
 
-## Layer 2 strategy in this repo
+## MVP strategy
 
-Until the kernel or SysML API Services exposes evaluation/simulation:
+1. **Success = clean compile** — model + harness loads without `ERROR:` lines.
+2. **Action probes** — bind `in` pins via `action probe : 'Type' { in pin = value; }`.
+3. **Structural probes** — instantiate `part testSubject : 'PartDef';`; assert constraints only when boolean body is known.
+4. **TODO(human)** — simulation vector generation, default-attr override, accept/send triggering, state-machine stepping.
 
-1. **Structural reachability** — harness must reference the candidate composite action, bind `in` pins via `assign`, and compile without `ERROR:` (fail closed if probes cannot be generated).
-2. **Fail closed** — models with `ACTION_COMPOSITE` / `PART_STATE` profiles get `success=false` when `probes_runnable` is false (e.g. missing `simulation_vectors` for required input pins).
-3. **ANALYSIS_TOOL** — models with `metadata ToolExecution` only: `layer2_status=not_required` (external tool not invoked).
-
-Re-run probes after kernel upgrades:
+Re-run spikes after kernel upgrades:
 
 ```bash
 python -m nl2sysml.sysml_execution.kernel_spike

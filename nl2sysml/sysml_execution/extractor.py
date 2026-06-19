@@ -1,4 +1,4 @@
-"""Phase 1: regex-based structural extraction from SysML v2 candidate text."""
+"""Regex-based structural extraction from SysML v2 candidate text."""
 
 from __future__ import annotations
 
@@ -10,17 +10,16 @@ from .models import (
     ExtractedActionDef,
     ExtractedActionUsage,
     ExtractedAttribute,
-    ExtractedAttributeDef,
     ExtractedConstraint,
-    ExtractedFlow,
-    ExtractedSuccession,
+    ExtractedSendAction,
+    ExtractedStateMachine,
+    ExtractedStateTransition,
     ExtractedTopology,
-    ModelProfile,
+    ModelKind,
 )
 
 # Quoted 'name' or bare identifier
 _ID = r"(?:'([^']+)'|([A-Za-z_][\w]*))"
-_ID_CAPTURE = re.compile(_ID)
 
 _ROOT_PACKAGE_RE = re.compile(
     rf"^\s*package\s+{_ID}\s*\{{",
@@ -54,10 +53,6 @@ _ACTION_DEF_RE = re.compile(
     rf"^\s*action\s+def\s+{_ID}",
     re.MULTILINE,
 )
-_ACTION_DEF_HEADER_RE = re.compile(
-    rf"^\s*action\s+def\s+{_ID}\s*\{{(.*)\}}\s*$",
-    re.MULTILINE,
-)
 _ACTION_USAGE_RE = re.compile(
     rf"^\s*action\s+{_ID}\s*:\s*{_ID}",
     re.MULTILINE,
@@ -71,12 +66,8 @@ _ACCEPT_ACTION_RE = re.compile(
     rf"^\s*action\s+{_ID}\s+accept\s+(\w+)\s*:\s*(\w+)",
     re.MULTILINE,
 )
-_FLOW_RE = re.compile(
-    r"^\s*flow\s+(.+?)\s+to\s+(.+?)\s*(?:\{|;)",
-    re.MULTILINE,
-)
-_SUCCESSION_RE = re.compile(
-    rf"^\s*first\s+(.+?)\s+then\s+(.+?)\s*(?:\{{|;)",
+_SEND_ACTION_RE = re.compile(
+    rf"^\s*action\s+{_ID}\s+send\s+(\w+)",
     re.MULTILINE,
 )
 _CONSTRAINT_BLOCK_RE = re.compile(
@@ -91,23 +82,14 @@ _STATE_DEF_RE = re.compile(
     rf"^\s*state\s+def\s+{_ID}",
     re.MULTILINE,
 )
-_STATE_INSTANCE_RE = re.compile(
-    rf"^\s*state\s+{_ID}\s*:",
+_TRANSITION_RE = re.compile(
+    rf"^\s*transition\s+({_ID})?\s*(?:first\s+(\S+)\s+)?(?:if\s+(.+?)\s+)?(?:accept\s+(\S+)\s+)?then\s+(\S+)",
     re.MULTILINE,
 )
-_STATE_MACHINE_RE = re.compile(
-    rf"^\s*state\s+{_ID}\s*\{{",
+_EXHIBIT_STATE_RE = re.compile(
+    rf"^\s*exhibit\s+state\s+(\w+)\s*:\s*{_ID}",
     re.MULTILINE,
 )
-_ACTION_DEF_LINE_RE = re.compile(
-    rf"^\s*action\s+def\s+{_ID}",
-    re.MULTILINE,
-)
-_ACTION_USAGE_LINE_RE = re.compile(
-    rf"^\s*action\s+{_ID}",
-    re.MULTILINE,
-)
-_TOOL_EXECUTION_RE = re.compile(r"metadata\s+ToolExecution", re.MULTILINE)
 
 
 def _id_from_match(m: re.Match) -> str:
@@ -148,7 +130,7 @@ def _brace_depth_at(lines: List[str], start: int) -> int:
 
 
 def _current_owner(lines: List[str], line_index: int) -> Optional[str]:
-    """Nearest enclosing package / part def / part (not nested action usages)."""
+    """Nearest enclosing package / part def / part / action def."""
     for i in range(line_index, -1, -1):
         line = lines[i]
         m = _PACKAGE_RE.match(line)
@@ -163,6 +145,9 @@ def _current_owner(lines: List[str], line_index: int) -> Optional[str]:
         m = _ACTION_DEF_RE.match(line)
         if m:
             return _id_from_match(m)
+        m = _STATE_DEF_RE.match(line)
+        if m:
+            return _id_from_match(m)
     return None
 
 
@@ -175,6 +160,12 @@ def _parse_pins(header: str) -> Tuple[List[str], List[str]]:
         else:
             outs.append(m.group(2))
     return ins, outs
+
+
+def _has_default_value(line: str) -> bool:
+    """True if attribute line contains a binding default (= ...)."""
+    stripped = line.split("//", 1)[0]
+    return bool(re.search(r"\s=\s", stripped))
 
 
 def _extract_root_package(text: str) -> Optional[str]:
@@ -199,16 +190,14 @@ def _find_composite_usages(lines: List[str]) -> List[ExtractedActionUsage]:
         end_idx = idx
         if has_brace:
             end_idx = _brace_depth_at(lines, idx)
-        else:
-            # check next line for opening brace
-            if idx + 1 < len(lines) and "{" in lines[idx + 1]:
-                end_idx = _brace_depth_at(lines, idx + 1)
-                has_brace = True
+        elif idx + 1 < len(lines) and "{" in lines[idx + 1]:
+            end_idx = _brace_depth_at(lines, idx + 1)
+            has_brace = True
 
         body = "\n".join(lines[idx : end_idx + 1]) if has_brace else line
         is_composite = has_brace and any(
             tok in body
-            for tok in ("action ", "flow ", "first ", "bind ", "merge ", "accept ")
+            for tok in ("action ", "flow ", "first ", "bind ", "merge ", "accept ", "send ")
         )
         ins, outs = _parse_pins(line)
         if has_brace and not ins and not outs:
@@ -232,9 +221,52 @@ def _find_composite_usages(lines: List[str]) -> List[ExtractedActionUsage]:
     return usages
 
 
+def _extract_state_machines(lines: List[str]) -> List[ExtractedStateMachine]:
+    machines: List[ExtractedStateMachine] = []
+    for idx, line in enumerate(lines):
+        m = _STATE_DEF_RE.match(line)
+        if not m:
+            continue
+        name = _id_from_match(m)
+        end_idx = _brace_depth_at(lines, idx) if "{" in line else idx
+        body_lines = lines[idx : end_idx + 1]
+        transitions: List[ExtractedStateTransition] = []
+        for body_idx, body_line in enumerate(body_lines):
+            tm = _TRANSITION_RE.match(body_line)
+            if not tm:
+                continue
+            trans_name = _id_from_match(tm) if tm.group(1) or tm.group(2) else None
+            source = tm.group(3)
+            if_cond = tm.group(4)
+            accept_sig = tm.group(5)
+            target = tm.group(6)
+            trigger = accept_sig or if_cond
+            trigger_kind = "accept" if accept_sig else ("if" if if_cond else None)
+            transitions.append(
+                ExtractedStateTransition(
+                    name=trans_name,
+                    source=source,
+                    target=target,
+                    trigger=trigger,
+                    trigger_kind=trigger_kind,
+                    owner=name,
+                    raw_line=body_line.strip(),
+                )
+            )
+        machines.append(
+            ExtractedStateMachine(
+                name=name,
+                owner=_current_owner(lines, idx),
+                transitions=transitions,
+                raw_line=line.strip(),
+            )
+        )
+    return machines
+
+
 def extract_topology(candidate_sysml: str) -> ExtractedTopology:
     """
-    Scan candidate text and extract packages, parts, attributes, actions, flows, etc.
+    Scan candidate text and extract packages, parts, attributes, actions, state machines, etc.
     Uses lightweight regex only; incomplete models still return partial topology.
     """
     text = candidate_sysml or ""
@@ -243,29 +275,6 @@ def extract_topology(candidate_sysml: str) -> ExtractedTopology:
     root_package = _extract_root_package(text)
     packages = _dedupe_preserve_order(_ids_from_findall(_PACKAGE_RE.findall(text)))
     part_defs = _dedupe_preserve_order(_ids_from_findall(_PART_DEF_RE.findall(text)))
-
-    part_instances: List[str] = []
-    for row in _PART_INSTANCE_RE.findall(text):
-        name = (row[0] or row[1] or "").strip()
-        if name:
-            part_instances.append(name)
-    for row in _PART_SIMPLE_RE.findall(text):
-        name = (row[0] or row[1] or "").strip()
-        if name and name not in part_defs:
-            part_instances.append(name)
-    part_instances = _dedupe_preserve_order(part_instances)
-
-    attribute_defs: List[ExtractedAttributeDef] = []
-    for idx, line in enumerate(lines):
-        m = _ATTRIBUTE_DEF_RE.match(line)
-        if m:
-            attribute_defs.append(
-                ExtractedAttributeDef(
-                    name=_id_from_match(m),
-                    owner=_current_owner(lines, idx),
-                    raw_line=line.strip(),
-                )
-            )
 
     attributes: List[ExtractedAttribute] = []
     for idx, line in enumerate(lines):
@@ -277,6 +286,7 @@ def extract_topology(candidate_sysml: str) -> ExtractedTopology:
                 ExtractedAttribute(
                     name=_id_from_match(m),
                     owner=_current_owner(lines, idx),
+                    has_default=_has_default_value(line),
                     raw_line=line.strip(),
                 )
             )
@@ -285,7 +295,7 @@ def extract_topology(candidate_sysml: str) -> ExtractedTopology:
     for idx, line in enumerate(lines):
         m = _CONSTRAINT_BLOCK_RE.match(line)
         if m:
-            name = _id_from_match(m) if m.lastindex and m.group(1) or m.group(2) else ""
+            name = _id_from_match(m) if m.lastindex and (m.group(1) or m.group(2)) else ""
             if not name:
                 name = f"constraint_{idx}"
             constraints.append(
@@ -304,11 +314,7 @@ def extract_topology(candidate_sysml: str) -> ExtractedTopology:
                 )
             )
 
-    state_machines = _dedupe_preserve_order(
-        _ids_from_findall(_STATE_DEF_RE.findall(text))
-        + _ids_from_findall(_STATE_INSTANCE_RE.findall(text))
-        + _ids_from_findall(_STATE_MACHINE_RE.findall(text))
-    )
+    state_machines = _extract_state_machines(lines)
 
     action_defs: List[ExtractedActionDef] = []
     for idx, line in enumerate(lines):
@@ -317,10 +323,6 @@ def extract_topology(candidate_sysml: str) -> ExtractedTopology:
             continue
         name = _id_from_match(m)
         ins, outs = _parse_pins(line)
-        has_tool = bool(_TOOL_EXECUTION_RE.search(line))
-        if not has_tool and idx + 1 < len(lines):
-            end = min(idx + 15, len(lines))
-            has_tool = bool(_TOOL_EXECUTION_RE.search("\n".join(lines[idx:end])))
         action_defs.append(
             ExtractedActionDef(
                 name=name,
@@ -328,12 +330,10 @@ def extract_topology(candidate_sysml: str) -> ExtractedTopology:
                 outputs=outs,
                 owner=_current_owner(lines, idx),
                 raw_line=line.strip(),
-                has_tool_execution=has_tool,
             )
         )
 
     action_usages = _find_composite_usages(lines)
-    # Also pick up simple action usages without composite body
     for idx, line in enumerate(lines):
         m = _ACTION_USAGE_SIMPLE_RE.match(line)
         if m:
@@ -364,93 +364,46 @@ def extract_topology(candidate_sysml: str) -> ExtractedTopology:
                 )
             )
 
-    flows: List[ExtractedFlow] = []
+    send_actions: List[ExtractedSendAction] = []
     for idx, line in enumerate(lines):
-        m = _FLOW_RE.match(line)
+        m = _SEND_ACTION_RE.match(line)
         if m:
-            flows.append(
-                ExtractedFlow(
-                    source=m.group(1).strip(),
-                    target=m.group(2).strip(),
+            send_actions.append(
+                ExtractedSendAction(
+                    action_name=_id_from_match(m),
+                    signal_type=m.group(3),
                     owner=_current_owner(lines, idx),
                     raw_line=line.strip(),
                 )
             )
-
-    successions: List[ExtractedSuccession] = []
-    for idx, line in enumerate(lines):
-        m = _SUCCESSION_RE.match(line)
-        if m:
-            successions.append(
-                ExtractedSuccession(
-                    source=m.group(1).strip(),
-                    target=m.group(2).strip(),
-                    owner=_current_owner(lines, idx),
-                    raw_line=line.strip(),
-                )
-            )
-
-    action_names = _dedupe_preserve_order(
-        [d.name for d in action_defs] + [u.name for u in action_usages]
-    )
-    has_tool = any(d.has_tool_execution for d in action_defs) or bool(
-        _TOOL_EXECUTION_RE.search(text)
-    )
 
     return ExtractedTopology(
         root_package=root_package,
         packages=packages,
         part_defs=part_defs,
-        part_instances=part_instances,
         attributes=attributes,
-        attribute_defs=attribute_defs,
         constraints=constraints,
         state_machines=state_machines,
-        actions=action_names,
         action_defs=action_defs,
         action_usages=action_usages,
         accept_actions=accept_actions,
-        flows=flows,
-        successions=successions,
-        has_tool_execution_metadata=has_tool,
+        send_actions=send_actions,
     )
 
 
-def classify_topology(topology: ExtractedTopology) -> ModelProfile:
-    """Classify model for harness profile selection."""
-    if topology.has_tool_execution_metadata and not topology.part_defs:
-        if not topology.action_usages or all(
-            not u.is_composite for u in topology.action_usages
-        ):
-            return ModelProfile.ANALYSIS_TOOL
-
-    composites = [u for u in topology.action_usages if u.is_composite]
-    if composites and not topology.part_defs:
-        return ModelProfile.ACTION_COMPOSITE
-
-    if topology.part_defs or topology.state_machines:
-        return ModelProfile.PART_STATE
-
-    if (
+def classify_kind(topology: ExtractedTopology) -> ModelKind:
+    """Classify model as behavioral, structural, or empty."""
+    has_behavior = bool(
         topology.action_defs
         or topology.action_usages
         or topology.state_machines
-        or topology.constraints
-    ):
-        if composites:
-            return ModelProfile.ACTION_COMPOSITE
-        return ModelProfile.PART_STATE
+        or topology.accept_actions
+        or topology.send_actions
+    )
+    has_structure = bool(topology.part_defs or topology.constraints or topology.attributes)
 
-    return ModelProfile.STRUCTURAL_ONLY
-
-
-def requires_layer2(topology: ExtractedTopology, profile: ModelProfile) -> bool:
-    if profile in (ModelProfile.PART_STATE, ModelProfile.ACTION_COMPOSITE):
-        return True
-    if topology.constraints:
-        return True
-    if topology.action_defs or topology.action_usages:
-        return True
-    if topology.state_machines:
-        return True
-    return False
+    if has_behavior:
+        return "behavioral"
+    if has_structure:
+        return "structural"
+    return "empty"

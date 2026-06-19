@@ -1,5 +1,5 @@
 """
-Probe the local SysML Jupyter kernel for Layer 2 execution patterns.
+Probe the local SysML Jupyter kernel for harness patterns.
 
 Run from repo root::
 
@@ -28,38 +28,44 @@ _SPIKES: List[Dict[str, Any]] = [
         "expect": "parse",
     },
     {
-        "name": "assign_in_action",
+        "name": "action_pin_binding",
         "payload": """
+private import ScalarValues::*;
 package SpikeAssign {
     attribute def Count;
-    action def Probe { in count: Count; assign count = 1; }
+    action def Probe { in count: Count; }
+}
+package ExecutionHarness {
+    private import SpikeAssign::*;
+    action countProbe : Probe { in count = 1; }
 }
 """,
-        "expect": "assign_compiles",
+        "expect": "pin_binding_compiles",
     },
     {
-        "name": "nested_action_usage",
+        "name": "part_instantiation",
         "payload": """
-package SpikeNested {
-    action def Inner { out done: Boolean; }
-    action def Outer {
-        action inner : Inner;
-    }
+private import ScalarValues::*;
+package SpikePart {
+    part def Tank { attribute capacity : Real; }
+}
+package ExecutionHarness {
+    private import SpikePart::*;
+    part testSubject : Tank;
 }
 """,
-        "expect": "nested_action_compiles",
+        "expect": "part_compiles",
     },
 ]
 
 
 def _classify_output(out) -> Dict[str, Any]:
-    combined = (out.execution_status_payload or "") + "\n".join(out.error_lines)
+    combined = "\n".join(out.stdout + out.errors)
     return {
         "kernel_available": out.kernel_available,
         "bridge_error": out.bridge_error,
-        "shell_ok": (out.shell_reply or {}).get("content", {}).get("status") in (None, "ok"),
-        "has_error": bool(out.error_lines) or "ERROR" in combined.upper(),
-        "payload_preview": (out.execution_status_payload or "")[:500],
+        "has_error": bool(out.errors) or "ERROR" in combined.upper(),
+        "payload_preview": combined[:500],
     }
 
 
