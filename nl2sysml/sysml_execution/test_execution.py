@@ -14,6 +14,10 @@ from nl2sysml.sysml_execution.extractor import classify_kind, extract_topology  
 from nl2sysml.sysml_execution.harness_builder import build_harness_block  # noqa: E402
 from nl2sysml.sysml_execution.models import ExecutionRequest  # noqa: E402
 from nl2sysml.sysml_execution.orchestrator import run_sysml_execution  # noqa: E402
+from nl2sysml.sysml_execution.vector_planner import (  # noqa: E402
+    candidates_for_input,
+    input_types_for_target,
+)
 
 _DATA = _REPO_ROOT / "dataset" / "data"
 
@@ -28,6 +32,11 @@ class TestExtraction000200(unittest.TestCase):
         self.assertTrue(any(d.name == "Provide Power" for d in topo.action_defs))
         provide = next(d for d in topo.action_defs if d.name == "Provide Power")
         self.assertIn("fuelCmd", provide.inputs)
+        self.assertEqual(provide.input_types["fuelCmd"], "FuelCmd")
+
+    def test_attribute_defs_are_payload_types(self):
+        topo = extract_topology(_load("000200"))
+        self.assertIn("FuelCmd", [item.name for item in topo.attribute_defs])
 
     def test_accept_actions(self):
         topo = extract_topology(_load("000200"))
@@ -40,6 +49,7 @@ class TestExtraction000200(unittest.TestCase):
         self.assertIsNotNone(primary)
         self.assertEqual(primary.name, "provide power")
         self.assertTrue(primary.is_composite)
+        self.assertEqual(primary.input_types["fuelCmd"], "FuelCmd")
 
     def test_kind_behavioral(self):
         topo = extract_topology(_load("000200"))
@@ -56,15 +66,57 @@ class TestHarness000200(unittest.TestCase):
         self.assertNotIn("perform action", harness)
         self.assertNotIn("assign fuelCmd", harness)
 
-    def test_harness_todo_for_missing_vectors(self):
+    def test_harness_generates_typed_payload_without_vectors(self):
         topo = extract_topology(_load("000200"))
         harness = build_harness_block(topo, ExecutionRequest(candidate_sysml=""))
-        self.assertIn("TODO(human): provide simulation value for in pin fuelCmd", harness)
+        self.assertIn("attribute testFuelCmd : FuelCmd;", harness)
+        self.assertIn("in fuelCmd = testFuelCmd;", harness)
+        self.assertNotIn("in fuelCmd = 1", harness)
 
     def test_harness_todo_for_accept(self):
         topo = extract_topology(_load("000200"))
         harness = build_harness_block(topo, ExecutionRequest(candidate_sysml=""))
         self.assertIn("TODO(human): kernel cannot send/trigger engineStart", harness)
+
+
+class TestVectorPlanning(unittest.TestCase):
+    def test_resolves_fuel_cmd_type(self):
+        topo = extract_topology(_load("000200"))
+        self.assertEqual(input_types_for_target(topo), {"fuelCmd": "FuelCmd"})
+
+    def test_builds_nominal_payload_fixture(self):
+        topo = extract_topology(_load("000200"))
+        candidates = candidates_for_input(topo, "fuelCmd", "FuelCmd")
+        self.assertEqual(candidates[0].expression, "testFuelCmd")
+        self.assertEqual(
+            candidates[0].declarations,
+            ("attribute testFuelCmd : FuelCmd;",),
+        )
+
+    def test_builds_small_primitive_boundary_set(self):
+        topo = extract_topology(_load("000200"))
+        candidates = candidates_for_input(topo, "level", "Integer")
+        self.assertEqual([item.expression for item in candidates], ["0", "1", "-1"])
+
+    def test_harness_uses_first_primitive_boundary(self):
+        code = """
+package PrimitiveInput {
+    action def Probe { in level: Integer; }
+}
+"""
+        topo = extract_topology(code)
+        harness = build_harness_block(topo, ExecutionRequest(candidate_sysml=code))
+        self.assertIn("in level = 0;", harness)
+
+    def test_harness_marks_unknown_type_unsupported(self):
+        code = """
+package UnknownInput {
+    action def Probe { in value: MissingType; }
+}
+"""
+        topo = extract_topology(code)
+        harness = build_harness_block(topo, ExecutionRequest(candidate_sysml=code))
+        self.assertIn("unsupported input type for value: MissingType", harness)
 
 
 class TestExtraction000600(unittest.TestCase):
@@ -111,6 +163,16 @@ class TestKernel000200(unittest.TestCase):
         self.assertTrue(result.success)
         self.assertEqual(result.model_kind, "behavioral")
         self.assertIn("in fuelCmd = 1", result.harness)
+
+    def test_compiles_with_generated_payload_when_kernel_available(self):
+        result = run_sysml_execution(
+            ExecutionRequest(candidate_sysml=_load("000200"))
+        )
+        if not result.kernel_available:
+            self.skipTest("SysML kernel not installed")
+        self.assertTrue(result.compiled, msg=f"errors: {result.errors}")
+        self.assertIn("attribute testFuelCmd : FuelCmd;", result.harness)
+        self.assertIn("in fuelCmd = testFuelCmd;", result.harness)
 
 
 if __name__ == "__main__":

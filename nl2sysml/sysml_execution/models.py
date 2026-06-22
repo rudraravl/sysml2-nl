@@ -29,6 +29,13 @@ class ExtractedAttribute:
 
 
 @dataclass
+class ExtractedAttributeDef:
+    name: str
+    owner: Optional[str] = None
+    raw_line: str = ""
+
+
+@dataclass
 class ExtractedConstraint:
     name: str
     owner: Optional[str] = None
@@ -39,6 +46,7 @@ class ExtractedConstraint:
 class ExtractedActionDef:
     name: str
     inputs: List[str] = field(default_factory=list)
+    input_types: Dict[str, str] = field(default_factory=dict)
     outputs: List[str] = field(default_factory=list)
     owner: Optional[str] = None
     raw_line: str = ""
@@ -51,6 +59,7 @@ class ExtractedActionUsage:
     package_owner: Optional[str] = None
     is_composite: bool = False
     inputs: List[str] = field(default_factory=list)
+    input_types: Dict[str, str] = field(default_factory=dict)
     outputs: List[str] = field(default_factory=list)
     raw_line: str = ""
 
@@ -99,6 +108,7 @@ class ExtractedTopology:
     packages: List[str] = field(default_factory=list)
     part_defs: List[str] = field(default_factory=list)
     attributes: List[ExtractedAttribute] = field(default_factory=list)
+    attribute_defs: List[ExtractedAttributeDef] = field(default_factory=list)
     constraints: List[ExtractedConstraint] = field(default_factory=list)
     state_machines: List[ExtractedStateMachine] = field(default_factory=list)
     action_defs: List[ExtractedActionDef] = field(default_factory=list)

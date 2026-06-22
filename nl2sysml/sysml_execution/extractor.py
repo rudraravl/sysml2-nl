@@ -10,6 +10,7 @@ from .models import (
     ExtractedActionDef,
     ExtractedActionUsage,
     ExtractedAttribute,
+    ExtractedAttributeDef,
     ExtractedConstraint,
     ExtractedSendAction,
     ExtractedStateMachine,
@@ -61,7 +62,10 @@ _ACTION_USAGE_SIMPLE_RE = re.compile(
     rf"^\s*action\s+{_ID}\s*:\s*{_ID}\s*;",
     re.MULTILINE,
 )
-_PIN_RE = re.compile(r"\b(in|out)\s+(\w+)\s*:")
+_PIN_RE = re.compile(
+    rf"\b(in|out)\s+(?:(?:attribute|item|part|ref)\s+)?{_ID}"
+    r"\s*(?::\s*([^=;{\n]+))?"
+)
 _ACCEPT_ACTION_RE = re.compile(
     rf"^\s*action\s+{_ID}\s+accept\s+(\w+)\s*:\s*(\w+)",
     re.MULTILINE,
@@ -151,15 +155,19 @@ def _current_owner(lines: List[str], line_index: int) -> Optional[str]:
     return None
 
 
-def _parse_pins(header: str) -> Tuple[List[str], List[str]]:
+def _parse_pins(header: str) -> Tuple[List[str], List[str], dict]:
     ins: List[str] = []
     outs: List[str] = []
+    input_types = {}
     for m in _PIN_RE.finditer(header):
+        name = (m.group(2) or m.group(3) or "").strip()
         if m.group(1) == "in":
-            ins.append(m.group(2))
+            ins.append(name)
+            if m.group(4):
+                input_types[name] = m.group(4).strip()
         else:
-            outs.append(m.group(2))
-    return ins, outs
+            outs.append(name)
+    return ins, outs, input_types
 
 
 def _has_default_value(line: str) -> bool:
@@ -199,14 +207,15 @@ def _find_composite_usages(lines: List[str]) -> List[ExtractedActionUsage]:
             tok in body
             for tok in ("action ", "flow ", "first ", "bind ", "merge ", "accept ", "send ")
         )
-        ins, outs = _parse_pins(line)
+        ins, outs, input_types = _parse_pins(line)
         if has_brace and not ins and not outs:
             for j in range(idx + 1, min(idx + 20, len(lines))):
                 if "{" in lines[j] and j > idx:
                     break
-                pin_ins, pin_outs = _parse_pins(lines[j])
+                pin_ins, pin_outs, pin_types = _parse_pins(lines[j])
                 ins.extend(pin_ins)
                 outs.extend(pin_outs)
+                input_types.update(pin_types)
         usages.append(
             ExtractedActionUsage(
                 name=name,
@@ -214,6 +223,7 @@ def _find_composite_usages(lines: List[str]) -> List[ExtractedActionUsage]:
                 package_owner=_current_owner(lines, idx),
                 is_composite=is_composite,
                 inputs=ins,
+                input_types=input_types,
                 outputs=outs,
                 raw_line=line.strip(),
             )
@@ -276,6 +286,18 @@ def extract_topology(candidate_sysml: str) -> ExtractedTopology:
     packages = _dedupe_preserve_order(_ids_from_findall(_PACKAGE_RE.findall(text)))
     part_defs = _dedupe_preserve_order(_ids_from_findall(_PART_DEF_RE.findall(text)))
 
+    attribute_defs: List[ExtractedAttributeDef] = []
+    for idx, line in enumerate(lines):
+        match = _ATTRIBUTE_DEF_RE.match(line)
+        if match:
+            attribute_defs.append(
+                ExtractedAttributeDef(
+                    name=_id_from_match(match),
+                    owner=_current_owner(lines, idx),
+                    raw_line=line.strip(),
+                )
+            )
+
     attributes: List[ExtractedAttribute] = []
     for idx, line in enumerate(lines):
         if _ATTRIBUTE_DEF_RE.match(line):
@@ -322,11 +344,12 @@ def extract_topology(candidate_sysml: str) -> ExtractedTopology:
         if not m:
             continue
         name = _id_from_match(m)
-        ins, outs = _parse_pins(line)
+        ins, outs, input_types = _parse_pins(line)
         action_defs.append(
             ExtractedActionDef(
                 name=name,
                 inputs=ins,
+                input_types=input_types,
                 outputs=outs,
                 owner=_current_owner(lines, idx),
                 raw_line=line.strip(),
@@ -382,6 +405,7 @@ def extract_topology(candidate_sysml: str) -> ExtractedTopology:
         packages=packages,
         part_defs=part_defs,
         attributes=attributes,
+        attribute_defs=attribute_defs,
         constraints=constraints,
         state_machines=state_machines,
         action_defs=action_defs,

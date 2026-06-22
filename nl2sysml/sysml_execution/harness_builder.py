@@ -6,6 +6,7 @@ from typing import Any, List, Optional
 
 from .extractor import classify_kind
 from .models import ExecutionRequest, ExtractedTopology, ModelKind
+from .vector_planner import candidates_for_input, input_types_for_target
 
 
 def _format_value(value: Any) -> str:
@@ -76,16 +77,44 @@ def _build_behavioral_harness(topology: ExtractedTopology, request: ExecutionReq
                         pin_names = list(ad.inputs)
                         break
 
-            lines.append("")
-            lines.append(f"    action {probe_name} : {_ref(type_ref, topology)} {{")
+            input_types = input_types_for_target(topology)
+            declarations: List[str] = []
+            bindings = {}
             for pin in pin_names:
                 if pin in sim:
-                    lines.append(f"        in {pin} = {_format_value(sim[pin])};")
+                    bindings[pin] = _format_value(sim[pin])
+                else:
+                    candidates = candidates_for_input(
+                        topology,
+                        pin,
+                        input_types.get(pin, ""),
+                    )
+                    if candidates:
+                        bindings[pin] = candidates[0].expression
+                        declarations.extend(candidates[0].declarations)
+
+            probe_indent = "    "
+            lines.append("")
+            if declarations:
+                lines.append("    action orchestrator {")
+                for declaration in dict.fromkeys(declarations):
+                    lines.append(f"        {declaration}")
+                probe_indent = "        "
+
+            lines.append(
+                f"{probe_indent}action {probe_name} : {_ref(type_ref, topology)} {{"
+            )
+            for pin in pin_names:
+                if pin in bindings:
+                    lines.append(f"{probe_indent}    in {pin} = {bindings[pin]};")
                 else:
                     lines.append(
-                        f"        // TODO(human): provide simulation value for in pin {pin}"
+                        f"{probe_indent}    // TODO(human): unsupported input type "
+                        f"for {pin}: {input_types.get(pin, 'unknown')}"
                     )
-            lines.append("    }")
+            lines.append(f"{probe_indent}}}")
+            if declarations:
+                lines.append("    }")
 
     # Accept/send event stubs
     for accept in topology.accept_actions:
