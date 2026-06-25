@@ -43,6 +43,14 @@ class TestExtraction000200(unittest.TestCase):
         self.assertTrue(any(a.action_name == "engineStarted" for a in topo.accept_actions))
         self.assertTrue(any(a.signal_type == "EngineStart" for a in topo.accept_actions))
 
+    def test_required_triggers_for_target_000200(self):
+        topo = extract_topology(_load("000200"))
+        triggers = topo.required_triggers_for_target()
+        self.assertEqual([t.payload_type for t in triggers], ["EngineStart", "EngineOff"])
+        self.assertEqual([t.param for t in triggers], ["engineStart", "engineOff"])
+        self.assertIsNone(triggers[0].port)
+        self.assertIsNone(triggers[1].port)
+
     def test_composite_usage(self):
         topo = extract_topology(_load("000200"))
         primary = topo.primary_composite_usage()
@@ -54,6 +62,45 @@ class TestExtraction000200(unittest.TestCase):
     def test_kind_behavioral(self):
         topo = extract_topology(_load("000200"))
         self.assertEqual(classify_kind(topo), "behavioral")
+
+
+class TestRequiredTriggersExtraction(unittest.TestCase):
+    def test_nested_bare_accept_with_via(self):
+        code = """
+package P {
+    package Usages {
+        action run : Run {
+            in x : Integer;
+            then action stepA { accept evt : EvA; }
+            then action stepB { accept evt : EvB via myPort; }
+        }
+    }
+}
+"""
+        topo = extract_topology(code)
+        triggers = topo.required_triggers_for_target()
+        self.assertEqual([t.payload_type for t in triggers], ["EvA", "EvB"])
+        self.assertEqual(triggers[0].param, "evt")
+        self.assertIsNone(triggers[0].port)
+        self.assertEqual(triggers[1].param, "evt")
+        self.assertEqual(triggers[1].port, "myPort")
+
+    def test_type_only_accept(self):
+        code = """
+package P {
+    package Usages {
+        action run : Run {
+            accept DoneSignal;
+        }
+    }
+}
+"""
+        topo = extract_topology(code)
+        triggers = topo.required_triggers_for_target()
+        self.assertEqual(len(triggers), 1)
+        self.assertEqual(triggers[0].payload_type, "DoneSignal")
+        self.assertIsNone(triggers[0].param)
+        self.assertIsNone(triggers[0].port)
 
 
 class TestHarness000200(unittest.TestCase):

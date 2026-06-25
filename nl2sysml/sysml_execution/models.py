@@ -43,11 +43,22 @@ class ExtractedConstraint:
 
 
 @dataclass
+class ExtractedAcceptTrigger:
+    """Accept blocker inside a target action body (ordered execution dependency)."""
+
+    payload_type: str
+    param: Optional[str] = None
+    port: Optional[str] = None
+    raw_line: str = ""
+
+
+@dataclass
 class ExtractedActionDef:
     name: str
     inputs: List[str] = field(default_factory=list)
     input_types: Dict[str, str] = field(default_factory=dict)
     outputs: List[str] = field(default_factory=list)
+    required_triggers: List[ExtractedAcceptTrigger] = field(default_factory=list)
     owner: Optional[str] = None
     raw_line: str = ""
 
@@ -61,6 +72,7 @@ class ExtractedActionUsage:
     inputs: List[str] = field(default_factory=list)
     input_types: Dict[str, str] = field(default_factory=dict)
     outputs: List[str] = field(default_factory=list)
+    required_triggers: List[ExtractedAcceptTrigger] = field(default_factory=list)
     raw_line: str = ""
 
 
@@ -131,6 +143,13 @@ class ExtractedTopology:
 
     def primary_action_def(self) -> Optional[ExtractedActionDef]:
         return self.action_defs[0] if self.action_defs else None
+
+    def required_triggers_for_target(self) -> List[ExtractedAcceptTrigger]:
+        usage = self.primary_composite_usage()
+        if usage and usage.required_triggers:
+            return usage.required_triggers
+        action_def = self.primary_action_def()
+        return list(action_def.required_triggers) if action_def else []
 
     def quoted_name(self, name: str) -> str:
         """Return SysML-safe reference for an identifier (quoted if needed)."""

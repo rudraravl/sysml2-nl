@@ -7,6 +7,7 @@ from typing import List, Optional, Tuple
 
 from .models import (
     ExtractedAcceptAction,
+    ExtractedAcceptTrigger,
     ExtractedActionDef,
     ExtractedActionUsage,
     ExtractedAttribute,
@@ -67,8 +68,20 @@ _PIN_RE = re.compile(
     r"\s*(?::\s*([^=;{\n]+))?"
 )
 _ACCEPT_ACTION_RE = re.compile(
-    rf"^\s*action\s+{_ID}\s+accept\s+(\w+)\s*:\s*(\w+)",
+    rf"^\s*action\s+{_ID}\s+accept\s+{_ID}\s*:\s*{_ID}(?:\s+via\s+{_ID})?",
     re.MULTILINE,
+)
+_ACCEPT_ACTION_BODY_RE = re.compile(
+    rf"action\s+{_ID}\s+accept\s+{_ID}\s*:\s*{_ID}(?:\s+via\s+{_ID})?",
+)
+_ACCEPT_PARAM_TYPE_BODY_RE = re.compile(
+    rf"accept\s+{_ID}\s*:\s*{_ID}(?:\s+via\s+{_ID})?",
+)
+_ACCEPT_TYPE_VIA_BODY_RE = re.compile(
+    rf"accept\s+{_ID}\s+via\s+{_ID}",
+)
+_ACCEPT_TYPE_ONLY_BODY_RE = re.compile(
+    rf"accept\s+{_ID}\s*;",
 )
 _SEND_ACTION_RE = re.compile(
     rf"^\s*action\s+{_ID}\s+send\s+(\w+)",
@@ -98,6 +111,17 @@ _EXHIBIT_STATE_RE = re.compile(
 
 def _id_from_match(m: re.Match) -> str:
     return (m.group(1) or m.group(2) or "").strip()
+
+
+def _id_at(m: re.Match, pair_index: int) -> str:
+    """Resolve identifier from the nth _ID capture pair (1-based) in a regex match."""
+    base = pair_index * 2 - 1
+    return (m.group(base) or m.group(base + 1) or "").strip()
+
+
+def _optional_id_at(m: re.Match, pair_index: int) -> Optional[str]:
+    value = _id_at(m, pair_index)
+    return value or None
 
 
 def _ids_from_findall(rows: List[Tuple[str, ...]]) -> List[str]:
@@ -186,6 +210,57 @@ def _extract_root_package(text: str) -> Optional[str]:
     return None
 
 
+def _match_accept_trigger_line(line: str) -> Optional[ExtractedAcceptTrigger]:
+    """Match one accept blocker line (action accept, param:type, type via port, type only)."""
+    stripped = line.strip()
+    if not stripped or stripped.startswith("//") or stripped.startswith("/*"):
+        return None
+
+    m = _ACCEPT_ACTION_BODY_RE.search(line)
+    if m:
+        return ExtractedAcceptTrigger(
+            payload_type=_id_at(m, 3),
+            param=_optional_id_at(m, 2),
+            port=_optional_id_at(m, 4),
+            raw_line=stripped,
+        )
+
+    m = _ACCEPT_PARAM_TYPE_BODY_RE.search(line)
+    if m:
+        return ExtractedAcceptTrigger(
+            payload_type=_id_at(m, 2),
+            param=_optional_id_at(m, 1),
+            port=_optional_id_at(m, 3),
+            raw_line=stripped,
+        )
+
+    m = _ACCEPT_TYPE_VIA_BODY_RE.search(line)
+    if m:
+        return ExtractedAcceptTrigger(
+            payload_type=_id_at(m, 1),
+            port=_optional_id_at(m, 2),
+            raw_line=stripped,
+        )
+
+    m = _ACCEPT_TYPE_ONLY_BODY_RE.search(line)
+    if m:
+        return ExtractedAcceptTrigger(
+            payload_type=_id_at(m, 1),
+            raw_line=stripped,
+        )
+
+    return None
+
+
+def _extract_required_triggers(body: str) -> List[ExtractedAcceptTrigger]:
+    triggers: List[ExtractedAcceptTrigger] = []
+    for line in body.splitlines():
+        record = _match_accept_trigger_line(line)
+        if record:
+            triggers.append(record)
+    return triggers
+
+
 def _find_composite_usages(lines: List[str]) -> List[ExtractedActionUsage]:
     usages: List[ExtractedActionUsage] = []
     for idx, line in enumerate(lines):
@@ -209,13 +284,14 @@ def _find_composite_usages(lines: List[str]) -> List[ExtractedActionUsage]:
         )
         ins, outs, input_types = _parse_pins(line)
         if has_brace and not ins and not outs:
-            for j in range(idx + 1, min(idx + 20, len(lines))):
+            for j in range(idx + 1, end_idx + 1):
                 if "{" in lines[j] and j > idx:
                     break
                 pin_ins, pin_outs, pin_types = _parse_pins(lines[j])
                 ins.extend(pin_ins)
                 outs.extend(pin_outs)
                 input_types.update(pin_types)
+        required_triggers = _extract_required_triggers(body) if has_brace else []
         usages.append(
             ExtractedActionUsage(
                 name=name,
@@ -225,6 +301,7 @@ def _find_composite_usages(lines: List[str]) -> List[ExtractedActionUsage]:
                 inputs=ins,
                 input_types=input_types,
                 outputs=outs,
+                required_triggers=required_triggers,
                 raw_line=line.strip(),
             )
         )
@@ -345,12 +422,22 @@ def extract_topology(candidate_sysml: str) -> ExtractedTopology:
             continue
         name = _id_from_match(m)
         ins, outs, input_types = _parse_pins(line)
+        required_triggers: List[ExtractedAcceptTrigger] = []
+        if "{" in line:
+            end_idx = _brace_depth_at(lines, idx)
+            body = "\n".join(lines[idx : end_idx + 1])
+            required_triggers = _extract_required_triggers(body)
+        elif idx + 1 < len(lines) and "{" in lines[idx + 1]:
+            end_idx = _brace_depth_at(lines, idx + 1)
+            body = "\n".join(lines[idx : end_idx + 1])
+            required_triggers = _extract_required_triggers(body)
         action_defs.append(
             ExtractedActionDef(
                 name=name,
                 inputs=ins,
                 input_types=input_types,
                 outputs=outs,
+                required_triggers=required_triggers,
                 owner=_current_owner(lines, idx),
                 raw_line=line.strip(),
             )
@@ -380,8 +467,8 @@ def extract_topology(candidate_sysml: str) -> ExtractedTopology:
             accept_actions.append(
                 ExtractedAcceptAction(
                     action_name=_id_from_match(m),
-                    signal_param=m.group(3),
-                    signal_type=m.group(4),
+                    signal_param=_id_at(m, 2),
+                    signal_type=_id_at(m, 3),
                     owner=_current_owner(lines, idx),
                     raw_line=line.strip(),
                 )
