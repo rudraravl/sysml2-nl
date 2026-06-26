@@ -6,7 +6,12 @@ from typing import Any, List, Optional
 
 from .extractor import classify_kind
 from .models import ExecutionRequest, ExtractedAcceptTrigger, ExtractedTopology, ModelKind
-from .vector_planner import candidates_for_input, candidates_for_trigger, input_types_for_target
+from .vector_planner import (
+    candidates_for_input,
+    candidates_for_trigger,
+    input_types_for_target,
+    unsupported_reason_for_input,
+)
 
 
 def _format_value(value: Any) -> str:
@@ -41,6 +46,11 @@ def _succession_lines(probe_name: str, send_names: List[str]) -> List[str]:
     if trigger_line:
         lines.append(trigger_line)
     return lines
+
+
+def _append_indented(lines: List[str], text: str, indent: str) -> None:
+    for line in text.splitlines():
+        lines.append(f"{indent}{line}" if line else "")
 
 
 def build_harness_block(topology: ExtractedTopology, request: ExecutionRequest) -> str:
@@ -143,7 +153,7 @@ def _build_behavioral_harness(topology: ExtractedTopology, request: ExecutionReq
                 probe_indent = "        "
 
             for declaration in dict.fromkeys(declarations):
-                lines.append(f"{probe_indent}{declaration}")
+                _append_indented(lines, declaration, probe_indent)
 
             for trigger, _fixture in trigger_plans:
                 if not _fixture:
@@ -159,9 +169,13 @@ def _build_behavioral_harness(topology: ExtractedTopology, request: ExecutionReq
                 if pin in bindings:
                     lines.append(f"{probe_indent}    in {pin} = {bindings[pin]};")
                 else:
+                    reason = unsupported_reason_for_input(
+                        topology,
+                        input_types.get(pin, ""),
+                    )
                     lines.append(
                         f"{probe_indent}    // TODO(human): unsupported input type "
-                        f"for {pin}: {input_types.get(pin, 'unknown')}"
+                        f"for {pin}: {input_types.get(pin, 'unknown')} ({reason})"
                     )
             lines.append(f"{probe_indent}}}")
 

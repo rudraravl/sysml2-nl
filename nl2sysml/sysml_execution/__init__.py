@@ -20,7 +20,15 @@ from .harness_builder import build_consolidated_payload, build_harness_block
 from .orchestrator import run_sysml_execution, run_sysml_execution_from_file
 from .orchestrator import format_execution_trace, write_execution_trace_file
 from .sysml_runtime_bridge import execute_sysml_candidate
-from .vector_planner import InputCandidate, candidates_for_input, candidates_for_trigger, input_types_for_target
+from .vector_planner import (
+    InputCandidate,
+    TypeClassification,
+    candidates_for_input,
+    candidates_for_trigger,
+    classify_input_type,
+    input_types_for_target,
+    unsupported_reason_for_input,
+)
 
 __all__ = [
     "ExecutionRequest",
@@ -28,9 +36,11 @@ __all__ = [
     "ExtractedTopology",
     "KernelExecutionOutput",
     "InputCandidate",
+    "TypeClassification",
     "build_consolidated_payload",
     "build_harness_block",
     "classify_kind",
+    "classify_input_type",
     "candidates_for_input",
     "candidates_for_trigger",
     "execute_sysml_candidate",
@@ -40,4 +50,5 @@ __all__ = [
     "run_sysml_execution",
     "run_sysml_execution_from_file",
     "write_execution_trace_file",
+    "unsupported_reason_for_input",
 ]

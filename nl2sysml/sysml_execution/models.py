@@ -25,6 +25,15 @@ class ExecutionRequest:
 class ExtractedAttribute:
     name: str
     owner: Optional[str] = None
+    type_name: Optional[str] = None
+    has_default: bool = False
+    raw_line: str = ""
+
+
+@dataclass
+class ExtractedAttributeMember:
+    name: str
+    type_name: Optional[str] = None
     has_default: bool = False
     raw_line: str = ""
 
@@ -33,6 +42,16 @@ class ExtractedAttribute:
 class ExtractedAttributeDef:
     name: str
     owner: Optional[str] = None
+    base_type: Optional[str] = None
+    members: List[ExtractedAttributeMember] = field(default_factory=list)
+    raw_line: str = ""
+
+
+@dataclass
+class ExtractedEnumDef:
+    name: str
+    owner: Optional[str] = None
+    literals: List[str] = field(default_factory=list)
     raw_line: str = ""
 
 
@@ -122,6 +141,7 @@ class ExtractedTopology:
     part_defs: List[str] = field(default_factory=list)
     attributes: List[ExtractedAttribute] = field(default_factory=list)
     attribute_defs: List[ExtractedAttributeDef] = field(default_factory=list)
+    enum_defs: List[ExtractedEnumDef] = field(default_factory=list)
     constraints: List[ExtractedConstraint] = field(default_factory=list)
     state_machines: List[ExtractedStateMachine] = field(default_factory=list)
     action_defs: List[ExtractedActionDef] = field(default_factory=list)

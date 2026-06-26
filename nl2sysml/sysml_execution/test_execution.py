@@ -17,7 +17,9 @@ from nl2sysml.sysml_execution.orchestrator import run_sysml_execution  # noqa: E
 from nl2sysml.sysml_execution.vector_planner import (  # noqa: E402
     candidates_for_input,
     candidates_for_trigger,
+    classify_input_type,
     input_types_for_target,
+    unsupported_reason_for_input,
 )
 
 _DATA = _REPO_ROOT / "dataset" / "data"
@@ -289,6 +291,82 @@ package UnknownInput {
         topo = extract_topology(code)
         harness = build_harness_block(topo, ExecutionRequest(candidate_sysml=code))
         self.assertIn("unsupported input type for value: MissingType", harness)
+
+    def test_extracts_multiline_action_def_pin_types(self):
+        code = """
+package MultilinePins {
+    action def Probe {
+        in cmd: Command;
+        out result: Boolean;
+    }
+    attribute def Command;
+}
+"""
+        topo = extract_topology(code)
+        probe = next(item for item in topo.action_defs if item.name == "Probe")
+        self.assertEqual(probe.input_types["cmd"], "Command")
+
+    def test_extracts_attribute_def_members(self):
+        code = """
+package Payloads {
+    attribute def Command {
+        attribute enabled : Boolean;
+        attribute level : Integer = 1;
+    }
+}
+"""
+        topo = extract_topology(code)
+        command = next(item for item in topo.attribute_defs if item.name == "Command")
+        self.assertEqual([member.name for member in command.members], ["enabled", "level"])
+        self.assertEqual(command.members[0].type_name, "Boolean")
+        self.assertTrue(command.members[1].has_default)
+
+    def test_builds_enum_boundary_candidates(self):
+        code = """
+package EnumInput {
+    enum def Mode {
+        off;
+        on;
+    }
+    action def Probe { in mode: Mode; }
+}
+"""
+        topo = extract_topology(code)
+        candidates = candidates_for_input(topo, "mode", "Mode")
+        self.assertEqual([item.expression for item in candidates], ["Mode::off", "Mode::on"])
+        self.assertEqual(classify_input_type(topo, "Mode").kind, "enumeration")
+
+    def test_builds_structured_payload_fixture_when_members_are_constructible(self):
+        code = """
+package StructuredInput {
+    attribute def Command {
+        attribute enabled : Boolean;
+        attribute level : Integer;
+    }
+    action def Probe { in cmd: Command; }
+}
+"""
+        topo = extract_topology(code)
+        harness = build_harness_block(topo, ExecutionRequest(candidate_sysml=code))
+        self.assertIn("attribute testCmd : Command {", harness)
+        self.assertIn("attribute enabled = false;", harness)
+        self.assertIn("attribute level = 0;", harness)
+        self.assertIn("in cmd = testCmd;", harness)
+
+    def test_explains_unsupported_structured_payload_members(self):
+        code = """
+package UnsupportedPayload {
+    attribute def Command {
+        attribute nested : MissingType;
+    }
+    action def Probe { in cmd: Command; }
+}
+"""
+        topo = extract_topology(code)
+        self.assertIn(
+            "unsupported structured payload members: nested",
+            unsupported_reason_for_input(topo, "Command"),
+        )
 
 
 class TestExtraction000600(unittest.TestCase):

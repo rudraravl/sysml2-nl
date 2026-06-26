@@ -12,7 +12,9 @@ from .models import (
     ExtractedActionUsage,
     ExtractedAttribute,
     ExtractedAttributeDef,
+    ExtractedAttributeMember,
     ExtractedConstraint,
+    ExtractedEnumDef,
     ExtractedSendAction,
     ExtractedStateMachine,
     ExtractedStateTransition,
@@ -44,11 +46,19 @@ _PART_SIMPLE_RE = re.compile(
     re.MULTILINE,
 )
 _ATTRIBUTE_DEF_RE = re.compile(
-    rf"^\s*attribute\s+def\s+{_ID}",
+    rf"^\s*attribute\s+def\s+{_ID}(?:\s*(?::>|:)\s*([^=;{{\n]+))?",
     re.MULTILINE,
 )
 _ATTRIBUTE_USAGE_RE = re.compile(
-    rf"^\s*attribute\s+{_ID}\s*(?!def)",
+    rf"^\s*attribute\s+{_ID}\s*(?!def)(?::\s*([^=;{{\n]+))?",
+    re.MULTILINE,
+)
+_ENUM_DEF_RE = re.compile(
+    rf"^\s*enum\s+def\s+{_ID}",
+    re.MULTILINE,
+)
+_ENUM_LITERAL_RE = re.compile(
+    rf"^\s*(?:enum\s+)?{_ID}\s*;?\s*$",
     re.MULTILINE,
 )
 _ACTION_DEF_RE = re.compile(
@@ -152,7 +162,7 @@ def _brace_depth_at(lines: List[str], start: int) -> int:
     depth = 0
     for i in range(start, len(lines)):
         depth += lines[i].count("{") - lines[i].count("}")
-        if depth <= 0 and i > start:
+        if depth <= 0 and ("{" in lines[start] or i > start):
             return i
     return len(lines) - 1
 
@@ -198,6 +208,12 @@ def _has_default_value(line: str) -> bool:
     """True if attribute line contains a binding default (= ...)."""
     stripped = line.split("//", 1)[0]
     return bool(re.search(r"\s=\s", stripped))
+
+
+def _clean_type_ref(type_ref: Optional[str]) -> Optional[str]:
+    if not type_ref:
+        return None
+    return type_ref.strip().rstrip(";").strip()
 
 
 def _extract_root_package(text: str) -> Optional[str]:
@@ -308,6 +324,39 @@ def _find_composite_usages(lines: List[str]) -> List[ExtractedActionUsage]:
     return usages
 
 
+def _extract_attribute_members(lines: List[str], start: int, end: int) -> List[ExtractedAttributeMember]:
+    members: List[ExtractedAttributeMember] = []
+    for line in lines[start + 1 : end + 1]:
+        if _ATTRIBUTE_DEF_RE.match(line):
+            continue
+        match = _ATTRIBUTE_USAGE_RE.match(line)
+        if not match:
+            continue
+        members.append(
+            ExtractedAttributeMember(
+                name=_id_from_match(match),
+                type_name=_clean_type_ref(match.group(3)),
+                has_default=_has_default_value(line),
+                raw_line=line.strip(),
+            )
+        )
+    return members
+
+
+def _extract_enum_literals(lines: List[str], start: int, end: int) -> List[str]:
+    literals: List[str] = []
+    for line in lines[start + 1 : end + 1]:
+        stripped = line.strip()
+        if not stripped or stripped in ("{", "}") or stripped.startswith("//"):
+            continue
+        match = _ENUM_LITERAL_RE.match(line)
+        if match:
+            literal = _id_from_match(match)
+            if literal and literal not in literals:
+                literals.append(literal)
+    return literals
+
+
 def _extract_state_machines(lines: List[str]) -> List[ExtractedStateMachine]:
     machines: List[ExtractedStateMachine] = []
     for idx, line in enumerate(lines):
@@ -367,10 +416,27 @@ def extract_topology(candidate_sysml: str) -> ExtractedTopology:
     for idx, line in enumerate(lines):
         match = _ATTRIBUTE_DEF_RE.match(line)
         if match:
+            end_idx = _brace_depth_at(lines, idx) if "{" in line else idx
             attribute_defs.append(
                 ExtractedAttributeDef(
                     name=_id_from_match(match),
                     owner=_current_owner(lines, idx),
+                    base_type=_clean_type_ref(match.group(3)),
+                    members=_extract_attribute_members(lines, idx, end_idx),
+                    raw_line=line.strip(),
+                )
+            )
+
+    enum_defs: List[ExtractedEnumDef] = []
+    for idx, line in enumerate(lines):
+        match = _ENUM_DEF_RE.match(line)
+        if match:
+            end_idx = _brace_depth_at(lines, idx) if "{" in line else idx
+            enum_defs.append(
+                ExtractedEnumDef(
+                    name=_id_from_match(match),
+                    owner=_current_owner(lines, idx),
+                    literals=_extract_enum_literals(lines, idx, end_idx),
                     raw_line=line.strip(),
                 )
             )
@@ -385,6 +451,7 @@ def extract_topology(candidate_sysml: str) -> ExtractedTopology:
                 ExtractedAttribute(
                     name=_id_from_match(m),
                     owner=_current_owner(lines, idx),
+                    type_name=_clean_type_ref(m.group(3)),
                     has_default=_has_default_value(line),
                     raw_line=line.strip(),
                 )
@@ -427,10 +494,20 @@ def extract_topology(candidate_sysml: str) -> ExtractedTopology:
             end_idx = _brace_depth_at(lines, idx)
             body = "\n".join(lines[idx : end_idx + 1])
             required_triggers = _extract_required_triggers(body)
+            for body_line in lines[idx + 1 : end_idx + 1]:
+                pin_ins, pin_outs, pin_types = _parse_pins(body_line)
+                ins.extend(pin_ins)
+                outs.extend(pin_outs)
+                input_types.update(pin_types)
         elif idx + 1 < len(lines) and "{" in lines[idx + 1]:
             end_idx = _brace_depth_at(lines, idx + 1)
             body = "\n".join(lines[idx : end_idx + 1])
             required_triggers = _extract_required_triggers(body)
+            for body_line in lines[idx + 1 : end_idx + 1]:
+                pin_ins, pin_outs, pin_types = _parse_pins(body_line)
+                ins.extend(pin_ins)
+                outs.extend(pin_outs)
+                input_types.update(pin_types)
         action_defs.append(
             ExtractedActionDef(
                 name=name,
@@ -493,6 +570,7 @@ def extract_topology(candidate_sysml: str) -> ExtractedTopology:
         part_defs=part_defs,
         attributes=attributes,
         attribute_defs=attribute_defs,
+        enum_defs=enum_defs,
         constraints=constraints,
         state_machines=state_machines,
         action_defs=action_defs,
