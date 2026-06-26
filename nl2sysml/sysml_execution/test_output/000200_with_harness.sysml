@@ -109,7 +109,7 @@ package '3a-Function-based Behavior-1' {
 			}			
 			first engineStarted then engineStopped;
 					
-			action engineStopped accept engineOff: EngineOff;	
+			acton engineStopped accept engineOff: EngineOff;	
 			first engineStopped then continue;
 			
 			/*
@@ -142,23 +142,15 @@ package ExecutionHarness {
     private import '3a-Function-based Behavior-1'::Usages::*;
 
     action orchestrator {
-        
-        // 1. Create instances of the required attributes (no integers or raw types)
-        attribute testFuel: FuelCmd;
-        attribute testStartSignal: EngineStart;
-        attribute testStopSignal: EngineOff;
-        
-        // 2. Instantiate the target action using the properly typed testFuel
+        attribute testFuelCmd : FuelCmd;
+        attribute testEngineStart : EngineStart;
+        attribute testEngineOff : EngineOff;
         action provide_powerProbe : 'Provide Power' {
-            in fuelCmd = testFuel;
+            in fuelCmd = testFuelCmd;
         }
-        
-        // 3. Send the initialized payloads, without invoking them with ()
-        action triggerStart send testStartSignal to provide_powerProbe;
-        action triggerStop send testStopSignal to provide_powerProbe;
-        
-        // 4. Force the order of execution
+        action triggerEngineStart send testEngineStart to provide_powerProbe;
+        action triggerEngineOff send testEngineOff to provide_powerProbe;
         first provide_powerProbe;
-        first triggerStart then triggerStop;
+        first triggerEngineStart then triggerEngineOff;
     }
 }

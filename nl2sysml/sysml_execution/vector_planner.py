@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import List
 
-from .models import ExtractedTopology
+from .models import ExtractedAcceptTrigger, ExtractedTopology
 
 
 @dataclass(frozen=True)
@@ -67,3 +67,28 @@ def candidates_for_input(
         return [InputCandidate(fixture, (declaration,))]
 
     return []
+
+
+def _trigger_fixture_key(
+    trigger: ExtractedAcceptTrigger,
+    index: int,
+    seen_params: set[str],
+) -> str:
+    if trigger.param:
+        if trigger.param in seen_params:
+            return f"{trigger.param}{index}"
+        seen_params.add(trigger.param)
+        return trigger.param
+    return f"{_simple_type(trigger.payload_type)}{index}"
+
+
+def candidates_for_trigger(
+    topology: ExtractedTopology,
+    trigger: ExtractedAcceptTrigger,
+    index: int,
+    seen_params: set[str] | None = None,
+) -> List[InputCandidate]:
+    """Return fixture candidates for one required accept trigger payload."""
+    params = seen_params if seen_params is not None else set()
+    key = _trigger_fixture_key(trigger, index, params)
+    return candidates_for_input(topology, key, trigger.payload_type)

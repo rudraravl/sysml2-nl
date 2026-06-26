@@ -16,6 +16,7 @@ from nl2sysml.sysml_execution.models import ExecutionRequest  # noqa: E402
 from nl2sysml.sysml_execution.orchestrator import run_sysml_execution  # noqa: E402
 from nl2sysml.sysml_execution.vector_planner import (  # noqa: E402
     candidates_for_input,
+    candidates_for_trigger,
     input_types_for_target,
 )
 
@@ -120,10 +121,99 @@ class TestHarness000200(unittest.TestCase):
         self.assertIn("in fuelCmd = testFuelCmd;", harness)
         self.assertNotIn("in fuelCmd = 1", harness)
 
-    def test_harness_todo_for_accept(self):
+    def test_harness_generates_trigger_payloads_000200(self):
         topo = extract_topology(_load("000200"))
         harness = build_harness_block(topo, ExecutionRequest(candidate_sysml=""))
-        self.assertIn("TODO(human): kernel cannot send/trigger engineStart", harness)
+        self.assertIn("attribute testEngineStart : EngineStart;", harness)
+        self.assertIn("attribute testEngineOff : EngineOff;", harness)
+
+    def test_harness_generates_send_actions_000200(self):
+        topo = extract_topology(_load("000200"))
+        harness = build_harness_block(topo, ExecutionRequest(candidate_sysml=""))
+        self.assertIn("send testEngineStart to provide_powerProbe", harness)
+        self.assertIn("send testEngineOff to provide_powerProbe", harness)
+
+    def test_harness_generates_send_not_todo_for_accept(self):
+        topo = extract_topology(_load("000200"))
+        harness = build_harness_block(topo, ExecutionRequest(candidate_sysml=""))
+        self.assertNotIn("TODO(human): kernel cannot send/trigger engineStart", harness)
+        self.assertIn("action triggerEngineStart send testEngineStart", harness)
+
+    def test_harness_via_port_send(self):
+        code = """
+package P {
+    package Definitions {
+        attribute def EvA;
+        attribute def EvB;
+    }
+    package Usages {
+        action run : Run {
+            in x : Integer;
+            then action stepA { accept evt : EvA; }
+            then action stepB { accept evt : EvB via myPort; }
+        }
+    }
+}
+"""
+        topo = extract_topology(code)
+        harness = build_harness_block(topo, ExecutionRequest(candidate_sysml=code))
+        self.assertIn("send testEvt to runProbe", harness)
+        self.assertIn("send testEvt1 via myPort to runProbe", harness)
+
+    def test_harness_sequences_probe_000200(self):
+        topo = extract_topology(_load("000200"))
+        harness = build_harness_block(topo, ExecutionRequest(candidate_sysml=""))
+        self.assertIn("first provide_powerProbe;", harness)
+
+    def test_harness_sequences_triggers_000200(self):
+        topo = extract_topology(_load("000200"))
+        harness = build_harness_block(topo, ExecutionRequest(candidate_sysml=""))
+        self.assertIn("first triggerEngineStart then triggerEngineOff;", harness)
+
+
+class TestHarnessSequencer(unittest.TestCase):
+    def test_single_trigger_succession(self):
+        code = """
+package P {
+    package Definitions {
+        attribute def DoneSignal;
+    }
+    package Usages {
+        action run : Run {
+            accept done : DoneSignal;
+        }
+    }
+}
+"""
+        topo = extract_topology(code)
+        harness = build_harness_block(topo, ExecutionRequest(candidate_sysml=code))
+        self.assertIn("first runProbe;", harness)
+        self.assertIn("first triggerDoneSignal;", harness)
+        self.assertNotIn(" then ", harness.split("first triggerDoneSignal;")[0])
+
+    def test_three_trigger_succession_chain(self):
+        code = """
+package P {
+    package Definitions {
+        attribute def SigA;
+        attribute def SigB;
+        attribute def SigC;
+    }
+    package Usages {
+        action run : Run {
+            accept a : SigA;
+            accept b : SigB;
+            accept c : SigC;
+        }
+    }
+}
+"""
+        topo = extract_topology(code)
+        harness = build_harness_block(topo, ExecutionRequest(candidate_sysml=code))
+        self.assertIn(
+            "first triggerSigA then triggerSigB then triggerSigC;",
+            harness,
+        )
 
 
 class TestVectorPlanning(unittest.TestCase):
@@ -138,6 +228,41 @@ class TestVectorPlanning(unittest.TestCase):
         self.assertEqual(
             candidates[0].declarations,
             ("attribute testFuelCmd : FuelCmd;",),
+        )
+
+    def test_candidates_for_trigger_disambiguates_duplicate_params(self):
+        topo = extract_topology(_load("000200"))
+        triggers = topo.required_triggers_for_target()
+        seen: set[str] = set()
+        first = candidates_for_trigger(topo, triggers[0], 0, seen)
+        second = candidates_for_trigger(topo, triggers[1], 1, seen)
+        self.assertEqual(first[0].expression, "testEngineStart")
+        self.assertEqual(second[0].expression, "testEngineOff")
+
+        code = """
+package P {
+    package Definitions {
+        attribute def EvA;
+        attribute def EvB;
+    }
+    package Usages {
+        action run : Run {
+            accept evt : EvA;
+            accept evt : EvB;
+        }
+    }
+}
+"""
+        topo = extract_topology(code)
+        triggers = topo.required_triggers_for_target()
+        seen = set()
+        self.assertEqual(
+            candidates_for_trigger(topo, triggers[0], 0, seen)[0].expression,
+            "testEvt",
+        )
+        self.assertEqual(
+            candidates_for_trigger(topo, triggers[1], 1, seen)[0].expression,
+            "testEvt1",
         )
 
     def test_builds_small_primitive_boundary_set(self):
@@ -194,6 +319,47 @@ class TestHarness000600(unittest.TestCase):
         )
 
 
+class TestKernelTraceCapture(unittest.TestCase):
+    def test_extracts_json_execute_result(self):
+        from nl2sysml.sysml_execution.sysml_runtime_bridge import _trace_entries_from_content
+
+        entries = _trace_entries_from_content(
+            {"data": {"application/json": {"event": "EngineStart", "step": 1}}}
+        )
+        self.assertEqual(len(entries), 1)
+        self.assertIn("EngineStart", entries[0])
+
+    def test_orchestrator_uses_kernel_trace(self):
+        from nl2sysml.sysml_execution.models import KernelExecutionOutput
+        from nl2sysml.sysml_execution.orchestrator import _kernel_trace_lines
+
+        kernel_out = KernelExecutionOutput(
+            trace=['{"discrete": ["probe", "trigger"]}', "line two"],
+            stdout=["ignored when trace present"],
+        )
+        self.assertEqual(
+            _kernel_trace_lines(kernel_out),
+            ['{"discrete": ["probe", "trigger"]}', "line two"],
+        )
+
+    def test_writes_trace_file(self):
+        from tempfile import TemporaryDirectory
+
+        from nl2sysml.sysml_execution.orchestrator import write_execution_trace_file
+
+        with TemporaryDirectory() as tmp:
+            path = write_execution_trace_file(
+                f"{tmp}/trace.txt",
+                ["step one", '{"event": "start"}'],
+                errors=["ERROR: example"],
+            )
+            text = Path(path).read_text(encoding="utf-8")
+            self.assertIn("step one", text)
+            self.assertIn('"event": "start"', text)
+            self.assertIn("# errors", text)
+            self.assertIn("ERROR: example", text)
+
+
 class TestKernel000200(unittest.TestCase):
     """Run with: python -m unittest nl2sysml.sysml_execution.test_execution.TestKernel000200"""
 
@@ -220,6 +386,7 @@ class TestKernel000200(unittest.TestCase):
         self.assertTrue(result.compiled, msg=f"errors: {result.errors}")
         self.assertIn("attribute testFuelCmd : FuelCmd;", result.harness)
         self.assertIn("in fuelCmd = testFuelCmd;", result.harness)
+        self.assertIsInstance(result.trace, list)
 
 
 if __name__ == "__main__":

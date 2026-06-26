@@ -18,6 +18,7 @@ class ExecutionRequest:
     execution_timeout_sec: float = 120.0
     kernel_ready_timeout_sec: float = 180.0
     jupyter_path: Optional[str] = None
+    trace_output_path: Optional[str] = None
 
 
 @dataclass
@@ -166,6 +167,7 @@ class KernelExecutionOutput:
 
     stdout: List[str] = field(default_factory=list)
     errors: List[str] = field(default_factory=list)
+    trace: List[str] = field(default_factory=list)
     kernel_available: bool = True
     bridge_error: Optional[str] = None
 
@@ -184,6 +186,7 @@ class ExecutionResult:
     kernel_available: bool
     extracted_topology: Optional[ExtractedTopology] = None
     bridge_error: Optional[str] = None
+    trace_path: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         data = asdict(self)

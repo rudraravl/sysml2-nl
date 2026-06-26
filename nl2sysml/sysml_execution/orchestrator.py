@@ -35,8 +35,39 @@ def _flatten_lines(chunks: List[str]) -> List[str]:
 def _is_compiled(kernel_out: KernelExecutionOutput) -> bool:
     if not kernel_out.kernel_available or kernel_out.bridge_error:
         return False
-    all_output = kernel_out.stdout + kernel_out.errors
-    return not any(_ERROR_RE.search(line) for line in all_output)
+    combined = _kernel_trace_lines(kernel_out) + _flatten_lines(kernel_out.errors)
+    return not any(_ERROR_RE.search(line) for line in combined)
+
+
+def _kernel_trace_lines(kernel_out: KernelExecutionOutput) -> List[str]:
+    source = kernel_out.trace if kernel_out.trace else kernel_out.stdout
+    return _flatten_lines(source)
+
+
+def format_execution_trace(trace: List[str], errors: Optional[List[str]] = None) -> str:
+    """Format compiler/kernel trace lines for persistence."""
+    sections: List[str] = []
+    if trace:
+        sections.append("\n".join(trace))
+    if errors:
+        if sections:
+            sections.append("")
+        sections.append("# errors")
+        sections.extend(errors)
+    return "\n".join(sections) + ("\n" if sections else "")
+
+
+def write_execution_trace_file(
+    path: str | Path,
+    trace: List[str],
+    *,
+    errors: Optional[List[str]] = None,
+) -> str:
+    """Write execution trace (and optional errors) to a text file."""
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(format_execution_trace(trace, errors), encoding="utf-8")
+    return str(target)
 
 
 def run_sysml_execution(request: ExecutionRequest) -> ExecutionResult:
@@ -54,12 +85,20 @@ def run_sysml_execution(request: ExecutionRequest) -> ExecutionResult:
         kernel_ready_timeout_sec=request.kernel_ready_timeout_sec,
     )
 
-    trace = _flatten_lines(kernel_out.stdout)
+    trace = _kernel_trace_lines(kernel_out)
     errors = _flatten_lines(kernel_out.errors)
     if kernel_out.bridge_error:
         errors.append(kernel_out.bridge_error)
 
     compiled = _is_compiled(kernel_out)
+
+    trace_path: Optional[str] = None
+    if request.trace_output_path:
+        trace_path = write_execution_trace_file(
+            request.trace_output_path,
+            trace,
+            errors=errors or None,
+        )
 
     return ExecutionResult(
         compiled=compiled,
@@ -72,6 +111,7 @@ def run_sysml_execution(request: ExecutionRequest) -> ExecutionResult:
         kernel_available=kernel_out.kernel_available,
         extracted_topology=topology,
         bridge_error=kernel_out.bridge_error,
+        trace_path=trace_path,
     )
 
 
@@ -105,10 +145,17 @@ def _cli() -> None:
         help="Build harness only; do not invoke kernel",
     )
     parser.add_argument("-o", "--output", help="Write JSON result to file")
+    parser.add_argument(
+        "--trace-output",
+        help="Write compiler/kernel execution trace to a text file",
+    )
     args = parser.parse_args()
 
     code = Path(args.sysml_file).read_text(encoding="utf-8")
-    req = ExecutionRequest(candidate_sysml=code)
+    req = ExecutionRequest(
+        candidate_sysml=code,
+        trace_output_path=args.trace_output,
+    )
 
     if args.dry_run:
         topology = extract_topology(code)

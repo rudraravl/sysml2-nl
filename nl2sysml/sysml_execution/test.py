@@ -14,14 +14,20 @@ from nl2sysml.sysml_execution import ExecutionRequest, run_sysml_execution  # no
 _SAMPLE = _REPO_ROOT / "dataset/data/000200/000200.sysml"
 _OUTPUT_DIR = Path(__file__).resolve().parent / "test_output"
 _OUTPUT_PATH = _OUTPUT_DIR / "000200_with_harness.sysml"
+_TRACE_PATH = _OUTPUT_DIR / "000200_execution_trace.txt"
 
 
 def _assert_harness(harness: str) -> None:
     required = [
         "attribute testFuelCmd : FuelCmd;",
+        "attribute testEngineStart : EngineStart;",
+        "attribute testEngineOff : EngineOff;",
         "in fuelCmd = testFuelCmd;",
         "'Provide Power'",
-        "TODO(human): kernel cannot send/trigger engineStart",
+        "action triggerEngineStart send testEngineStart to provide_powerProbe",
+        "action triggerEngineOff send testEngineOff to provide_powerProbe",
+        "first provide_powerProbe;",
+        "first triggerEngineStart then triggerEngineOff;",
     ]
     for fragment in required:
         if fragment not in harness:
@@ -35,7 +41,12 @@ def _assert_harness(harness: str) -> None:
 
 def main() -> int:
     code = _SAMPLE.read_text(encoding="utf-8")
-    result = run_sysml_execution(ExecutionRequest(candidate_sysml=code))
+    result = run_sysml_execution(
+        ExecutionRequest(
+            candidate_sysml=code,
+            trace_output_path=str(_TRACE_PATH),
+        )
+    )
 
     if result.model_kind != "behavioral":
         raise AssertionError(f"expected behavioral model, got {result.model_kind!r}")
@@ -48,6 +59,7 @@ def main() -> int:
     print(f"compiled={result.compiled} success={result.success} kind={result.model_kind}")
     print(f"kernel_available={result.kernel_available}")
     print(f"wrote {_OUTPUT_PATH}")
+    print(f"wrote {_TRACE_PATH}")
 
     if result.kernel_available:
         if not result.compiled:
