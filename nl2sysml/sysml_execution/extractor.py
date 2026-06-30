@@ -15,6 +15,7 @@ from .models import (
     ExtractedAttributeMember,
     ExtractedConstraint,
     ExtractedEnumDef,
+    ExtractedItemDef,
     ExtractedSendAction,
     ExtractedStateMachine,
     ExtractedStateTransition,
@@ -50,7 +51,11 @@ _ATTRIBUTE_DEF_RE = re.compile(
     re.MULTILINE,
 )
 _ATTRIBUTE_USAGE_RE = re.compile(
-    rf"^\s*attribute\s+{_ID}\s*(?!def)(?::\s*([^=;{{\n]+))?",
+    rf"^\s*attribute\s+(?:(?:redefines|:>>)\s+)?{_ID}\s*(?!def)(?::\s*([^=;{{\n]+))?",
+    re.MULTILINE,
+)
+_ITEM_DEF_RE = re.compile(
+    rf"^\s*item\s+def\s+{_ID}",
     re.MULTILINE,
 )
 _ENUM_DEF_RE = re.compile(
@@ -195,10 +200,13 @@ def _parse_pins(header: str) -> Tuple[List[str], List[str], dict]:
     input_types = {}
     for m in _PIN_RE.finditer(header):
         name = (m.group(2) or m.group(3) or "").strip()
+        type_ref = m.group(4).strip() if m.group(4) else ""
+        if type_ref.startswith(">>"):
+            continue
         if m.group(1) == "in":
             ins.append(name)
-            if m.group(4):
-                input_types[name] = m.group(4).strip()
+            if type_ref:
+                input_types[name] = type_ref
         else:
             outs.append(name)
     return ins, outs, input_types
@@ -208,6 +216,16 @@ def _has_default_value(line: str) -> bool:
     """True if attribute line contains a binding default (= ...)."""
     stripped = line.split("//", 1)[0]
     return bool(re.search(r"\s=\s", stripped))
+
+
+def _extract_default_value(line: str) -> Optional[str]:
+    """Return a simple default expression from `= value` when present."""
+    stripped = line.split("//", 1)[0]
+    match = re.search(r"\s=\s*(.+?)(?:;|\{|$)", stripped)
+    if not match:
+        return None
+    value = match.group(1).strip()
+    return value or None
 
 
 def _clean_type_ref(type_ref: Optional[str]) -> Optional[str]:
@@ -337,6 +355,7 @@ def _extract_attribute_members(lines: List[str], start: int, end: int) -> List[E
                 name=_id_from_match(match),
                 type_name=_clean_type_ref(match.group(3)),
                 has_default=_has_default_value(line),
+                default_value=_extract_default_value(line),
                 raw_line=line.strip(),
             )
         )
@@ -441,6 +460,20 @@ def extract_topology(candidate_sysml: str) -> ExtractedTopology:
                 )
             )
 
+    item_defs: List[ExtractedItemDef] = []
+    for idx, line in enumerate(lines):
+        match = _ITEM_DEF_RE.match(line)
+        if match:
+            end_idx = _brace_depth_at(lines, idx) if "{" in line else idx
+            item_defs.append(
+                ExtractedItemDef(
+                    name=_id_from_match(match),
+                    owner=_current_owner(lines, idx),
+                    members=_extract_attribute_members(lines, idx, end_idx),
+                    raw_line=line.strip(),
+                )
+            )
+
     attributes: List[ExtractedAttribute] = []
     for idx, line in enumerate(lines):
         if _ATTRIBUTE_DEF_RE.match(line):
@@ -453,6 +486,7 @@ def extract_topology(candidate_sysml: str) -> ExtractedTopology:
                     owner=_current_owner(lines, idx),
                     type_name=_clean_type_ref(m.group(3)),
                     has_default=_has_default_value(line),
+                    default_value=_extract_default_value(line),
                     raw_line=line.strip(),
                 )
             )
@@ -571,6 +605,7 @@ def extract_topology(candidate_sysml: str) -> ExtractedTopology:
         attributes=attributes,
         attribute_defs=attribute_defs,
         enum_defs=enum_defs,
+        item_defs=item_defs,
         constraints=constraints,
         state_machines=state_machines,
         action_defs=action_defs,

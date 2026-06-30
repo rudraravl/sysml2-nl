@@ -320,6 +320,7 @@ package Payloads {
         self.assertEqual([member.name for member in command.members], ["enabled", "level"])
         self.assertEqual(command.members[0].type_name, "Boolean")
         self.assertTrue(command.members[1].has_default)
+        self.assertEqual(command.members[1].default_value, "1")
 
     def test_builds_enum_boundary_candidates(self):
         code = """
@@ -352,6 +353,109 @@ package StructuredInput {
         self.assertIn("attribute enabled = false;", harness)
         self.assertIn("attribute level = 0;", harness)
         self.assertIn("in cmd = testCmd;", harness)
+
+    def test_preserves_payload_member_defaults(self):
+        code = """
+package DefaultPayload {
+    attribute def SignalStrength {
+        attribute value : Real;
+        attribute unit : String = "dBm";
+    }
+    action def Probe { in signal: SignalStrength; }
+}
+"""
+        topo = extract_topology(code)
+        harness = build_harness_block(topo, ExecutionRequest(candidate_sysml=code))
+        self.assertIn("attribute testSignal : SignalStrength {", harness)
+        self.assertIn("attribute value = 0.0;", harness)
+        self.assertIn('attribute unit = "dBm";', harness)
+        self.assertIn("in signal = testSignal;", harness)
+
+    def test_builds_scalar_alias_payload_with_value(self):
+        code = """
+package ScalarAlias {
+    attribute def IMSI :> String;
+    action def Probe { in userIdentity: IMSI; }
+}
+"""
+        topo = extract_topology(code)
+        harness = build_harness_block(topo, ExecutionRequest(candidate_sysml=code))
+        self.assertIn('attribute testUserIdentity : IMSI = "";', harness)
+        self.assertIn("in userIdentity = testUserIdentity;", harness)
+
+    def test_builds_nested_payload_members(self):
+        code = """
+package NestedPayload {
+    attribute def Position {
+        attribute latitude : Real;
+        attribute longitude : Real;
+    }
+    attribute def TargetData {
+        attribute position : Position;
+        attribute classification : String = "unknown";
+    }
+    action def Probe { in targetData: TargetData; }
+}
+"""
+        topo = extract_topology(code)
+        harness = build_harness_block(topo, ExecutionRequest(candidate_sysml=code))
+        self.assertIn("attribute testTargetData : TargetData {", harness)
+        self.assertIn("attribute position : Position {", harness)
+        self.assertIn("attribute latitude = 0.0;", harness)
+        self.assertIn('attribute classification = "unknown";', harness)
+
+    def test_builds_item_payload_fixture(self):
+        code = """
+package ItemPayload {
+    attribute def FieldValue :> Real;
+    item def MagneticField {
+        attribute fieldStrength : FieldValue;
+    }
+    action def Probe { in item inputField: MagneticField; }
+}
+"""
+        topo = extract_topology(code)
+        harness = build_harness_block(topo, ExecutionRequest(candidate_sysml=code))
+        self.assertIn("item testInputField : MagneticField {", harness)
+        self.assertIn("attribute fieldStrength : FieldValue = 0.0;", harness)
+        self.assertIn("in inputField = testInputField;", harness)
+
+    def test_builds_quantity_payload_with_unit_reference(self):
+        code = """
+package QuantityPayload {
+    attribute def CurrentValue :> ScalarQuantityValue {
+        attribute redefines num : Real;
+        attribute redefines mRef : SI::A;
+    }
+    action def Probe { in current: CurrentValue; }
+}
+"""
+        topo = extract_topology(code)
+        harness = build_harness_block(topo, ExecutionRequest(candidate_sysml=code))
+        self.assertIn("attribute testCurrent : CurrentValue {", harness)
+        self.assertIn("attribute num = 0.0;", harness)
+        self.assertIn("attribute mRef : SI::A;", harness)
+        self.assertIn("in current = testCurrent;", harness)
+
+    def test_ignores_redefinition_pins_when_resolving_usage_inputs(self):
+        code = """
+package RedefinedPins {
+    item def MagneticField {
+        attribute strength : Real;
+    }
+    action def Sense {
+        in item inputField : MagneticField;
+    }
+    action sense : Sense {
+        in item :>> inputField;
+    }
+}
+"""
+        topo = extract_topology(code)
+        harness = build_harness_block(topo, ExecutionRequest(candidate_sysml=code))
+        self.assertNotIn("unsupported input type for item", harness)
+        self.assertIn("item testInputField : MagneticField {", harness)
+        self.assertIn("in inputField = testInputField;", harness)
 
     def test_explains_unsupported_structured_payload_members(self):
         code = """

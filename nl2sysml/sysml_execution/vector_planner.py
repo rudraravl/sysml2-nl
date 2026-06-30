@@ -3,9 +3,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List
+from typing import List, Protocol
 
 from .models import ExtractedAcceptTrigger, ExtractedAttributeDef, ExtractedTopology
+
+
+class _PayloadDef(Protocol):
+    name: str
+    members: list
 
 
 @dataclass(frozen=True)
@@ -28,6 +33,24 @@ _PRIMITIVE_VALUES = {
     "Natural": ("0", "1"),
     "Real": ("0.0", "1.0", "-1.0"),
     "String": ('""', '"test"'),
+}
+
+_EXTERNAL_VALUE_TYPES = {
+    "ScalarQuantityValue",
+    "DurationValue",
+    "LengthValue",
+    "MassValue",
+    "TimeValue",
+    "SpeedValue",
+    "ForceValue",
+    "DensityValue",
+    "VolumeFlowRateValue",
+    "FrequencyValue",
+    "PowerValue",
+    "EnergyValue",
+    "ElectricCurrentValue",
+    "ElectricPotentialValue",
+    "VoltageValue",
 }
 
 
@@ -53,12 +76,55 @@ def _attribute_def_for_type(
     )
 
 
+def _item_def_for_type(topology: ExtractedTopology, type_name: str):
+    return next(
+        (item for item in topology.item_defs if _matches_type(item.name, type_name)),
+        None,
+    )
+
+
+def _payload_def_for_type(
+    topology: ExtractedTopology,
+    type_name: str,
+) -> tuple[str, _PayloadDef] | None:
+    attr_def = _attribute_def_for_type(topology, type_name)
+    if attr_def:
+        return "attribute", attr_def
+    item_def = _item_def_for_type(topology, type_name)
+    if item_def:
+        return "item", item_def
+    return None
+
+
 def _enum_literals_for_type(topology: ExtractedTopology, type_name: str) -> List[str]:
     enum_def = next(
         (item for item in topology.enum_defs if _matches_type(item.name, type_name)),
         None,
     )
     return list(enum_def.literals) if enum_def else []
+
+
+def _scalar_base_for_type(
+    topology: ExtractedTopology,
+    type_name: str,
+    seen: set[str] | None = None,
+) -> str | None:
+    simple = _simple_type(type_name)
+    if simple in _PRIMITIVE_VALUES:
+        return simple
+    visited = seen if seen is not None else set()
+    if simple in visited:
+        return None
+    visited.add(simple)
+    attr_def = _attribute_def_for_type(topology, type_name)
+    if attr_def and attr_def.base_type:
+        return _scalar_base_for_type(topology, attr_def.base_type, visited)
+    return None
+
+
+def _is_external_value_type(type_name: str) -> bool:
+    simple = _simple_type(type_name)
+    return "::" in type_name or simple in _EXTERNAL_VALUE_TYPES or simple.endswith("Value")
 
 
 def input_types_for_target(topology: ExtractedTopology) -> dict[str, str]:
@@ -88,27 +154,32 @@ def classify_input_type(
     simple = _simple_type(type_name)
     if not simple:
         return TypeClassification("unsupported", type_name, False, "missing declared type")
-    if simple in _PRIMITIVE_VALUES:
+    scalar_base = _scalar_base_for_type(topology, type_name)
+    if scalar_base:
         return TypeClassification("primitive", type_name, True)
     if _enum_literals_for_type(topology, type_name):
         return TypeClassification("enumeration", type_name, True)
 
-    attr_def = _attribute_def_for_type(topology, type_name)
-    if attr_def is None:
+    payload = _payload_def_for_type(topology, type_name)
+    if payload is None:
+        if _is_external_value_type(type_name):
+            return TypeClassification("external_value_payload", type_name, True)
         return TypeClassification(
             "unsupported",
             type_name,
             False,
-            "type is not a primitive, enum, or extracted attribute def",
+            "type is not a primitive, enum, extracted payload def, or known value type",
         )
-    if not attr_def.members:
-        return TypeClassification("nominal_payload", type_name, True)
+    payload_kind, payload_def = payload
+    if not payload_def.members:
+        if scalar_base:
+            return TypeClassification("scalar_payload", type_name, True)
+        return TypeClassification(f"nominal_{payload_kind}_payload", type_name, True)
 
     unsupported_members = [
         member
-        for member in attr_def.members
-        if not member.type_name
-        or not classify_input_type(topology, member.type_name).supported
+        for member in payload_def.members
+        if _member_declaration(topology, member.name, member.type_name, member.default_value) is None
     ]
     if unsupported_members:
         names = ", ".join(member.name for member in unsupported_members)
@@ -121,11 +192,96 @@ def classify_input_type(
     return TypeClassification("structured_payload", type_name, True)
 
 
-def _member_default_expression(topology: ExtractedTopology, type_name: str) -> str | None:
-    candidates = candidates_for_input(topology, "member", type_name)
-    if not candidates or candidates[0].declarations:
+def _literal_for_type(topology: ExtractedTopology, type_name: str) -> str | None:
+    scalar_base = _scalar_base_for_type(topology, type_name)
+    if scalar_base:
+        return _PRIMITIVE_VALUES[scalar_base][0]
+    enum_literals = _enum_literals_for_type(topology, type_name)
+    if enum_literals:
+        return f"{type_name}::{enum_literals[0]}"
+    return None
+
+
+def _member_declaration(
+    topology: ExtractedTopology,
+    member_name: str,
+    type_name: str | None,
+    default_value: str | None = None,
+    seen: set[str] | None = None,
+) -> str | None:
+    if default_value:
+        return f"attribute {member_name} = {default_value};"
+    if not type_name:
         return None
-    return candidates[0].expression
+
+    literal = _literal_for_type(topology, type_name)
+    if literal is not None:
+        scalar_base = _scalar_base_for_type(topology, type_name)
+        if scalar_base and _simple_type(type_name) != scalar_base:
+            return f"attribute {member_name} : {type_name} = {literal};"
+        return f"attribute {member_name} = {literal};"
+
+    declaration = _declaration_for_value(
+        topology,
+        member_name,
+        type_name,
+        seen=seen,
+    )
+    if declaration:
+        return declaration
+
+    if _is_external_value_type(type_name):
+        return f"attribute {member_name} : {type_name};"
+    return None
+
+
+def _declaration_for_value(
+    topology: ExtractedTopology,
+    value_name: str,
+    type_name: str,
+    seen: set[str] | None = None,
+) -> str | None:
+    scalar_literal = _literal_for_type(topology, type_name)
+    if scalar_literal is not None and _simple_type(type_name) in _PRIMITIVE_VALUES:
+        return None
+
+    scalar_base = _scalar_base_for_type(topology, type_name)
+    if scalar_base:
+        return f"attribute {value_name} : {type_name} = {_PRIMITIVE_VALUES[scalar_base][0]};"
+
+    payload = _payload_def_for_type(topology, type_name)
+    if payload is None:
+        if _is_external_value_type(type_name):
+            return f"attribute {value_name} : {type_name};"
+        return None
+
+    keyword, payload_def = payload
+    simple = _simple_type(type_name)
+    visited = seen if seen is not None else set()
+    if simple in visited:
+        return None
+    nested_seen = set(visited)
+    nested_seen.add(simple)
+
+    if not payload_def.members:
+        return f"{keyword} {value_name} : {type_name};"
+
+    member_lines = []
+    for member in payload_def.members:
+        declaration = _member_declaration(
+            topology,
+            member.name,
+            member.type_name,
+            member.default_value,
+            nested_seen,
+        )
+        if declaration is None:
+            return None
+        member_lines.extend(f"    {line}" for line in declaration.splitlines())
+
+    return "\n".join(
+        [f"{keyword} {value_name} : {type_name} {{", *member_lines, "}"]
+    )
 
 
 def unsupported_reason_for_input(
@@ -141,31 +297,17 @@ def candidates_for_input(
     type_name: str,
 ) -> List[InputCandidate]:
     """Return bounded candidates for one primitive, enum, or payload input."""
-    simple = _simple_type(type_name)
-    if simple in _PRIMITIVE_VALUES:
-        return [InputCandidate(value) for value in _PRIMITIVE_VALUES[simple]]
+    scalar_base = _scalar_base_for_type(topology, type_name)
+    if scalar_base and _simple_type(type_name) in _PRIMITIVE_VALUES:
+        return [InputCandidate(value) for value in _PRIMITIVE_VALUES[scalar_base]]
 
     enum_literals = _enum_literals_for_type(topology, type_name)
     if enum_literals:
         return [InputCandidate(f"{type_name}::{literal}") for literal in enum_literals]
 
-    attr_def = _attribute_def_for_type(topology, type_name)
-    if attr_def:
+    declaration = _declaration_for_value(topology, _fixture_name(pin_name), type_name)
+    if declaration:
         fixture = _fixture_name(pin_name)
-        if not attr_def.members:
-            declaration = f"attribute {fixture} : {type_name};"
-        else:
-            member_lines = []
-            for member in attr_def.members:
-                if not member.type_name:
-                    return []
-                value = _member_default_expression(topology, member.type_name)
-                if value is None:
-                    return []
-                member_lines.append(f"    attribute {member.name} = {value};")
-            declaration = "\n".join(
-                [f"attribute {fixture} : {type_name} {{", *member_lines, "}"]
-            )
         return [InputCandidate(fixture, (declaration,))]
 
     return []
