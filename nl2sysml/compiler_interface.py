@@ -10,6 +10,15 @@ import tempfile
 from pathlib import Path
 from typing import List, Optional
 
+try:
+    from dotenv import load_dotenv
+
+    _env_file = Path(__file__).resolve().parents[1] / ".env"
+    if _env_file.exists():
+        load_dotenv(_env_file)
+except Exception:
+    pass
+
 
 class CompilerError:
     """Represents a single compiler error/warning."""
@@ -74,6 +83,12 @@ def _get_compiler():
     enabled = os.getenv("SYSML_COMPILER_ENABLED", "true").lower()
     if enabled == "false":
         return None
+
+    java_home = os.getenv("SYSML_COMPILER_JAVA_HOME") or os.getenv("JAVA_HOME")
+    if java_home:
+        java_bin = Path(java_home) / "bin"
+        if java_bin.exists():
+            os.environ["PATH"] = f"{java_bin}{os.pathsep}{os.environ.get('PATH', '')}"
     
     try:
         # Import the checker from sysml2-compiler

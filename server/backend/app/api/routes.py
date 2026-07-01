@@ -11,12 +11,19 @@ from app.api.schemas import (
     Diagnostics,
     RefineRequest,
     RefineResponse,
+    SysMLValidationRequest,
+    SysMLValidationResult,
+    ToolCallRequest,
+    ToolCallResponse,
+    ToolsResponse,
     VersionResponse,
     HealthResponse,
     StatusResponse,
 )
 from app.pipelines.registry import get_pipeline, list_pipelines
 from app.runtime.resources import model_manager
+from app.tools.registry import execute_tool_call, list_tool_definitions
+from app.tools.sysml_tools import validate_sysml
 from app.core.logging import get_logger
 
 log = get_logger(__name__)
@@ -163,6 +170,30 @@ async def nl2sysml_refine(req: RefineRequest):
 
     log.info(f"Refine complete in {gen_ms}ms, output {len(refined)} chars")
     return RefineResponse(sysml=refined or req.current_sysml, gen_ms=gen_ms)
+
+
+@router.get("/api/tools", response_model=ToolsResponse)
+async def tools():
+    """List available backend tool definitions."""
+    return ToolsResponse(tools=list_tool_definitions())
+
+
+@router.post("/api/tools/call", response_model=ToolCallResponse)
+async def call_tool(req: ToolCallRequest):
+    """Execute a registered backend tool by name."""
+    try:
+        result = execute_tool_call(req.name, req.arguments)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return ToolCallResponse(name=req.name, ok=bool(result.get("ok", False)), result=result)
+
+
+@router.post("/api/tools/validate_sysml", response_model=SysMLValidationResult)
+async def validate_sysml_tool(req: SysMLValidationRequest):
+    """Validate SysML v2 text with the configured MBSE backend."""
+    return validate_sysml(req.model_text, syntax_only=req.syntax_only)
 
 
 @router.get("/api/version", response_model=VersionResponse)

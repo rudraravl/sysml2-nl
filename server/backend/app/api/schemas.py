@@ -3,6 +3,14 @@
 from typing import Literal, Optional
 from pydantic import BaseModel, Field, ConfigDict
 
+from app.tools.schemas import (
+    SysMLValidationRequest,
+    SysMLValidationResult,
+    ToolCallRequest,
+    ToolCallResponse,
+    ToolDefinition,
+)
+
 
 class NL2SysMLRequest(BaseModel):
     """Request for NL to SysML conversion."""
@@ -64,3 +72,8 @@ class StatusResponse(BaseModel):
     """Debug status response."""
     loaded_models: list[str]
     last_used: dict[str, float]
+
+
+class ToolsResponse(BaseModel):
+    """Available backend tools."""
+    tools: list[ToolDefinition]

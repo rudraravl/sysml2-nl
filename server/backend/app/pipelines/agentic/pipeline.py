@@ -12,7 +12,6 @@ Pipeline (from nl2sysml/agent_rag_moe.py):
 """
 
 import os
-import sys
 import json
 import re
 import asyncio
@@ -27,38 +26,54 @@ from app.pipelines.base import BasePipeline
 from app.core.config import MAX_INPUT_CHARS, GEMINI_API_KEY, OPENROUTER_API_KEY, OPENROUTER_BASE_URL
 from app.core.logging import get_logger
 from app.pipelines.agentic.inputagent import run_input_agent
+from app.tools.sysml_tools import is_validate_sysml_available, validate_sysml
 
 log = get_logger(__name__)
 
-# --- Syntax checker (compiler) integration (same as nl2sysml/agent_rag_moe.py) ---
-# Project root: server/backend/app/pipelines/agentic/pipeline.py -> parents[5]
-_REPO_ROOT = Path(__file__).resolve().parents[5]
-if _REPO_ROOT.exists() and str(_REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(_REPO_ROOT))
+# --- Tool-calling adapter for SysML validation ---
+class _ToolCompilerError:
+    """Compiler-error shape expected by the existing refinement loop."""
 
-def _get_compiler_api():
-    """Lazy import of compiler_interface from nl2sysml. Returns (check_code, is_compiler_available, CompilerResult)."""
-    try:
-        from nl2sysml.compiler_interface import check_code, is_compiler_available, CompilerResult
-        return check_code, is_compiler_available, CompilerResult
-    except Exception as e:
-        log.info("Syntax checker not available: %s", e)
-        class _DummyResult:
-            def __init__(self, errors=None, is_valid=False):
-                self.errors = errors or []
-                self.is_valid = is_valid
-            @property
-            def error_count(self):
-                return len(self.errors)
-            def format_errors(self):
-                return "No errors found."
-        def _check_code(_code: str, syntax_only: bool = False):
-            return _DummyResult(errors=[], is_valid=False)
-        def _is_compiler_available():
-            return False
-        return _check_code, _is_compiler_available, _DummyResult
+    def __init__(self, diagnostic):
+        self.severity = diagnostic.severity
+        self.line = diagnostic.line
+        self.column = diagnostic.column
+        self.message = diagnostic.message
+        self.code = diagnostic.code
+        self.file = diagnostic.file
 
-_check_code_fn, _is_compiler_available_fn, _CompilerResultClass = _get_compiler_api()
+
+class _ToolCompilerResult:
+    """Compiler-result shape expected by the existing refinement loop."""
+
+    def __init__(self, errors=None, is_valid=False):
+        self.errors = errors or []
+        self.is_valid = is_valid
+
+    @property
+    def error_count(self):
+        return len(self.errors)
+
+    def format_errors(self):
+        if not self.errors:
+            return "No errors found."
+        lines = [f"Found {len(self.errors)} error(s):"]
+        for index, error in enumerate(self.errors, 1):
+            lines.append(f"{index}. Line {error.line}, Column {error.column}: {error.message}")
+        return "\n".join(lines)
+
+
+def _check_code_fn(code: str, syntax_only: bool = False):
+    result = validate_sysml(code, syntax_only=syntax_only)
+    errors = [_ToolCompilerError(diagnostic) for diagnostic in result.diagnostics]
+    return _ToolCompilerResult(errors=errors, is_valid=result.ok)
+
+
+def _is_compiler_available_fn():
+    return is_validate_sysml_available()
+
+
+_CompilerResultClass = _ToolCompilerResult
 
 # Env for refinement (same as agent_rag_moe.py)
 MAX_REFINEMENT_ITERATIONS = int(os.getenv("MAX_REFINEMENT_ITERATIONS", "2"))
