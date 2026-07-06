@@ -8,6 +8,7 @@ The agentic pipeline can validate and refine generated SysML using the SysML v2 
 - If there are errors, it asks the combiner model to fix them (up to `MAX_REFINEMENT_ITERATIONS`, default 2).
 - The response includes `syntax_check_available`, `final_valid`, and `final_errors` in the diagnostics.
 - The checker is also exposed as a tool call through `GET /api/tools`, `POST /api/tools/call`, and `POST /api/tools/validate_sysml`.
+- The backend also exposes catalog tools for the MBSE/SysML v2 compatibility list: `list_mbse_tools` and `recommend_mbse_tools`.
 
 ## Tool-calling contract
 
@@ -37,7 +38,13 @@ The response is structured for repair loops and future MBSE adapters:
 }
 ```
 
-The MBSE compatibility list is roadmap input for adding later adapters such as SysIDE, SysON, Cameo, or PTC. Those tools can plug into the same `validate_sysml` contract without changing the generation pipeline.
+The MBSE compatibility list is exposed through callable catalog tools so the router can inspect candidate backends. These catalog tools do not execute commercial tools directly; they identify candidates such as SysIDE, SysON, Cameo, PTC, and the OMG Pilot Implementation for future adapters.
+
+Available tool calls:
+
+- `validate_sysml`: Execute validation through the configured compiler or REST validator backend.
+- `list_mbse_tools`: List/filter MBSE tool candidates from the compatibility catalog.
+- `recommend_mbse_tools`: Recommend candidate MBSE backends for tasks such as validation, authoring, visualization, integration, or versioning.
 
 For the research MVP, validation is intentionally conservative:
 
