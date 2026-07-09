@@ -4,6 +4,7 @@ from typing import Any, Callable
 
 from app.tools.mbse_catalog import list_mbse_tools_tool, recommend_mbse_tools_tool
 from app.tools.schemas import ToolDefinition, ToolFunction
+from app.tools.syson_tools import import_sysml_to_syson_tool
 from app.tools.sysml_tools import validate_sysml_tool
 
 
@@ -86,17 +87,46 @@ RECOMMEND_MBSE_TOOLS_TOOL = ToolDefinition(
     )
 )
 
+IMPORT_SYSML_TO_SYSON_TOOL = ToolDefinition(
+    function=ToolFunction(
+        name="import_sysml_to_syson",
+        description=(
+            "Upload SysML v2 text to a configured, running SysON backend and verify "
+            "that the import created model elements."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "model_text": {"type": "string", "description": "Complete SysML v2 text to import."},
+                "project_id": {"type": "string", "description": "Existing target SysON project ID."},
+                "filename": {
+                    "type": "string",
+                    "description": "Safe .sysml filename; defaults to generated-model.sysml.",
+                },
+            },
+            "required": ["model_text", "project_id"],
+            "additionalProperties": False,
+        },
+    )
+)
+
 _TOOL_EXECUTORS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "validate_sysml": validate_sysml_tool,
     "list_mbse_tools": list_mbse_tools_tool,
     "recommend_mbse_tools": recommend_mbse_tools_tool,
+    "import_sysml_to_syson": import_sysml_to_syson_tool,
 }
 
 
 def list_tool_definitions() -> list[ToolDefinition]:
     """Return OpenAI-compatible tool definitions."""
 
-    return [VALIDATE_SYSML_TOOL, LIST_MBSE_TOOLS_TOOL, RECOMMEND_MBSE_TOOLS_TOOL]
+    return [
+        VALIDATE_SYSML_TOOL,
+        LIST_MBSE_TOOLS_TOOL,
+        RECOMMEND_MBSE_TOOLS_TOOL,
+        IMPORT_SYSML_TO_SYSON_TOOL,
+    ]
 
 
 def execute_tool_call(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
