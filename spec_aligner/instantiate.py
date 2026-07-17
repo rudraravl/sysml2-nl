@@ -31,11 +31,8 @@ def writer_prompt(bank: dict, nl: str, sysml: str, sample_id: str) -> str:
         "## Rules",
         f"- target count: {rules['target_instance_count']['min']}-{rules['target_instance_count']['max']} questions; priorities: "
         + " ".join(rules["priorities"]),
-        f"- vocabulary: {rules['vocabulary_bridging']}",
-        f"- origin: {rules['origin_tagging']}",
-        f"- options: {rules['option_harvesting']}",
-        f"- distractors: {rules['distractor_verification']}",
-        f"- anchors: {rules['anchors']}",
+        *[f"- {key}: {val}" for key, val in rules.items()
+          if isinstance(val, str) and key != "output_id_format"],
         "- never include 'not_stated' in options (it is appended automatically); never leave a ⟨slot⟩ unfilled.",
         "",
         "## Output",
@@ -86,7 +83,22 @@ def validate_instances(items: list, bank: dict, nl: str, sysml: str,
         kept.append(q)
         if len(kept) >= cap:
             break
+    _link_requirement_family(kept)
     return kept, rejected
+
+
+def _link_requirement_family(kept: list[dict]) -> None:
+    """T-REQ-02/03 depend on the T-REQ-01 with the same topic slot - a missing
+    requirement then costs one penalty, not a cascade."""
+    parents = {}
+    for q in kept:
+        if q["template_id"] == "T-REQ-01":
+            parents[str(q["slots"].get("topic", "")).strip().lower()] = q["id"]
+    for q in kept:
+        if q["template_id"] in ("T-REQ-02", "T-REQ-03"):
+            parent = parents.get(str(q["slots"].get("topic", "")).strip().lower())
+            if parent:
+                q["depends_on"] = {"question": parent, "answer": "yes"}
 
 
 def _check(it, tpl: dict, per: dict, lo_nl: str, lo_sys: str) -> str | None:

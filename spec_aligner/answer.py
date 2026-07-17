@@ -13,12 +13,14 @@ def answer_all(questions: list[dict], doc: str, modality: str, ask, bank: dict,
                shards: int = 5) -> dict[str, dict]:
     """Answer every question from one document. Returns qid -> answer record."""
     parts = shard(questions, shards)
+    remap = bank["scoring"].get("nl_answer_remap", {}) if modality == "natural_language" else {}
     merged: dict[str, dict] = {}
     if len(parts) == 1:
-        merged.update(_answer_shard(parts[0], doc, modality, ask, bank))
+        merged.update(_answer_shard(parts[0], doc, modality, ask, bank, remap))
     else:
         with ThreadPoolExecutor(max_workers=len(parts)) as ex:
-            futs = [ex.submit(_answer_shard, qs, doc, modality, ask, bank) for qs in parts]
+            futs = [ex.submit(_answer_shard, qs, doc, modality, ask, bank, remap)
+                    for qs in parts]
             for f in futs:
                 merged.update(f.result())
     for q in questions:
@@ -34,8 +36,9 @@ def shard(questions: list[dict], n: int) -> list[list[dict]]:
     return [questions[i:i + size] for i in range(0, len(questions), size)]
 
 
-def _answer_shard(questions, doc, modality, ask, bank):
-    return parse_answers(ask(answer_prompt(questions, doc, modality, bank)), questions)
+def _answer_shard(questions, doc, modality, ask, bank, remap=None):
+    return parse_answers(ask(answer_prompt(questions, doc, modality, bank)), questions,
+                         remap=remap)
 
 
 def answer_prompt(questions: list[dict], doc: str, modality: str, bank: dict) -> str:
@@ -66,7 +69,10 @@ def answer_prompt(questions: list[dict], doc: str, modality: str, bank: dict) ->
     return "\n".join(lines)
 
 
-def parse_answers(raw: str, questions: list[dict]) -> dict[str, dict]:
+def parse_answers(raw: str, questions: list[dict],
+                  remap: dict | None = None) -> dict[str, dict]:
+    """remap: answers to coerce (e.g. NL side may not use the closed-world option
+    'declared_without_value' - deterministic guard where prompt rules slip)."""
     data = extract_json(raw)
     rows = data.get("answers", data) if isinstance(data, dict) else data
     if not isinstance(rows, list):
@@ -88,6 +94,9 @@ def parse_answers(raw: str, questions: list[dict]) -> dict[str, dict]:
         }
         if answer is None:
             rec["invalid"] = raw_answer
+        if remap and rec["answer"] in remap:
+            rec["remapped_from"] = rec["answer"]
+            rec["answer"] = remap[rec["answer"]]
         out[qid] = rec
     for q in questions:
         out.setdefault(q["id"], dict(EMPTY))

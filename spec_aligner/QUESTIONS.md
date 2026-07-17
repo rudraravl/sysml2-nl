@@ -8,7 +8,7 @@ carry two-sided evidence for repair feedback.
 
 ## Architecture
 
-- **Tier 1 – universal** (48 questions, fixed): category-level existence/counting, answerable
+- **Tier 1 – universal** (45 questions, fixed): category-level existence/counting, answerable
   for any sample. The cross-sample-comparable "public ruler". Category weights follow measured
   construct frequency over the 1935 gold models (port 96%, attribute 92%, part def 89%,
   action 88%, requirement 83%, connect 81%, constraint 74%, state 64%, ...).
@@ -19,7 +19,7 @@ carry two-sided evidence for repair feedback.
   They never enter the similarity score; they estimate each answerer's hallucination rate
   (reliability gate).
 
-Per sample: 48 + 30–60 + distractors ≈ 80–110 questions.
+Per sample: 45 + 30–60 + distractors ≈ 80–110 questions.
 
 ## Non-negotiable question rules
 
@@ -75,6 +75,30 @@ Outcome per question (see `scoring.outcome_rules`):
 3. **Question health**: per-question vacuous rate (>80% → demote), NL not_stated rate,
    distractor failure rate; prune/rephrase on each version bump. U-CLS-03 (alias, ~4% of
    dataset) is the first candidate under watch.
+
+## Calibration record (loop-until-dry, 2 clean rounds to converge)
+
+Live-calibrated on 7 disjoint random waves of 10 samples each (~6.6k questions answered
+twice), seeds 20260708–20260715, each wave's mismatches manually triaged into
+genuine-vs-noise before touching the bank:
+
+| Version | Wave (seed) | Key changes driven by that wave's noise |
+| --- | --- | --- |
+| 0.1.0 | baseline 20260708 | – (mean similarity 0.825 on golden 10) |
+| 0.1.1 | – | encoding-equivalence worldview (package-as-system, multiplicity=counts, rule encodings, flow encodings), NL open-world tightening, referent-merged options, REQ-family auto-dependency, coarse count buckets, canary wildcards, deleted U-CLS-03 |
+| 0.1.2 | 20260709 (0.932) | numeric equivalence rule, system-wide-count discipline, subtype-vs-'specialized' rewording, short canonical option labels, origin=both gating |
+| 0.1.3 | 20260710 (0.940) | deterministic NL remap of `declared_without_value`, T-INT-02 perspective+counterpart rewrite, unit/granularity merging, bare-entity slots |
+| 0.1.4 | 20260711 (0.926) | container excluded from counts, deleted U-CST-02/U-REQ-02 (M:N count semantics), ACT-04 branching≠event-wait, canary requires global collapse (<0.7) |
+| 0.1.5 | 20260712 (0.930) | ordinal adjacent-bucket partial credit (0.7/low), consistency rule, generic-first payload labels |
+| 0.1.6 | 20260713 (0.951) | STA-05 state-name≠behavior discipline, STR-08 modes≠variants, trigger-name merging |
+| 0.1.6 | 20260714 **dry 1** (0.853*) | no bank defect – low mean traced to 4 minimal grammar-example models whose NL heavily embellishes (genuine findings) |
+| 0.1.6 | 20260715 **dry 2** (0.948) | no bank defect – converged; residual isolated writer merge-slips ≈0.5%, visible with two-sided evidence in reports |
+
+Notable genuine catches during calibration: a one-way endobronchial valve modeled with
+symmetric in+out ports (000446), controller command ports lacking conjugation so flows
+point backwards (001439, 000416), declared-but-never-connected ports (001394), signals
+defined but never sent (001233), missing transition triggers (000438), ESA capability
+naming from the ground segment's perspective attached to the spacecraft (000383).
 
 ## Worked example – sample 000050 (regex aligner scored 0 matches)
 

@@ -16,6 +16,7 @@ def report_data(sample_id: str, bank: dict, questions: list[dict], result: dict,
         "summary": {
             "similarity": result["similarity"],
             "scored": result["scored"],
+            "low_signal": result.get("low_signal", False),
             "questions": {"total": len(questions), "universal": uni,
                           "instantiated": len(questions) - uni},
             "counts": result["counts"],

@@ -10,6 +10,7 @@ from __future__ import annotations
 import os
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 
 SINGLE_SHOT_PREFIX = (
@@ -18,8 +19,24 @@ SINGLE_SHOT_PREFIX = (
     "Reply with raw JSON only - no markdown fences, no commentary.\n\n"
 )
 
+RETRIES = 3
+
 
 def ask(prompt: str, model: str | None = None, timeout: int = 600) -> str:
+    """codex exec with retries - calls queue under plan rate limits and can
+    time out or fail transiently when many run concurrently."""
+    last: Exception | None = None
+    for attempt in range(RETRIES):
+        try:
+            return _ask_once(prompt, model, timeout)
+        except (subprocess.TimeoutExpired, RuntimeError) as e:
+            last = e
+            if attempt < RETRIES - 1:
+                time.sleep(15 * (attempt + 1))
+    raise last
+
+
+def _ask_once(prompt: str, model: str | None, timeout: int) -> str:
     model = model or os.getenv("SPEC_ALIGNER_MODEL", "gpt-5.5")
     with tempfile.TemporaryDirectory(prefix="spec-aligner-") as tmp:
         out = Path(tmp) / "last_message.txt"

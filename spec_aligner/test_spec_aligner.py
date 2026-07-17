@@ -63,14 +63,14 @@ def stub_answers(questions):
 
 class BankTest(unittest.TestCase):
     def test_bank_shape(self):
-        self.assertEqual(len(BANK["universal"]), 48)
+        self.assertEqual(len(BANK["universal"]), 45)
         self.assertEqual(len(BANK["templates"]), 30)
         distractors = [t for t in BANK["templates"] if t["category"] == "distractor"]
         self.assertEqual(len(distractors), 3)
 
     def test_universal_resolved(self):
         qs = bank_mod.universal(BANK)
-        self.assertEqual(len(qs), 48)
+        self.assertEqual(len(qs), 45)
         for q in qs:
             self.assertIsInstance(q["options"], list)
             self.assertGreaterEqual(len(q["options"]), 2)
@@ -142,6 +142,32 @@ class ScoreTest(unittest.TestCase):
         skipped = [r for r in res["rows"] if r["outcome"] == "skipped_dependency"]
         self.assertEqual([r["qid"] for r in skipped], ["G"])
 
+    def test_ordinal_adjacent_bucket(self):
+        buckets = BANK["option_sets"]["count_bucket"]
+        questions = [
+            dict(uq("N1", buckets), ordinal=True),
+            dict(uq("N2", buckets), ordinal=True),
+        ]
+        nl = {"N1": ans("three_to_five"), "N2": ans("one")}
+        sysml = {"N1": ans("more_than_five"), "N2": ans("more_than_five")}
+        res = score(questions, nl, sysml, BANK)
+        by_qid = {m["qid"]: m for m in res["mismatches"]}
+        self.assertEqual(by_qid["N1"]["credit"], 0.7)          # adjacent -> partial
+        self.assertEqual(by_qid["N1"]["severity"], "low")
+        self.assertEqual(by_qid["N2"]["credit"], 0.0)          # far apart -> real clash
+        self.assertEqual(by_qid["N2"]["severity"], "high")
+
+    def test_canary_wildcard_tolerance(self):
+        questions = [uq("U-GLB-01", BANK["option_sets"]["domain"], category="global")]
+        nl = {"U-GLB-01": ans("electrical_or_energy")}
+        sysml = {"U-GLB-01": ans("other")}   # fuzzy teaching-sample domain
+        res = score(questions, nl, sysml, BANK)
+        self.assertFalse(res["domain_mismatch"])
+        nl2 = {"U-GLB-01": ans("electrical_or_energy")}
+        sy2 = {"U-GLB-01": ans("biological_or_medical")}   # hard disagreement
+        res2 = score(questions, nl2, sy2, BANK)
+        self.assertTrue(res2["domain_mismatch"])
+
     def test_dependency_skip_on_vacuous_parent(self):
         questions = [
             uq("P", ["yes", "no"]),
@@ -190,6 +216,16 @@ class AnswerTest(unittest.TestCase):
         self.assertEqual(out["U2"]["invalid"], "many")
         self.assertEqual(out["U2"]["confidence"], 0.0)
         self.assertTrue(out["U3"]["missing"])                   # unanswered filled
+
+    def test_nl_answer_remap(self):
+        qs = [uq("V1", ["12 V", "declared_without_value"])]
+        raw = ('{"answers": [{"qid": "V1", "answer": "declared_without_value",'
+               ' "evidence": "a stable small voltage", "confidence": 0.8}]}')
+        out = parse_answers(raw, qs, remap=BANK["scoring"]["nl_answer_remap"])
+        self.assertEqual(out["V1"]["answer"], "not_stated")     # NL side coerced
+        self.assertEqual(out["V1"]["remapped_from"], "declared_without_value")
+        out_sy = parse_answers(raw, qs)                          # SysML side untouched
+        self.assertEqual(out_sy["V1"]["answer"], "declared_without_value")
 
     def test_answer_all_merges_shards(self):
         calls = []
@@ -261,6 +297,25 @@ class InstantiateTest(unittest.TestCase):
         self.assertIn("fabricated", reasons)
         self.assertIn("not_stated must not be listed", reasons)
 
+    def test_requirement_family_autolink(self):
+        items = [
+            {"template_id": "T-REQ-01", "text": "Is there a requirement concerning safety?",
+             "options": ["yes", "no"], "origin": "both", "slots": {"topic": "Safety"}},
+            {"template_id": "T-REQ-03",
+             "text": "What threshold does the safety requirement specify for stop time?",
+             "options": ["<= 2 s", "other"], "origin": "both",
+             "slots": {"topic": "safety", "property": "stop time"}},
+            {"template_id": "T-REQ-03",
+             "text": "What threshold does the power requirement specify for wattage?",
+             "options": ["<= 750 W", "other"], "origin": "both",
+             "slots": {"topic": "power", "property": "wattage"}},
+        ]
+        kept, rejected = validate_instances(items, BANK, self.NL, self.SYSML, "tst")
+        self.assertEqual(len(kept), 3)
+        self.assertEqual(kept[1]["depends_on"],
+                         {"question": kept[0]["id"], "answer": "yes"})   # topic matches
+        self.assertNotIn("depends_on", kept[2])                          # no parent
+
 
 class PipelineTest(unittest.TestCase):
     def test_compare_pair_plumbing(self):
@@ -268,7 +323,7 @@ class PipelineTest(unittest.TestCase):
                             lambda prompt: '{"answers": []}',
                             sample_id="t", shards=3, universal_only=True)
         self.assertEqual(data["mode"], "universal_only")
-        self.assertEqual(data["summary"]["questions"]["universal"], 48)
+        self.assertEqual(data["summary"]["questions"]["universal"], 45)
         self.assertEqual(data["summary"]["scored"], 0)          # everything not_stated
         self.assertIsNone(data["summary"]["similarity"])
         self.assertIn("Alignment report", render_markdown(data))

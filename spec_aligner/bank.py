@@ -17,11 +17,15 @@ def load(path: str | Path = BANK_PATH) -> dict:
 
 def universal(bank: dict) -> list[dict]:
     """Universal questions with options resolved, ready for answering/scoring."""
+    ordinal = set(bank["scoring"].get("ordinal_option_sets", []))
     out = []
     for q in bank["universal"]:
         q = dict(q)
         if "options_ref" in q:
-            q["options"] = list(bank["option_sets"][q.pop("options_ref")])
+            ref = q.pop("options_ref")
+            q["options"] = list(bank["option_sets"][ref])
+            if ref in ordinal:
+                q["ordinal"] = True
         q["origin"] = "both"
         q["tier"] = "universal"
         out.append(q)

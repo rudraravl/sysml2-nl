@@ -1,11 +1,12 @@
 {
-  "version": "0.1.0",
+  "version": "0.1.6",
   "name": "sysml2-nl alignment question bank",
   "description": "Twin-blind QA instrument: the same questions are answered once from the NL description alone and once from the SysML v2 code alone; answer agreement measures NL<->SysML alignment. Tier 1 (universal) is fixed and comparable across all samples; Tier 2 (templates) is instantiated per sample by a question-writer LLM following the rules below.",
 
   "option_sets": {
     "yes_no": ["yes", "no"],
     "count_bucket": ["none", "one", "two", "three_to_five", "more_than_five"],
+    "count_coarse": ["none", "one", "multiple"],
     "port_direction": ["input", "output", "bidirectional"],
     "domain": [
       "vehicle_or_transport",
@@ -28,14 +29,18 @@
       "evidence": "shortest span of the document that justifies the answer; empty iff answer is not_stated",
       "confidence": "float 0-1"
     },
-    "nl_answerer_worldview": "OPEN WORLD. The text is a partial description of the model. If a fact is not mentioned, answer not_stated - never infer 'no' from silence. Answer 'no'/'none' only when the text explicitly denies it or clearly implies exclusivity (e.g. 'communicates only via X'). Do not import plausible engineering facts that the text does not state.",
-    "sysml_answerer_worldview": "CLOSED WORLD. The code is the complete model. If a construct is absent from the code, answer 'no'/'none' - not not_stated. Reserve not_stated for questions that are genuinely inapplicable or unreadable. Interpret notation per the SysML v2 grammar: ':' typing, ':>' specialization/subsetting, ':>>' redefinition, 'connect ... to ...' connections, 'alias X for Y' alternate names, 'flow' item flows.",
+    "nl_answerer_worldview": "OPEN WORLD. The text is a partial description of the model. If a fact is not mentioned, answer not_stated - never infer 'no' from silence. Answer 'no'/'none' only when the text explicitly denies it or clearly implies exclusivity (e.g. 'communicates only via X'). Do not import plausible engineering facts that the text does not state. Generic mentions without specifics ('its attributes', 'various parameters', 'several settings') do NOT establish existence of concrete elements - answer not_stated. Non-exhaustive lists ('including X, Y', 'such as X') must not be treated as exact counts - if the text does not state a complete count, answer not_stated on count questions. Purposes, goals and capabilities are NOT requirements; only explicit obligations (shall / must / required / stated rules) count as requirements - text that states goals without obligation wording yields not_stated on requirement questions, never 'no'. Closed-world options ('declared_without_value', 'no_bound', 'no_threshold', 'not_assigned') are claims the text must make explicitly; silence about a value/bound/assignment means not_stated, never one of these. For system-wide 'how many' questions (kinds/attributes/connections across the whole system), commit only when the text enumerates the complete set - a partial mention means not_stated; a stated count for one named element ('over 170 stations', 'two units') may be committed. Adjectives of purpose ('specialized', 'dedicated') describe what something is for - they do NOT state an is-a/subtype relation.",
+    "sysml_answerer_worldview": "CLOSED WORLD. The code is the complete model. If a construct is absent from the code, answer 'no'/'none' - not not_stated. Reserve not_stated for questions that are genuinely inapplicable or unreadable. Interpret notation per the SysML v2 grammar: ':' typing, ':>' specialization/subsetting, ':>>' redefinition, 'connect ... to ...' connections, 'alias X for Y' alternate names, 'flow' item flows. Read the model's ENCODINGS semantically: (1) parts declared directly inside a package are the system's top-level components - treat the package as the overall system component that contains them; (2) multiplicity bounds state allowed/required instance counts ([0..2] = optional up to two, [2..*] = at least two, [1] = exactly one) - answer count, threshold and optionality questions from them; (3) rules may be encoded as requirement constructs, constraint blocks, multiplicity bounds, doc shall-statements, or optimization objectives (e.g. MaximizeObjective) - all of these count as the model stating a rule/obligation; (4) transfer may be encoded as flow statements, typed directional ports (in/out payloads) plus connections, action parameter chaining (in x = other.y) or successions - all of these count as flow/connectivity between the owning components; (5) a requirement's subject is what the requirement constrains, NOT who satisfies it - satisfaction is expressed by satisfy/allocation; (6) conditional branching may be encoded as decide nodes, if actions, or guarded transitions/successions - an accept/when trigger alone (wait-then-continue) is NOT branching.",
     "shared_rules": [
       "Answer from the provided document ONLY; the other modality is never shown.",
       "Bridge vocabulary: questions use plain domain language; map descriptions to identifiers yourself (e.g. 'the battery' ~ part battery : BatteryPack).",
       "Every committed answer must carry an evidence span; lazy uniform answers are detectable and rejected.",
       "Answer all questions independently; do not let one answer bias another.",
-      "Temperature 0; output strict JSON, one record per question."
+      "Temperature 0; output strict JSON, one record per question.",
+      "'other' means the document states a specific value DIFFERENT from every listed option; if the document states no value at all, answer not_stated.",
+      "Options name referents, not exact wordings - choose the option that denotes the same thing as the document even when the document words it differently.",
+      "Numeric equivalence: approximate and exact statements of one quantity are the SAME option ('over 2 m' matches '2010 mm'; a stated figure '0.03 mm' matches a bound option '<= 0.03 mm'). Use 'other' only for a genuinely different value.",
+      "Consistency rule: if your document's statement is consistent with a listed option (implies it or is implied by it - 'about 10 s' vs '<= 10 s', 'multiple' vs '1 or more', 'capacity of 250 kg' vs '>= 250 kg') and no listed option matches better, choose that option - never escape to 'other' or not_stated for wording differences."
     ],
     "batching": "per modality the question list is split into N contiguous shards (default 5), each answered by one single-shot LLM call run in parallel (codex exec scheme); shards are merged before scoring; dependencies are NOT enforced while answering - answer everything, skip logic is applied at scoring time",
     "nl_answer_caching": "NL-side answers depend only on (sample NL, question set version) - cache and reuse them across all candidate SysML files of the same sample (gold, codex, gpt55, ...)."
@@ -45,7 +50,7 @@
     {
       "id": "U-GLB-01",
       "category": "global",
-      "text": "What application domain does the system belong to?",
+      "text": "What application domain does the system belong to? Choose the PRIMARY purpose domain, not the implementation medium (a hydraulic operating table is biological_or_medical, not fluid_or_thermal). If it is an abstract or teaching example without a clear real-world domain, answer generic_or_abstract.",
       "options_ref": "domain",
       "depends_on": null,
       "metamodel_refs": [],
@@ -55,7 +60,7 @@
     {
       "id": "U-STR-01",
       "category": "structure",
-      "text": "How many distinct kinds of structural components (component types/definitions) are introduced?",
+      "text": "How many distinct kinds of structural components (component types/definitions) are introduced? Do not count the overall system/container itself.",
       "options_ref": "count_bucket",
       "depends_on": null,
       "metamodel_refs": ["PartDefinition"]
@@ -79,7 +84,7 @@
     {
       "id": "U-STR-04",
       "category": "structure",
-      "text": "Is any component present in multiple instances (a count greater than one, e.g. two wheels, four cells)?",
+      "text": "Is any single KIND of component present as more than one instance (e.g. two wheels of the same kind - not two different sensors)?",
       "options_ref": "yes_no",
       "depends_on": null,
       "metamodel_refs": ["MultiplicityRange", "PartUsage"]
@@ -87,7 +92,7 @@
     {
       "id": "U-STR-05",
       "category": "structure",
-      "text": "Do multiple distinct instances of the same component kind play different roles (e.g. left wheel vs right wheel)?",
+      "text": "Are multiple instances of the same component kind explicitly given different roles or positions (e.g. left wheel vs right wheel, primary vs backup)?",
       "options_ref": "yes_no",
       "depends_on": { "question": "U-STR-04", "answer": "yes" },
       "metamodel_refs": ["PartUsage"]
@@ -103,7 +108,7 @@
     {
       "id": "U-STR-07",
       "category": "structure",
-      "text": "How many individual component instances does the system assembly contain (counting each occurrence)?",
+      "text": "How many individual component instances does the system assembly contain (counting each occurrence)? Do not count the overall system/container itself.",
       "options_ref": "count_bucket",
       "depends_on": null,
       "metamodel_refs": ["PartUsage"]
@@ -111,7 +116,7 @@
     {
       "id": "U-STR-08",
       "category": "structure",
-      "text": "Are alternative variants or configuration choices described for any part of the system?",
+      "text": "Are alternative variants or configuration choices modeled for any part of the system (explicit alternatives for THIS system - not colloquial 'a clicker or button' phrasing, and not operating modes/states)?",
       "options_ref": "yes_no",
       "depends_on": null,
       "metamodel_refs": ["VariantMembership"]
@@ -128,7 +133,7 @@
     {
       "id": "U-INT-02",
       "category": "interface",
-      "text": "How many distinct kinds of ports/interfaces are defined?",
+      "text": "How many distinct KINDS of ports/interfaces are defined (port types - not the number of port instances)? Commit to a count only if the complete set of kinds is clear; otherwise answer not_stated.",
       "options_ref": "count_bucket",
       "depends_on": { "question": "U-INT-01", "answer": "yes" },
       "metamodel_refs": ["PortDefinition"]
@@ -169,8 +174,8 @@
     {
       "id": "U-CON-02",
       "category": "connectivity",
-      "text": "How many distinct connections between components are there?",
-      "options_ref": "count_bucket",
+      "text": "How many distinct connections between components are there (count linked component pairs, however the link is encoded)?",
+      "options_ref": "count_coarse",
       "depends_on": { "question": "U-CON-01", "answer": "yes" },
       "metamodel_refs": ["ConnectionUsage"]
     },
@@ -219,7 +224,7 @@
       "id": "U-ATT-02",
       "category": "attribute",
       "text": "How many distinct attributes are declared across the system?",
-      "options_ref": "count_bucket",
+      "options_ref": "count_coarse",
       "depends_on": { "question": "U-ATT-01", "answer": "yes" },
       "metamodel_refs": ["AttributeUsage"]
     },
@@ -265,14 +270,6 @@
       "metamodel_refs": ["ConstraintUsage"]
     },
     {
-      "id": "U-CST-02",
-      "category": "constraint",
-      "text": "How many distinct constraints are imposed?",
-      "options_ref": "count_bucket",
-      "depends_on": { "question": "U-CST-01", "answer": "yes" },
-      "metamodel_refs": ["ConstraintUsage"]
-    },
-    {
       "id": "U-CST-03",
       "category": "constraint",
       "text": "Does any constraint involve a numeric threshold or bound?",
@@ -296,14 +293,6 @@
       "options_ref": "yes_no",
       "depends_on": null,
       "metamodel_refs": ["RequirementUsage", "RequirementDefinition"]
-    },
-    {
-      "id": "U-REQ-02",
-      "category": "requirement",
-      "text": "How many distinct requirements are stated?",
-      "options_ref": "count_bucket",
-      "depends_on": { "question": "U-REQ-01", "answer": "yes" },
-      "metamodel_refs": ["RequirementUsage"]
     },
     {
       "id": "U-REQ-03",
@@ -342,7 +331,7 @@
       "id": "U-STA-02",
       "category": "state",
       "text": "How many distinct states does the primary stateful component have?",
-      "options_ref": "count_bucket",
+      "options_ref": "count_coarse",
       "depends_on": { "question": "U-STA-01", "answer": "yes" },
       "metamodel_refs": ["StateUsage"]
     },
@@ -365,7 +354,7 @@
     {
       "id": "U-STA-05",
       "category": "state",
-      "text": "Do entering, being in, or leaving a state cause specific actions or behaviors?",
+      "text": "Do entering, being in, or leaving a state trigger a DISTINCT action or behavior (entry/do/exit)? Commit 'yes' only if a specific action is described as occurring upon entering/during/on leaving a state - a state's name or purpose alone ('warmup state', 'operational state') is not a state behavior.",
       "options_ref": "yes_no",
       "depends_on": { "question": "U-STA-01", "answer": "yes" },
       "metamodel_refs": ["StateSubactionMembership", "StateSubactionKind"]
@@ -374,7 +363,7 @@
     {
       "id": "U-ACT-01",
       "category": "action",
-      "text": "Are behavioral actions or activities described (things the system actively does)?",
+      "text": "Are behavioral actions or activities described (things the system actively does over time - a derived or calculated value is not an activity)?",
       "options_ref": "yes_no",
       "depends_on": null,
       "metamodel_refs": ["ActionUsage", "ActionDefinition"]
@@ -398,7 +387,7 @@
     {
       "id": "U-ACT-04",
       "category": "action",
-      "text": "Does any behavior branch on a condition (decisions, alternatives, if/else)?",
+      "text": "Does any behavior take ALTERNATIVE paths depending on a condition (if/else, decide, guarded transitions)? Merely waiting for an event before continuing is not branching.",
       "options_ref": "yes_no",
       "depends_on": { "question": "U-ACT-01", "answer": "yes" },
       "metamodel_refs": ["DecisionNode", "IfActionUsage"]
@@ -415,7 +404,7 @@
     {
       "id": "U-CLS-01",
       "category": "classification",
-      "text": "Is any component described as a specialized kind of a more general one?",
+      "text": "Is any kind of component an explicit subtype of another named kind (an is-a relation between two kinds, e.g. 'an electric car is a kind of car')?",
       "options_ref": "yes_no",
       "depends_on": null,
       "metamodel_refs": ["Specialization", "Subclassification"]
@@ -427,15 +416,6 @@
       "options_ref": "yes_no",
       "depends_on": { "question": "U-CLS-01", "answer": "yes" },
       "metamodel_refs": ["Redefinition"]
-    },
-    {
-      "id": "U-CLS-03",
-      "category": "classification",
-      "text": "Can any element be referred to by more than one name (aliases or alternate identifiers)?",
-      "options_ref": "yes_no",
-      "depends_on": null,
-      "metamodel_refs": ["Membership"],
-      "notes": "Rare construct (~4% of dataset); review vacuous rate after golden-10, demote if wasteful."
     }
   ],
 
@@ -500,11 +480,11 @@
       "id": "T-INT-02",
       "category": "interface",
       "type": "single_choice",
-      "pattern": "Is the ⟨port⟩ of ⟨component⟩ an input, an output, or bidirectional?",
-      "slots": { "port": "port", "component": "entity" },
+      "pattern": "From ⟨component⟩'s own perspective, is the ⟨data⟩ it exchanges with ⟨counterpart⟩ an input, an output, or bidirectional?",
+      "slots": { "component": "entity", "data": "medium", "counterpart": "entity" },
       "options": ["input", "output", "bidirectional"],
       "origin": "nl|sysml|both",
-      "instantiate_when": "a port's direction is stated in either modality",
+      "instantiate_when": "a port's direction is stated in either modality; always anchor the question to ONE component's perspective and name the counterpart",
       "max_instances": 4
     },
 
@@ -525,7 +505,7 @@
       "type": "single_choice",
       "pattern": "What flows between ⟨A⟩ and ⟨B⟩?",
       "slots": { "A": "entity", "B": "entity" },
-      "options_rule": "harvest flow payloads from BOTH modalities, deduplicate, add 'nothing_flows' and 'other'",
+      "options_rule": "harvest flow payloads from BOTH modalities, deduplicate, add 'nothing_flows' and 'other'. Label every payload option with a GENERIC term first and the specific decomposition in parentheses - 'commands (target pose + joint angles)', 'power (voltage + current)' - so the option is recognizable from plain narration as well as from the code",
       "origin": "nl|sysml|both",
       "instantiate_when": "a flow between the two components is asserted in either modality",
       "max_instances": 5
@@ -562,7 +542,7 @@
       "options_rule": "harvest concrete values (with units) from BOTH modalities, deduplicate, add 'declared_without_value' and 'other'",
       "origin": "nl|sysml|both",
       "instantiate_when": "either modality gives the attribute a concrete value",
-      "max_instances": 6,
+      "max_instances": 8,
       "notes": "Flagship conflict-catcher: when the two modalities carry different values, both appear as options so the conflict surfaces as a clean disagreement."
     },
     {
@@ -796,8 +776,11 @@
       "4. distractors last (2-5 per sample)"
     ],
     "vocabulary_bridging": "Question text must use plain domain vocabulary understandable from the NL alone. For facts that exist only in SysML, describe the element functionally (derived from its name, doc comment, and type - e.g. part def PressureRegulator -> 'a pressure regulator'), never paste raw identifiers like 'p1' or camelCase names.",
-    "origin_tagging": "Each instantiated question records origin: 'nl' (fact only in NL), 'sysml' (only in code), 'both'. Scoring interprets asymmetric outcomes by origin.",
-    "option_harvesting": "For options_rule templates, collect candidate answers from BOTH modalities so that a value conflict surfaces as two different committed options rather than both sides answering 'other'. Normalize units and number formats before deduplicating.",
+    "origin_tagging": "Each instantiated question records origin: 'nl' (fact only in NL), 'sysml' (only in code), 'both'. Scoring interprets asymmetric outcomes by origin. Tag 'both' ONLY when the NL text states the fact explicitly enough that a strict literal reader would commit to it; when in doubt, tag 'sysml' or 'nl'.",
+    "option_harvesting": "For options_rule templates, collect candidate answers from BOTH modalities so that a value conflict surfaces as two different committed options rather than both sides answering 'other'. Normalize units and number formats before deduplicating. CRITICAL: one option per REFERENT - when the two modalities name the same thing with different words ('dried scrubs' vs 'dry scrubs', 'numerical score' vs 'real number'), emit ONE option labeled with both phrasings ('dried scrubs / dry scrubs'), never two options for one referent. Only genuinely different values/things get separate options. Keep option labels SHORT and canonical (at most ~4 words) - never embed sentences. When one modality is approximate and the other exact but consistent ('over 2 m' vs '2010 mm'), merge into ONE option ('2010 mm (over 2 m)'). When several things flow between one component pair, bundle them into one option ('position + weight') rather than forcing a single pick; when the two modalities name DIFFERENT payload sets for one link, do not force a single choice - emit one yes/no question per payload instead. Different granularities of one referent are ONE option ('processed gesture data (type + position + orientation)'). Unit questions: scale-equivalent spellings are the SAME unit fact - merge '5.5 um' and '5.5e-6 m' into one option. Counts too: 'at least 2' and '2' are consistent - merge as '2 (at least 2)'. Triggers/events too: a narrated trigger and its signal name are ONE option ('vehicle-on signal (running confirmed)'). Never probe the SAME fact with two templates (e.g. T-CST-01 and T-REQ-03 on one bound) - pick the better-fitting one.",
+    "slot_quality": "Attribute slots must be quantifiable properties (mass, speed, capacity), never adjectives or qualities ('interchangeable' is not an attribute). Counts of components are T-STR-03 questions, not T-ATT-02. Action slots must be genuine behaviors/processes, never structural relations (connecting, containing, being typed by). Entity slots use the BARE entity ('battery'), never unverifiable qualifiers ('rechargeable battery') - a qualifier belongs in a separate attribute question if either modality models it.",
+    "requirement_gating": "Instantiate T-REQ-* templates only when at least one modality states an explicit obligation (shall/must/required/stated rule) or contains a requirement construct; purposes and goals do not qualify.",
+    "quota": "NEVER emit more instances of a template than its max_instances - excess is discarded and wastes the budget on your most salient findings.",
     "distractor_verification": "A fabricated slot value must not appear in either modality, literally or as a synonym; the generator must self-check and replace violations.",
     "anchors": "The generator records, per question, where the fact came from (nl_span and/or sysml_lines) as metadata for mismatch reporting; anchors are STRIPPED before questions are shown to answerers.",
     "output_id_format": "Q-<sample_id>-<template_id>-<n>, e.g. Q-000050-T-CON-01-1"
@@ -818,11 +801,15 @@
       "missing_in_model": 0.3,
       "unverifiable": 0.4,
       "extra_in_model_origin_sysml": 1.0,
-      "extra_in_model_origin_other": 0.85
+      "extra_in_model_origin_other": 0.85,
+      "adjacent_conflict": 0.7
     },
+    "ordinal_option_sets": ["count_bucket"],
     "negative_answers": ["no", "none", "nothing", "nothing_flows", "not_assigned", "declared_without_value", "unconditional", "stays_in_state"],
     "negative_prefix": "no_",
     "reliability_threshold": 0.5,
+    "canary_wildcards": ["generic_or_abstract", "other"],
+    "nl_answer_remap": { "declared_without_value": "not_stated" },
     "similarity": "S = mean(credit) over scored questions (non-vacuous, non-distractor, dependency-satisfied); reported overall plus per-category vector",
     "dependency_handling": "Enforced at scoring, not answering: if a parent question's outcome is not 'aligned with a positive answer', its dependent children are excluded (prevents double-penalty cascades).",
     "distractor_handling": "Distractors never enter S. Per answerer: reliability = share of distractors answered no/not_stated. Reliability < 0.5 flags the whole answer set for re-answering or review.",

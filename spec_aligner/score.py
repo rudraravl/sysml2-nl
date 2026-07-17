@@ -49,8 +49,13 @@ def score(questions: list[dict], nl_ans: dict, sys_ans: dict, bank: dict) -> dic
         ok = sum(1 for r in distractors if kind(r[side]["answer"], neg, prefix) != "pos")
         reliability[side] = round(ok / len(distractors), 3) if distractors else 1.0
 
+    wildcards = set(sc.get("canary_wildcards", []))
     canary = by_id.get("U-GLB-01")
-    domain_mismatch = bool(canary and canary["outcome"] == "conflict")
+    canary_conflict = bool(
+        canary and canary["outcome"] == "conflict"
+        and canary["nl"]["answer"] not in wildcards
+        and canary["sysml"]["answer"] not in wildcards
+    )
 
     scored = []
     for r in rows:
@@ -70,6 +75,9 @@ def score(questions: list[dict], nl_ans: dict, sys_ans: dict, bank: dict) -> dic
         scored.append(r)
 
     similarity = round(sum(r["credit"] for r in scored) / len(scored), 4) if scored else None
+    # a truly mispaired document also collapses globally; adjacent-domain fuzz
+    # on an otherwise well-aligned pair is not a red flag
+    domain_mismatch = canary_conflict and (similarity is None or similarity < 0.7)
 
     cats: dict[str, list[float]] = {}
     for r in scored:
@@ -88,6 +96,7 @@ def score(questions: list[dict], nl_ans: dict, sys_ans: dict, bank: dict) -> dic
         "per_category": per_category,
         "counts": counts,
         "scored": len(scored),
+        "low_signal": len(scored) < 30,
         "reliability": reliability,
         "reliability_flag": min(reliability.values()) < sc["reliability_threshold"],
         "domain_mismatch": domain_mismatch,
@@ -102,15 +111,24 @@ def score(questions: list[dict], nl_ans: dict, sys_ans: dict, bank: dict) -> dic
 
 
 def _credit(row: dict, credit_map: dict) -> float:
+    q = row["q"]
     if row["outcome"] == "extra_in_model":
-        key = ("extra_in_model_origin_sysml" if row["q"].get("origin") == "sysml"
+        key = ("extra_in_model_origin_sysml" if q.get("origin") == "sysml"
                else "extra_in_model_origin_other")
         return credit_map[key]
+    if row["outcome"] == "conflict" and q.get("ordinal"):
+        opts = q["options"]
+        a, b = row["nl"]["answer"], row["sysml"]["answer"]
+        if a in opts and b in opts and abs(opts.index(a) - opts.index(b)) == 1:
+            return credit_map.get("adjacent_conflict", 0.7)   # boundary fuzz, not a real clash
     return credit_map[row["outcome"]]
 
 
 def _mismatch(row: dict) -> dict:
     q = row["q"]
+    severity = SEVERITY[row["outcome"]]
+    if row["outcome"] == "conflict" and row["credit"] >= 0.5:
+        severity = "low"                                      # adjacent ordinal bucket
     return {
         "qid": q["id"],
         "category": q.get("category"),
@@ -118,7 +136,7 @@ def _mismatch(row: dict) -> dict:
         "tier": q.get("tier"),
         "text": q["text"],
         "outcome": row["outcome"],
-        "severity": SEVERITY[row["outcome"]],
+        "severity": severity,
         "credit": row["credit"],
         "nl": row["nl"],
         "sysml": row["sysml"],
