@@ -1,0 +1,633 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sysml2-nl Alignment Question Bank — Annotated Reference (v0.1.6)</title>
+<style>
+  :root{
+    --bg:#fbfbfa; --panel:#fff; --ink:#1d1d1b; --muted:#6b6b66; --line:#e4e4df;
+    --accent:#8a5a2b; --accent-soft:#f4ece3; --code-bg:#f3f3f0;
+    --ok:#2f7a4d; --bad:#b03a2e; --warn:#a86a1a; --dead:#9b9b95;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#17181a; --panel:#1f2124; --ink:#e8e8e4; --muted:#9a9a94; --line:#33363a;
+      --accent:#d9a566; --accent-soft:#2a2520; --code-bg:#26282b;
+      --ok:#6cc08a; --bad:#e8796a; --warn:#e0aa55; --dead:#75756f;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#17181a; --panel:#1f2124; --ink:#e8e8e4; --muted:#9a9a94; --line:#33363a;
+    --accent:#d9a566; --accent-soft:#2a2520; --code-bg:#26282b;
+    --ok:#6cc08a; --bad:#e8796a; --warn:#e0aa55; --dead:#75756f;
+  }
+  :root[data-theme="light"]{
+    --bg:#fbfbfa; --panel:#fff; --ink:#1d1d1b; --muted:#6b6b66; --line:#e4e4df;
+    --accent:#8a5a2b; --accent-soft:#f4ece3; --code-bg:#f3f3f0;
+    --ok:#2f7a4d; --bad:#b03a2e; --warn:#a86a1a; --dead:#9b9b95;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.7; font-size:16px;
+  }
+  .wrap{max-width:980px; margin:0 auto; padding:48px 24px 96px}
+  header.top{border-bottom:2px solid var(--ink); padding-bottom:20px; margin-bottom:32px}
+  h1{font-size:29px; margin:0 0 8px; letter-spacing:-.015em; line-height:1.25}
+  .sub{color:var(--muted); font-size:15px; margin:0}
+  .ver{display:inline-block; background:var(--accent); color:#fff; border-radius:4px;
+       padding:1px 8px; font-size:12px; font-weight:600; letter-spacing:.03em; margin-left:6px}
+  @media (prefers-color-scheme: dark){ .ver{color:#17181a} }
+  h2{font-size:22px; margin:52px 0 14px; padding-bottom:8px; border-bottom:1px solid var(--line)}
+  h3{font-size:17px; margin:32px 0 10px; color:var(--accent)}
+  p{margin:12px 0}
+  code{background:var(--code-bg); padding:1px 5px; border-radius:4px; font-size:.87em;
+       font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  pre{background:var(--code-bg); padding:14px 16px; border-radius:8px; overflow-x:auto;
+      font-size:13px; line-height:1.55}
+  pre code{background:none; padding:0}
+  .note{background:var(--accent-soft); border-left:3px solid var(--accent);
+        padding:12px 16px; border-radius:0 6px 6px 0; margin:18px 0}
+  .tbl-scroll{overflow-x:auto; margin:18px 0; border:1px solid var(--line); border-radius:8px}
+  table{border-collapse:collapse; width:100%; min-width:660px; background:var(--panel); font-size:14px}
+  th,td{border-bottom:1px solid var(--line); padding:10px 12px; text-align:left; vertical-align:top}
+  th{background:var(--accent-soft); font-weight:600; white-space:nowrap}
+  tr:last-child td{border-bottom:none}
+  td.qid{font-family:ui-monospace,Menlo,monospace; font-size:12.5px; white-space:nowrap; color:var(--accent)}
+  .q{font-weight:600}
+  .guard{display:block; margin-top:5px; font-weight:400; font-size:13px; color:var(--muted);
+         border-left:2px solid var(--line); padding-left:8px}
+  .opt{color:var(--muted); font-size:13px}
+  .dep{display:inline-block; background:var(--code-bg); border-radius:4px; padding:0 5px;
+       font-family:ui-monospace,Menlo,monospace; font-size:11.5px; color:var(--muted)}
+  .ok{color:var(--ok); font-weight:600}
+  .bad{color:var(--bad); font-weight:600}
+  .warn{color:var(--warn); font-weight:600}
+  .gone{color:var(--dead); text-decoration:line-through}
+  ul,ol{padding-left:22px; margin:12px 0}
+  li{margin:6px 0}
+  .toc{background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:18px 22px; margin:28px 0}
+  .toc ol{margin:6px 0 0; columns:2; column-gap:32px}
+  @media(max-width:640px){ .toc ol{columns:1} }
+  .toc a{color:var(--ink); text-decoration:none; border-bottom:1px dotted var(--muted)}
+  .toc a:hover{color:var(--accent)}
+  .cat-badge{display:inline-block; font-size:12px; background:var(--code-bg); color:var(--muted);
+             border-radius:10px; padding:1px 9px; margin-left:8px; vertical-align:middle; font-weight:400}
+  .new{display:inline-block; font-size:10.5px; background:var(--accent); color:#fff; border-radius:3px;
+       padding:0 5px; vertical-align:middle; margin-left:6px; font-weight:700; letter-spacing:.04em}
+  @media (prefers-color-scheme: dark){ .new{color:#17181a} }
+  footer{margin-top:64px; padding-top:20px; border-top:1px solid var(--line); color:var(--muted); font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <h1>sysml2-nl Alignment Question Bank<span class="ver">v0.1.6</span></h1>
+  <p class="sub">Annotated reference for <code>spec_aligner/QUESTIONS.md</code> and <code>spec_aligner/questions.json</code> — every universal question, every template, the answering protocol, the scoring rules, and the seven-wave calibration record.</p>
+</header>
+
+<div class="note">
+  <strong>In one paragraph:</strong> this bank is the measurement instrument that replaced the deprecated regex aligner. The paradigm is <strong>twin-blind QA</strong> (compare QAGS/QAEval for summarization, TIFA/DSG for text-to-image): one LLM answers every question reading <em>only</em> the natural-language description, a second answers the same questions reading <em>only</em> the SysML v2 code, and the agreement between the two answer sets is the alignment signal. Questions that disagree localize the mismatch to a single fact and carry two-sided evidence, which becomes the direct input for repair feedback.
+</div>
+
+<div class="toc">
+  <strong>Contents</strong>
+  <ol>
+    <li><a href="#arch">Architecture: two tiers plus distractors</a></li>
+    <li><a href="#rules">The five non-negotiable question rules</a></li>
+    <li><a href="#protocol">Answering protocol: asymmetric worldviews</a></li>
+    <li><a href="#scoring">Scoring</a></li>
+    <li><a href="#tier1">Tier 1: all 45 universal questions</a></li>
+    <li><a href="#tier2">Tier 2: all 27 templates</a></li>
+    <li><a href="#dis">Distractor templates</a></li>
+    <li><a href="#inst">Instantiation rules</a></li>
+    <li><a href="#calib">Calibration record (7 waves)</a></li>
+    <li><a href="#valid">Validation, worked example, pipeline</a></li>
+  </ol>
+</div>
+
+<h2 id="arch">1. Architecture: two tiers plus distractors</h2>
+
+<h3>Tier 1 — universal (45 questions, fixed)</h3>
+<p>Category-level existence and counting questions, answerable for any sample whatsoever. This tier is the cross-sample-comparable <strong>"public ruler"</strong>: because every sample gets the same 45 questions, scores are directly comparable across samples and across generators.</p>
+<p>Category weights follow measured construct frequency over the 1935 gold models: port 96%, attribute 92%, part def 89%, action 88%, requirement 83%, connect 81%, constraint 74%, state 64%. Constructs that appear more often get more questions and therefore more weight.</p>
+
+<h3>Tier 2 — templates (27 templates + 3 distractor templates, instantiated per sample)</h3>
+<p>A question-writer LLM reads <strong>both modalities</strong> and fills the slots, targeting 30–60 instances per sample. This tier reaches <strong>fact granularity</strong>: named entities, containment, connections, concrete values, bounds, state transitions.</p>
+
+<h3>Distractors</h3>
+<p>Fabricated-fact questions whose true answer is no/not_stated on both sides. They never enter the similarity score; they exist to estimate each answerer's hallucination rate and act as a reliability gate.</p>
+
+<p><strong>Per sample:</strong> 45 universal + 30–60 instantiated + distractors ≈ <strong>80–110 questions</strong>, each answered twice.</p>
+
+<h2 id="rules">2. The five non-negotiable question rules</h2>
+<ol>
+  <li><strong>Closed answer space.</strong> Every question is multiple choice, and <code>not_stated</code> is automatically appended to every one of them.</li>
+  <li><strong>Atomic.</strong> One fact per question — otherwise a disagreement cannot be localized to anything actionable.</li>
+  <li><strong>Neutral vocabulary.</strong> Questions are phrased in plain domain language. Facts that exist only in SysML are described <em>functionally</em> (<code>part def PressureRegulator</code> → "a pressure regulator"), never by identifier. Pasting the identifier would leak the answer to the SysML side.</li>
+  <li><strong>Options harvested from both modalities</strong> for value questions, so that a 12V-vs-10V conflict surfaces as two different committed options rather than both sides retreating to "other".</li>
+  <li><strong><code>depends_on</code> skip logic applies at scoring time only.</strong> Answerers answer everything; dependencies are used later to exclude children.</li>
+</ol>
+
+<h2 id="protocol">3. Answering protocol: asymmetric worldviews</h2>
+<p>The most important design decision in the whole instrument: <strong>the two answerers reason under deliberately different rules.</strong> An NL description is inherently partial; SysML code is inherently complete. Treating them symmetrically would charge the model for every fact the prose simply didn't mention.</p>
+
+<div class="tbl-scroll">
+<table>
+<thead><tr><th>Answerer</th><th>Worldview</th><th>What silence means</th></tr></thead>
+<tbody>
+<tr>
+  <td><strong>NL</strong></td>
+  <td><strong>Open world</strong></td>
+  <td>The text is a partial description. Fact not mentioned → <code>not_stated</code>; <strong>never</strong> infer "no" from silence. Answer no/none only on explicit denial or clear exclusivity ("communicates only via X"). Do not import plausible engineering facts the text does not state.</td>
+</tr>
+<tr>
+  <td><strong>SysML</strong></td>
+  <td><strong>Closed world</strong></td>
+  <td>The code is the complete model. Construct absent from the code → <code>no</code>/<code>none</code>, not not_stated. Reserve not_stated for genuinely inapplicable or unreadable questions. The prompt carries a SysML v2 notation cheat-sheet (from mycelium-hypha <code>knowledge/textual-notation/index.md</code>) so <code>:>></code>, <code>alias</code>, and <code>connect…to…</code> are read correctly.</td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<h3>NL-side tightening rules <span class="new">v0.1.1+</span></h3>
+<p>Calibration showed the NL answerer over-committing in specific, recurring ways. Each of these clauses was added to kill a class of false mismatch:</p>
+<ul>
+  <li><strong>Generic mentions don't establish existence.</strong> "its attributes", "various parameters", "several settings" → not_stated, not "yes".</li>
+  <li><strong>Non-exhaustive lists are not counts.</strong> "including X, Y", "such as X" must not be read as an exact count. If the text states no complete count, answer not_stated on count questions.</li>
+  <li><strong>Purposes and goals are not requirements.</strong> Only explicit obligations (shall / must / required / stated rules) count. Goal-flavored prose yields not_stated on requirement questions — never "no".</li>
+  <li><strong>Closed-world options must be explicitly claimed.</strong> <code>declared_without_value</code>, <code>no_bound</code>, <code>no_threshold</code>, <code>not_assigned</code> are positive claims the text must actually make; silence about a value or bound means not_stated, never one of these.</li>
+  <li><strong>System-wide "how many" needs a complete enumeration.</strong> A partial mention → not_stated. A stated count for one named element ("over 170 stations", "two units") may be committed.</li>
+  <li><strong>Adjectives of purpose are not is-a relations.</strong> "specialized", "dedicated" describe what a thing is <em>for</em>; they do not state subtyping.</li>
+</ul>
+
+<h3>SysML-side encoding-equivalence rules <span class="new">v0.1.1+</span></h3>
+<p>The mirror problem: the same engineering fact has several legal encodings in SysML v2, and the answerer was penalizing the model for choosing a different-but-valid one. The worldview now says to read encodings <em>semantically</em>:</p>
+<ol>
+  <li><strong>Package-as-system.</strong> Parts declared directly inside a package are the system's top-level components; treat the package as the overall system component containing them.</li>
+  <li><strong>Multiplicity states counts.</strong> <code>[0..2]</code> = optional up to two, <code>[2..*]</code> = at least two, <code>[1]</code> = exactly one. Answer count, threshold and optionality questions from these bounds.</li>
+  <li><strong>Rules have many encodings.</strong> Requirement constructs, constraint blocks, multiplicity bounds, doc shall-statements, or optimization objectives (e.g. <code>MaximizeObjective</code>) — all count as the model stating an obligation.</li>
+  <li><strong>Transfer has many encodings.</strong> Flow statements, typed directional ports (in/out payloads) plus connections, action parameter chaining (<code>in x = other.y</code>), or successions — all count as flow/connectivity between the owning components.</li>
+  <li><strong>A requirement's subject ≠ its satisfier.</strong> The subject is what the requirement constrains; satisfaction is expressed via satisfy/allocation.</li>
+  <li><strong>Branching ≠ event-wait.</strong> Decide nodes, if actions, or guarded transitions are branching. An accept/when trigger alone (wait-then-continue) is <em>not</em>.</li>
+</ol>
+
+<h3>Shared rules</h3>
+<ul>
+  <li>Answer from the provided document only; the other modality is never shown.</li>
+  <li>Bridge vocabulary yourself: questions use plain language, you map to identifiers ("the battery" ≈ <code>part battery : BatteryPack</code>).</li>
+  <li>Every committed answer must carry an evidence span; lazy uniform answers are detectable and rejected.</li>
+  <li>Answer all questions independently; temperature 0; strict JSON, one record per question.</li>
+  <li><strong>"other" has a precise meaning</strong> <span class="new">v0.1.2</span>: the document states a specific value <em>different from every listed option</em>. If the document states no value at all, the answer is not_stated.</li>
+  <li><strong>Options name referents, not wordings.</strong> Choose the option denoting the same thing even when the document words it differently.</li>
+  <li><strong>Numeric equivalence</strong> <span class="new">v0.1.2</span>: approximate and exact statements of one quantity are the same option ("over 2 m" matches "2010 mm"; a stated "0.03 mm" matches a bound option "&lt;= 0.03 mm"). Use "other" only for a genuinely different value.</li>
+  <li><strong>Consistency rule</strong> <span class="new">v0.1.5</span>: if the document's statement is consistent with a listed option — implies it or is implied by it ("about 10 s" vs "&lt;= 10 s", "multiple" vs "1 or more", "capacity of 250 kg" vs "&gt;= 250 kg") — and nothing else matches better, choose that option. Never escape to "other" or not_stated over wording differences.</li>
+</ul>
+
+<h3>Execution</h3>
+<ul>
+  <li><strong>LLM calls go through <code>codex exec</code></strong> <span class="new">v0.1.6</span> — single-shot, read-only sandbox, ChatGPT sign-in (the <code>nl2sysml/ablation_gpt55/batch_codex_gpt55.py</code> scheme, no API billing).</li>
+  <li><strong>Sharded answering:</strong> per modality the question list is split into <strong>5 contiguous shards answered by 5 parallel codex processes</strong>, merged before scoring.</li>
+  <li><strong>NL answers are cached</strong> per (sample, bank version, question-set hash) and reused across every candidate SysML (gold / codex / gpt55 / RAG …) — this halves the cost of each additional generator you evaluate.</li>
+</ul>
+
+<h2 id="scoring">4. Scoring</h2>
+
+<div class="tbl-scroll">
+<table>
+<thead><tr><th>NL ＼ SysML</th><th>committed, same</th><th>committed, different</th><th>no / none</th><th>not_stated</th></tr></thead>
+<tbody>
+<tr>
+  <td><strong>committed</strong></td>
+  <td><span class="ok">aligned — 1.0</span></td>
+  <td><span class="bad">conflict — 0.0</span><br><span class="opt">includes NL "no" vs SysML "yes"</span></td>
+  <td>missing_in_model — 0.3<br><span class="opt">NL said it; code lacks it</span></td>
+  <td>unverifiable — 0.4<br><span class="opt">rare</span></td>
+</tr>
+<tr>
+  <td><strong>not_stated</strong></td>
+  <td class="opt">–</td>
+  <td>extra_in_model — 0.85–1.0<br><span class="opt">model elaborates beyond the prose</span></td>
+  <td colspan="2"><span class="warn">vacuous — excluded from scoring entirely</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<ul>
+  <li><strong>Vacuous agreement is excluded.</strong> Both sides saying "nothing here" is not evidence of alignment, so padding questions cannot inflate similarity.</li>
+  <li><strong><code>extra_in_model</code> is judged by the question's <code>origin</code> tag.</strong> A sysml-origin fact the NL never mentioned is legitimate elaboration (credit 1.0), not a defect; other origins get 0.85.</li>
+  <li><strong>Adjacent-bucket partial credit</strong> <span class="new">v0.1.5</span>: for ordinal option sets (<code>count_bucket</code>), a conflict between <em>neighbouring</em> buckets scores <strong>0.7</strong> instead of 0.0 and is demoted to <span class="warn">low</span> severity — boundary fuzz is not a real clash.</li>
+  <li><strong>Similarity <em>S</em></strong> = mean credit over scored questions (non-vacuous, non-distractor, dependency-satisfied), reported overall plus a per-category vector across structure / interface / connectivity / attribute / constraint / requirement / state / action / classification. That vector is the radar-chart payload.</li>
+  <li><strong>Dependency handling.</strong> Enforced at scoring, not answering: a child is excluded unless its parent is <em>aligned</em> and the parent's NL answer equals the required value. This prevents double-penalty cascades where one wrong root answer sinks five children.</li>
+  <li><strong>NL answer remap</strong> <span class="new">v0.1.3</span>: <code>declared_without_value</code> from the NL side is deterministically rewritten to <code>not_stated</code> — prose that omits a number is not the same as prose asserting there is no number.</li>
+  <li><strong>Distractor handling.</strong> Distractors never enter <em>S</em>. Per answerer, reliability = share of distractors answered no/not_stated; <strong>reliability &lt; 0.5 flags the whole answer set</strong> for re-answering or review.</li>
+  <li><strong>Canary handling.</strong> U-GLB-01 disagreement is a standalone red flag (likely wrong pairing or degenerate generation), independent of <em>S</em>. Two refinements: answers in <code>generic_or_abstract</code> / <code>other</code> are <strong>wildcards</strong> that don't trigger it, and <span class="new">v0.1.4</span> the flag now also requires a <strong>global collapse (S &lt; 0.7)</strong> — adjacent-domain fuzz on an otherwise well-aligned pair is not a red flag.</li>
+  <li><strong>Low-signal marker.</strong> A run with fewer than 30 scored questions is flagged <code>low_signal</code> — the score exists but is thin.</li>
+  <li><strong>Mismatch report.</strong> Every non-aligned scored question becomes a record: <code>{qid, category, origin, tier, text, outcome, severity, credit, nl answer+evidence, sysml answer+evidence, metamodel_refs, anchors}</code>, sorted high→low severity. Severity: conflict = high, missing_in_model = medium, unverifiable/extra = low.</li>
+</ul>
+
+<h2 id="tier1">5. Tier 1: all 45 universal questions</h2>
+<p>Option sets: <code>yes_no</code>; <code>count_bucket</code> = none / one / two / three_to_five / more_than_five (ordinal); <code>count_coarse</code> = none / one / multiple <span class="new">v0.1.1</span>; <code>domain</code> = nine values. <code>not_stated</code> is implicitly appended everywhere. The "Dependency" column means the question is only scored when that parent is aligned on that answer.</p>
+
+<div class="note">
+  <strong>Three questions were deleted during calibration</strong> and are noted in place below: <span class="gone">U-CST-02</span> and <span class="gone">U-REQ-02</span> (counting constraints/requirements has M:N semantics — one prose obligation legitimately becomes three constraint blocks, so the count question measured encoding style, not alignment) and <span class="gone">U-CLS-03</span> (alias, ~4% of the dataset — almost always vacuous).
+</div>
+
+<h3>Global <span class="cat-badge">1 question</span></h3>
+<div class="tbl-scroll">
+<table>
+<thead><tr><th>ID</th><th>Question</th><th>Purpose</th></tr></thead>
+<tbody>
+<tr><td class="qid">U-GLB-01</td>
+  <td class="q">What application domain does the system belong to?
+    <span class="guard">Guard rails: choose the PRIMARY purpose domain, not the implementation medium — a hydraulic operating table is biological_or_medical, not fluid_or_thermal. An abstract or teaching example without a clear real-world domain is generic_or_abstract.</span>
+    <span class="opt">Options: vehicle_or_transport · aerospace_or_space · electrical_or_energy · fluid_or_thermal · information_or_communication · manufacturing_or_industrial · biological_or_medical · generic_or_abstract · other</span></td>
+  <td><strong>The canary.</strong> Disagreement here means the NL and the code aren't describing the same system at all — a mispaired sample or degenerate generation. Reported standalone, and excluded from <em>S</em>. Fires only when both answers are non-wildcard <em>and</em> S &lt; 0.7.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Structure <span class="cat-badge">8 questions</span></h3>
+<div class="tbl-scroll">
+<table>
+<thead><tr><th>ID</th><th>Question</th><th>Dependency / metamodel</th><th>What it probes</th></tr></thead>
+<tbody>
+<tr><td class="qid">U-STR-01</td><td class="q">How many distinct kinds of structural components (component types/definitions) are introduced?<span class="guard">Do not count the overall system/container itself. <span class="new">v0.1.4</span></span><span class="opt">count_bucket</span></td><td><code>PartDefinition</code></td><td>Type-level count: how many <em>kinds</em> of part exist, not how many instances. The container-exclusion clause exists because the two sides disagreed on whether the system itself was a "kind".</td></tr>
+<tr><td class="qid">U-STR-02</td><td class="q">Does any component contain sub-components (nested composition)?<span class="opt">yes/no</span></td><td><code>PartUsage</code>, <code>FeatureMembership</code></td><td>Is there hierarchical decomposition at all — flat parts list vs a tree. Root of the nesting sub-tree.</td></tr>
+<tr><td class="qid">U-STR-03</td><td class="q">Does the composition nesting go deeper than two levels (a sub-component that itself has sub-components)?<span class="opt">yes/no</span></td><td><span class="dep">needs U-STR-02 = yes</span><br><code>PartUsage</code></td><td>Depth of the hierarchy.</td></tr>
+<tr><td class="qid">U-STR-04</td><td class="q">Is any single KIND of component present as more than one instance?<span class="guard">e.g. two wheels of the same kind — not two different sensors. <span class="new">v0.1.1</span></span><span class="opt">yes/no</span></td><td><code>MultiplicityRange</code>, <code>PartUsage</code></td><td>Multiplicity. The rewrite pins down "multiple instances" to mean same-kind replication; readers were counting two <em>different</em> parts as satisfying it.</td></tr>
+<tr><td class="qid">U-STR-05</td><td class="q">Are multiple instances of the same component kind explicitly given different roles or positions?<span class="guard">e.g. left wheel vs right wheel, primary vs backup.</span><span class="opt">yes/no</span></td><td><span class="dep">needs U-STR-04 = yes</span><br><code>PartUsage</code></td><td>Homogeneous replication vs role differentiation.</td></tr>
+<tr><td class="qid">U-STR-06</td><td class="q">Are items or materials that are stored, consumed, or transported (as opposed to structural parts) defined?<span class="opt">yes/no</span></td><td><code>ItemDefinition</code>, <code>ItemUsage</code></td><td>The SysML part/item distinction: items flow <em>through</em> the system (fuel, data packets); parts <em>constitute</em> it.</td></tr>
+<tr><td class="qid">U-STR-07</td><td class="q">How many individual component instances does the system assembly contain (counting each occurrence)?<span class="guard">Do not count the overall system/container itself. <span class="new">v0.1.4</span></span><span class="opt">count_bucket</span></td><td><code>PartUsage</code></td><td>Instance-level count. Paired with U-STR-01: that one counts types, this one counts occurrences.</td></tr>
+<tr><td class="qid">U-STR-08</td><td class="q">Are alternative variants or configuration choices modeled for any part of the system?<span class="guard">Explicit alternatives for THIS system — not colloquial "a clicker or button" phrasing, and not operating modes/states. <span class="new">v0.1.6</span></span><span class="opt">yes/no</span></td><td><code>VariantMembership</code></td><td>Variant modeling / product lines. Two separate false-positive sources got fenced off: casual "or" phrasing in prose, and confusing runtime modes with design-time variants.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Interface <span class="cat-badge">5 questions</span></h3>
+<div class="tbl-scroll">
+<table>
+<thead><tr><th>ID</th><th>Question</th><th>Dependency / metamodel</th><th>What it probes</th></tr></thead>
+<tbody>
+<tr><td class="qid">U-INT-01</td><td class="q">Do any components expose ports or dedicated interface points?<span class="opt">yes/no</span></td><td><code>PortUsage</code>, <code>PortDefinition</code></td><td>Root of the interface sub-tree. Ports appear in 96% of gold models — the single most common construct.</td></tr>
+<tr><td class="qid">U-INT-02</td><td class="q">How many distinct KINDS of ports/interfaces are defined (port types — not the number of port instances)?<span class="guard">Commit to a count only if the complete set of kinds is clear; otherwise answer not_stated. <span class="new">v0.1.2</span></span><span class="opt">count_bucket</span></td><td><span class="dep">needs U-INT-01 = yes</span><br><code>PortDefinition</code></td><td>Interface type diversity. Both the kinds-vs-instances clarification and the explicit permission to abstain were added after count noise.</td></tr>
+<tr><td class="qid">U-INT-03</td><td class="q">Are any ports directional (declared or described as carrying inputs or outputs)?<span class="opt">yes/no</span></td><td><span class="dep">needs U-INT-01 = yes</span><br><code>FeatureDirectionKind</code></td><td>SysML <code>in</code>/<code>out</code>/<code>inout</code>.</td></tr>
+<tr><td class="qid">U-INT-04</td><td class="q">Does any single port carry both inputs and outputs (bidirectional interface)?<span class="opt">yes/no</span></td><td><span class="dep">needs U-INT-03 = yes</span><br><code>FeatureDirectionKind</code>, <code>PortDefinition</code></td><td>Bidirectionality. <strong>This is a real bug-catcher:</strong> calibration found a one-way endobronchial valve (sample 000446) modeled with symmetric in+out ports.</td></tr>
+<tr><td class="qid">U-INT-05</td><td class="q">Is any interface shared or reused by more than one component (the same port type on both ends of a link)?<span class="opt">yes/no</span></td><td><span class="dep">needs U-INT-01 = yes</span><br><code>PortDefinition</code>, <code>InterfaceDefinition</code></td><td>Interface reuse and port conjugation patterns.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Connectivity <span class="cat-badge">6 questions</span></h3>
+<div class="tbl-scroll">
+<table>
+<thead><tr><th>ID</th><th>Question</th><th>Dependency / metamodel</th><th>What it probes</th></tr></thead>
+<tbody>
+<tr><td class="qid">U-CON-01</td><td class="q">Are any components connected to one another?<span class="opt">yes/no</span></td><td><code>ConnectionUsage</code></td><td>Root of the connectivity sub-tree.</td></tr>
+<tr><td class="qid">U-CON-02</td><td class="q">How many distinct connections between components are there?<span class="guard">Count linked component pairs, however the link is encoded. <span class="new">v0.1.1</span></span><span class="opt">count_coarse (none/one/multiple)</span></td><td><span class="dep">needs U-CON-01 = yes</span><br><code>ConnectionUsage</code></td><td>Connection count — deliberately coarsened. Fine buckets measured encoding style (one <code>connect</code> vs three flows for the same link) rather than alignment; "count linked pairs, however encoded" plus none/one/multiple made it measure the fact.</td></tr>
+<tr><td class="qid">U-CON-03</td><td class="q">Are connections attached at specific ports (port-to-port) rather than just component-to-component?<span class="opt">yes/no</span></td><td><span class="dep">needs U-CON-01 = yes</span><br><code>ConnectionUsage</code>, <code>PortUsage</code></td><td>Connection granularity: <code>connect p1.po1 to p2.pdest</code> vs <code>connect p1 to p2</code>.</td></tr>
+<tr><td class="qid">U-CON-04</td><td class="q">Does anything flow between components (data, energy, fluid, material, or signals)?<span class="opt">yes/no</span></td><td><code>FlowUsage</code></td><td>Static links vs actual transfer. Read through the encoding-equivalence rule: flows, directional ports + connections, parameter chaining, and successions all count.</td></tr>
+<tr><td class="qid">U-CON-05</td><td class="q">Is the kind of thing that flows explicitly identified (a named item, signal, or medium)?<span class="opt">yes/no</span></td><td><span class="dep">needs U-CON-04 = yes</span><br><code>FlowUsage</code>, <code>PayloadFeature</code>, <code>ItemUsage</code></td><td>Whether flows carry an identified payload.</td></tr>
+<tr><td class="qid">U-CON-06</td><td class="q">Do any flows have a specified direction (from a definite source to a definite target)?<span class="opt">yes/no</span></td><td><span class="dep">needs U-CON-04 = yes</span><br><code>FlowUsage</code></td><td>Flow directionality. Calibration caught controller command ports lacking conjugation, so flows pointed backwards (samples 001439, 000416).</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Attribute <span class="cat-badge">6 questions</span></h3>
+<div class="tbl-scroll">
+<table>
+<thead><tr><th>ID</th><th>Question</th><th>Dependency / metamodel</th><th>What it probes</th></tr></thead>
+<tbody>
+<tr><td class="qid">U-ATT-01</td><td class="q">Do components carry named attributes or properties (e.g. mass, capacity, size)?<span class="opt">yes/no</span></td><td><code>AttributeUsage</code></td><td>Root of the attribute sub-tree (92% of gold models).</td></tr>
+<tr><td class="qid">U-ATT-02</td><td class="q">How many distinct attributes are declared across the system?<span class="opt">count_coarse (none/one/multiple) <span class="new">v0.1.1</span></span></td><td><span class="dep">needs U-ATT-01 = yes</span><br><code>AttributeUsage</code></td><td>Attribute count, coarsened for the same reason as U-CON-02: prose never enumerates every attribute, so fine buckets produced pure noise.</td></tr>
+<tr><td class="qid">U-ATT-03</td><td class="q">Are any attributes expressed with physical units (V, kg, s, m, …)?<span class="opt">yes/no</span></td><td><span class="dep">needs U-ATT-01 = yes</span><br><code>AttributeUsage</code></td><td>Whether dimensional information survives the translation.</td></tr>
+<tr><td class="qid">U-ATT-04</td><td class="q">Are any attributes given concrete numeric values?<span class="opt">yes/no</span></td><td><span class="dep">needs U-ATT-01 = yes</span><br><code>FeatureValue</code>, <code>LiteralRational</code>, <code>LiteralInteger</code></td><td>Whether anything is bound to a literal.</td></tr>
+<tr><td class="qid">U-ATT-05</td><td class="q">Are any attributes declared but left without a value (a property the system has, with no number given)?<span class="opt">yes/no</span></td><td><span class="dep">needs U-ATT-01 = yes</span><br><code>AttributeUsage</code></td><td>Complement of U-ATT-04: distinguishes "declared and left empty" from "absent". A prime site of abstraction asymmetry.</td></tr>
+<tr><td class="qid">U-ATT-06</td><td class="q">Is any attribute restricted to a fixed set of named options (an enumeration)?<span class="opt">yes/no</span></td><td><code>EnumerationDefinition</code>, <code>EnumerationUsage</code></td><td>Enumerated types. Note: <strong>no dependency</strong> — asked standalone.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Constraint <span class="cat-badge">3 questions</span></h3>
+<div class="tbl-scroll">
+<table>
+<thead><tr><th>ID</th><th>Question</th><th>Dependency / metamodel</th><th>What it probes</th></tr></thead>
+<tbody>
+<tr><td class="qid">U-CST-01</td><td class="q">Are any explicit constraints imposed (bounds, limits, or equations over properties)?<span class="opt">yes/no</span></td><td><code>ConstraintUsage</code></td><td>Root of the constraint sub-tree (74% of gold models).</td></tr>
+<tr><td class="qid gone">U-CST-02</td><td class="q gone">How many distinct constraints are imposed?</td><td class="opt">deleted in v0.1.4</td><td><strong>Removed:</strong> M:N count semantics. One prose obligation may legitimately become three constraint blocks, so the count measured encoding style rather than alignment.</td></tr>
+<tr><td class="qid">U-CST-03</td><td class="q">Does any constraint involve a numeric threshold or bound?<span class="opt">yes/no</span></td><td><span class="dep">needs U-CST-01 = yes</span><br><code>ConstraintUsage</code>, <code>OperatorExpression</code></td><td>Quantitative constraints.</td></tr>
+<tr><td class="qid">U-CST-04</td><td class="q">Does any constraint relate two or more properties to each other (e.g. total = sum of parts, output ≤ input)?<span class="opt">yes/no</span></td><td><span class="dep">needs U-CST-01 = yes</span><br><code>ConstraintUsage</code></td><td>Multi-variable relational constraints.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Requirement <span class="cat-badge">4 questions</span></h3>
+<div class="tbl-scroll">
+<table>
+<thead><tr><th>ID</th><th>Question</th><th>Dependency / metamodel</th><th>What it probes</th></tr></thead>
+<tbody>
+<tr><td class="qid">U-REQ-01</td><td class="q">Are explicit requirements stated (obligations the system shall meet)?<span class="opt">yes/no</span></td><td><code>RequirementUsage</code>, <code>RequirementDefinition</code></td><td>Root of the requirement sub-tree (83%). Governed by the NL rule that purposes and goals are <em>not</em> requirements — only shall/must/required wording qualifies.</td></tr>
+<tr><td class="qid gone">U-REQ-02</td><td class="q gone">How many distinct requirements are stated?</td><td class="opt">deleted in v0.1.4</td><td><strong>Removed</strong> for the same M:N reason as U-CST-02.</td></tr>
+<tr><td class="qid">U-REQ-03</td><td class="q">Does any requirement carry a quantitative acceptance criterion (a number or threshold)?<span class="opt">yes/no</span></td><td><span class="dep">needs U-REQ-01 = yes</span><br><code>RequirementUsage</code>, <code>ConstraintUsage</code></td><td>Whether requirements are verifiable.</td></tr>
+<tr><td class="qid">U-REQ-04</td><td class="q">Is any requirement explicitly assigned to (satisfied by) a specific component?<span class="opt">yes/no</span></td><td><span class="dep">needs U-REQ-01 = yes</span><br><code>SatisfyRequirementUsage</code></td><td><code>satisfy … by …</code> traceability. Backed by the SysML rule that a requirement's <em>subject</em> is not its <em>satisfier</em>.</td></tr>
+<tr><td class="qid">U-REQ-05</td><td class="q">Are requirements organized hierarchically (a requirement containing sub-requirements)?<span class="opt">yes/no</span></td><td><span class="dep">needs U-REQ-01 = yes</span><br><code>RequirementUsage</code></td><td>Requirement trees.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>State <span class="cat-badge">5 questions</span></h3>
+<div class="tbl-scroll">
+<table>
+<thead><tr><th>ID</th><th>Question</th><th>Dependency / metamodel</th><th>What it probes</th></tr></thead>
+<tbody>
+<tr><td class="qid">U-STA-01</td><td class="q">Does any component exhibit distinct operational states or modes?<span class="opt">yes/no</span></td><td><code>StateUsage</code>, <code>StateDefinition</code></td><td>Root of the state sub-tree — at 64%, the sparsest universal category.</td></tr>
+<tr><td class="qid">U-STA-02</td><td class="q">How many distinct states does the primary stateful component have?<span class="opt">count_coarse (none/one/multiple) <span class="new">v0.1.1</span></span></td><td><span class="dep">needs U-STA-01 = yes</span><br><code>StateUsage</code></td><td>State count, coarsened.</td></tr>
+<tr><td class="qid">U-STA-03</td><td class="q">Is an initial or starting state identified?<span class="opt">yes/no</span></td><td><span class="dep">needs U-STA-01 = yes</span><br><code>StateUsage</code>, <code>StateSubactionMembership</code></td><td>Entry state.</td></tr>
+<tr><td class="qid">U-STA-04</td><td class="q">Are transitions between states triggered by explicit events or conditions?<span class="opt">yes/no</span></td><td><span class="dep">needs U-STA-01 = yes</span><br><code>TransitionUsage</code>, <code>TriggerKind</code></td><td>Whether transitions carry triggers. Calibration caught missing transition triggers in sample 000438.</td></tr>
+<tr><td class="qid">U-STA-05</td><td class="q">Do entering, being in, or leaving a state trigger a DISTINCT action or behavior (entry/do/exit)?<span class="guard">Commit "yes" only if a specific action is described as occurring upon entering/during/on leaving a state — a state's name or purpose alone ("warmup state", "operational state") is not a state behavior. <span class="new">v0.1.6</span></span><span class="opt">yes/no</span></td><td><span class="dep">needs U-STA-01 = yes</span><br><code>StateSubactionMembership</code>, <code>StateSubactionKind</code></td><td>entry / do / exit subactions. The guard rail exists because readers were inferring a behavior from a state's <em>name</em> — "warmup state" sounds like it does warming, but naming isn't modeling.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Action <span class="cat-badge">5 questions</span></h3>
+<div class="tbl-scroll">
+<table>
+<thead><tr><th>ID</th><th>Question</th><th>Dependency / metamodel</th><th>What it probes</th></tr></thead>
+<tbody>
+<tr><td class="qid">U-ACT-01</td><td class="q">Are behavioral actions or activities described?<span class="guard">Things the system actively does over time — a derived or calculated value is not an activity. <span class="new">v0.1.1</span></span><span class="opt">yes/no</span></td><td><code>ActionUsage</code>, <code>ActionDefinition</code></td><td>Root of the action sub-tree (88%). The guard rail separates behavior from computation.</td></tr>
+<tr><td class="qid">U-ACT-02</td><td class="q">Are any actions ordered in a sequence (one happening after another)?<span class="opt">yes/no</span></td><td><span class="dep">needs U-ACT-01 = yes</span><br><code>SuccessionAsUsage</code>, <code>Succession</code></td><td>Temporal ordering (<code>then</code> / <code>succession</code>).</td></tr>
+<tr><td class="qid">U-ACT-03</td><td class="q">Do any actions take inputs or produce outputs?<span class="opt">yes/no</span></td><td><span class="dep">needs U-ACT-01 = yes</span><br><code>ParameterMembership</code>, <code>FeatureDirectionKind</code></td><td>Action parameters.</td></tr>
+<tr><td class="qid">U-ACT-04</td><td class="q">Does any behavior take ALTERNATIVE paths depending on a condition (if/else, decide, guarded transitions)?<span class="guard">Merely waiting for an event before continuing is not branching. <span class="new">v0.1.4</span></span><span class="opt">yes/no</span></td><td><span class="dep">needs U-ACT-01 = yes</span><br><code>DecisionNode</code>, <code>IfActionUsage</code></td><td>Control-flow branching. The clarification kills a systematic false positive: an <code>accept</code>/<code>when</code> trigger is a wait, not a fork, but both answerers were reading it as a decision.</td></tr>
+<tr><td class="qid">U-ACT-05</td><td class="q">Do components send or receive messages, signals, or events that trigger behavior?<span class="opt">yes/no</span></td><td><code>SendActionUsage</code>, <code>AcceptActionUsage</code></td><td>send/accept actions. <strong>No dependency</strong> — asked standalone. Calibration caught signals defined but never sent (sample 001233).</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Classification <span class="cat-badge">2 questions</span></h3>
+<div class="tbl-scroll">
+<table>
+<thead><tr><th>ID</th><th>Question</th><th>Dependency / metamodel</th><th>What it probes</th></tr></thead>
+<tbody>
+<tr><td class="qid">U-CLS-01</td><td class="q">Is any kind of component an explicit subtype of another named kind?<span class="guard">An is-a relation between two kinds, e.g. "an electric car is a kind of car". <span class="new">v0.1.2</span></span><span class="opt">yes/no</span></td><td><code>Specialization</code>, <code>Subclassification</code></td><td>Specialization (<code>:></code>). Reworded away from the word "specialized", which prose uses to mean "purpose-built" — the NL answerer was reading "a specialized sensor" as a subtype claim.</td></tr>
+<tr><td class="qid">U-CLS-02</td><td class="q">Does any specialized element override or redefine something it inherits (tightening a value, bound, or type)?<span class="opt">yes/no</span></td><td><span class="dep">needs U-CLS-01 = yes</span><br><code>Redefinition</code></td><td>Redefinition (<code>:>></code>).</td></tr>
+<tr><td class="qid gone">U-CLS-03</td><td class="q gone">Can any element be referred to by more than one name (aliases or alternate identifiers)?</td><td class="opt">deleted in v0.1.1</td><td><strong>Removed:</strong> <code>alias</code> appears in ~4% of the dataset, so the question was nearly always vacuous — it was flagged as the first watch candidate in the original design notes and the data confirmed it.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2 id="tier2">6. Tier 2: all 27 templates</h2>
+<p>A template is not a question — it is an <strong>instruction for writing questions</strong>. <code>⟨…⟩</code> marks a slot the question-writer LLM fills after reading both modalities. Key fields:</p>
+<ul>
+  <li><code>options</code> — fixed choices. <code>options_rule</code> — choices must be <em>harvested from both modalities</em> and deduplicated. That harvesting is the mechanism that turns a value conflict into a clean disagreement.</li>
+  <li><code>origin</code> — whether the fact came from NL only, SysML only, or both; scoring uses it to interpret asymmetric outcomes.</li>
+  <li><code>instantiate_when</code> — the precondition for emitting the question at all.</li>
+  <li><code>max_instances</code> — hard per-sample cap; excess is discarded, so the writer must spend the quota on its most salient findings.</li>
+</ul>
+
+<h3>Structure templates <span class="cat-badge">4</span></h3>
+<div class="tbl-scroll">
+<table>
+<thead><tr><th>ID</th><th>Pattern</th><th>Options</th><th>Instantiate when · cap</th></tr></thead>
+<tbody>
+<tr><td class="qid">T-STR-01</td><td class="q">Does the system include ⟨component⟩?</td><td>yes / no</td><td>A concrete component is named or clearly described in either modality. <strong>Cap 8.</strong></td></tr>
+<tr><td class="qid">T-STR-02</td><td class="q">Is ⟨child⟩ a direct part of ⟨parent⟩?</td><td>yes / no</td><td>A containment relation is asserted in either modality. <strong>Cap 6.</strong> Catches misplaced hierarchy.</td></tr>
+<tr><td class="qid">T-STR-03</td><td class="q">How many ⟨component⟩(s) does the system contain?</td><td><strong>Harvest:</strong> the count claimed by each modality, deduplicate, add "other"</td><td>Either modality states or implies a specific count. <strong>Cap 4.</strong></td></tr>
+<tr><td class="qid">T-STR-04</td><td class="q">Are ⟨A⟩ and ⟨B⟩ of the same kind (instances of one shared definition)?</td><td>yes / no</td><td>Two instances plausibly share (or are claimed to share) a definition. <strong>Cap 3.</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Interface templates <span class="cat-badge">2</span></h3>
+<div class="tbl-scroll">
+<table>
+<thead><tr><th>ID</th><th>Pattern</th><th>Options</th><th>Instantiate when · cap</th></tr></thead>
+<tbody>
+<tr><td class="qid">T-INT-01</td><td class="q">Does ⟨component⟩ expose a port or interface for ⟨purpose_or_medium⟩?</td><td>yes / no</td><td>A port with an identifiable purpose/medium exists in either modality. <strong>Cap 6.</strong></td></tr>
+<tr><td class="qid">T-INT-02</td><td class="q">From ⟨component⟩'s own perspective, is the ⟨data⟩ it exchanges with ⟨counterpart⟩ an input, an output, or bidirectional? <span class="new">rewritten v0.1.3</span></td><td>input / output / bidirectional</td><td>A port's direction is stated in either modality; <strong>always anchor to ONE component's perspective and name the counterpart</strong>. <strong>Cap 4.</strong><br><span class="opt">The original phrasing ("is port X of component Y an input or output") was ambiguous about <em>whose</em> input — the two answerers picked opposite reference frames and disagreed on questions where the model was correct. Anchoring the perspective made the question well-posed.</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Connectivity templates <span class="cat-badge">3</span></h3>
+<div class="tbl-scroll">
+<table>
+<thead><tr><th>ID</th><th>Pattern</th><th>Options</th><th>Instantiate when · cap</th></tr></thead>
+<tbody>
+<tr><td class="qid">T-CON-01</td><td class="q">Is ⟨A⟩ directly connected to ⟨B⟩?</td><td>yes / no</td><td>A connection between two identifiable components exists in either modality. <strong>Cap 8</strong> — tied for the highest, marking connections as high-value facts.</td></tr>
+<tr><td class="qid">T-CON-02</td><td class="q">What flows between ⟨A⟩ and ⟨B⟩?</td><td><strong>Harvest</strong> payloads from both modalities, deduplicate, add "nothing_flows" and "other". <span class="new">v0.1.5</span> Label every payload <strong>generic term first, specific decomposition in parentheses</strong> — "commands (target pose + joint angles)", "power (voltage + current)" — so the option is recognizable from plain narration as well as from code.</td><td>A flow between the two components is asserted in either modality. <strong>Cap 5.</strong></td></tr>
+<tr><td class="qid">T-CON-03</td><td class="q">Does ⟨medium⟩ flow from ⟨A⟩ to ⟨B⟩, or from ⟨B⟩ to ⟨A⟩?</td><td>from_A_to_B / from_B_to_A / both_directions</td><td>A directed flow exists in either modality. <strong>Cap 4.</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Attribute templates <span class="cat-badge">4 · includes a flagship</span></h3>
+<div class="tbl-scroll">
+<table>
+<thead><tr><th>ID</th><th>Pattern</th><th>Options</th><th>Instantiate when · cap</th></tr></thead>
+<tbody>
+<tr><td class="qid">T-ATT-01</td><td class="q">Does ⟨component⟩ have a ⟨property⟩ attribute/property?</td><td>yes / no</td><td>An attribute of a component is mentioned in either modality. <strong>Cap 8.</strong></td></tr>
+<tr><td class="qid">T-ATT-02</td><td class="q">What is the value of the ⟨property⟩ of ⟨component⟩?</td><td><strong>Harvest</strong> concrete values (with units) from both modalities, deduplicate, add "declared_without_value" and "other"</td><td>Either modality gives the attribute a concrete value. <strong>Cap 8</strong> <span class="new">raised from 6</span><br><span class="bad">★ Flagship conflict-catcher:</span> when the two modalities carry different values, both appear as options, so the conflict surfaces as a clean disagreement instead of both sides fleeing to "other".</td></tr>
+<tr><td class="qid">T-ATT-03</td><td class="q">In what unit is the ⟨property⟩ of ⟨component⟩ expressed?</td><td><strong>Harvest</strong> units from both modalities, normalized (volts→V, kilograms→kg), deduplicate, add "no_unit" and "other"</td><td>Either modality attaches a unit. <strong>Cap 4.</strong></td></tr>
+<tr><td class="qid">T-ATT-04</td><td class="q">Can the ⟨property⟩ of ⟨component⟩ take the value '⟨literal⟩'?</td><td>yes / no</td><td>An enumerated attribute exists; probe 1–2 literals per enumeration. <strong>Cap 4.</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Constraint templates <span class="cat-badge">2 · includes a flagship</span></h3>
+<div class="tbl-scroll">
+<table>
+<thead><tr><th>ID</th><th>Pattern</th><th>Options</th><th>Instantiate when · cap</th></tr></thead>
+<tbody>
+<tr><td class="qid">T-CST-01</td><td class="q">What bound or constraint is placed on the ⟨property⟩ of ⟨entity⟩?</td><td><strong>Harvest</strong> bounds from both modalities as "op value unit" strings (e.g. <code>&gt;= 12 V</code>), deduplicate, add "no_bound" and "other"</td><td>Either modality bounds the property. <strong>Cap 6.</strong><br><span class="bad">★ Flagship conflict-catcher</span> for the "≥12V vs ≥10V" class of mismatch.</td></tr>
+<tr><td class="qid">T-CST-02</td><td class="q">Is the relation '⟨relation⟩' required to hold?</td><td>yes / no</td><td>A multi-property relation (sum, balance, ratio, inequality) is asserted in either modality; phrase it in plain language. <strong>Cap 4.</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Requirement templates <span class="cat-badge">3</span></h3>
+<p class="opt">Gated: T-REQ-* instantiate only when at least one modality states an explicit obligation (shall/must/required) or contains a requirement construct. Purposes and goals do not qualify. <span class="new">v0.1.6</span></p>
+<div class="tbl-scroll">
+<table>
+<thead><tr><th>ID</th><th>Pattern</th><th>Options</th><th>Instantiate when · cap</th></tr></thead>
+<tbody>
+<tr><td class="qid">T-REQ-01</td><td class="q">Is there a requirement concerning ⟨topic⟩?</td><td>yes / no</td><td>A requirement topic (safety, performance, capacity, …) is identifiable in either modality. <strong>Cap 6.</strong></td></tr>
+<tr><td class="qid">T-REQ-02</td><td class="q">Which component is responsible for satisfying the ⟨topic⟩ requirement?</td><td><strong>Harvest</strong> candidate components from both modalities, deduplicate, add "not_assigned" and "other"</td><td>A requirement is (or is claimed to be) assigned/satisfied. <strong>Cap 4.</strong></td></tr>
+<tr><td class="qid">T-REQ-03</td><td class="q">What threshold does the ⟨topic⟩ requirement specify for ⟨property⟩?</td><td><strong>Harvest</strong> thresholds from both modalities as "op value unit", deduplicate, add "no_threshold" and "other"</td><td>A requirement carries a quantitative criterion. <strong>Cap 4.</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>State templates <span class="cat-badge">4</span></h3>
+<div class="tbl-scroll">
+<table>
+<thead><tr><th>ID</th><th>Pattern</th><th>Options</th><th>Instantiate when · cap</th></tr></thead>
+<tbody>
+<tr><td class="qid">T-STA-01</td><td class="q">Can ⟨component⟩ be in a '⟨state⟩' state/mode?</td><td>yes / no</td><td>A named state exists in either modality. <strong>Cap 6.</strong></td></tr>
+<tr><td class="qid">T-STA-02</td><td class="q">From the '⟨from_state⟩' state, which state does ⟨component⟩ move to when ⟨trigger⟩?</td><td><strong>Harvest</strong> target states from both modalities, deduplicate, add "stays_in_state" and "other"</td><td>A transition with an identifiable trigger exists. <strong>Cap 5.</strong></td></tr>
+<tr><td class="qid">T-STA-03</td><td class="q">What causes the transition from '⟨from_state⟩' to '⟨to_state⟩'?</td><td><strong>Harvest</strong> triggers/conditions from both modalities in plain language, deduplicate, add "unconditional" and "other"</td><td>The transition exists in either modality. <strong>Cap 4.</strong></td></tr>
+<tr><td class="qid">T-STA-04</td><td class="q">What is the initial state of ⟨component⟩?</td><td><strong>Harvest</strong> candidate states from both modalities, add "other"</td><td>A state machine exists and either modality identifies (or omits) a start state. <strong>Cap 2.</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Action templates <span class="cat-badge">3</span></h3>
+<div class="tbl-scroll">
+<table>
+<thead><tr><th>ID</th><th>Pattern</th><th>Options</th><th>Instantiate when · cap</th></tr></thead>
+<tbody>
+<tr><td class="qid">T-ACT-01</td><td class="q">Does ⟨component⟩ perform the action '⟨action⟩'?</td><td>yes / no</td><td>An action attributable to a component exists in either modality. <strong>Cap 6.</strong></td></tr>
+<tr><td class="qid">T-ACT-02</td><td class="q">In the described behavior, does '⟨action1⟩' happen before or after '⟨action2⟩'?</td><td>before / after / no_ordering</td><td>Two actions are ordered in either modality. <strong>Cap 4.</strong></td></tr>
+<tr><td class="qid">T-ACT-03</td><td class="q">What does the action '⟨action⟩' ⟨take_or_produce⟩?</td><td><strong>Harvest</strong> inputs/outputs from both modalities, deduplicate, add "nothing" and "other"</td><td>An action's parameters are stated in either modality. <strong>Cap 4.</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Classification templates <span class="cat-badge">2</span></h3>
+<div class="tbl-scroll">
+<table>
+<thead><tr><th>ID</th><th>Pattern</th><th>Options</th><th>Instantiate when · cap</th></tr></thead>
+<tbody>
+<tr><td class="qid">T-CLS-01</td><td class="q">Is ⟨A⟩ a specialized kind of ⟨B⟩?</td><td>yes / no</td><td>A specialization relation is asserted in either modality. <strong>Cap 4.</strong></td></tr>
+<tr><td class="qid">T-CLS-02</td><td class="q">Does ⟨specialized⟩ override or redefine the ⟨feature⟩ it inherits from ⟨general⟩?</td><td>yes / no</td><td>A redefinition exists in either modality. <strong>Cap 3.</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<h2 id="dis">7. Distractor templates <span class="cat-badge">3</span></h2>
+<p>These fill their slots with <strong>fabricated but domain-plausible</strong> content. Expected answer on both sides: <code>no_or_not_stated</code>. They never enter <em>S</em>; they measure hallucination.</p>
+
+<div class="tbl-scroll">
+<table>
+<thead><tr><th>ID</th><th>Pattern</th><th>Instantiate when · cap</th></tr></thead>
+<tbody>
+<tr><td class="qid">T-DIS-01</td><td class="q">Does the system include ⟨absent_component⟩?</td><td><strong>Always.</strong> Invent a domain-plausible component verifiably absent from <em>both</em> modalities. <strong>Cap 2.</strong></td></tr>
+<tr><td class="qid">T-DIS-02</td><td class="q">Is ⟨A⟩ connected to ⟨absent_component⟩?</td><td><strong>Always;</strong> reuse a <em>real</em> component as A — the half-true framing is a stronger hallucination lure than a fully fabricated one. <strong>Cap 2.</strong></td></tr>
+<tr><td class="qid">T-DIS-03</td><td class="q">Can the system be in a '⟨absent_state⟩' state?</td><td>When any state machine exists; invent a plausible but absent state. <strong>Cap 1.</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <strong>Reliability gate:</strong> per answerer, reliability = share of distractors answered no/not_stated. <strong>Below 0.5, the entire answer set is flagged</strong> for re-answering or review. An answerer that confirms invented entities produces alignment scores that mean nothing, so this check runs before the score is trusted.
+</div>
+
+<h2 id="inst">8. Instantiation rules</h2>
+<ul>
+  <li><strong>Target:</strong> 30–60 instantiated questions per sample. The writer's input is <strong>both</strong> the NL text and the SysML code.</li>
+  <li><strong>Priorities:</strong>
+    <ol>
+      <li>Every numeric value/bound in either modality gets a T-ATT-02 / T-CST-01 / T-REQ-03 question.</li>
+      <li>Every connection and flow in either modality gets a T-CON-* question.</li>
+      <li>Salient entities, states, actions next, up to each template's cap.</li>
+      <li>Distractors last (2–5 per sample).</li>
+    </ol>
+  </li>
+  <li><strong>Vocabulary bridging.</strong> Question text must be understandable from the NL alone. SysML-only facts are described functionally from name, doc comment and type (<code>part def PressureRegulator</code> → "a pressure regulator"); never paste raw identifiers like <code>p1</code> or camelCase names.</li>
+  <li><strong>Origin tagging.</strong> Each question records <code>nl</code> / <code>sysml</code> / <code>both</code>. <span class="new">v0.1.2</span> Tag <code>both</code> <em>only</em> when the NL states the fact explicitly enough that a strict literal reader would commit; when in doubt, tag <code>sysml</code> or <code>nl</code>. This gating matters because <code>origin=sysml</code> converts an extra_in_model outcome from 0.85 to full credit.</li>
+  <li><strong>Option harvesting — one option per <em>referent</em></strong> <span class="new">v0.1.1–0.1.5</span>. This grew into the longest rule in the bank because it was the single largest noise source: the writer kept emitting two options for one thing, forcing a spurious conflict.
+    <ul>
+      <li>Same thing, different words ("dried scrubs" vs "dry scrubs", "numerical score" vs "real number") → <strong>one</strong> option labeled with both phrasings ("dried scrubs / dry scrubs"). Only genuinely different values get separate options.</li>
+      <li>Labels stay <strong>short and canonical</strong> (~4 words max); never embed sentences.</li>
+      <li>Approximate vs exact but consistent ("over 2 m" vs "2010 mm") → merge into one option: "2010 mm (over 2 m)".</li>
+      <li>Several things flowing between one pair → bundle into one option ("position + weight"). But if the two modalities name <em>different</em> payload sets for one link, don't force a single choice — emit one yes/no question per payload.</li>
+      <li>Different granularities of one referent are one option: "processed gesture data (type + position + orientation)".</li>
+      <li>Scale-equivalent unit spellings are the same fact: merge "5.5 um" and "5.5e-6 m". Counts too: "at least 2" and "2" → "2 (at least 2)". Triggers too: a narrated trigger and its signal name → "vehicle-on signal (running confirmed)".</li>
+      <li><strong>Never probe the same fact with two templates</strong> (e.g. T-CST-01 and T-REQ-03 on one bound) — pick the better fit.</li>
+    </ul>
+  </li>
+  <li><strong>Slot quality</strong> <span class="new">v0.1.3</span>: attribute slots must be quantifiable properties (mass, speed, capacity), never adjectives ("interchangeable" is not an attribute). Component counts belong in T-STR-03, not T-ATT-02. Action slots must be genuine behaviors, never structural relations (connecting, containing, being typed by). Entity slots use the <strong>bare entity</strong> ("battery"), never unverifiable qualifiers ("rechargeable battery") — a qualifier belongs in its own attribute question.</li>
+  <li><strong>Quota.</strong> Never exceed <code>max_instances</code>; excess is discarded and wastes budget on your most salient findings.</li>
+  <li><strong>Distractor verification.</strong> A fabricated slot value must not appear in either modality, literally or as a synonym; the generator self-checks and replaces violations.</li>
+  <li><strong>Anchors.</strong> Per question the writer records where the fact came from (<code>nl_span</code>, <code>sysml_lines</code>) for mismatch reporting — and anchors are <strong>stripped before questions reach the answerers</strong>, since an anchor would leak the answer.</li>
+  <li><strong>ID format:</strong> <code>Q-&lt;sample_id&gt;-&lt;template_id&gt;-&lt;n&gt;</code>, e.g. <code>Q-000050-T-CON-01-1</code>.</li>
+</ul>
+
+<h2 id="calib">9. Calibration record — loop-until-dry</h2>
+<p>The bank was live-calibrated on <strong>7 disjoint random waves of 10 samples each</strong> (~6.6k questions answered twice), seeds 20260708–20260715. Each wave's mismatches were <strong>manually triaged into genuine-vs-noise before touching the bank</strong> — the discipline that keeps this from degenerating into fitting the metric to the models. Convergence was declared after <strong>2 consecutive clean rounds</strong>.</p>
+
+<div class="tbl-scroll">
+<table>
+<thead><tr><th>Version</th><th>Wave (seed)</th><th>Key changes driven by that wave's noise</th></tr></thead>
+<tbody>
+<tr><td class="qid">0.1.0</td><td>baseline 20260708</td><td>Mean similarity <strong>0.825</strong> on the golden 10.</td></tr>
+<tr><td class="qid">0.1.1</td><td>–</td><td>Encoding-equivalence worldview (package-as-system, multiplicity = counts, rule encodings, flow encodings); NL open-world tightening; referent-merged options; REQ-family auto-dependency; coarse count buckets; canary wildcards; <strong>deleted U-CLS-03</strong>.</td></tr>
+<tr><td class="qid">0.1.2</td><td>20260709 — <strong>0.932</strong></td><td>Numeric equivalence rule; system-wide-count discipline; subtype-vs-"specialized" rewording; short canonical option labels; origin=both gating.</td></tr>
+<tr><td class="qid">0.1.3</td><td>20260710 — <strong>0.940</strong></td><td>Deterministic NL remap of <code>declared_without_value</code>; T-INT-02 perspective+counterpart rewrite; unit/granularity merging; bare-entity slots.</td></tr>
+<tr><td class="qid">0.1.4</td><td>20260711 — <strong>0.926</strong></td><td>Container excluded from counts; <strong>deleted U-CST-02 / U-REQ-02</strong> (M:N count semantics); ACT-04 branching ≠ event-wait; canary now requires global collapse (S &lt; 0.7).</td></tr>
+<tr><td class="qid">0.1.5</td><td>20260712 — <strong>0.930</strong></td><td>Ordinal adjacent-bucket partial credit (0.7, severity low); consistency rule; generic-first payload labels.</td></tr>
+<tr><td class="qid">0.1.6</td><td>20260713 — <strong>0.951</strong></td><td>STA-05 state-name ≠ behavior discipline; STR-08 modes ≠ variants; trigger-name merging.</td></tr>
+<tr><td class="qid">0.1.6</td><td>20260714 — <span class="warn">dry run 1</span> — 0.853*</td><td><strong>No bank defect.</strong> The low mean traced to 4 minimal grammar-example models whose NL heavily embellishes — those were <em>genuine</em> findings, not noise.</td></tr>
+<tr><td class="qid">0.1.6</td><td>20260715 — <span class="ok">dry run 2</span> — <strong>0.948</strong></td><td><strong>No bank defect — converged.</strong> Residual isolated writer merge-slips ≈ 0.5%, visible with two-sided evidence in the reports.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Genuine defects caught during calibration</h3>
+<p>These are the payoff — real modeling errors the instrument surfaced, each one a case the regex aligner could never have reached:</p>
+<ul>
+  <li><strong>000446</strong> — a one-way endobronchial valve modeled with symmetric in+out ports.</li>
+  <li><strong>001439, 000416</strong> — controller command ports lacking conjugation, so flows point backwards.</li>
+  <li><strong>001394</strong> — ports declared but never connected.</li>
+  <li><strong>001233</strong> — signals defined but never sent.</li>
+  <li><strong>000438</strong> — missing transition triggers.</li>
+  <li><strong>000383</strong> — an ESA capability named from the ground segment's perspective but attached to the spacecraft.</li>
+</ul>
+
+<h2 id="valid">10. Validation, worked example, pipeline</h2>
+
+<h3>Validation plan</h3>
+<ol>
+  <li><strong>Golden set</strong> — the 10 samples drawn with seed 20260708 (the same seed as the legacy regex test, including 000050); instantiated questions and expected answers hand-reviewed and kept as regression fixtures.</li>
+  <li><strong>Perturbation sensitivity</strong> — mutate one fact in an aligned sample's SysML (change a bound value, delete a <code>connect</code>, rename a state); the corresponding question's outcome <strong>must</strong> flip to conflict/missing. Automated. This is the test that the ruler has gradations at all.</li>
+  <li><strong>Question health</strong> — track per-question vacuous rate (&gt;80% → demote), NL not_stated rate, and distractor failure rate; prune or rephrase on each version bump. (U-CLS-03 was flagged here and duly deleted in 0.1.1.)</li>
+</ol>
+
+<h3>Worked example — sample 000050, on which the regex aligner scored 0 matches</h3>
+<div class="tbl-scroll">
+<table>
+<thead><tr><th>Instantiated question</th><th>NL answer</th><th>SysML answer</th><th>Outcome</th></tr></thead>
+<tbody>
+<tr><td>How many hardware units does the system contain?</td><td>two</td><td>two (<code>p1</code>, <code>p2</code>)</td><td class="ok">aligned</td></tr>
+<tr><td>Are the two units of the same kind?</td><td>yes ("identical… same design template")</td><td>yes (both <code>: P1</code>)</td><td class="ok">aligned</td></tr>
+<tr><td>Can a port be referred to by more than one name?</td><td>yes ("multiple names or aliases")</td><td>yes (<code>alias po1 for porig1</code>)</td><td class="ok">aligned</td></tr>
+<tr><td>Is unit 1 directly connected to unit 2?</td><td>yes ("point-to-point link")</td><td>yes (<code>connect p1.po1 to p2.pdest</code>)</td><td class="ok">aligned</td></tr>
+<tr><td>Does the system have a physical breadth dimension?</td><td>yes</td><td>yes (<code>attribute b :&gt; breadth</code>)</td><td class="ok">aligned</td></tr>
+</tbody>
+</table>
+</div>
+<p>The three failure modes that sank the regex extractor — <strong>identifier bridging</strong> (<code>p1</code> ↔ "hardware unit"), <strong><code>connect</code>/<code>alias</code> constructs</strong>, and <strong>abstraction asymmetry</strong> — are all absorbed by the answerers plus the protocol. A perfectly aligned pair scoring 0 was the original motivation for the rewrite.</p>
+
+<h3>Pipeline — implemented</h3>
+<p>Python 3.10+; use <code>/usr/bin/python3.11</code> (the system <code>python3</code> is 3.6).</p>
+<pre><code>bank.py         load + validate questions.json, resolve option sets
+instantiate.py  question-writer prompt + strict validation of generated questions
+answer.py       twin-blind answering: 5-shard parallel calls, strict answer parsing
+score.py        outcome matrix, dependency skip, credits, reliability, mismatches
+report.py       JSON + markdown report
+llm.py          codex exec single-shot calls (batch_codex_gpt55 scheme)
+pipeline.py     compare_pair / compare_files + question & NL-answer caching
+cli.py          python3.11 -m spec_aligner.cli --nl f.txt --sysml f.sysml [--cache DIR]</code></pre>
+
+<p>Data flow:</p>
+<pre><code>questions.json ──┐
+NL text ─────────┤→ question-writer LLM → instantiated set (cached per sample)
+SysML code ──────┘
+     instantiated set + NL   → NL answerer    → answers_nl.json    (cached per sample)
+     instantiated set + code → SysML answerer → answers_sysml.json (per candidate)
+     both answer files → comparator/scorer → report {S, per-category vector,
+                                             mismatches w/ evidence, reliability}</code></pre>
+
+<h3>Tests</h3>
+<p><code>/usr/bin/python3.11 -m unittest spec_aligner.test_spec_aligner -v</code> — fully deterministic, LLM calls stubbed. The dataset test reuses the legacy seed <strong>20260708</strong>: identical stub answers on both sides must score 1.0 (self-consistency) and one flipped SysML answer must be caught (perturbation sensitivity). Reports land in <code>test_result/</code>.</p>
+
+<footer>
+  Generated from <code>spec_aligner/QUESTIONS.md</code> and <code>spec_aligner/questions.json</code> (bank version 0.1.6), cross-checked against the implemented scorer in <code>spec_aligner/score.py</code>.
+</footer>
+
+</div>
+</body>
+</html>
