@@ -1,0 +1,29 @@
+package 'Flow Interface Example' {
+	private import 'Port Example'::*;
+	
+	part def Vehicle;
+	
+	interface def FuelInterface {
+		end supplierPort : FuelOutPort;
+		end consumerPort : FuelInPort;
+		
+		flow supplierPort.fuelSupply to consumerPort.fuelSupply;			
+		flow consumerPort.fuelReturn to supplierPort.fuelReturn;
+	}
+	
+	part vehicle : Vehicle {	
+		part tankAssy : FuelTankAssembly;		
+		part eng : Engine;
+		
+		interface : FuelInterface connect 
+			supplierPort ::> tankAssy.fuelTankPort to 
+			consumerPort ::> eng.engineFuelPort;
+	} 
+}
+
+// --- Test harness (auto-generated) ---
+package ExecutionHarness {
+    private import 'Port Example'::*;
+    private import 'Flow Interface Example'::*;
+    part testSubject : Vehicle;
+}

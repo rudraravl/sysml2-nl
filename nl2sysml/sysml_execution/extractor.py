@@ -16,10 +16,12 @@ from .models import (
     ExtractedConstraint,
     ExtractedEnumDef,
     ExtractedItemDef,
+    ExtractedPartBehavior,
     ExtractedSendAction,
     ExtractedStateMachine,
     ExtractedStateTransition,
     ExtractedTopology,
+    GuardCondition,
     ModelKind,
 )
 
@@ -30,12 +32,21 @@ _ROOT_PACKAGE_RE = re.compile(
     rf"^\s*package\s+{_ID}\s*\{{",
     re.MULTILINE,
 )
+_IMPORT_RE = re.compile(
+    r"^\s*(?:(?P<visibility>public|private)\s+)?import\s+(?P<target>.+?)\s*;\s*$",
+)
 _PACKAGE_RE = re.compile(
     rf"^\s*package\s+{_ID}",
     re.MULTILINE,
 )
 _PART_DEF_RE = re.compile(
     rf"^\s*part\s+def\s+{_ID}",
+    re.MULTILINE,
+)
+# Matches shorthand `part X {` (no `: TypeRef`) — these are part *usages*
+# (instances), not formal `part def` blueprints.
+_PART_SHORTHAND_DEF_RE = re.compile(
+    rf"^\s*part\s+{_ID}\s*\{{",
     re.MULTILINE,
 )
 _PART_INSTANCE_RE = re.compile(
@@ -114,13 +125,29 @@ _STATE_DEF_RE = re.compile(
     rf"^\s*state\s+def\s+{_ID}",
     re.MULTILINE,
 )
+# Matches a single logical `transition ...;` statement. Callers must first join
+# multi-line transition statements (see `_merge_transition_statements`) since
+# `first`/`if`/`accept`/`then` clauses may each sit on their own physical line.
 _TRANSITION_RE = re.compile(
-    rf"^\s*transition\s+({_ID})?\s*(?:first\s+(\S+)\s+)?(?:if\s+(.+?)\s+)?(?:accept\s+(\S+)\s+)?then\s+(\S+)",
+    r"^\s*transition\s+(?P<name>[A-Za-z_]\w*)?\s*"
+    r"(?:first\s+(?P<source>\S+)\s+)?"
+    r"(?:if\s+(?P<if_cond>.+?)\s+)?"
+    r"(?:accept\s+(?P<accept_sig>\S+?)(?:\s*\[\s*(?P<accept_guard>[^\]]+?)\s*\])?\s+)?"
+    r"then\s+(?P<target>[A-Za-z_]\w*)\s*;?\s*$",
     re.MULTILINE,
 )
+_TRANSITION_START_RE = re.compile(r"^\s*transition\b")
+_ENTRY_STATE_RE = re.compile(r"\bentry\s*;\s*then\s+([A-Za-z_]\w*)\s*;")
 _EXHIBIT_STATE_RE = re.compile(
     rf"^\s*exhibit\s+state\s+(\w+)\s*:\s*{_ID}",
     re.MULTILINE,
+)
+_PERFORM_ACTION_RE = re.compile(
+    rf"^\s*perform\s+action\s+{_ID}\s*:\s*{_ID}",
+    re.MULTILINE,
+)
+_GUARD_CONDITION_RE = re.compile(
+    r"^\s*([A-Za-z_]\w*)\s*(>=|<=|==|>|<)\s*(-?\d+(?:\.\d+)?)\s*$"
 )
 
 
@@ -244,6 +271,40 @@ def _extract_root_package(text: str) -> Optional[str]:
     return None
 
 
+def _extract_root_package_imports(text: str) -> List[str]:
+    """Return import statements declared directly in the root package body.
+
+    Nested package imports (e.g. inside ``Definitions``) are excluded. The harness
+    needs the same external library imports as the candidate so value types like
+    ``LengthValue`` resolve when referenced in orchestrator fixtures.
+    """
+    m = _ROOT_PACKAGE_RE.search(text)
+    if not m:
+        return []
+    lines = text.splitlines()
+    start_line = text[: m.start()].count("\n")
+    imports: List[str] = []
+    depth = 0
+    for i, line in enumerate(lines):
+        if i < start_line:
+            continue
+        for ch in line:
+            if ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+        if i == start_line:
+            continue
+        if depth == 1:
+            im = _IMPORT_RE.match(line)
+            if im:
+                visibility = im.group("visibility") or "private"
+                imports.append(f"{visibility} import {im.group('target').strip()};")
+        elif depth == 0 and i > start_line:
+            break
+    return _dedupe_preserve_order(imports)
+
+
 def _match_accept_trigger_line(line: str) -> Optional[ExtractedAcceptTrigger]:
     """Match one accept blocker line (action accept, param:type, type via port, type only)."""
     stripped = line.strip()
@@ -326,6 +387,7 @@ def _find_composite_usages(lines: List[str]) -> List[ExtractedActionUsage]:
                 outs.extend(pin_outs)
                 input_types.update(pin_types)
         required_triggers = _extract_required_triggers(body) if has_brace else []
+        enclosing_part = _enclosing_part_def(lines, idx)
         usages.append(
             ExtractedActionUsage(
                 name=name,
@@ -336,6 +398,7 @@ def _find_composite_usages(lines: List[str]) -> List[ExtractedActionUsage]:
                 input_types=input_types,
                 outputs=outs,
                 required_triggers=required_triggers,
+                enclosing_part_def=enclosing_part,
                 raw_line=line.strip(),
             )
         )
@@ -376,6 +439,81 @@ def _extract_enum_literals(lines: List[str], start: int, end: int) -> List[str]:
     return literals
 
 
+def _extract_part_behaviors(lines: List[str]) -> List[ExtractedPartBehavior]:
+    """Scan part definitions for `perform action` and `exhibit state` entry points."""
+    behaviors: List[ExtractedPartBehavior] = []
+    for idx, line in enumerate(lines):
+        match = _PART_DEF_RE.match(line)
+        if not match:
+            continue
+        part_def = _id_from_match(match)
+        end_idx = _brace_depth_at(lines, idx) if "{" in line else idx
+        body = "\n".join(lines[idx : end_idx + 1])
+        for body_line in body.splitlines():
+            exhibit = _EXHIBIT_STATE_RE.match(body_line)
+            if exhibit:
+                behaviors.append(
+                    ExtractedPartBehavior(
+                        part_def=part_def,
+                        usage_name=exhibit.group(1),
+                        kind="exhibit_state",
+                        type_ref=(exhibit.group(2) or exhibit.group(3) or "").strip() or None,
+                        raw_line=body_line.strip(),
+                    )
+                )
+                continue
+            perform = _PERFORM_ACTION_RE.match(body_line)
+            if perform:
+                behaviors.append(
+                    ExtractedPartBehavior(
+                        part_def=part_def,
+                        usage_name=_id_at(perform, 1),
+                        kind="perform_action",
+                        type_ref=_id_at(perform, 2) or None,
+                        raw_line=body_line.strip(),
+                    )
+                )
+    return behaviors
+
+
+def _merge_transition_statements(body_lines: List[str]) -> List[str]:
+    """Join multi-line `transition ...;` statements into single logical lines.
+
+    Real-world state machines spread `first`/`if`/`accept`/`then` clauses across
+    several physical lines (see dataset/data/000600), but `_TRANSITION_RE` matches
+    one logical line at a time.
+    """
+    merged: List[str] = []
+    i = 0
+    while i < len(body_lines):
+        line = body_lines[i]
+        if _TRANSITION_START_RE.match(line):
+            parts = [line.strip()]
+            while not parts[-1].endswith(";") and i + 1 < len(body_lines):
+                i += 1
+                parts.append(body_lines[i].strip())
+            merged.append(" ".join(p for p in parts if p))
+        else:
+            merged.append(line)
+        i += 1
+    return merged
+
+
+def _parse_guard_condition(guard: Optional[str]) -> Optional[GuardCondition]:
+    """Parse a simple numeric guard (`voltage > 10.0`) into a GuardCondition."""
+    if not guard:
+        return None
+    m = _GUARD_CONDITION_RE.match(guard)
+    if not m:
+        return None
+    return GuardCondition(attribute=m.group(1), operator=m.group(2), value=float(m.group(3)))
+
+
+def _extract_entry_state(body_text: str) -> Optional[str]:
+    m = _ENTRY_STATE_RE.search(body_text)
+    return m.group(1) if m else None
+
+
 def _extract_state_machines(lines: List[str]) -> List[ExtractedStateMachine]:
     machines: List[ExtractedStateMachine] = []
     for idx, line in enumerate(lines):
@@ -385,16 +523,19 @@ def _extract_state_machines(lines: List[str]) -> List[ExtractedStateMachine]:
         name = _id_from_match(m)
         end_idx = _brace_depth_at(lines, idx) if "{" in line else idx
         body_lines = lines[idx : end_idx + 1]
+        entry_state = _extract_entry_state("\n".join(body_lines))
+
         transitions: List[ExtractedStateTransition] = []
-        for body_idx, body_line in enumerate(body_lines):
+        for body_line in _merge_transition_statements(body_lines):
             tm = _TRANSITION_RE.match(body_line)
             if not tm:
                 continue
-            trans_name = _id_from_match(tm) if tm.group(1) or tm.group(2) else None
-            source = tm.group(3)
-            if_cond = tm.group(4)
-            accept_sig = tm.group(5)
-            target = tm.group(6)
+            trans_name = tm.group("name")
+            source = tm.group("source")
+            if_cond = tm.group("if_cond")
+            accept_sig = tm.group("accept_sig")
+            accept_guard = tm.group("accept_guard")
+            target = tm.group("target")
             trigger = accept_sig or if_cond
             trigger_kind = "accept" if accept_sig else ("if" if if_cond else None)
             transitions.append(
@@ -404,6 +545,8 @@ def _extract_state_machines(lines: List[str]) -> List[ExtractedStateMachine]:
                     target=target,
                     trigger=trigger,
                     trigger_kind=trigger_kind,
+                    guard=accept_guard,
+                    guard_condition=_parse_guard_condition(accept_guard),
                     owner=name,
                     raw_line=body_line.strip(),
                 )
@@ -413,10 +556,121 @@ def _extract_state_machines(lines: List[str]) -> List[ExtractedStateMachine]:
                 name=name,
                 owner=_current_owner(lines, idx),
                 transitions=transitions,
+                entry_state=entry_state,
                 raw_line=line.strip(),
             )
         )
     return machines
+
+
+def ordered_transition_path(sm: ExtractedStateMachine) -> List[ExtractedStateTransition]:
+    """Walk the transition graph from the entry state in chronological order.
+
+    Prefers an `accept`-triggered outgoing edge per state (since that is what a
+    harness can actually drive via `send`), falling back to the first declared
+    edge otherwise. Stops on a revisited state (cycle) or a dead end. Branching
+    topologies only exercise one path per call — this is an MVP heuristic, not a
+    full state-space exploration.
+    """
+    if not sm.transitions:
+        return []
+
+    by_source: dict[str, List[ExtractedStateTransition]] = {}
+    for t in sm.transitions:
+        if t.source:
+            by_source.setdefault(t.source, []).append(t)
+
+    current = sm.entry_state or sm.transitions[0].source
+    visited: set[str] = set()
+    path: List[ExtractedStateTransition] = []
+
+    while current and current not in visited:
+        visited.add(current)
+        edges = by_source.get(current)
+        if not edges:
+            break
+        edge = next((e for e in edges if e.trigger_kind == "accept"), edges[0])
+        path.append(edge)
+        current = edge.target
+
+    return path
+
+
+def _open_brace_stack_at(lines: List[str], line_index: int) -> List[int]:
+    """Return line indices whose `{` is still open (unmatched) at `line_index`."""
+    stack: List[int] = []
+    for i in range(0, line_index + 1):
+        for ch in lines[i]:
+            if ch == "{":
+                stack.append(i)
+            elif ch == "}" and stack:
+                stack.pop()
+    return stack
+
+
+def _enclosing_named_owner(lines: List[str], line_index: int) -> Optional[str]:
+    """Brace-depth-aware nearest enclosing package/part def/part/action def name.
+
+    Unlike `_current_owner` (a naive nearest-preceding-line scan, which mistakes
+    one-line sibling declarations like `part power : PowerSupply;` for an
+    enclosing scope), this walks the actual open-brace stack so it correctly
+    resolves ownership even when many sibling usages sit between the enclosing
+    def and the target line.
+    """
+    for open_idx in reversed(_open_brace_stack_at(lines, line_index)):
+        line = lines[open_idx]
+        for matcher in (
+            _PACKAGE_RE,
+            _PART_DEF_RE,
+            _PART_INSTANCE_RE,
+            _PART_SIMPLE_RE,
+            _ACTION_DEF_RE,
+            _STATE_DEF_RE,
+        ):
+            m = matcher.match(line)
+            if m:
+                return _id_from_match(m)
+    return None
+
+
+def _enclosing_part_def(lines: List[str], line_index: int) -> Optional[str]:
+    """Return the name of the nearest enclosing part (formal def or shorthand usage).
+
+    Returns a name when the enclosing brace belongs to:
+    - `part def X {` — explicit definition
+    - `part X {`     — shorthand usage/instance (no `: TypeRef`)
+
+    Typed part instances (`part x : Type {`) are excluded: their type is already
+    named elsewhere, and the harness should target that type (or the usage if it
+    is the owner of nested behavior).
+    """
+    for open_idx in reversed(_open_brace_stack_at(lines, line_index)):
+        line = lines[open_idx]
+        m = _PART_DEF_RE.match(line)
+        if m:
+            return _id_from_match(m)
+        m = _PART_SHORTHAND_DEF_RE.match(line)
+        if m:
+            name = _id_from_match(m)
+            # Recheck the raw line: reject `part name : SomeThing {`
+            if not re.search(rf"^\s*part\s+{_ID}\s*:", line):
+                return name
+    return None
+
+
+def _link_state_machine_instances(lines: List[str], machines: List[ExtractedStateMachine]) -> None:
+    """Resolve `exhibit state <usage> : <SMDef>;` to the owning part/usage name."""
+    if not machines:
+        return
+    by_name = {m.name: m for m in machines}
+    for idx, line in enumerate(lines):
+        m = _EXHIBIT_STATE_RE.match(line)
+        if not m:
+            continue
+        sm_def_name = (m.group(2) or m.group(3) or "").strip()
+        sm = by_name.get(sm_def_name)
+        if sm is not None:
+            sm.instance_name = _enclosing_named_owner(lines, idx)
 
 
 def extract_topology(candidate_sysml: str) -> ExtractedTopology:
@@ -428,8 +682,19 @@ def extract_topology(candidate_sysml: str) -> ExtractedTopology:
     lines = text.splitlines()
 
     root_package = _extract_root_package(text)
+    root_imports = _extract_root_package_imports(text)
     packages = _dedupe_preserve_order(_ids_from_findall(_PACKAGE_RE.findall(text)))
-    part_defs = _dedupe_preserve_order(_ids_from_findall(_PART_DEF_RE.findall(text)))
+
+    # Formal `part def X` are typing blueprints; shorthand `part X {` are instances.
+    # Keep both in part_defs for structure/behavior targeting; formal_part_defs is
+    # used by the harness to choose `:` typing vs `=` aliasing.
+    formal_part_defs = _dedupe_preserve_order(_ids_from_findall(_PART_DEF_RE.findall(text)))
+    _shorthand_part_usages: List[str] = []
+    for line in lines:
+        m = _PART_SHORTHAND_DEF_RE.match(line)
+        if m and not re.search(rf"^\s*part\s+{_ID}\s*:", line):
+            _shorthand_part_usages.append(_id_from_match(m))
+    part_defs = _dedupe_preserve_order(formal_part_defs + _shorthand_part_usages)
 
     attribute_defs: List[ExtractedAttributeDef] = []
     for idx, line in enumerate(lines):
@@ -515,6 +780,7 @@ def extract_topology(candidate_sysml: str) -> ExtractedTopology:
             )
 
     state_machines = _extract_state_machines(lines)
+    _link_state_machine_instances(lines, state_machines)
 
     action_defs: List[ExtractedActionDef] = []
     for idx, line in enumerate(lines):
@@ -598,10 +864,14 @@ def extract_topology(candidate_sysml: str) -> ExtractedTopology:
                 )
             )
 
+    part_behaviors = _extract_part_behaviors(lines)
+
     return ExtractedTopology(
         root_package=root_package,
+        root_imports=root_imports,
         packages=packages,
         part_defs=part_defs,
+        formal_part_defs=formal_part_defs,
         attributes=attributes,
         attribute_defs=attribute_defs,
         enum_defs=enum_defs,
@@ -612,7 +882,27 @@ def extract_topology(candidate_sysml: str) -> ExtractedTopology:
         action_usages=action_usages,
         accept_actions=accept_actions,
         send_actions=send_actions,
+        part_behaviors=part_behaviors,
     )
+
+
+def collect_state_machine_accept_payloads(topology: ExtractedTopology) -> List[str]:
+    """Return deduped accept payload type names from all state machine transitions.
+
+    Scans every transition in every extracted state machine (not just the ordered
+    execution path) so that off-path accepts like AcknowledgeAlarm are included.
+    The kernel's AST parser requires type definitions for every accept signal in the
+    source text, even transitions that are never reached during a test run.
+    """
+    seen: set[str] = set()
+    result: List[str] = []
+    for sm in topology.state_machines:
+        for transition in sm.transitions:
+            if transition.trigger_kind == "accept" and transition.trigger:
+                if transition.trigger not in seen:
+                    seen.add(transition.trigger)
+                    result.append(transition.trigger)
+    return result
 
 
 def classify_kind(topology: ExtractedTopology) -> ModelKind:

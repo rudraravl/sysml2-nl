@@ -14,8 +14,9 @@ import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from .diagnostics import build_compiler_diagnostics, write_compiler_diagnostics_file
 from .extractor import classify_kind, extract_topology
-from .harness_builder import build_consolidated_payload, build_harness_block
+from .harness_builder import build_consolidated_payload, build_harness_block, build_harness_block_with_mocks
 from .models import ExecutionRequest, ExecutionResult, KernelExecutionOutput
 from .sysml_runtime_bridge import execute_sysml_candidate
 
@@ -74,8 +75,8 @@ def run_sysml_execution(request: ExecutionRequest) -> ExecutionResult:
     """Extract topology, build harness, run kernel, return structured result."""
     topology = extract_topology(request.candidate_sysml)
     model_kind = classify_kind(topology)
-    harness = build_harness_block(topology, request)
-    consolidated = build_consolidated_payload(request.candidate_sysml, harness)
+    harness, mock_types = build_harness_block_with_mocks(topology, request)
+    consolidated = build_consolidated_payload(request.candidate_sysml, harness, mock_types)
 
     kernel_out = execute_sysml_candidate(
         consolidated,
@@ -92,12 +93,29 @@ def run_sysml_execution(request: ExecutionRequest) -> ExecutionResult:
 
     compiled = _is_compiled(kernel_out)
 
+    diagnostics = build_compiler_diagnostics(
+        trace,
+        errors=errors or None,
+        bridge_error=kernel_out.bridge_error,
+        compiled=compiled,
+        success=compiled,
+        model_kind=model_kind,
+        kernel_available=kernel_out.kernel_available,
+    )
+
     trace_path: Optional[str] = None
     if request.trace_output_path:
         trace_path = write_execution_trace_file(
             request.trace_output_path,
             trace,
             errors=errors or None,
+        )
+
+    diagnostics_path: Optional[str] = None
+    if request.diagnostics_output_path:
+        diagnostics_path = write_compiler_diagnostics_file(
+            request.diagnostics_output_path,
+            diagnostics,
         )
 
     return ExecutionResult(
@@ -112,6 +130,8 @@ def run_sysml_execution(request: ExecutionRequest) -> ExecutionResult:
         extracted_topology=topology,
         bridge_error=kernel_out.bridge_error,
         trace_path=trace_path,
+        diagnostics=diagnostics,
+        diagnostics_path=diagnostics_path,
     )
 
 
@@ -149,17 +169,22 @@ def _cli() -> None:
         "--trace-output",
         help="Write compiler/kernel execution trace to a text file",
     )
+    parser.add_argument(
+        "--diagnostics-output",
+        help="Write parsed compiler diagnostics JSON to a file",
+    )
     args = parser.parse_args()
 
     code = Path(args.sysml_file).read_text(encoding="utf-8")
     req = ExecutionRequest(
         candidate_sysml=code,
         trace_output_path=args.trace_output,
+        diagnostics_output_path=args.diagnostics_output,
     )
 
     if args.dry_run:
         topology = extract_topology(code)
-        harness = build_harness_block(topology, req)
+        harness, mock_types = build_harness_block_with_mocks(topology, req)
         result = ExecutionResult(
             compiled=False,
             success=False,
@@ -167,7 +192,7 @@ def _cli() -> None:
             trace=[],
             model_kind=classify_kind(topology),
             harness=harness,
-            consolidated_payload=build_consolidated_payload(code, harness),
+            consolidated_payload=build_consolidated_payload(code, harness, mock_types),
             kernel_available=False,
             extracted_topology=topology,
         )

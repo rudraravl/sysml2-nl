@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import sys
 import unittest
 from pathlib import Path
@@ -10,15 +11,20 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from nl2sysml.sysml_execution.extractor import classify_kind, extract_topology  # noqa: E402
-from nl2sysml.sysml_execution.harness_builder import build_harness_block  # noqa: E402
-from nl2sysml.sysml_execution.models import ExecutionRequest  # noqa: E402
+from nl2sysml.sysml_execution.extractor import (  # noqa: E402
+    classify_kind,
+    extract_topology,
+    ordered_transition_path,
+)
+from nl2sysml.sysml_execution.harness_builder import build_harness_block, build_harness_block_with_mocks  # noqa: E402
+from nl2sysml.sysml_execution.models import ExecutionRequest, GuardCondition  # noqa: E402
 from nl2sysml.sysml_execution.orchestrator import run_sysml_execution  # noqa: E402
 from nl2sysml.sysml_execution.vector_planner import (  # noqa: E402
     candidates_for_input,
     candidates_for_trigger,
     classify_input_type,
     input_types_for_target,
+    satisfying_value_for_guard,
     unsupported_reason_for_input,
 )
 
@@ -160,17 +166,209 @@ package P {
         topo = extract_topology(code)
         harness = build_harness_block(topo, ExecutionRequest(candidate_sysml=code))
         self.assertIn("send testEvt to runProbe", harness)
-        self.assertIn("send testEvt1 via myPort to runProbe", harness)
+        self.assertIn("send testEvt1 to runProbe", harness)
+        self.assertNotIn("to runProbe.myPort", harness)
+        self.assertNotIn("via myPort", harness)
 
     def test_harness_sequences_probe_000200(self):
         topo = extract_topology(_load("000200"))
         harness = build_harness_block(topo, ExecutionRequest(candidate_sysml=""))
         self.assertIn("first provide_powerProbe;", harness)
+        self.assertIn("then triggerEngineStart;", harness)
+        self.assertIn("then triggerEngineOff;", harness)
 
     def test_harness_sequences_triggers_000200(self):
         topo = extract_topology(_load("000200"))
         harness = build_harness_block(topo, ExecutionRequest(candidate_sysml=""))
-        self.assertIn("first triggerEngineStart then triggerEngineOff;", harness)
+        self.assertIn("first provide_powerProbe;", harness)
+        self.assertIn("then triggerEngineStart;", harness)
+        self.assertIn("then triggerEngineOff;", harness)
+        self.assertNotRegex(harness, r"first provide_powerProbe;\s*\n\s*first ")
+
+
+class TestHarness000134(unittest.TestCase):
+    """000134 (Messaging Example) uses `part camera { action takePicture ... }` —
+    the composite is nested inside a shorthand part *usage*, so the harness
+    should alias `part testSubject = camera` and send to the whole component.
+    """
+
+    def _topo(self):
+        return extract_topology(_load("000134"))
+
+    def _harness(self):
+        code = _load("000134")
+        return build_harness_block(self._topo(), ExecutionRequest(candidate_sysml=code))
+
+    # --- extractor coverage ---
+
+    def test_shorthand_part_def_collected(self):
+        topo = self._topo()
+        self.assertIn("camera", topo.part_defs)
+        self.assertNotIn("camera", topo.formal_part_defs)
+
+    def test_composite_enclosing_part_def_set(self):
+        topo = self._topo()
+        composites = [u for u in topo.action_usages if u.is_composite]
+        tp = next((u for u in composites if u.name == "takePicture"), None)
+        self.assertIsNotNone(tp)
+        self.assertEqual(tp.enclosing_part_def, "camera")
+
+    def test_provide_power_has_no_enclosing_part_def(self):
+        topo = extract_topology(_load("000200"))
+        composites = [u for u in topo.action_usages if u.is_composite]
+        pp = next((u for u in composites if "power" in u.name.lower()), None)
+        self.assertIsNotNone(pp)
+        self.assertIsNone(pp.enclosing_part_def)
+
+    def test_part_hosted_target_returns_camera(self):
+        topo = self._topo()
+        result = topo.part_hosted_target()
+        self.assertIsNotNone(result)
+        part_def, composite = result
+        self.assertEqual(part_def, "camera")
+        self.assertEqual(composite.name, "takePicture")
+
+    # --- harness shape ---
+
+    def test_aliases_test_subject_to_instance(self):
+        harness = self._harness()
+        self.assertIn("part testSubject = camera", harness)
+        self.assertNotIn("part testSubject : camera", harness)
+
+    def test_sends_to_test_subject_component(self):
+        harness = self._harness()
+        self.assertIn("send testScene to testSubject", harness)
+        self.assertNotIn("to testSubject.viewPort", harness)
+
+    def test_sequences_trigger_only(self):
+        harness = self._harness()
+        self.assertIn("first triggerScene", harness)
+
+    def test_no_action_probe_emitted(self):
+        harness = self._harness()
+        self.assertNotIn("takePictureProbe", harness)
+        self.assertNotIn("TakePictureProbe", harness)
+
+    def test_no_via_keyword_in_harness(self):
+        harness = self._harness()
+        self.assertNotIn("via viewPort", harness)
+
+    def test_no_first_test_subject_in_succession(self):
+        harness = self._harness()
+        self.assertNotIn("first testSubject", harness)
+
+    # --- part-hosted model with input pins ---
+
+    _PART_HOSTED_WITH_PINS = """
+package PartHostedPins {
+    item def Cmd;
+    attribute def StartSignal;
+    part def Processor;
+    part processor {
+        action process : Processor {
+            in item cmd : Cmd;
+            action trigger accept sig : StartSignal via ioPort;
+        }
+    }
+}
+"""
+
+    def test_part_hosted_with_pins_sends_to_component(self):
+        code = self._PART_HOSTED_WITH_PINS
+        topo = extract_topology(code)
+        harness = build_harness_block(topo, ExecutionRequest(candidate_sysml=code))
+        self.assertIn("part testSubject = processor", harness)
+        self.assertIn("send testSig to testSubject", harness)
+        self.assertNotIn("to testSubject.ioPort", harness)
+        self.assertNotIn("via ioPort", harness)
+
+    def test_formal_part_def_still_uses_typing(self):
+        code = """
+package FormalPart {
+    attribute def StartSignal;
+    action def TakePicture;
+    part def Camera {
+        action takePicture : TakePicture {
+            action trigger accept scene : StartSignal via viewPort;
+        }
+    }
+}
+"""
+        topo = extract_topology(code)
+        harness = build_harness_block(topo, ExecutionRequest(candidate_sysml=code))
+        self.assertIn("part testSubject : Camera", harness)
+        self.assertIn("send testScene to testSubject", harness)
+        self.assertNotIn("to testSubject.viewPort", harness)
+
+
+_TRIGGER_OVERRIDE_MODEL = """
+package P {
+    package Definitions {
+        attribute def FuelCmd;
+        attribute def EngineStart {
+            attribute voltage : Real;
+        }
+        attribute def EngineOff;
+        action def 'Provide Power' { in fuelCmd: FuelCmd; }
+    }
+    package Usages {
+        action 'provide power': 'Provide Power' {
+            in fuelCmd: FuelCmd;
+            action engineStarted accept engineStart: EngineStart;
+            action engineStopped accept engineOff: EngineOff;
+        }
+    }
+}
+"""
+
+
+class TestHarnessTriggerOverrides(unittest.TestCase):
+    def test_harness_applies_trigger_override_by_param(self):
+        topo = extract_topology(_TRIGGER_OVERRIDE_MODEL)
+        harness = build_harness_block(
+            topo,
+            ExecutionRequest(
+                candidate_sysml=_TRIGGER_OVERRIDE_MODEL,
+                simulation_vectors={"engineStart": {"voltage": 12.0}},
+            ),
+        )
+        self.assertIn("attribute testEngineStart : EngineStart {", harness)
+        self.assertIn(":>> voltage = 12.0;", harness)
+        self.assertIn("attribute testEngineOff : EngineOff;", harness)
+
+    def test_harness_applies_trigger_override_by_payload_type(self):
+        topo = extract_topology(_TRIGGER_OVERRIDE_MODEL)
+        harness = build_harness_block(
+            topo,
+            ExecutionRequest(
+                candidate_sysml=_TRIGGER_OVERRIDE_MODEL,
+                simulation_vectors={"EngineStart": {"voltage": 12.0}},
+            ),
+        )
+        self.assertIn("attribute testEngineStart : EngineStart {", harness)
+        self.assertIn(":>> voltage = 12.0;", harness)
+
+    def test_harness_trigger_override_does_not_affect_pins(self):
+        topo = extract_topology(_load("000200"))
+        harness = build_harness_block(
+            topo,
+            ExecutionRequest(
+                candidate_sysml="",
+                simulation_vectors={
+                    "fuelCmd": 1,
+                    "engineStart": {"voltage": 12.0},
+                },
+            ),
+        )
+        self.assertIn("in fuelCmd = 1", harness)
+        self.assertIn("attribute testEngineStart : EngineStart {", harness)
+        self.assertIn(":>> voltage = 12.0;", harness)
+
+    def test_harness_without_trigger_override_unchanged(self):
+        topo = extract_topology(_load("000200"))
+        harness = build_harness_block(topo, ExecutionRequest(candidate_sysml=""))
+        self.assertIn("attribute testEngineStart : EngineStart;", harness)
+        self.assertNotIn(":>> voltage", harness)
 
 
 class TestHarnessSequencer(unittest.TestCase):
@@ -190,8 +388,8 @@ package P {
         topo = extract_topology(code)
         harness = build_harness_block(topo, ExecutionRequest(candidate_sysml=code))
         self.assertIn("first runProbe;", harness)
-        self.assertIn("first triggerDoneSignal;", harness)
-        self.assertNotIn(" then ", harness.split("first triggerDoneSignal;")[0])
+        self.assertIn("then triggerDoneSignal;", harness)
+        self.assertNotRegex(harness, r"first runProbe;\s*\n\s*first ")
 
     def test_three_trigger_succession_chain(self):
         code = """
@@ -212,10 +410,10 @@ package P {
 """
         topo = extract_topology(code)
         harness = build_harness_block(topo, ExecutionRequest(candidate_sysml=code))
-        self.assertIn(
-            "first triggerSigA then triggerSigB then triggerSigC;",
-            harness,
-        )
+        self.assertIn("first runProbe;", harness)
+        self.assertIn("then triggerSigA;", harness)
+        self.assertIn("then triggerSigB;", harness)
+        self.assertIn("then triggerSigC;", harness)
 
 
 class TestVectorPlanning(unittest.TestCase):
@@ -491,6 +689,12 @@ class TestExtraction000600(unittest.TestCase):
         self.assertIsNotNone(probe_diameter)
         self.assertTrue(probe_diameter.has_default)
 
+    def test_root_imports_extracted(self):
+        topo = extract_topology(_load("000600"))
+        self.assertIn("private import ISQ::*;", topo.root_imports)
+        self.assertIn("private import SI::*;", topo.root_imports)
+        self.assertIn("private import ScalarValues::*;", topo.root_imports)
+
 
 class TestHarness000600(unittest.TestCase):
     def test_harness_has_part_or_state_todo(self):
@@ -499,6 +703,280 @@ class TestHarness000600(unittest.TestCase):
         self.assertTrue(
             "testSubject" in harness or "TODO(human)" in harness
         )
+
+    def test_harness_includes_candidate_root_imports(self):
+        topo = extract_topology(_load("000600"))
+        harness = build_harness_block(topo, ExecutionRequest(candidate_sysml=""))
+        self.assertIn("private import ISQ::*;", harness)
+        self.assertIn("private import SI::*;", harness)
+        self.assertIn("private import ScalarValues::*;", harness)
+        self.assertIn("private import EsophagealDopplerMonitoringSystem::*;", harness)
+
+    def test_harness_schedules_state_machine_behavior_entry_point(self):
+        topo = extract_topology(_load("000600"))
+        harness = build_harness_block(topo, ExecutionRequest(candidate_sysml=""))
+        self.assertIn("exhibit state operationalStates : SystemOperationalStates;", harness)
+        # probe comes first, then SM triggers as separate first/then statements
+        self.assertIn("first estimateDiameterProbe;", harness)
+        self.assertIn("then triggerStartCalibration;", harness)
+        self.assertIn("then triggerStopMonitoring;", harness)
+        self.assertNotIn("first testSubject.operationalStates;", harness)
+        self.assertNotIn("first testSubject;", harness)
+        # one first statement followed by then steps, not multiple first statements
+        self.assertNotRegex(harness, r"first estimateDiameterProbe;\s*\n\s*first ")
+
+
+class TestStateMachineExtraction000600(unittest.TestCase):
+    """Multi-line `transition ...;` statements spread across several physical lines."""
+
+    def _sm(self):
+        topo = extract_topology(_load("000600"))
+        return next(sm for sm in topo.state_machines if sm.name == "SystemOperationalStates")
+
+    def test_entry_state_extracted(self):
+        self.assertEqual(self._sm().entry_state, "powerOn")
+
+    def test_accept_transition_extracted_across_lines(self):
+        sm = self._sm()
+        transition = next(t for t in sm.transitions if t.name == "standby_to_calibrating")
+        self.assertEqual(transition.source, "standby")
+        self.assertEqual(transition.target, "calibrating")
+        self.assertEqual(transition.trigger, "StartCalibration")
+        self.assertEqual(transition.trigger_kind, "accept")
+
+    def test_if_guard_transition_extracted_across_lines(self):
+        sm = self._sm()
+        transition = next(t for t in sm.transitions if t.name == "powerOn_to_standby")
+        self.assertEqual(transition.source, "powerOn")
+        self.assertEqual(transition.target, "standby")
+        self.assertEqual(transition.trigger_kind, "if")
+
+    def test_instance_linkage_resolves_owning_part(self):
+        sm = self._sm()
+        self.assertEqual(sm.instance_name, "EsophagealDopplerSystem")
+
+    def test_part_behavior_entry_points_extracted(self):
+        topo = extract_topology(_load("000600"))
+        self.assertEqual(
+            topo.part_behavior_usage(
+                "EsophagealDopplerSystem",
+                "exhibit_state",
+                "SystemOperationalStates",
+            ),
+            "operationalStates",
+        )
+        self.assertEqual(
+            topo.part_behavior_usage(
+                "EsophagealDopplerSystem",
+                "perform_action",
+                "MonitorHemodynamics",
+            ),
+            "monitoring",
+        )
+        self.assertEqual(
+            topo.behavior_execution_ref(
+                "testSubject",
+                "EsophagealDopplerSystem",
+                "exhibit_state",
+                "SystemOperationalStates",
+            ),
+            "testSubject.operationalStates",
+        )
+
+
+class TestGuardParsing(unittest.TestCase):
+    _MODEL = """
+package P {
+    package Definitions {
+        attribute def StartSignal;
+        part def Widget {
+            attribute voltage : Real;
+            state def OpStates {
+                entry; then off;
+                state off;
+                transition off_to_on
+                    first off
+                    accept StartSignal [voltage > 10.0]
+                    then on;
+                state on;
+            }
+        }
+    }
+}
+"""
+
+    def test_accept_guard_bracket_syntax_extracted(self):
+        topo = extract_topology(self._MODEL)
+        sm = topo.state_machines[0]
+        transition = sm.transitions[0]
+        self.assertEqual(transition.trigger, "StartSignal")
+        self.assertEqual(transition.trigger_kind, "accept")
+        self.assertEqual(transition.guard, "voltage > 10.0")
+        self.assertEqual(
+            transition.guard_condition,
+            GuardCondition(attribute="voltage", operator=">", value=10.0),
+        )
+
+    def test_satisfying_value_for_guard_operators(self):
+        self.assertEqual(
+            satisfying_value_for_guard(GuardCondition("voltage", ">", 10.0)), "11.0"
+        )
+        self.assertEqual(
+            satisfying_value_for_guard(GuardCondition("voltage", ">=", 10.0)), "10.0"
+        )
+        self.assertEqual(
+            satisfying_value_for_guard(GuardCondition("voltage", "<", 10.0)), "9.0"
+        )
+        self.assertEqual(
+            satisfying_value_for_guard(GuardCondition("voltage", "<=", 10.0)), "10.0"
+        )
+        self.assertEqual(
+            satisfying_value_for_guard(GuardCondition("voltage", "==", 10.0)), "10.0"
+        )
+
+
+class TestOrderedTransitionPath(unittest.TestCase):
+    _BRANCHING_MODEL = """
+package P {
+    package Definitions {
+        attribute def Go;
+        attribute def Stop;
+        state def Cycle {
+            entry; then idle;
+            state idle;
+            transition idle_to_running
+                first idle
+                accept Go
+                then running;
+            state running;
+            transition running_to_done
+                first running
+                if "work complete"
+                then done;
+            state done;
+            transition done_to_idle
+                first done
+                accept Stop
+                then idle;
+        }
+    }
+}
+"""
+
+    def test_walks_from_entry_and_stops_on_cycle(self):
+        topo = extract_topology(self._BRANCHING_MODEL)
+        sm = topo.primary_state_machine()
+        path = ordered_transition_path(sm)
+        self.assertEqual(
+            [t.name for t in path],
+            ["idle_to_running", "running_to_done", "done_to_idle"],
+        )
+        # Cycles back to `idle`, which is already visited, so the walk stops there.
+        self.assertEqual(path[-1].target, "idle")
+
+    def test_empty_state_machine_yields_empty_path(self):
+        code = """
+package P {
+    package Definitions {
+        state def Empty {
+        }
+    }
+}
+"""
+        topo = extract_topology(code)
+        sm = topo.primary_state_machine()
+        self.assertIsNotNone(sm)
+        self.assertEqual(ordered_transition_path(sm), [])
+
+
+class TestStateMachineHarness(unittest.TestCase):
+    _MODEL = """
+package P {
+    package Definitions {
+        attribute def StartCalibration;
+        attribute def StopMonitoring;
+        part def Widget {
+            attribute voltage : Real;
+            state def OpStates {
+                entry; then off;
+                state off;
+                transition off_to_on
+                    first off
+                    accept StartCalibration [voltage > 10.0]
+                    then on;
+                state on;
+                transition on_to_off
+                    first on
+                    accept StopMonitoring
+                    then off;
+            }
+            exhibit state ops : OpStates;
+        }
+    }
+}
+"""
+
+    def _harness(self):
+        topo = extract_topology(self._MODEL)
+        return build_harness_block(topo, ExecutionRequest(candidate_sysml=self._MODEL))
+
+    def test_instantiates_part_with_guard_override(self):
+        harness = self._harness()
+        self.assertIn("part testSubject : Widget {", harness)
+        self.assertIn(":>> voltage = 11.0;", harness)
+        self.assertIn("exhibit state ops : OpStates;", harness)
+
+    def test_sends_are_targeted_at_instance_not_bare(self):
+        harness = self._harness()
+        # dot-notation targets the exhibited state machine, not the bare instance
+        self.assertIn("send testStartCalibration to testSubject.ops;", harness)
+        self.assertIn("send testStopMonitoring to testSubject.ops;", harness)
+        self.assertNotRegex(harness, r"\bsend\s+\w+\s*;")
+
+    def test_starts_trigger_chain_without_scheduling_test_subject(self):
+        harness = self._harness()
+        self.assertIn("first triggerStartCalibration;", harness)
+        self.assertIn("then triggerStopMonitoring;", harness)
+        self.assertNotIn("first testSubject", harness)
+
+
+class TestStateMachineForkWithAction(unittest.TestCase):
+    """Action probe and exhibited state machine run concurrently without sequencing the part."""
+
+    _MODEL = """
+package P {
+    package Definitions {
+        attribute def Count;
+        attribute def StartSignal;
+        action def Probe { in count: Count; }
+        part def Widget {
+            state def OpStates {
+                entry; then off;
+                state off;
+                transition off_to_on
+                    first off
+                    accept StartSignal
+                    then on;
+                state on;
+            }
+            exhibit state ops : OpStates;
+        }
+    }
+    package Usages {
+        action monitor : Probe {
+            in count: Count;
+        }
+    }
+}
+"""
+
+    def test_orchestrator_sequences_only_local_probe_not_test_subject(self):
+        topo = extract_topology(self._MODEL)
+        harness = build_harness_block(topo, ExecutionRequest(candidate_sysml=self._MODEL))
+        self.assertIn("first monitorProbe;", harness)
+        self.assertIn("then triggerStartSignal;", harness)
+        self.assertNotIn("first testSubject", harness)
+        self.assertNotRegex(harness, r"first monitorProbe;\s*\n\s*first ")
 
 
 class TestKernelTraceCapture(unittest.TestCase):
@@ -541,6 +1019,72 @@ class TestKernelTraceCapture(unittest.TestCase):
             self.assertIn("# errors", text)
             self.assertIn("ERROR: example", text)
 
+    def test_parses_compiler_diagnostics(self):
+        from nl2sysml.sysml_execution.diagnostics import (
+            build_compiler_diagnostics,
+            parse_diagnostic_line,
+        )
+
+        err = parse_diagnostic_line(
+            "ERROR:no viable alternative at input 'then' (1.sysml line : 280 column : 9)"
+        )
+        self.assertIsNotNone(err)
+        assert err is not None
+        self.assertEqual(err["severity"], "ERROR")
+        self.assertEqual(err["line"], 280)
+        self.assertEqual(err["column"], 9)
+        self.assertEqual(err["category"], "parse")
+
+        warn = parse_diagnostic_line(
+            "WARNING:Duplicate of inherited member name 'age' from PatientData "
+            "(1.sysml line : 586 column : 27)"
+        )
+        self.assertIsNotNone(warn)
+        assert warn is not None
+        self.assertEqual(warn["severity"], "WARNING")
+        self.assertEqual(warn["category"], "duplicate_member")
+
+        diagnostics = build_compiler_diagnostics(
+            [
+                "ERROR:Must be an accessible feature (use dot notation for nesting) "
+                "(1.sysml line : 309 column : 35)",
+                "WARNING:Duplicate of inherited member name 'age' from PatientData "
+                "(1.sysml line : 586 column : 27)",
+                "Package ExecutionHarness (abc)",
+            ],
+            compiled=False,
+            model_kind="behavioral",
+        )
+        self.assertEqual(diagnostics["n_errors"], 1)
+        self.assertEqual(diagnostics["n_warnings"], 1)
+        self.assertEqual(diagnostics["first_error_line"], 309)
+        self.assertEqual(
+            diagnostics["error_counts_by_category"].get("feature_access"), 1
+        )
+        self.assertEqual(
+            diagnostics["warning_counts_by_category"].get("duplicate_member"), 1
+        )
+        self.assertTrue(diagnostics["raw_trace"].startswith("ERROR:"))
+
+    def test_writes_diagnostics_json(self):
+        from tempfile import TemporaryDirectory
+
+        from nl2sysml.sysml_execution.diagnostics import (
+            build_compiler_diagnostics,
+            write_compiler_diagnostics_file,
+        )
+
+        diagnostics = build_compiler_diagnostics(
+            ["ERROR:example (1.sysml line : 10 column : 2)"],
+            compiled=False,
+        )
+        with TemporaryDirectory() as tmp:
+            path = write_compiler_diagnostics_file(f"{tmp}/diag.json", diagnostics)
+            data = json.loads(Path(path).read_text(encoding="utf-8"))
+            self.assertEqual(data["n_errors"], 1)
+            self.assertEqual(len(data["errors"]), 1)
+            self.assertEqual(data["errors"][0]["line"], 10)
+
 
 class TestKernel000200(unittest.TestCase):
     """Run with: python -m unittest nl2sysml.sysml_execution.test_execution.TestKernel000200"""
@@ -569,6 +1113,131 @@ class TestKernel000200(unittest.TestCase):
         self.assertIn("attribute testFuelCmd : FuelCmd;", result.harness)
         self.assertIn("in fuelCmd = testFuelCmd;", result.harness)
         self.assertIsInstance(result.trace, list)
+
+
+class TestPayloadResolution(unittest.TestCase):
+    """Two-pass resolution: extract accept payloads, classify, inject mock defs."""
+
+    def test_collects_all_sm_accepts_from_000600(self):
+        from nl2sysml.sysml_execution.extractor import collect_state_machine_accept_payloads
+        topo = extract_topology(_load("000600"))
+        payloads = collect_state_machine_accept_payloads(topo)
+        # All three accept signals in SystemOperationalStates must be collected,
+        # including AcknowledgeAlarm which is on an off-path transition.
+        self.assertIn("StartCalibration", payloads)
+        self.assertIn("StopMonitoring", payloads)
+        self.assertIn("AcknowledgeAlarm", payloads)
+
+    def test_resolve_marks_undefined_payloads_as_missing(self):
+        from nl2sysml.sysml_execution.extractor import collect_state_machine_accept_payloads
+        from nl2sysml.sysml_execution.vector_planner import resolve_payload_types
+        topo = extract_topology(_load("000600"))
+        payloads = collect_state_machine_accept_payloads(topo)
+        resolution = resolve_payload_types(topo, payloads)
+        self.assertIn("StartCalibration", resolution.missing)
+        self.assertIn("StopMonitoring", resolution.missing)
+        self.assertIn("AcknowledgeAlarm", resolution.missing)
+
+    def test_resolve_marks_defined_payloads_as_existing(self):
+        from nl2sysml.sysml_execution.extractor import collect_state_machine_accept_payloads
+        from nl2sysml.sysml_execution.vector_planner import resolve_payload_types
+        code = """
+package P {
+    attribute def StartCalibration;
+    part def D {
+        state def S {
+            entry; then a;
+            state a;
+            transition a_b first a accept StartCalibration then b;
+            state b;
+        }
+        exhibit state s : S;
+    }
+}
+"""
+        topo = extract_topology(code)
+        payloads = collect_state_machine_accept_payloads(topo)
+        resolution = resolve_payload_types(topo, payloads)
+        self.assertIn("StartCalibration", resolution.existing)
+        self.assertEqual(resolution.missing, [])
+
+    def test_inject_mock_defs_adds_item_defs_to_root_package(self):
+        from nl2sysml.sysml_execution.vector_planner import inject_mock_defs_into_root_package
+        code = "package P {\n    part def Widget;\n}"
+        result = inject_mock_defs_into_root_package(code, ["StartCalibration", "StopMonitoring"])
+        self.assertIn("attribute def StartCalibration;", result)
+        self.assertIn("attribute def StopMonitoring;", result)
+        # injection appears inside the root package (after the opening brace)
+        p_idx = result.index("package P {")
+        sc_idx = result.index("attribute def StartCalibration;")
+        self.assertGreater(sc_idx, p_idx)
+
+    def test_inject_skips_already_defined_types(self):
+        from nl2sysml.sysml_execution.vector_planner import inject_mock_defs_into_root_package
+        code = "package P {\n    attribute def StartCalibration;\n}"
+        result = inject_mock_defs_into_root_package(code, ["StartCalibration"])
+        # existing definition must not be duplicated
+        self.assertEqual(result.count("StartCalibration"), 1)
+
+    def test_inject_noop_when_no_missing_types(self):
+        from nl2sysml.sysml_execution.vector_planner import inject_mock_defs_into_root_package
+        code = "package P {\n    part def Widget;\n}"
+        self.assertEqual(inject_mock_defs_into_root_package(code, []), code)
+
+    def test_consolidated_payload_contains_mock_defs_for_000600(self):
+        topo = extract_topology(_load("000600"))
+        harness, mock_types = build_harness_block_with_mocks(topo, ExecutionRequest(candidate_sysml=_load("000600")))
+        from nl2sysml.sysml_execution.harness_builder import build_consolidated_payload
+        consolidated = build_consolidated_payload(_load("000600"), harness, mock_types)
+        self.assertIn("attribute def StartCalibration;", consolidated)
+        self.assertIn("attribute def StopMonitoring;", consolidated)
+        self.assertIn("attribute def AcknowledgeAlarm;", consolidated)
+        # mocks must appear inside the root package, before the harness
+        harness_pos = consolidated.index("package ExecutionHarness")
+        mock_pos = consolidated.index("attribute def StartCalibration;")
+        self.assertLess(mock_pos, harness_pos)
+
+
+class TestMockNominalFixture(unittest.TestCase):
+    """Undefined accept types are mocked and generate real fixtures, not TODOs."""
+
+    _MODEL = """
+package P {
+    part def Device {
+        state def OpStates {
+            entry; then standby;
+            state standby;
+            transition standby_to_active
+                first standby
+                accept StartCalibration
+                then active;
+            state active;
+        }
+        exhibit state ops : OpStates;
+    }
+}
+"""
+
+    def _harness(self):
+        topo = extract_topology(self._MODEL)
+        return build_harness_block(topo, ExecutionRequest(candidate_sysml=self._MODEL))
+
+    def test_undefined_accept_type_generates_fixture_not_todo(self):
+        harness = self._harness()
+        self.assertNotIn("TODO(human): unsupported trigger payload type", harness)
+        self.assertIn("attribute testStartCalibration : StartCalibration;", harness)
+
+    def test_undefined_accept_type_generates_send_action(self):
+        harness = self._harness()
+        self.assertIn("send testStartCalibration", harness)
+        self.assertIn("triggerStartCalibration", harness)
+
+    def test_mock_types_returned_from_with_mocks(self):
+        topo = extract_topology(self._MODEL)
+        _harness, mock_types = build_harness_block_with_mocks(
+            topo, ExecutionRequest(candidate_sysml=self._MODEL)
+        )
+        self.assertIn("StartCalibration", mock_types)
 
 
 if __name__ == "__main__":

@@ -17,7 +17,7 @@ from pathlib import Path
 import os
 import json
 import re
-from typing import List, Tuple, Optional
+from typing import Any, List, Tuple, Optional
 from urllib import request as _req
 
 from dotenv import load_dotenv
@@ -53,6 +53,20 @@ except ImportError:
         def format_errors(self):
             return "No errors found."
 
+# Import kernel execution interface
+try:
+    from sysml_execution import ExecutionRequest, ExecutionResult, run_sysml_execution
+    KERNEL_EXECUTION_AVAILABLE = True
+except ImportError:
+    try:
+        from .sysml_execution import ExecutionRequest, ExecutionResult, run_sysml_execution
+        KERNEL_EXECUTION_AVAILABLE = True
+    except ImportError:
+        ExecutionRequest = None  # type: ignore[assignment,misc]
+        ExecutionResult = Any  # type: ignore[assignment,misc]
+        run_sysml_execution = None  # type: ignore[assignment]
+        KERNEL_EXECUTION_AVAILABLE = False
+
 
 # Expert models (one per line)
 EXPERT_MODELS = [
@@ -78,6 +92,71 @@ EXPERT_MODELS_RATING = {
 # Compiler configuration
 MAX_REFINEMENT_ITERATIONS = int(os.getenv("MAX_REFINEMENT_ITERATIONS", "2"))
 COMPILER_SYNTAX_ONLY = os.getenv("COMPILER_SYNTAX_ONLY", "false").lower() == "true"
+
+# Kernel feedback configuration
+MAX_KERNEL_REFINEMENT_ITERATIONS = int(os.getenv("MAX_KERNEL_REFINEMENT_ITERATIONS", "2"))
+KERNEL_FEEDBACK_ENABLED = os.getenv("KERNEL_FEEDBACK_ENABLED", "true").lower() == "true"
+HARNESS_HEADER = "// --- Test harness (auto-generated) ---"
+
+
+def _split_consolidated_at_harness(consolidated: str) -> Tuple[str, str]:
+    """Split the kernel payload without exposing generated harness code to the LLM."""
+    model_plus_mocks, separator, harness_body = consolidated.partition(HARNESS_HEADER)
+    if not separator:
+        return consolidated, ""
+    return model_plus_mocks, separator + harness_body
+
+
+def _number_sysml_lines(code: str) -> str:
+    """Add kernel-aligned, one-based line numbers to SysML source."""
+    return "\n".join(f"{line_number:4d}| {line}" for line_number, line in enumerate(code.splitlines(), 1))
+
+
+def _format_kernel_errors(result: ExecutionResult, harness_start_line: int) -> str:
+    """Format a bounded set of kernel errors for the refinement model."""
+    formatted: List[str] = []
+    diagnostics = result.diagnostics or {}
+    diagnostic_errors = diagnostics.get("errors", [])
+
+    if isinstance(diagnostic_errors, list):
+        for error in diagnostic_errors:
+            if not isinstance(error, dict):
+                continue
+            message = str(error.get("message", "")).strip()
+            line = error.get("line")
+            column = error.get("column")
+            if not message:
+                continue
+
+            location = ""
+            if isinstance(line, int):
+                location = f"line {line}"
+                if isinstance(column, int):
+                    location += f", column {column}"
+                location += ": "
+
+            harness_note = ""
+            if isinstance(line, int) and line >= harness_start_line:
+                harness_note = (
+                    " (in auto-generated ExecutionHarness — do not edit the harness; "
+                    "fix the candidate so the harness can bind to it)"
+                )
+            formatted.append(f"- {location}{message}{harness_note}")
+
+    if not formatted:
+        seen = set()
+        for chunk in list(result.errors) + list(result.trace):
+            for line in str(chunk).splitlines():
+                line = line.strip()
+                if "ERROR:" not in line.upper() or line in seen:
+                    continue
+                seen.add(line)
+                formatted.append(f"- {line}")
+
+    if not formatted:
+        return "- Kernel execution failed without a structured ERROR diagnostic."
+    return "\n".join(formatted[:30])
+
 
 def _model_group(model_name: str) -> str:
     if model_name == "gemini-2.5-pro":
@@ -385,6 +464,80 @@ def _refine_with_compiler(
     return current_code, final_result
 
 
+def _refine_with_kernel(
+    code: str,
+    model: str,
+    system_msg: str,
+    human_msg: str,
+    openrouter_key: str | None,
+    max_iterations: int = MAX_KERNEL_REFINEMENT_ITERATIONS,
+) -> Tuple[str, Optional[ExecutionResult]]:
+    """Refine the combined model using feedback from the SysML kernel."""
+    if not KERNEL_EXECUTION_AVAILABLE or ExecutionRequest is None or run_sysml_execution is None:
+        return code, None
+
+    current_code = code
+    iteration = 0
+
+    while iteration < max_iterations:
+        result = run_sysml_execution(ExecutionRequest(candidate_sysml=current_code))
+
+        if not result.kernel_available or result.bridge_error:
+            return current_code, result
+        if result.success:
+            return current_code, result
+        if iteration >= max_iterations - 1:
+            return current_code, result
+
+        model_plus_mocks, _harness_block = _split_consolidated_at_harness(
+            result.consolidated_payload
+        )
+        harness_start_line = len(model_plus_mocks.splitlines()) + 1
+        error_feedback = _format_kernel_errors(result, harness_start_line)
+
+        refinement_hint = (
+            "The previous SysML v2 model failed SysML kernel execution. "
+            "Fix the candidate model using the kernel errors below.\n\n"
+            "Important context:\n"
+            "- Before execution, the pipeline may inject mock `attribute def ...;` stubs "
+            "into the root package, then tacks on an auto-generated test harness starting "
+            f"at `{HARNESS_HEADER}`, followed by `package ExecutionHarness {{ ... }}`.\n"
+            "- That harness is NOT shown below and must NOT appear in your output. "
+            "It will be regenerated automatically.\n"
+            "- Some kernel errors cite line numbers inside ExecutionHarness. Those errors "
+            "can still be relevant, such as unresolved names imported from your model. "
+            "Fix the candidate so the harness can bind; do not invent harness code.\n"
+            "- Line numbers for the shown code refer to the pre-harness kernel payload "
+            "(candidate + optional mocks). A few mock lines near the root package `{` may "
+            "shift later lines slightly versus the bare candidate.\n"
+            "- Emit corrected candidate SysML v2 only: no markdown, no fences, no prose, "
+            "no ExecutionHarness, no mock stubs."
+        )
+        refinement_system = system_msg + "\n\n" + refinement_hint
+        refinement_human = (
+            f"{human_msg}\n\n"
+            f"Previous candidate (revise this):\n```sysml\n{current_code}\n```\n\n"
+            "Pre-harness kernel payload with line numbers (errors in the model/mock region "
+            "refer to THESE lines; harness source is omitted — it starts after "
+            f"`{HARNESS_HEADER}`):\n```\n"
+            f"{_number_sysml_lines(model_plus_mocks)}\n```\n\n"
+            f"Kernel errors to fix:\n{error_feedback}\n\n"
+            "Generate the corrected candidate SysML v2 code only."
+        )
+
+        refined = _invoke_with_retry(
+            model, refinement_system, refinement_human, openrouter_key
+        )
+        if not refined or refined == current_code:
+            break
+
+        current_code = refined
+        iteration += 1
+
+    final_result = run_sysml_execution(ExecutionRequest(candidate_sysml=current_code))
+    return current_code, final_result
+
+
 def generate_sysml_moe(prompt_text: str) -> Tuple[str, dict]:
     """
     Returns (final_sysml, prompt_record_json)
@@ -449,6 +602,41 @@ def generate_sysml_moe(prompt_text: str) -> Tuple[str, dict]:
         status = "✓ Valid" if final_result.is_valid else f"✗ {final_result.error_count} errors"
         print(f"  {status} after refinement", flush=True)
 
+    # Kernel execution and refinement happens after compiler refinement and only
+    # operates on the combined model.
+    kernel_result: Optional[ExecutionResult] = None
+    if KERNEL_FEEDBACK_ENABLED and KERNEL_EXECUTION_AVAILABLE and final:
+        print(
+            f"  Executing and refining final output with the SysML kernel "
+            f"(up to {MAX_KERNEL_REFINEMENT_ITERATIONS} iterations)...",
+            flush=True,
+        )
+        final, kernel_result = _refine_with_kernel(
+            final,
+            COMBINER_MODEL,
+            synth_sys_msg,
+            synth_human_msg,
+            ok,
+            MAX_KERNEL_REFINEMENT_ITERATIONS,
+        )
+        if kernel_result is None:
+            print("  ✗ Kernel execution unavailable", flush=True)
+        elif not kernel_result.kernel_available or kernel_result.bridge_error:
+            print(
+                f"  ✗ Kernel unavailable: {kernel_result.bridge_error or 'unknown error'}",
+                flush=True,
+            )
+        else:
+            kernel_error_count = int(
+                (kernel_result.diagnostics or {}).get(
+                    "n_errors", len(kernel_result.errors)
+                )
+            )
+            status = "✓ Kernel execution passed" if kernel_result.success else (
+                f"✗ {kernel_error_count} kernel errors"
+            )
+            print(f"  {status} after refinement", flush=True)
+
     # Build JSON prompt record
     base_prompt_str = "System:\n" + sys_msg + "\n\n" + "Human:\n" + human_msg
     if candidates:
@@ -479,6 +667,28 @@ def generate_sysml_moe(prompt_text: str) -> Tuple[str, dict]:
                     "severity": e.severity
                 }
                 for e in final_result.errors
+            ]
+
+    if kernel_result is not None:
+        diagnostics = kernel_result.diagnostics or {}
+        diagnostic_errors = diagnostics.get("errors", [])
+        prompt_record["kernel_compiled"] = kernel_result.compiled
+        prompt_record["kernel_available"] = kernel_result.kernel_available
+        prompt_record["kernel_error_count"] = int(
+            diagnostics.get("n_errors", len(kernel_result.errors))
+        )
+        if kernel_result.bridge_error:
+            prompt_record["kernel_bridge_error"] = kernel_result.bridge_error
+        if isinstance(diagnostic_errors, list) and diagnostic_errors:
+            prompt_record["kernel_error_details"] = [
+                {
+                    "line": error.get("line"),
+                    "column": error.get("column"),
+                    "message": error.get("message"),
+                    "severity": error.get("severity"),
+                }
+                for error in diagnostic_errors[:30]
+                if isinstance(error, dict)
             ]
 
     return final, prompt_record

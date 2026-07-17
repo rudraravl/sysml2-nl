@@ -85,11 +85,11 @@ package EsophagealDopplerMonitoringSystem {
     }
 
     port def AnalogSignalPort {
-        in out rawSignal : Real;
+        inout rawSignal : Real;
     }
 
     port def DigitalDataPort {
-        in out data : HemodynamicParameters;
+        inout data : HemodynamicParameters;
     }
 
     port def PowerPort {
@@ -246,7 +246,7 @@ package EsophagealDopplerMonitoringSystem {
         out continuousParameters : HemodynamicParameters;
         
         private attribute currentAorticDiameter : AorticDiameterValue;
-        private attribute currentWaveform : VelocityWaveform;
+        private item currentWaveform : VelocityWaveform;
         private attribute signalQuality : SignalQualityIndexValue;
         
         first start;
@@ -279,18 +279,20 @@ package EsophagealDopplerMonitoringSystem {
         }
         
         then action processSignal {
-            action filter : FilterSignal {
-                in rawEcho = acquireData::receive.dopplerEcho;
+            action signalFilter : FilterSignal {
+                in rawEcho = acquireData.receive.dopplerEcho;
                 in filterBandwidth = 2000.0[SI::Hz];
                 out filteredSignal;
             }
             
             action checkQuality : AssessSignalQuality {
-                in echoStrength = acquireData::receive.dopplerEcho.signalStrength;
+                in echoStrength = acquireData.receive.dopplerEcho.signalStrength;
                 in noiseLevel = 10.0;
                 out qualityIndex;
             }
             
+            first signalFilter;
+            then checkQuality;
             then assign signalQuality := checkQuality.qualityIndex;
         }
         
@@ -577,7 +579,7 @@ package EsophagealDopplerMonitoringSystem {
         
         perform action monitoring : MonitorHemodynamics {
             in patientInfo {
-                attribute age = 55[SI::year];
+                attribute age = (55 * 365)[SI::d];
                 attribute height = 175[SI::cm];
                 attribute weight = 75[SI::kg];
                 attribute estimatedAorticDiameter = 2.5[SI::cm];
