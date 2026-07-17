@@ -1,24 +1,73 @@
+"""End-to-end pipeline: instantiate -> twin answer -> score -> report."""
+
 from __future__ import annotations
 
-from . import ingest
-from .aligner import align
-from .diff_engine import diff
-from .nl_extractor import extract as extract_nl
+import hashlib
+import json
+from pathlib import Path
+
+from .answer import answer_all
+from .bank import load, universal
+from .instantiate import instantiate
 from .report import report_data
-from .sysml_extractor import extract as extract_sysml
+from .score import score
 
 
-def compare_pair(nl_text: str, sysml_text: str) -> dict:
-    nl_doc = extract_nl(ingest.from_text(nl_text))
-    sysml_doc = extract_sysml(ingest.from_text(sysml_text))
-    alignment = align(nl_doc, sysml_doc)
-    mismatches = diff(nl_doc, sysml_doc, alignment)
-    return report_data(nl_doc, sysml_doc, alignment, mismatches)
+def compare_pair(nl: str, sysml: str, ask, sample_id: str = "pair", shards: int = 5,
+                 universal_only: bool = False, cache_dir: str | Path | None = None) -> dict:
+    bank = load()
+    questions = universal(bank)
+    rejected: list[dict] = []
+    if not universal_only:
+        inst, rejected = _instances(bank, nl, sysml, sample_id, ask, cache_dir)
+        questions = questions + inst
+    nl_ans = _nl_answers(bank, questions, nl, sample_id, ask, shards, cache_dir)
+    sys_ans = answer_all(questions, sysml, "sysml", ask, bank, shards)
+    result = score(questions, nl_ans, sys_ans, bank)
+    data = report_data(sample_id, bank, questions, result,
+                       mode="universal_only" if universal_only else "full")
+    if rejected:
+        data["rejected_questions"] = rejected
+    return data
 
 
-def compare_files(nl_path: str, sysml_path: str) -> tuple:
-    nl_doc = extract_nl(ingest.from_file(nl_path))
-    sysml_doc = extract_sysml(ingest.from_file(sysml_path))
-    alignment = align(nl_doc, sysml_doc)
-    mismatches = diff(nl_doc, sysml_doc, alignment)
-    return nl_doc, sysml_doc, alignment, mismatches
+def compare_files(nl_path: str | Path, sysml_path: str | Path, ask,
+                  sample_id: str | None = None, **kw) -> dict:
+    nl_path, sysml_path = Path(nl_path), Path(sysml_path)
+    sample_id = sample_id or nl_path.stem
+    return compare_pair(nl_path.read_text(encoding="utf-8"),
+                        sysml_path.read_text(encoding="utf-8"),
+                        ask, sample_id=sample_id, **kw)
+
+
+def _instances(bank, nl, sysml, sample_id, ask, cache_dir):
+    """Instantiated questions, cached per (sample, bank version)."""
+    path = Path(cache_dir) / f"{sample_id}.questions.json" if cache_dir else None
+    if path and path.exists():
+        c = json.loads(path.read_text(encoding="utf-8"))
+        if c.get("bank_version") == bank["version"]:
+            return c["questions"], c.get("rejected", [])
+    kept, rejected = instantiate(bank, nl, sysml, sample_id, ask)
+    if path:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"bank_version": bank["version"], "questions": kept,
+                                    "rejected": rejected}, indent=1, ensure_ascii=False),
+                        encoding="utf-8")
+    return kept, rejected
+
+
+def _nl_answers(bank, questions, nl, sample_id, ask, shards, cache_dir):
+    """NL-side answers, cached: reused across every candidate SysML of the sample."""
+    key = hashlib.sha1("\n".join(q["id"] for q in questions).encode()).hexdigest()[:12]
+    path = Path(cache_dir) / f"{sample_id}.nl_answers.json" if cache_dir else None
+    if path and path.exists():
+        c = json.loads(path.read_text(encoding="utf-8"))
+        if c.get("bank_version") == bank["version"] and c.get("key") == key:
+            return c["answers"]
+    answers = answer_all(questions, nl, "natural_language", ask, bank, shards)
+    if path:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"bank_version": bank["version"], "key": key,
+                                    "answers": answers}, indent=1, ensure_ascii=False),
+                        encoding="utf-8")
+    return answers

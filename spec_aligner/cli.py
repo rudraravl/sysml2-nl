@@ -1,29 +1,45 @@
+"""CLI: compare one NL file with one SysML v2 file via twin-blind QA."""
+
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 
+from .llm import ask
 from .pipeline import compare_files
-from .report import report_data, write_json, write_markdown
+from .report import render_markdown, write_json
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="specdiff", description="Compare NL requirements with SysML v2 specs.")
-    parser.add_argument("--nl", required=True, help="Natural-language requirements file")
-    parser.add_argument("--sysml", required=True, help="SysML v2 model file")
-    parser.add_argument("--out", help="Markdown report path")
-    parser.add_argument("--json", dest="json_out", help="JSON report path")
-    args = parser.parse_args(argv)
+    p = argparse.ArgumentParser(prog="specdiff",
+                                description="QA-based NL <-> SysML v2 alignment check.")
+    p.add_argument("--nl", required=True, help="natural-language description file")
+    p.add_argument("--sysml", required=True, help="SysML v2 model file")
+    p.add_argument("--sample-id", help="sample id (default: NL file stem)")
+    p.add_argument("--json", dest="json_out", help="JSON report path")
+    p.add_argument("--out", help="markdown report path")
+    p.add_argument("--shards", type=int, default=5, help="parallel answer shards (default 5)")
+    p.add_argument("--universal-only", action="store_true",
+                   help="skip template instantiation (Tier 1 only)")
+    p.add_argument("--cache", help="cache dir for instantiated questions + NL answers")
+    p.add_argument("--model", help="codex model (default gpt-5.5)")
+    args = p.parse_args(argv)
 
-    nl_doc, sysml_doc, alignment, mismatches = compare_files(args.nl, args.sysml)
-    data = report_data(nl_doc, sysml_doc, alignment, mismatches)
+    if args.model:
+        os.environ["SPEC_ALIGNER_MODEL"] = args.model
+
+    data = compare_files(args.nl, args.sysml, ask, sample_id=args.sample_id,
+                         shards=args.shards, universal_only=args.universal_only,
+                         cache_dir=args.cache)
 
     if args.json_out:
         write_json(args.json_out, data)
     if args.out:
-        write_markdown(args.out, nl_doc, sysml_doc, mismatches)
-    if not args.out and not args.json_out:
+        from pathlib import Path
+        Path(args.out).write_text(render_markdown(data), encoding="utf-8")
+    if not args.json_out and not args.out:
         json.dump(data, sys.stdout, indent=2, ensure_ascii=False)
         sys.stdout.write("\n")
     return 0

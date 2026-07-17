@@ -1,0 +1,127 @@
+"""Deterministic comparison of the two answer sets -> similarity + mismatches."""
+
+from __future__ import annotations
+
+SEVERITY = {
+    "conflict": "high",
+    "missing_in_model": "medium",
+    "unverifiable": "low",
+    "extra_in_model": "low",
+}
+
+
+def kind(answer: str, neg: set[str], prefix: str = "no_") -> str:
+    if answer == "not_stated":
+        return "ns"
+    if answer in neg or answer.startswith(prefix):
+        return "neg"
+    return "pos"
+
+
+def outcome(nl_answer: str, sysml_answer: str, neg: set[str], prefix: str = "no_") -> str:
+    knl, ksys = kind(nl_answer, neg, prefix), kind(sysml_answer, neg, prefix)
+    if knl == "ns":
+        return "vacuous" if ksys in ("ns", "neg") else "extra_in_model"
+    if ksys == "ns":
+        return "unverifiable"
+    if nl_answer == sysml_answer:
+        return "aligned"
+    if knl == "pos" and ksys == "neg":
+        return "missing_in_model"
+    return "conflict"
+
+
+def score(questions: list[dict], nl_ans: dict, sys_ans: dict, bank: dict) -> dict:
+    sc = bank["scoring"]
+    neg, prefix = set(sc["negative_answers"]), sc["negative_prefix"]
+    credit_map = sc["credit"]
+
+    rows = []
+    for q in questions:
+        a, b = nl_ans[q["id"]]["answer"], sys_ans[q["id"]]["answer"]
+        rows.append({"q": q, "nl": nl_ans[q["id"]], "sysml": sys_ans[q["id"]],
+                     "outcome": outcome(a, b, neg, prefix), "scored": False})
+    by_id = {r["q"]["id"]: r for r in rows}
+
+    distractors = [r for r in rows if r["q"].get("category") == "distractor"]
+    reliability = {}
+    for side in ("nl", "sysml"):
+        ok = sum(1 for r in distractors if kind(r[side]["answer"], neg, prefix) != "pos")
+        reliability[side] = round(ok / len(distractors), 3) if distractors else 1.0
+
+    canary = by_id.get("U-GLB-01")
+    domain_mismatch = bool(canary and canary["outcome"] == "conflict")
+
+    scored = []
+    for r in rows:
+        q = r["q"]
+        if q.get("category") == "distractor" or q["id"] == "U-GLB-01":
+            continue
+        dep = q.get("depends_on")
+        if dep:
+            parent = by_id.get(dep["question"])
+            if not parent or parent["outcome"] != "aligned" or parent["nl"]["answer"] != dep["answer"]:
+                r["outcome"] = "skipped_dependency"
+                continue
+        if r["outcome"] == "vacuous":
+            continue
+        r["scored"] = True
+        r["credit"] = _credit(r, credit_map)
+        scored.append(r)
+
+    similarity = round(sum(r["credit"] for r in scored) / len(scored), 4) if scored else None
+
+    cats: dict[str, list[float]] = {}
+    for r in scored:
+        cats.setdefault(r["q"]["category"], []).append(r["credit"])
+    per_category = {c: round(sum(v) / len(v), 4) for c, v in sorted(cats.items())}
+
+    counts: dict[str, int] = {}
+    for r in rows:
+        counts[r["outcome"]] = counts.get(r["outcome"], 0) + 1
+
+    mismatches = [_mismatch(r) for r in scored if r["outcome"] != "aligned"]
+    mismatches.sort(key=lambda m: ("high", "medium", "low").index(m["severity"]))
+
+    return {
+        "similarity": similarity,
+        "per_category": per_category,
+        "counts": counts,
+        "scored": len(scored),
+        "reliability": reliability,
+        "reliability_flag": min(reliability.values()) < sc["reliability_threshold"],
+        "domain_mismatch": domain_mismatch,
+        "mismatches": mismatches,
+        "rows": [
+            {"qid": r["q"]["id"], "category": r["q"].get("category"),
+             "outcome": r["outcome"], "scored": r["scored"], "credit": r.get("credit"),
+             "nl": r["nl"], "sysml": r["sysml"]}
+            for r in rows
+        ],
+    }
+
+
+def _credit(row: dict, credit_map: dict) -> float:
+    if row["outcome"] == "extra_in_model":
+        key = ("extra_in_model_origin_sysml" if row["q"].get("origin") == "sysml"
+               else "extra_in_model_origin_other")
+        return credit_map[key]
+    return credit_map[row["outcome"]]
+
+
+def _mismatch(row: dict) -> dict:
+    q = row["q"]
+    return {
+        "qid": q["id"],
+        "category": q.get("category"),
+        "origin": q.get("origin"),
+        "tier": q.get("tier"),
+        "text": q["text"],
+        "outcome": row["outcome"],
+        "severity": SEVERITY[row["outcome"]],
+        "credit": row["credit"],
+        "nl": row["nl"],
+        "sysml": row["sysml"],
+        "metamodel_refs": q.get("metamodel_refs", []),
+        "anchors": q.get("anchors", {}),
+    }

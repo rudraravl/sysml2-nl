@@ -1,100 +1,74 @@
+"""Assemble and render the per-sample alignment report."""
+
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
-from .schemas import AlignmentResult, Mismatch, SpecDocument, SpecItem
 
-
-def report_data(nl_doc: SpecDocument, sysml_doc: SpecDocument, alignment: AlignmentResult, mismatches: list[Mismatch]) -> dict:
+def report_data(sample_id: str, bank: dict, questions: list[dict], result: dict,
+                mode: str = "full") -> dict:
+    uni = sum(1 for q in questions if q.get("tier") == "universal")
     return {
-        "nl_specs": nl_doc.to_dict(),
-        "sysml_specs": sysml_doc.to_dict(),
-        "alignment": alignment.to_dict(),
-        "mismatches": [m.to_dict() for m in mismatches],
+        "sample": sample_id,
+        "bank_version": bank["version"],
+        "mode": mode,
         "summary": {
-            "nl_spec_count": len(nl_doc.specs),
-            "sysml_spec_count": len(sysml_doc.specs),
-            "matched_count": len(alignment.matched_pairs),
-            "uncertain_match_count": len(alignment.uncertain_pairs),
-            "mismatch_count": len(mismatches),
+            "similarity": result["similarity"],
+            "scored": result["scored"],
+            "questions": {"total": len(questions), "universal": uni,
+                          "instantiated": len(questions) - uni},
+            "counts": result["counts"],
+            "reliability": result["reliability"],
+            "reliability_flag": result["reliability_flag"],
+            "domain_mismatch": result["domain_mismatch"],
         },
+        "per_category": result["per_category"],
+        "mismatches": result["mismatches"],
+        "answers": result["rows"],
     }
 
 
 def write_json(path: str | Path, data: dict) -> None:
-    Path(path).write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    Path(path).write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n",
+                          encoding="utf-8")
 
 
-def render_markdown(nl_doc: SpecDocument, sysml_doc: SpecDocument, mismatches: list[Mismatch]) -> str:
+def render_markdown(data: dict) -> str:
+    s = data["summary"]
+    sim = "insufficient signal (nothing scored)" if s["similarity"] is None \
+        else f"**{s['similarity']:.4f}** over {s['scored']} scored questions"
     lines = [
-        "# Specification Comparison Report",
+        f"# Alignment report – {data['sample']}",
         "",
-        "## Summary",
-        "",
-        f"- Natural-language specs: {len(nl_doc.specs)}",
-        f"- SysML specs: {len(sysml_doc.specs)}",
-        f"- Mismatches / review items: {len(mismatches)}",
-        "",
-        "## Natural-Language Specs",
-        "",
+        f"- Similarity: {sim}",
+        f"- Questions: {s['questions']['total']} "
+        f"(universal {s['questions']['universal']}, instantiated {s['questions']['instantiated']})",
+        f"- Outcomes: " + ", ".join(f"{k} {v}" for k, v in sorted(s["counts"].items())),
+        f"- Answerer reliability (distractors): nl {s['reliability']['nl']}, "
+        f"sysml {s['reliability']['sysml']}"
+        + (" **UNRELIABLE - review answers**" if s["reliability_flag"] else ""),
     ]
-    lines.extend(_spec_lines(nl_doc.specs))
-    lines.extend(["", "## SysML Specs", ""])
-    lines.extend(_spec_lines(sysml_doc.specs))
-    lines.extend(["", "## Mismatch Report", ""])
-
-    if not mismatches:
-        lines.append("No mismatches found by the current extractor and alignment rules.")
-        return "\n".join(lines).rstrip() + "\n"
-
-    for severity in ("high", "medium", "low"):
-        group = [m for m in mismatches if m.severity == severity]
-        if not group:
-            continue
-        lines.extend([f"### {severity.title()} Severity", ""])
-        for mm in group:
-            lines.extend(_mismatch_lines(mm))
-            lines.append("")
+    if s["domain_mismatch"]:
+        lines.append("- **DOMAIN MISMATCH (canary): the two documents may not describe the same system.**")
+    if data["per_category"]:
+        lines += ["", "## Per-category alignment", "", "| Category | Score |", "| --- | --- |"]
+        lines += [f"| {c} | {v:.4f} |" for c, v in data["per_category"].items()]
+    lines += ["", "## Mismatches", ""]
+    if not data["mismatches"]:
+        lines.append("None.")
+    for m in data["mismatches"]:
+        lines += [
+            f"### [{m['severity']}] {m['qid']} ({m['category']}, {m['outcome']})",
+            "",
+            m["text"],
+            "",
+            f"- NL answered `{m['nl']['answer']}`"
+            + (f" – \"{m['nl']['evidence']}\"" if m["nl"]["evidence"] else ""),
+            f"- SysML answered `{m['sysml']['answer']}`"
+            + (f" – `{m['sysml']['evidence']}`" if m["sysml"]["evidence"] else ""),
+        ]
+        if m.get("metamodel_refs"):
+            lines.append(f"- Metamodel refs: {', '.join(m['metamodel_refs'])}")
+        lines.append("")
     return "\n".join(lines).rstrip() + "\n"
-
-
-def write_markdown(path: str | Path, nl_doc: SpecDocument, sysml_doc: SpecDocument, mismatches: list[Mismatch]) -> None:
-    Path(path).write_text(render_markdown(nl_doc, sysml_doc, mismatches), encoding="utf-8")
-
-
-def _spec_lines(specs: list[SpecItem]) -> list[str]:
-    if not specs:
-        return ["No specs extracted."]
-    lines = []
-    for spec in specs:
-        evidence = spec.source.span if spec.source else ""
-        loc = ""
-        if spec.source and spec.source.line_start:
-            loc = f" lines {spec.source.line_start}-{spec.source.line_end}"
-        pred = spec.predicate or spec.name
-        lines.append(f"- `{spec.id}` `{spec.kind}` **{spec.name}**: {pred} (confidence {spec.confidence:.2f}){loc}")
-        if evidence and evidence != pred:
-            lines.append(f"  Evidence: `{_one_line(evidence)}`")
-    return lines
-
-
-def _mismatch_lines(mm: Mismatch) -> list[str]:
-    lines = [
-        f"#### {mm.summary}",
-        "",
-        f"- Class: `{mm.class_}`",
-        f"- Confidence: {mm.confidence:.2f}",
-    ]
-    if mm.needs_human_review:
-        lines.append("- Needs human review: yes")
-    if mm.evidence.get("nl_span"):
-        lines.extend(["", "Natural language says:", f"> {_one_line(mm.evidence['nl_span'])}"])
-    if mm.evidence.get("sysml_span"):
-        lines.extend(["", "SysML says:", "```sysml", mm.evidence["sysml_span"], "```"])
-    lines.extend(["", "Diagnosis:", mm.details, "", "Suggested action:", mm.suggested_action])
-    return lines
-
-
-def _one_line(text: str) -> str:
-    return " ".join(text.strip().split())
