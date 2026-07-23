@@ -19,7 +19,7 @@ from pathlib import Path
 from spec_aligner import bank as bank_mod
 from spec_aligner.answer import answer_all, answer_prompt, parse_answers, shard
 from spec_aligner.instantiate import validate_instances, writer_prompt
-from spec_aligner.pipeline import compare_pair
+from spec_aligner.pipeline import _instances, _nl_answers, compare_pair
 from spec_aligner.report import render_markdown, report_data, write_json
 from spec_aligner.score import outcome, score
 
@@ -373,6 +373,52 @@ class PipelineTest(unittest.TestCase):
         self.assertEqual(data["summary"]["scored"], 0)          # everything not_stated
         self.assertIsNone(data["summary"]["similarity"])
         self.assertIn("Alignment report", render_markdown(data))
+
+    def test_question_cache_is_invalidated_when_source_changes(self):
+        calls = []
+
+        def writer(prompt):
+            calls.append(prompt)
+            return json.dumps({"questions": [{
+                "template_id": "T-STR-01",
+                "text": "Does the system include a battery?",
+                "options": ["yes", "no"],
+                "origin": "nl",
+                "slots": {"component": "battery"},
+            }]})
+
+        settings = {"source_mode": "nl", "min_questions": 1, "max_questions": 2}
+        with tempfile.TemporaryDirectory() as cache:
+            _instances(BANK, "A battery is required.", "", "same", writer, cache,
+                       "runtime", settings)
+            _instances(BANK, "A battery is optional.", "", "same", writer, cache,
+                       "runtime", settings)
+        self.assertEqual(len(calls), 2)
+
+    def test_nl_answer_cache_is_invalidated_when_document_changes(self):
+        calls = []
+        questions = [{
+            "id": "Q-1",
+            "category": "structure",
+            "text": "Does the system include a battery?",
+            "options": ["yes", "no"],
+        }]
+
+        def answerer(prompt):
+            calls.append(prompt)
+            return json.dumps({"answers": [{
+                "qid": "Q-1",
+                "answer": "yes",
+                "evidence": "battery",
+                "confidence": 1.0,
+            }]})
+
+        with tempfile.TemporaryDirectory() as cache:
+            _nl_answers(BANK, questions, "The battery is red.", "same", answerer, 1,
+                        cache, "runtime", "nl")
+            _nl_answers(BANK, questions, "The battery is blue.", "same", answerer, 1,
+                        cache, "runtime", "nl")
+        self.assertEqual(len(calls), 2)
 
 
 class SeededDatasetTest(unittest.TestCase):

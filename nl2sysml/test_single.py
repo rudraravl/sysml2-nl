@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Test script to run a single example from nl_seed.jsonl through the MoE pipeline.
-Usage: python test_single.py [id_or_index] [--no-compiler]
+Usage: python test_single.py [id_or_index] [--no-compiler] [--no-spec-alignment] [--layer2-quality]
   - If id_or_index is a number, uses that line number (1-indexed)
   - If id_or_index is a string like "U140", finds that ID
   - If no argument, uses the first entry
@@ -12,7 +12,12 @@ import json
 import sys
 import os
 from pathlib import Path
-from agent_rag_moe import generate_sysml_moe
+try:
+    from nl2sysml.agent_rag_moe import generate_sysml_moe
+except ModuleNotFoundError as exc:
+    if exc.name != "nl2sysml":
+        raise
+    from agent_rag_moe import generate_sysml_moe
 
 def main():
     base = Path(__file__).parent
@@ -21,11 +26,17 @@ def main():
     # Parse arguments
     args = sys.argv[1:]
     disable_compiler = False
+    disable_spec_alignment = False
+    layer2_quality = False
     entry_arg = None
     
     for arg in args:
         if arg == "--no-compiler":
             disable_compiler = True
+        elif arg == "--no-spec-alignment":
+            disable_spec_alignment = True
+        elif arg == "--layer2-quality":
+            layer2_quality = True
         elif not arg.startswith("--"):
             entry_arg = arg
     
@@ -33,6 +44,12 @@ def main():
     if disable_compiler:
         os.environ["SYSML_COMPILER_ENABLED"] = "false"
         print("Compiler checking disabled (--no-compiler flag)\n")
+    if disable_spec_alignment:
+        os.environ["SPEC_ALIGNMENT_ENABLED"] = "false"
+        print("Spec alignment disabled (--no-spec-alignment flag)\n")
+    if layer2_quality:
+        os.environ["LAYER2_QUALITY_ENABLED"] = "true"
+        print("Layer 2 execution enabled (--layer2-quality flag)\n")
     
     if not seed_file.exists():
         print(f"Error: {seed_file} not found")
@@ -130,6 +147,18 @@ def main():
                     print("\nError Details:")
                     for err in prompt_record["final_error_details"][:5]:  # Show first 5
                         print(f"  Line {err['line']}, Col {err['column']}: {err['message']}")
+        quality_report = prompt_record.get("quality_report")
+        if quality_report:
+            attempts = quality_report.get("attempts", [])
+            summary = attempts[-1].get("alignment", {}).get("summary", {}) if attempts else {}
+            print(
+                f"\nSpec alignment: "
+                f"{'✓ Accepted' if quality_report.get('accepted') else '✗ Not accepted'}"
+            )
+            print(f"Similarity: {summary.get('similarity')}")
+            print(f"Repairs: {quality_report.get('repairs', 0)}")
+            if quality_report.get("error"):
+                print(f"Alignment error: {quality_report['error']}")
         
         # Save to file
         out_dir = base / "result_rag_moe"
@@ -152,4 +181,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

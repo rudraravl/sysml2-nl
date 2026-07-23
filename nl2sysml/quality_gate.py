@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import tempfile
 from dataclasses import asdict, is_dataclass
 from typing import Any, Callable
 
@@ -25,51 +27,60 @@ def run_quality_gate(nl: str, sysml: str, ask: Callable[[str], str], *,
 
     kwargs = {"profile": "runtime", "shards": 3}
     kwargs.update(alignment_kwargs or {})
+    kwargs.setdefault("sample_id", f"runtime-{hashlib.sha1(nl.encode()).hexdigest()[:12]}")
+    temporary_cache = None
+    if "cache_dir" not in kwargs:
+        temporary_cache = tempfile.TemporaryDirectory(prefix="spec-alignment-")
+        kwargs["cache_dir"] = temporary_cache.name
     candidate = sysml
     attempts = []
 
-    for attempt_number in range(max_repairs + 1):
-        validation = _call_stage(validate, candidate)
-        validation_status = _validation_status(validation)
+    try:
+        for attempt_number in range(max_repairs + 1):
+            validation = _call_stage(validate, candidate)
+            validation_status = _validation_status(validation)
 
-        execution = None
-        execution_status = "skipped"
-        if validation_status != "failed":
-            execution = _call_stage(execute, candidate)
-            execution_status = _execution_status(execution)
+            execution = None
+            execution_status = "skipped"
+            if validation_status != "failed":
+                execution = _call_stage(execute, candidate)
+                execution_status = _execution_status(execution)
 
-        alignment = compare_pair(nl, candidate, ask, **kwargs)
-        semantic_ok = not needs_repair(alignment, threshold)
-        accepted = (
-            validation_status in ("passed", "skipped")
-            and execution_status in ("passed", "skipped")
-            and semantic_ok
-        )
-        attempts.append({
-            "attempt": attempt_number,
-            "validation_status": validation_status,
-            "validation": validation,
-            "execution_status": execution_status,
-            "execution": execution,
-            "alignment": alignment,
-            "accepted": accepted,
-        })
+            alignment = compare_pair(nl, candidate, ask, **kwargs)
+            semantic_ok = not needs_repair(alignment, threshold)
+            accepted = (
+                validation_status in ("passed", "skipped")
+                and execution_status in ("passed", "skipped")
+                and semantic_ok
+            )
+            attempts.append({
+                "attempt": attempt_number,
+                "validation_status": validation_status,
+                "validation": validation,
+                "execution_status": execution_status,
+                "execution": execution,
+                "alignment": alignment,
+                "accepted": accepted,
+            })
 
-        if accepted or repair is None or attempt_number >= max_repairs:
-            break
-        if validation_status == "unavailable" or execution_status == "unavailable":
-            # Infrastructure absence is reported but is not something a model repair can fix.
-            if semantic_ok:
+            if accepted or repair is None or attempt_number >= max_repairs:
                 break
+            if validation_status == "unavailable" or execution_status == "unavailable":
+                # Infrastructure absence is reported but is not something a model repair can fix.
+                if semantic_ok:
+                    break
 
-        feedback = _stage_feedback(validation_status, validation,
-                                   execution_status, execution)
-        prompt = build_repair_prompt(nl, candidate, alignment,
-                                     stage_feedback=feedback)
-        revised = repair(prompt).strip()
-        if not revised or revised == candidate.strip():
-            break
-        candidate = revised
+            feedback = _stage_feedback(validation_status, validation,
+                                       execution_status, execution)
+            prompt = build_repair_prompt(nl, candidate, alignment,
+                                         stage_feedback=feedback)
+            revised = repair(prompt).strip()
+            if not revised or revised == candidate.strip():
+                break
+            candidate = revised
+    finally:
+        if temporary_cache is not None:
+            temporary_cache.cleanup()
 
     last = attempts[-1]
     return {
@@ -110,8 +121,10 @@ def _validation_status(result: dict | None) -> str:
         return "skipped"
     if result.get("available") is False:
         return "unavailable"
-    valid = result.get("ok", result.get("is_valid", result.get("valid")))
-    return "passed" if valid is not False else "failed"
+    for key in ("ok", "is_valid", "valid"):
+        if key in result and isinstance(result[key], bool):
+            return "passed" if result[key] else "failed"
+    return "unavailable"
 
 
 def _execution_status(result: dict | None) -> str:
@@ -119,8 +132,10 @@ def _execution_status(result: dict | None) -> str:
         return "skipped"
     if result.get("kernel_available") is False or result.get("available") is False:
         return "unavailable"
-    success = result.get("success", result.get("compiled", result.get("ok")))
-    return "passed" if success is not False else "failed"
+    for key in ("success", "compiled", "ok"):
+        if key in result and isinstance(result[key], bool):
+            return "passed" if result[key] else "failed"
+    return "unavailable"
 
 
 def _stage_feedback(validation_status, validation, execution_status, execution) -> str:

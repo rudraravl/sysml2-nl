@@ -83,12 +83,14 @@ def compare_files(nl_path: str | Path, sysml_path: str | Path, ask,
 def _instances(bank, nl, sysml, sample_id, ask, cache_dir, profile, settings):
     """Instantiated questions, cached per (sample, bank version)."""
     path = Path(cache_dir) / f"{sample_id}.questions.json" if cache_dir else None
+    source_hash = _source_hash(nl, sysml, settings["source_mode"])
     if path and path.exists():
         c = json.loads(path.read_text(encoding="utf-8"))
         if (c.get("bank_version") == bank["version"]
                 and c.get("profile") == profile
                 and c.get("source_mode") == settings["source_mode"]
-                and c.get("max_questions") == settings["max_questions"]):
+                and c.get("max_questions") == settings["max_questions"]
+                and c.get("source_hash") == source_hash):
             return c["questions"], c.get("rejected", [])
     kept, rejected = instantiate(
         bank, nl, sysml, sample_id, ask,
@@ -101,6 +103,7 @@ def _instances(bank, nl, sysml, sample_id, ask, cache_dir, profile, settings):
         path.write_text(json.dumps({"bank_version": bank["version"], "profile": profile,
                                     "source_mode": settings["source_mode"],
                                     "max_questions": settings["max_questions"],
+                                    "source_hash": source_hash,
                                     "questions": kept, "rejected": rejected},
                                    indent=1, ensure_ascii=False),
                         encoding="utf-8")
@@ -115,6 +118,7 @@ def _nl_answers(bank, questions, nl, sample_id, ask, shards, cache_dir,
         for q in questions
     ]
     key_data = json.dumps({"profile": profile, "source_mode": source_mode,
+                           "nl_hash": hashlib.sha256(nl.encode()).hexdigest(),
                            "questions": question_payload}, sort_keys=True)
     key = hashlib.sha1(key_data.encode()).hexdigest()[:12]
     path = Path(cache_dir) / f"{sample_id}.nl_answers.json" if cache_dir else None
@@ -129,3 +133,12 @@ def _nl_answers(bank, questions, nl, sample_id, ask, shards, cache_dir,
                                     "answers": answers}, indent=1, ensure_ascii=False),
                         encoding="utf-8")
     return answers
+
+
+def _source_hash(nl: str, sysml: str, source_mode: str) -> str:
+    source = {
+        "nl": nl,
+        "sysml": sysml,
+        "both": f"{nl}\0{sysml}",
+    }[source_mode]
+    return hashlib.sha256(source.encode()).hexdigest()

@@ -6,6 +6,9 @@ one LLM answers every question reading ONLY the NL description, another reading 
 code; answer agreement is the alignment signal. Disagreeing questions localize the mismatch and
 carry two-sided evidence for repair feedback.
 
+`questions_en.html` is Creatix's original annotated v0.1.6 reference preserved from branch
+`creatix/cc/aligned_template`; `questions.json` v0.2.0 is the executable source of truth.
+
 ## Architecture
 
 - **Tier 1 – universal** (45 questions, fixed): category-level existence/counting, answerable

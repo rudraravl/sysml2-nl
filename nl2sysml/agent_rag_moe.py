@@ -13,19 +13,26 @@ Pipeline:
 One-shot: pass requirement as CLI arg. Batch: no args → read nl2sysml/dataset.json and write results to nl2sysml/result_rag_moe.
 """
 
+from __future__ import annotations
+
 from pathlib import Path
 import os
 import json
 import re
+import sys
 from typing import List, Tuple, Optional
 from urllib import request as _req
 
 from dotenv import load_dotenv
 import google.generativeai as genai
 
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
 # Import compiler interface
 try:
-    from compiler_interface import check_code, is_compiler_available, CompilerResult
+    from nl2sysml.compiler_interface import check_code, is_compiler_available, CompilerResult
     COMPILER_AVAILABLE = True
 except ImportError:
     COMPILER_AVAILABLE = False
@@ -78,6 +85,10 @@ EXPERT_MODELS_RATING = {
 # Compiler configuration
 MAX_REFINEMENT_ITERATIONS = int(os.getenv("MAX_REFINEMENT_ITERATIONS", "2"))
 COMPILER_SYNTAX_ONLY = os.getenv("COMPILER_SYNTAX_ONLY", "false").lower() == "true"
+SPEC_ALIGNMENT_THRESHOLD = float(os.getenv("SPEC_ALIGNMENT_THRESHOLD", "0.85"))
+SPEC_ALIGNMENT_MAX_REPAIRS = int(os.getenv("SPEC_ALIGNMENT_MAX_REPAIRS", "1"))
+SPEC_ALIGNMENT_PROFILE = os.getenv("SPEC_ALIGNMENT_PROFILE", "runtime")
+SPEC_ALIGNMENT_SHARDS = int(os.getenv("SPEC_ALIGNMENT_SHARDS", "3"))
 
 def _model_group(model_name: str) -> str:
     if model_name == "gemini-2.5-pro":
@@ -295,6 +306,103 @@ def _openrouter_invoke(model: str, system_msg: str, human_msg: str, key: str) ->
         return ""
 
 
+def _env_flag(name: str, default: bool) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in ("1", "true", "yes", "on")
+
+
+def _alignment_ask(prompt: str, openrouter_key: str | None) -> str:
+    if not openrouter_key:
+        raise RuntimeError("OPENROUTER_API_KEY is required for spec alignment")
+    system = (
+        "You are a deterministic evaluator. Follow the requested answer schema exactly. "
+        "Return strict JSON only, without markdown or commentary."
+    )
+    last_error = "empty response"
+    for _ in range(3):
+        out = _openrouter_invoke(COMBINER_MODEL, system, prompt, openrouter_key)
+        if not out:
+            continue
+        try:
+            from spec_aligner.jsonx import extract_json
+
+            data = extract_json(out)
+            if isinstance(data, list) or (
+                isinstance(data, dict)
+                and any(isinstance(data.get(key), list) for key in ("questions", "answers"))
+            ):
+                return out
+            last_error = "JSON did not contain a questions or answers list"
+        except ValueError as exc:
+            last_error = str(exc)
+    raise RuntimeError(f"spec alignment model returned invalid JSON: {last_error}")
+
+
+def _alignment_validate(code: str) -> dict:
+    if not is_compiler_available():
+        return {"available": False, "is_valid": False, "errors": []}
+    result = check_code(code, syntax_only=COMPILER_SYNTAX_ONLY)
+    errors = [
+        {
+            "line": error.line,
+            "column": error.column,
+            "message": error.message,
+            "severity": error.severity,
+            "code": error.code,
+            "file": error.file,
+        }
+        for error in result.errors
+    ]
+    return {
+        "available": True,
+        "is_valid": result.is_valid,
+        "error_count": result.error_count,
+        "errors": errors,
+    }
+
+
+def _run_post_generation_quality(prompt_text: str, candidate: str,
+                                 openrouter_key: str | None) -> dict | None:
+    if not _env_flag("SPEC_ALIGNMENT_ENABLED", True):
+        return None
+
+    from nl2sysml.quality_gate import layer2_executor, run_quality_gate
+
+    validate = _alignment_validate if is_compiler_available() else None
+    execute = layer2_executor if _env_flag("LAYER2_QUALITY_ENABLED", False) else None
+
+    def repair(repair_prompt: str) -> str:
+        system = _default_system_prompt(
+            "Repair an existing SysML v2 model from grounded validation and semantic feedback."
+        )
+        return _invoke_with_retry(
+            COMBINER_MODEL, system, repair_prompt, openrouter_key
+        )
+
+    return run_quality_gate(
+        prompt_text,
+        candidate,
+        lambda prompt: _alignment_ask(prompt, openrouter_key),
+        validate=validate,
+        execute=execute,
+        repair=repair,
+        threshold=float(os.getenv(
+            "SPEC_ALIGNMENT_THRESHOLD", str(SPEC_ALIGNMENT_THRESHOLD)
+        )),
+        max_repairs=int(os.getenv(
+            "SPEC_ALIGNMENT_MAX_REPAIRS", str(SPEC_ALIGNMENT_MAX_REPAIRS)
+        )),
+        alignment_kwargs={
+            "profile": os.getenv("SPEC_ALIGNMENT_PROFILE", SPEC_ALIGNMENT_PROFILE),
+            "shards": int(os.getenv(
+                "SPEC_ALIGNMENT_SHARDS", str(SPEC_ALIGNMENT_SHARDS)
+            )),
+        },
+    )
+
+
 def _invoke_with_retry(model: str, system_msg: str, human_msg: str, openrouter_key: str | None) -> str:
     """
     Call a model and enforce code-only output via postprocess and a single stricter retry if needed.
@@ -449,6 +557,26 @@ def generate_sysml_moe(prompt_text: str) -> Tuple[str, dict]:
         status = "✓ Valid" if final_result.is_valid else f"✗ {final_result.error_count} errors"
         print(f"  {status} after refinement", flush=True)
 
+    quality_report = None
+    if final and final.strip() and _env_flag("SPEC_ALIGNMENT_ENABLED", True):
+        print("  Running post-generation spec alignment...", flush=True)
+        try:
+            quality_report = _run_post_generation_quality(prompt_text, final, ok)
+            if quality_report:
+                final = quality_report["final_sysml"]
+                last_alignment = quality_report["attempts"][-1]["alignment"]["summary"]
+                print(
+                    "  "
+                    + ("✓" if quality_report["accepted"] else "✗")
+                    + " Spec alignment "
+                    + f"(similarity={last_alignment.get('similarity')}, "
+                    + f"repairs={quality_report['repairs']})",
+                    flush=True,
+                )
+        except Exception as exc:
+            quality_report = {"accepted": False, "error": str(exc), "attempts": []}
+            print(f"  ✗ Spec alignment failed: {exc}", flush=True)
+
     # Build JSON prompt record
     base_prompt_str = "System:\n" + sys_msg + "\n\n" + "Human:\n" + human_msg
     if candidates:
@@ -468,9 +596,23 @@ def generate_sysml_moe(prompt_text: str) -> Tuple[str, dict]:
     
     # Add compiler validation info if available
     if is_compiler_available():
-        prompt_record["final_valid"] = final_result.is_valid
-        prompt_record["final_errors"] = final_result.error_count
-        if final_result.errors:
+        last_attempt = (
+            quality_report.get("attempts", [])[-1]
+            if quality_report and quality_report.get("attempts")
+            else None
+        )
+        if last_attempt and last_attempt["validation_status"] in ("passed", "failed"):
+            validation = last_attempt.get("validation") or {}
+            prompt_record["final_valid"] = last_attempt["validation_status"] == "passed"
+            prompt_record["final_errors"] = validation.get(
+                "error_count", len(validation.get("errors", []))
+            )
+            if validation.get("errors"):
+                prompt_record["final_error_details"] = validation["errors"]
+        else:
+            prompt_record["final_valid"] = final_result.is_valid
+            prompt_record["final_errors"] = final_result.error_count
+        if final_result.errors and "final_error_details" not in prompt_record:
             prompt_record["final_error_details"] = [
                 {
                     "line": e.line,
@@ -480,6 +622,10 @@ def generate_sysml_moe(prompt_text: str) -> Tuple[str, dict]:
                 }
                 for e in final_result.errors
             ]
+    prompt_record["spec_alignment_enabled"] = _env_flag("SPEC_ALIGNMENT_ENABLED", True)
+    prompt_record["layer2_quality_enabled"] = _env_flag("LAYER2_QUALITY_ENABLED", False)
+    if quality_report is not None:
+        prompt_record["quality_report"] = quality_report
 
     return final, prompt_record
 

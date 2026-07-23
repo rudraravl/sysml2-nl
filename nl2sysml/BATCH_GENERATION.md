@@ -1,6 +1,7 @@
 # Batch Generation Guide
 
-This script generates NL-SysML pairs from `nl_seed.jsonl` using the MoE pipeline with compiler feedback.
+This script generates NL-SysML pairs from `nl_seed.jsonl` using the MoE pipeline,
+compiler feedback, and the post-generation spec mismatch quality gate.
 
 ## Usage
 
@@ -14,6 +15,9 @@ python3 batch_generate.py
 This will:
 - Process the first 50 entries from `nl_seed.jsonl`
 - Save outputs to `dataset/with_syntax_check/`
+- Run NL-only focused question selection and semantic alignment
+- Repair once when validation or semantic alignment fails
+- Save the full alignment result as `alignment.json`
 - Skip entries that already exist (resume capability)
 - Log progress to `dataset/with_syntax_check/generation.log`
 
@@ -41,6 +45,19 @@ By default, the script skips entries that already exist. To overwrite:
 python3 batch_generate.py --no-resume
 ```
 
+### Quality Gate Controls
+
+Spec alignment is enabled by default for command-line and batch generation. Layer 2
+execution is opt-in because it requires the SysML Jupyter kernel:
+
+```bash
+# Full validation -> Layer 2 -> alignment -> repair loop
+python3 batch_generate.py --layer2-quality
+
+# Legacy generation and compiler validation only
+python3 batch_generate.py --no-spec-alignment
+```
+
 ### Custom Paths
 
 ```bash
@@ -58,7 +75,8 @@ dataset/with_syntax_check/
 ├── U140/
 │   ├── U140.sysml      # Generated SysML v2 code
 │   ├── U140.txt        # NL description (from nl_seed.jsonl)
-│   └── meta.json       # Metadata
+│   ├── meta.json       # Validation and alignment summary
+│   └── alignment.json  # Full question/answer comparison and repair attempts
 ├── U544/
 │   ├── U544.sysml
 │   ├── U544.txt
@@ -144,4 +162,3 @@ python3 batch_generate.py --start-from <last_completed_index>
 grep -r '"is_valid": true' dataset/with_syntax_check/*/meta.json | wc -l
 grep -r '"is_valid": false' dataset/with_syntax_check/*/meta.json | wc -l
 ```
-

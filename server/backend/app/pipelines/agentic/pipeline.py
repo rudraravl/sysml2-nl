@@ -318,10 +318,24 @@ def _alignment_ask_sync(prompt: str) -> str:
         "You are a deterministic evaluator. Follow the requested answer schema exactly. "
         "Return strict JSON only, without markdown or commentary."
     )
-    out = _openrouter_invoke(COMBINER_MODEL, system, prompt)
-    if not out:
-        raise RuntimeError("spec alignment model returned no JSON")
-    return out
+    last_error = "empty response"
+    for _ in range(3):
+        out = _openrouter_invoke(COMBINER_MODEL, system, prompt)
+        if not out:
+            continue
+        try:
+            from spec_aligner.jsonx import extract_json
+
+            data = extract_json(out)
+            if isinstance(data, list) or (
+                isinstance(data, dict)
+                and any(isinstance(data.get(key), list) for key in ("questions", "answers"))
+            ):
+                return out
+            last_error = "JSON did not contain a questions or answers list"
+        except ValueError as exc:
+            last_error = str(exc)
+    raise RuntimeError(f"spec alignment model returned invalid JSON: {last_error}")
 
 
 def _alignment_repair_sync(prompt: str) -> str:
@@ -602,7 +616,7 @@ class AgenticPipeline(BasePipeline):
                 text,
                 final,
                 _alignment_ask_sync,
-                validate=_alignment_validate_sync,
+                validate=_alignment_validate_sync if _is_compiler_available_fn() else None,
                 execute=layer2_executor if LAYER2_QUALITY_ENABLED else None,
                 repair=_alignment_repair_sync,
                 threshold=SPEC_ALIGNMENT_THRESHOLD,

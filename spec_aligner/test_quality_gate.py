@@ -4,8 +4,13 @@ from __future__ import annotations
 
 import unittest
 from unittest.mock import patch
+from pathlib import Path
 
-from nl2sysml.quality_gate import run_quality_gate
+from nl2sysml.quality_gate import (
+    _execution_status,
+    _validation_status,
+    run_quality_gate,
+)
 from spec_aligner.feedback import build_repair_prompt, needs_repair
 
 
@@ -54,7 +59,7 @@ class QualityGateTests(unittest.TestCase):
             return {"success": True, "kernel_available": True}
 
         def compare(nl, code, ask, **kwargs):
-            calls.append(("align", code, kwargs["profile"]))
+            calls.append(("align", code, kwargs["profile"], kwargs["cache_dir"]))
             return reports.pop(0)
 
         with patch("nl2sysml.quality_gate.compare_pair", side_effect=compare):
@@ -73,6 +78,9 @@ class QualityGateTests(unittest.TestCase):
         self.assertEqual([call[0] for call in calls],
                          ["validate", "execute", "align",
                           "validate", "execute", "align"])
+        alignment_calls = [call for call in calls if call[0] == "align"]
+        self.assertEqual(alignment_calls[0][3], alignment_calls[1][3])
+        self.assertFalse(Path(alignment_calls[0][3]).exists())
 
     def test_unavailable_layer2_does_not_trigger_a_pointless_repair(self):
         with patch("nl2sysml.quality_gate.compare_pair",
@@ -87,6 +95,12 @@ class QualityGateTests(unittest.TestCase):
         self.assertFalse(result["accepted"])
         self.assertEqual(result["repairs"], 0)
         self.assertEqual(result["attempts"][0]["execution_status"], "unavailable")
+
+    def test_unknown_stage_payloads_never_pass(self):
+        self.assertEqual(_validation_status({"result": "unknown"}), "unavailable")
+        self.assertEqual(_execution_status({"result": "unknown"}), "unavailable")
+        self.assertEqual(_validation_status({"ok": "false"}), "unavailable")
+        self.assertEqual(_execution_status({"success": "true"}), "unavailable")
 
 
 if __name__ == "__main__":

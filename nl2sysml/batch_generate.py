@@ -19,17 +19,19 @@ from pathlib import Path
 from datetime import datetime
 from typing import Dict, Any
 
-from agent_rag_moe import generate_sysml_moe
-
-
 def create_meta_json(entry: Dict[str, Any], sysml_code: str, prompt_record: Dict) -> Dict[str, Any]:
     """Create meta.json matching the dataset structure."""
+    alignment_enabled = prompt_record.get("spec_alignment_enabled", False)
+    quality_report = prompt_record.get("quality_report") or {}
+    validation_ok = prompt_record.get("final_valid", False)
+    alignment_ok = not alignment_enabled or quality_report.get("accepted", False)
+
     # Base structure matching dataset/data format
     meta = {
         "id": entry.get("id", "UNKNOWN"),
         "source_path": f"nl_seed.jsonl:{entry.get('id', 'UNKNOWN')}",
         "split": "generated",
-        "quality": "A" if prompt_record.get("final_valid", False) else "B",
+        "quality": "A" if validation_ok and alignment_ok else "B",
         "category": entry.get("domain", "unknown"),
         "created": datetime.now().isoformat(),
     }
@@ -43,8 +45,21 @@ def create_meta_json(entry: Dict[str, Any], sysml_code: str, prompt_record: Dict
     # Add validation info if available
     if "final_valid" in prompt_record:
         meta["validation"] = {
-            "is_valid": prompt_record.get("final_valid", False),
+            "is_valid": validation_ok,
             "error_count": prompt_record.get("final_errors", 0),
+        }
+    if alignment_enabled:
+        attempts = quality_report.get("attempts", [])
+        last_summary = (
+            attempts[-1].get("alignment", {}).get("summary", {})
+            if attempts else {}
+        )
+        meta["spec_alignment"] = {
+            "accepted": quality_report.get("accepted", False),
+            "similarity": last_summary.get("similarity"),
+            "repairs": quality_report.get("repairs", 0),
+            "threshold": quality_report.get("threshold"),
+            "error": quality_report.get("error"),
         }
     
     return meta
@@ -67,6 +82,13 @@ def generate_batch(
         start_from: Index to start from (for resuming)
         resume: If True, skip entries that already exist
     """
+    try:
+        from nl2sysml.agent_rag_moe import generate_sysml_moe
+    except ModuleNotFoundError as exc:
+        if exc.name != "nl2sysml":
+            raise
+        from agent_rag_moe import generate_sysml_moe
+
     # Read entries
     print(f"Reading entries from {seed_file}...")
     entries = []
@@ -101,6 +123,8 @@ def generate_batch(
         "errors": 0,
         "valid": 0,
         "invalid": 0,
+        "aligned": 0,
+        "misaligned": 0,
     }
     
     # Log file
@@ -126,9 +150,16 @@ def generate_batch(
         sysml_file = entry_dir / f"{entry_id}.sysml"
         txt_file = entry_dir / f"{entry_id}.txt"
         meta_file = entry_dir / "meta.json"  # Match dataset structure
+        alignment_file = entry_dir / "alignment.json"
         
         # Check if already exists (resume)
-        if resume and sysml_file.exists() and txt_file.exists() and meta_file.exists():
+        alignment_enabled = os.getenv(
+            "SPEC_ALIGNMENT_ENABLED", "true"
+        ).strip().lower() in ("1", "true", "yes", "on")
+        complete = sysml_file.exists() and txt_file.exists() and meta_file.exists()
+        if alignment_enabled:
+            complete = complete and alignment_file.exists()
+        if resume and complete:
             log(f"[{idx+1}/{total}] {entry_id}: Already exists, skipping")
             stats["skipped"] += 1
             continue
@@ -162,6 +193,12 @@ def generate_batch(
                 json.dumps(meta_data, indent=2, ensure_ascii=False) + "\n",
                 encoding='utf-8'
             )
+            quality_report = prompt_record.get("quality_report")
+            if quality_report is not None:
+                alignment_file.write_text(
+                    json.dumps(quality_report, indent=2, ensure_ascii=False) + "\n",
+                    encoding="utf-8",
+                )
             
             # Update stats
             stats["processed"] += 1
@@ -172,6 +209,11 @@ def generate_batch(
                 stats["invalid"] += 1
                 error_count = prompt_record.get("final_errors", 0)
                 log(f"  ⚠ Generated (invalid, {error_count} errors, {elapsed:.1f}s)")
+            if prompt_record.get("spec_alignment_enabled"):
+                if (quality_report or {}).get("accepted", False):
+                    stats["aligned"] += 1
+                else:
+                    stats["misaligned"] += 1
             
         except KeyboardInterrupt:
             log("Interrupted by user", "WARNING")
@@ -205,6 +247,8 @@ def generate_batch(
     print(f"Errors: {stats['errors']}")
     print(f"Valid outputs: {stats['valid']}")
     print(f"Invalid outputs: {stats['invalid']}")
+    print(f"Spec-aligned outputs: {stats['aligned']}")
+    print(f"Spec-misaligned outputs: {stats['misaligned']}")
     print(f"Output directory: {output_dir}")
     print(f"Log file: {log_file}")
     print("=" * 70)
@@ -247,8 +291,22 @@ def main():
         default=None,
         help="Output directory (default: dataset/with_syntax_check)"
     )
+    parser.add_argument(
+        "--no-spec-alignment",
+        action="store_true",
+        help="Disable the post-generation spec mismatch gate",
+    )
+    parser.add_argument(
+        "--layer2-quality",
+        action="store_true",
+        help="Run the Layer 2 execution harness before spec alignment",
+    )
     
     args = parser.parse_args()
+    if args.no_spec_alignment:
+        os.environ["SPEC_ALIGNMENT_ENABLED"] = "false"
+    if args.layer2_quality:
+        os.environ["LAYER2_QUALITY_ENABLED"] = "true"
     
     # Determine paths
     base = Path(__file__).parent
@@ -278,4 +336,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

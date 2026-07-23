@@ -78,8 +78,12 @@ SPEC_ALIGNMENT_MAX_REPAIRS=1
 SPEC_ALIGNMENT_SHARDS=3
 ```
 
-Both flags default to `false`, preserving the current translator latency and allowing
-deployment where the SysML kernel or alignment-model backend is unavailable.
+The FastAPI flags default to `false`, preserving interactive latency unless the
+deployment explicitly enables the gate. The command-line and batch generator enable
+spec alignment by default because those paths produce the regenerated research
+artifacts; pass `--no-spec-alignment` or set `SPEC_ALIGNMENT_ENABLED=false` to run the
+legacy generation path. Layer 2 remains opt-in everywhere because it requires a
+working SysML Jupyter kernel.
 
 The result records every attempt, validation and execution status, alignment report,
 final SysML, repair count, and acceptance decision. Unavailable infrastructure is
