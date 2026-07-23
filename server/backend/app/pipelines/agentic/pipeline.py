@@ -15,6 +15,8 @@ import os
 import json
 import re
 import asyncio
+import sys
+from functools import partial
 from pathlib import Path
 from typing import List, Tuple, Optional
 from urllib import request as _req
@@ -78,6 +80,12 @@ _CompilerResultClass = _ToolCompilerResult
 # Env for refinement (same as agent_rag_moe.py)
 MAX_REFINEMENT_ITERATIONS = int(os.getenv("MAX_REFINEMENT_ITERATIONS", "2"))
 COMPILER_SYNTAX_ONLY = os.getenv("COMPILER_SYNTAX_ONLY", "false").lower() == "true"
+SPEC_ALIGNMENT_ENABLED = os.getenv("SPEC_ALIGNMENT_ENABLED", "false").lower() == "true"
+LAYER2_QUALITY_ENABLED = os.getenv("LAYER2_QUALITY_ENABLED", "false").lower() == "true"
+SPEC_ALIGNMENT_THRESHOLD = float(os.getenv("SPEC_ALIGNMENT_THRESHOLD", "0.85"))
+SPEC_ALIGNMENT_MAX_REPAIRS = int(os.getenv("SPEC_ALIGNMENT_MAX_REPAIRS", "1"))
+SPEC_ALIGNMENT_PROFILE = os.getenv("SPEC_ALIGNMENT_PROFILE", "runtime")
+SPEC_ALIGNMENT_SHARDS = int(os.getenv("SPEC_ALIGNMENT_SHARDS", "3"))
 
 # Expert models
 EXPERT_MODELS = [
@@ -303,6 +311,53 @@ def _invoke_with_retry(model: str, system_msg: str, human_msg: str) -> str:
             strong = system_msg + " No markdown, no fences, no prose. Output SysML v2 code only."
             out = _postprocess(_openrouter_invoke(model, strong, human_msg))
         return out
+
+
+def _alignment_ask_sync(prompt: str) -> str:
+    system = (
+        "You are a deterministic evaluator. Follow the requested answer schema exactly. "
+        "Return strict JSON only, without markdown or commentary."
+    )
+    out = _openrouter_invoke(COMBINER_MODEL, system, prompt)
+    if not out:
+        raise RuntimeError("spec alignment model returned no JSON")
+    return out
+
+
+def _alignment_repair_sync(prompt: str) -> str:
+    system = _default_system_prompt(
+        "Repair an existing SysML v2 model from grounded validation and semantic feedback."
+    )
+    return _invoke_with_retry(COMBINER_MODEL, system, prompt)
+
+
+def _alignment_validate_sync(code: str) -> dict:
+    result = validate_sysml(code, syntax_only=COMPILER_SYNTAX_ONLY)
+    return result.model_dump() if hasattr(result, "model_dump") else result.dict()
+
+
+def _compact_quality_report(report: dict) -> dict:
+    attempts = []
+    for attempt in report.get("attempts", []):
+        alignment = attempt.get("alignment", {})
+        attempts.append({
+            "attempt": attempt.get("attempt"),
+            "validation_status": attempt.get("validation_status"),
+            "execution_status": attempt.get("execution_status"),
+            "accepted": attempt.get("accepted"),
+            "alignment": {
+                "summary": alignment.get("summary", {}),
+                "per_category": alignment.get("per_category", {}),
+                "mismatches": alignment.get("mismatches", []),
+                "question_selection": alignment.get("question_selection", {}),
+            },
+        })
+    return {
+        "accepted": report.get("accepted", False),
+        "repairs": report.get("repairs", 0),
+        "threshold": report.get("threshold"),
+        "attempts": attempts,
+    }
 
 
 def _refine_with_compiler_sync(
@@ -533,6 +588,54 @@ class AgenticPipeline(BasePipeline):
             elif not (final and final.strip()):
                 log.debug("No synthesis output; skipping validation")
 
+        # Step 6: Optional post-generation quality gate. When Layer 2 is enabled,
+        # ordering is validation -> execution -> semantic alignment on every attempt.
+        quality_report = None
+        if SPEC_ALIGNMENT_ENABLED and final and final.strip():
+            self._report_progress("spec_alignment", "Running post-generation quality gate...")
+            if str(root) not in sys.path:
+                sys.path.insert(0, str(root))
+            from nl2sysml.quality_gate import layer2_executor, run_quality_gate
+
+            gate = partial(
+                run_quality_gate,
+                text,
+                final,
+                _alignment_ask_sync,
+                validate=_alignment_validate_sync,
+                execute=layer2_executor if LAYER2_QUALITY_ENABLED else None,
+                repair=_alignment_repair_sync,
+                threshold=SPEC_ALIGNMENT_THRESHOLD,
+                max_repairs=SPEC_ALIGNMENT_MAX_REPAIRS,
+                alignment_kwargs={
+                    "profile": SPEC_ALIGNMENT_PROFILE,
+                    "shards": SPEC_ALIGNMENT_SHARDS,
+                },
+            )
+            try:
+                full_quality_report = await loop.run_in_executor(None, gate)
+                final = full_quality_report["final_sysml"]
+                last_attempt = full_quality_report["attempts"][-1]
+                if last_attempt["validation_status"] == "passed":
+                    final_valid = True
+                    final_errors = 0
+                    final_error_details = []
+                elif last_attempt["validation_status"] == "failed":
+                    final_valid = False
+                    validation = last_attempt.get("validation") or {}
+                    diagnostics_list = validation.get("diagnostics", [])
+                    final_errors = validation.get("error_count", len(diagnostics_list))
+                    final_error_details = diagnostics_list
+                quality_report = _compact_quality_report(full_quality_report)
+                last_alignment = quality_report["attempts"][-1]["alignment"]["summary"]
+                self._report_progress(
+                    "spec_alignment_done",
+                    f"accepted={quality_report['accepted']}, similarity={last_alignment.get('similarity')}",
+                )
+            except Exception as exc:
+                quality_report = {"accepted": False, "error": str(exc), "attempts": []}
+                self._report_progress("spec_alignment_failed", str(exc))
+
         # Diagnostics
         diagnostics = {
             "loaded_from_cache": True,  # API doesn't load models
@@ -551,8 +654,12 @@ class AgenticPipeline(BasePipeline):
             "syntax_check_available": _is_compiler_available_fn(),
             "final_valid": final_valid,
             "final_errors": final_errors,
+            "spec_alignment_enabled": SPEC_ALIGNMENT_ENABLED,
+            "layer2_quality_enabled": LAYER2_QUALITY_ENABLED,
         }
         if final_error_details:
             diagnostics["final_error_details"] = final_error_details
+        if quality_report:
+            diagnostics["quality_report"] = quality_report
 
         return final, diagnostics

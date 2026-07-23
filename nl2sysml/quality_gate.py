@@ -1,0 +1,132 @@
+"""Post-generation quality gate: validate -> execute (Layer 2) -> align -> repair."""
+
+from __future__ import annotations
+
+from dataclasses import asdict, is_dataclass
+from typing import Any, Callable
+
+from spec_aligner.feedback import build_repair_prompt, needs_repair
+from spec_aligner.pipeline import compare_pair
+
+
+def run_quality_gate(nl: str, sysml: str, ask: Callable[[str], str], *,
+                     validate: Callable[[str], Any] | None = None,
+                     execute: Callable[[str], Any] | None = None,
+                     repair: Callable[[str], str] | None = None,
+                     threshold: float = 0.85, max_repairs: int = 1,
+                     alignment_kwargs: dict | None = None) -> dict:
+    """Evaluate a candidate and optionally repair it, rerunning every quality stage."""
+    if not nl.strip() or not sysml.strip():
+        raise ValueError("natural language and SysML must be non-empty")
+    if not 0.0 <= threshold <= 1.0:
+        raise ValueError("threshold must be between 0 and 1")
+    if max_repairs < 0:
+        raise ValueError("max_repairs must be non-negative")
+
+    kwargs = {"profile": "runtime", "shards": 3}
+    kwargs.update(alignment_kwargs or {})
+    candidate = sysml
+    attempts = []
+
+    for attempt_number in range(max_repairs + 1):
+        validation = _call_stage(validate, candidate)
+        validation_status = _validation_status(validation)
+
+        execution = None
+        execution_status = "skipped"
+        if validation_status != "failed":
+            execution = _call_stage(execute, candidate)
+            execution_status = _execution_status(execution)
+
+        alignment = compare_pair(nl, candidate, ask, **kwargs)
+        semantic_ok = not needs_repair(alignment, threshold)
+        accepted = (
+            validation_status in ("passed", "skipped")
+            and execution_status in ("passed", "skipped")
+            and semantic_ok
+        )
+        attempts.append({
+            "attempt": attempt_number,
+            "validation_status": validation_status,
+            "validation": validation,
+            "execution_status": execution_status,
+            "execution": execution,
+            "alignment": alignment,
+            "accepted": accepted,
+        })
+
+        if accepted or repair is None or attempt_number >= max_repairs:
+            break
+        if validation_status == "unavailable" or execution_status == "unavailable":
+            # Infrastructure absence is reported but is not something a model repair can fix.
+            if semantic_ok:
+                break
+
+        feedback = _stage_feedback(validation_status, validation,
+                                   execution_status, execution)
+        prompt = build_repair_prompt(nl, candidate, alignment,
+                                     stage_feedback=feedback)
+        revised = repair(prompt).strip()
+        if not revised or revised == candidate.strip():
+            break
+        candidate = revised
+
+    last = attempts[-1]
+    return {
+        "accepted": last["accepted"],
+        "final_sysml": candidate,
+        "repairs": len(attempts) - 1,
+        "threshold": threshold,
+        "attempts": attempts,
+    }
+
+
+def layer2_executor(candidate: str) -> dict:
+    """Adapter for the existing Layer 2 execution harness."""
+    from nl2sysml.sysml_execution import ExecutionRequest, run_sysml_execution
+
+    result = run_sysml_execution(ExecutionRequest(candidate_sysml=candidate))
+    return result.to_dict()
+
+
+def _call_stage(callback, candidate):
+    if callback is None:
+        return None
+    return _to_dict(callback(candidate))
+
+
+def _to_dict(value):
+    if value is None or isinstance(value, dict):
+        return value
+    if hasattr(value, "to_dict"):
+        return value.to_dict()
+    if is_dataclass(value):
+        return asdict(value)
+    return {"result": str(value)}
+
+
+def _validation_status(result: dict | None) -> str:
+    if result is None:
+        return "skipped"
+    if result.get("available") is False:
+        return "unavailable"
+    valid = result.get("ok", result.get("is_valid", result.get("valid")))
+    return "passed" if valid is not False else "failed"
+
+
+def _execution_status(result: dict | None) -> str:
+    if result is None:
+        return "skipped"
+    if result.get("kernel_available") is False or result.get("available") is False:
+        return "unavailable"
+    success = result.get("success", result.get("compiled", result.get("ok")))
+    return "passed" if success is not False else "failed"
+
+
+def _stage_feedback(validation_status, validation, execution_status, execution) -> str:
+    lines = []
+    if validation_status == "failed":
+        lines.append(f"Validation failed: {validation}")
+    if execution_status == "failed":
+        lines.append(f"Layer 2 execution failed: {execution}")
+    return "\n".join(lines)

@@ -56,6 +56,9 @@ async def nl2sysml(req: NL2SysMLRequest):
             encoder_load_ms=diag_extra.get("encoder_load_ms"),
             embedding_ms=diag_extra.get("embedding_ms"),
             embedding_dim=diag_extra.get("embedding_dim"),
+            spec_alignment_enabled=diag_extra.get("spec_alignment_enabled", False),
+            layer2_quality_enabled=diag_extra.get("layer2_quality_enabled", False),
+            quality_report=diag_extra.get("quality_report"),
         ),
     )
 

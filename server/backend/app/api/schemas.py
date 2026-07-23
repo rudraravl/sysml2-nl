@@ -1,6 +1,6 @@
 """API request/response schemas."""
 
-from typing import Literal, Optional
+from typing import Any, Literal, Optional
 from pydantic import BaseModel, Field, ConfigDict
 
 from app.tools.schemas import (
@@ -34,6 +34,11 @@ class Diagnostics(BaseModel):
     encoder_load_ms: Optional[int] = None
     embedding_ms: Optional[int] = None
     embedding_dim: Optional[int] = None
+
+    # Optional post-generation semantic quality gate (agentic pipeline)
+    spec_alignment_enabled: bool = False
+    layer2_quality_enabled: bool = False
+    quality_report: Optional[dict[str, Any]] = None
 
 
 class NL2SysMLResponse(BaseModel):
