@@ -1,4 +1,9 @@
-"""Post-generation quality gate: validate -> execute (Layer 2) -> align -> repair."""
+"""Post-generation quality gate: optional validate -> optional execute -> align -> repair.
+
+Generation's preferred ordering is handled outside this module:
+  MoE synthesis -> compiler refine -> kernel refine -> semantic align (this gate).
+When used from generation, pass execute=None so kernel is not duplicated here.
+"""
 
 from __future__ import annotations
 

@@ -3,11 +3,12 @@ Agentic Pipeline with RAG + MoE synthesis.
 
 Pipeline (from nl2sysml/agent_rag_moe.py):
 - Build RAG context from dataset examples and spec chunks.
-- Query multiple experts (EXPERT_MODELS):
-  * gemini-2.5-pro (direct via Google Generative AI)
-  * openrouter models: openai/gpt-5.1-codex-max, anthropic/claude-sonnet-4.5, meta-llama/llama-4-maverick
+- Query multiple experts (EXPERT_MODELS).
 - Ask combiner model to synthesize a single best SysML v2 model.
-- Optional: validate and refine output with SysML v2 syntax checker (if available on server).
+- Post-synthesis gates (in order):
+  1. Compiler syntax/semantic refine
+  2. SysML kernel execution refine
+  3. Spec-mismatch semantic alignment (combiner repair on failures)
 - Output only SysML v2 code; no markdown fences.
 """
 
@@ -18,7 +19,7 @@ import asyncio
 import sys
 from functools import partial
 from pathlib import Path
-from typing import List, Tuple, Optional
+from typing import Any, List, Tuple, Optional
 from urllib import request as _req
 
 from fastapi import HTTPException
@@ -31,6 +32,15 @@ from app.pipelines.agentic.inputagent import run_input_agent
 from app.tools.sysml_tools import is_validate_sysml_available, validate_sysml
 
 log = get_logger(__name__)
+
+try:
+    from nl2sysml.sysml_execution import ExecutionRequest, ExecutionResult, run_sysml_execution
+    KERNEL_EXECUTION_AVAILABLE = True
+except ImportError:
+    ExecutionRequest = None  # type: ignore[assignment,misc]
+    ExecutionResult = Any  # type: ignore[misc]
+    run_sysml_execution = None  # type: ignore[assignment]
+    KERNEL_EXECUTION_AVAILABLE = False
 
 # --- Tool-calling adapter for SysML validation ---
 class _ToolCompilerError:
@@ -80,8 +90,10 @@ _CompilerResultClass = _ToolCompilerResult
 # Env for refinement (same as agent_rag_moe.py)
 MAX_REFINEMENT_ITERATIONS = int(os.getenv("MAX_REFINEMENT_ITERATIONS", "2"))
 COMPILER_SYNTAX_ONLY = os.getenv("COMPILER_SYNTAX_ONLY", "false").lower() == "true"
+MAX_KERNEL_REFINEMENT_ITERATIONS = int(os.getenv("MAX_KERNEL_REFINEMENT_ITERATIONS", "2"))
+KERNEL_FEEDBACK_ENABLED = os.getenv("KERNEL_FEEDBACK_ENABLED", "true").lower() == "true"
+HARNESS_HEADER = "// --- Test harness (auto-generated) ---"
 SPEC_ALIGNMENT_ENABLED = os.getenv("SPEC_ALIGNMENT_ENABLED", "false").lower() == "true"
-LAYER2_QUALITY_ENABLED = os.getenv("LAYER2_QUALITY_ENABLED", "false").lower() == "true"
 SPEC_ALIGNMENT_THRESHOLD = float(os.getenv("SPEC_ALIGNMENT_THRESHOLD", "0.85"))
 SPEC_ALIGNMENT_MAX_REPAIRS = int(os.getenv("SPEC_ALIGNMENT_MAX_REPAIRS", "1"))
 SPEC_ALIGNMENT_PROFILE = os.getenv("SPEC_ALIGNMENT_PROFILE", "runtime")
@@ -417,6 +429,129 @@ def _refine_with_compiler_sync(
     return current_code, final_result
 
 
+def _split_consolidated_at_harness(consolidated: str) -> Tuple[str, str]:
+    model_plus_mocks, separator, harness_body = consolidated.partition(HARNESS_HEADER)
+    if not separator:
+        return consolidated, ""
+    return model_plus_mocks, separator + harness_body
+
+
+def _number_sysml_lines(code: str) -> str:
+    return "\n".join(
+        f"{line_number:4d}| {line}"
+        for line_number, line in enumerate(code.splitlines(), 1)
+    )
+
+
+def _format_kernel_errors(result: ExecutionResult, harness_start_line: int) -> str:
+    formatted: List[str] = []
+    diagnostics = (result.diagnostics or {}) if result is not None else {}
+    diagnostic_errors = diagnostics.get("errors", [])
+
+    if isinstance(diagnostic_errors, list):
+        for error in diagnostic_errors:
+            if not isinstance(error, dict):
+                continue
+            message = str(error.get("message", "")).strip()
+            line = error.get("line")
+            column = error.get("column")
+            if not message:
+                continue
+            location = ""
+            if isinstance(line, int):
+                location = f"line {line}"
+                if isinstance(column, int):
+                    location += f", column {column}"
+                location += ": "
+            harness_note = ""
+            if isinstance(line, int) and line >= harness_start_line:
+                harness_note = (
+                    " (in auto-generated ExecutionHarness — do not edit the harness; "
+                    "fix the candidate so the harness can bind to it)"
+                )
+            formatted.append(f"- {location}{message}{harness_note}")
+
+    if not formatted and result is not None:
+        seen = set()
+        for chunk in list(result.errors) + list(result.trace):
+            for line in str(chunk).splitlines():
+                line = line.strip()
+                if "ERROR:" not in line.upper() or line in seen:
+                    continue
+                seen.add(line)
+                formatted.append(f"- {line}")
+
+    if not formatted:
+        return "- Kernel execution failed without a structured ERROR diagnostic."
+    return "\n".join(formatted[:30])
+
+
+def _refine_with_kernel_sync(
+    code: str,
+    combiner_model: str,
+    synth_sys_msg: str,
+    synth_human_msg: str,
+    max_iterations: int,
+) -> Tuple[str, Optional[ExecutionResult]]:
+    """Refine the combined model using SysML kernel feedback."""
+    if not KERNEL_EXECUTION_AVAILABLE or ExecutionRequest is None or run_sysml_execution is None:
+        return code, None
+
+    current_code = code
+    iteration = 0
+    while iteration < max_iterations:
+        result = run_sysml_execution(ExecutionRequest(candidate_sysml=current_code))
+        if not result.kernel_available or result.bridge_error:
+            return current_code, result
+        if result.success:
+            return current_code, result
+        if iteration >= max_iterations - 1:
+            return current_code, result
+
+        model_plus_mocks, _harness_block = _split_consolidated_at_harness(
+            result.consolidated_payload
+        )
+        harness_start_line = len(model_plus_mocks.splitlines()) + 1
+        error_feedback = _format_kernel_errors(result, harness_start_line)
+        refinement_hint = (
+            "The previous SysML v2 model failed SysML kernel execution. "
+            "Fix the candidate model using the kernel errors below.\n\n"
+            "Important context:\n"
+            "- Before execution, the pipeline may inject mock `attribute def ...;` stubs "
+            "into the root package, then tacks on an auto-generated test harness starting "
+            f"at `{HARNESS_HEADER}`, followed by `package ExecutionHarness {{ ... }}`.\n"
+            "- That harness is NOT shown below and must NOT appear in your output. "
+            "It will be regenerated automatically.\n"
+            "- Some kernel errors cite line numbers inside ExecutionHarness. Those errors "
+            "can still be relevant, such as unresolved names imported from your model. "
+            "Fix the candidate so the harness can bind; do not invent harness code.\n"
+            "- Line numbers for the shown code refer to the pre-harness kernel payload "
+            "(candidate + optional mocks). A few mock lines near the root package `{` may "
+            "shift later lines slightly versus the bare candidate.\n"
+            "- Emit corrected candidate SysML v2 only: no markdown, no fences, no prose, "
+            "no ExecutionHarness, no mock stubs."
+        )
+        refinement_system = synth_sys_msg + "\n\n" + refinement_hint
+        refinement_human = (
+            f"{synth_human_msg}\n\n"
+            f"Previous candidate (revise this):\n```sysml\n{current_code}\n```\n\n"
+            "Pre-harness kernel payload with line numbers (errors in the model/mock region "
+            "refer to THESE lines; harness source is omitted — it starts after "
+            f"`{HARNESS_HEADER}`):\n```\n"
+            f"{_number_sysml_lines(model_plus_mocks)}\n```\n\n"
+            f"Kernel errors to fix:\n{error_feedback}\n\n"
+            "Generate the corrected candidate SysML v2 code only."
+        )
+        refined = _invoke_with_retry(combiner_model, refinement_system, refinement_human)
+        if not refined or refined == current_code:
+            break
+        current_code = refined
+        iteration += 1
+
+    final_result = run_sysml_execution(ExecutionRequest(candidate_sysml=current_code))
+    return current_code, final_result
+
+
 class AgenticPipeline(BasePipeline):
     """Pipeline using MoE with RAG for SysML generation."""
 
@@ -602,14 +737,57 @@ class AgenticPipeline(BasePipeline):
             elif not (final and final.strip()):
                 log.debug("No synthesis output; skipping validation")
 
-        # Step 6: Optional post-generation quality gate. When Layer 2 is enabled,
-        # ordering is validation -> execution -> semantic alignment on every attempt.
+        # Step 6: Kernel execution refine (dedicated stage after compiler)
+        kernel_enabled = os.getenv("KERNEL_FEEDBACK_ENABLED", "true").lower() == "true"
+        kernel_diagnostics: dict = {}
+        if kernel_enabled and KERNEL_EXECUTION_AVAILABLE and final and final.strip():
+            self._report_progress(
+                "kernel_check",
+                f"Kernel execution refine (up to {MAX_KERNEL_REFINEMENT_ITERATIONS} iterations)...",
+            )
+            kernel_start = time.time()
+            final, kernel_result = await loop.run_in_executor(
+                None,
+                _refine_with_kernel_sync,
+                final,
+                COMBINER_MODEL,
+                synth_sys_msg,
+                synth_human_msg,
+                MAX_KERNEL_REFINEMENT_ITERATIONS,
+            )
+            kernel_ms = int((time.time() - kernel_start) * 1000)
+            if kernel_result is None:
+                self._report_progress("kernel_check_done", f"unavailable in {kernel_ms}ms")
+            elif not kernel_result.kernel_available or kernel_result.bridge_error:
+                kernel_diagnostics = {
+                    "kernel_available": False,
+                    "kernel_bridge_error": kernel_result.bridge_error,
+                }
+                self._report_progress(
+                    "kernel_check_done",
+                    f"kernel unavailable: {kernel_result.bridge_error or 'unknown'} ({kernel_ms}ms)",
+                )
+            else:
+                diagnostics_blob = kernel_result.diagnostics or {}
+                kernel_error_count = int(
+                    diagnostics_blob.get("n_errors", len(kernel_result.errors))
+                )
+                kernel_diagnostics = {
+                    "kernel_available": True,
+                    "kernel_compiled": kernel_result.compiled,
+                    "kernel_error_count": kernel_error_count,
+                }
+                status = "passed" if kernel_result.success else f"{kernel_error_count} errors"
+                self._report_progress("kernel_check_done", f"{status} in {kernel_ms}ms")
+
+        # Step 7: Spec-mismatch semantic alignment (combiner repair). Kernel is not
+        # re-run here; it already ran as its own stage above.
         quality_report = None
         if SPEC_ALIGNMENT_ENABLED and final and final.strip():
             self._report_progress("spec_alignment", "Running post-generation quality gate...")
             if str(root) not in sys.path:
                 sys.path.insert(0, str(root))
-            from nl2sysml.quality_gate import layer2_executor, run_quality_gate
+            from nl2sysml.quality_gate import run_quality_gate
 
             gate = partial(
                 run_quality_gate,
@@ -617,7 +795,7 @@ class AgenticPipeline(BasePipeline):
                 final,
                 _alignment_ask_sync,
                 validate=_alignment_validate_sync if _is_compiler_available_fn() else None,
-                execute=layer2_executor if LAYER2_QUALITY_ENABLED else None,
+                execute=None,
                 repair=_alignment_repair_sync,
                 threshold=SPEC_ALIGNMENT_THRESHOLD,
                 max_repairs=SPEC_ALIGNMENT_MAX_REPAIRS,
@@ -668,9 +846,10 @@ class AgenticPipeline(BasePipeline):
             "syntax_check_available": _is_compiler_available_fn(),
             "final_valid": final_valid,
             "final_errors": final_errors,
+            "kernel_feedback_enabled": kernel_enabled,
             "spec_alignment_enabled": SPEC_ALIGNMENT_ENABLED,
-            "layer2_quality_enabled": LAYER2_QUALITY_ENABLED,
         }
+        diagnostics.update(kernel_diagnostics)
         if final_error_details:
             diagnostics["final_error_details"] = final_error_details
         if quality_report:

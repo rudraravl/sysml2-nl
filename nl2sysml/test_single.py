@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """
 Test script to run a single example from nl_seed.jsonl through the MoE pipeline.
-Usage: python test_single.py [id_or_index] [--no-compiler] [--no-spec-alignment] [--layer2-quality]
+Usage: python test_single.py [id_or_index] [--no-compiler] [--no-spec-alignment]
+       [--no-kernel-feedback] [--llm-backend api|cli]
   - If id_or_index is a number, uses that line number (1-indexed)
   - If id_or_index is a string like "U140", finds that ID
   - If no argument, uses the first entry
   - --no-compiler: Disable compiler checking for faster testing
+  - --llm-backend cli: Claude→Claude Code, GPT→Codex (subscription CLIs), Llama→OpenRouter
 """
 
 import json
@@ -27,18 +29,31 @@ def main():
     args = sys.argv[1:]
     disable_compiler = False
     disable_spec_alignment = False
-    layer2_quality = False
+    disable_kernel_feedback = False
     entry_arg = None
-    
-    for arg in args:
+    i = 0
+    while i < len(args):
+        arg = args[i]
         if arg == "--no-compiler":
             disable_compiler = True
         elif arg == "--no-spec-alignment":
             disable_spec_alignment = True
+        elif arg == "--no-kernel-feedback":
+            disable_kernel_feedback = True
         elif arg == "--layer2-quality":
-            layer2_quality = True
+            # Deprecated alias kept for compatibility; kernel feedback is on by default.
+            pass
+        elif arg == "--llm-backend":
+            if i + 1 >= len(args):
+                print("Error: --llm-backend requires api|cli|codex")
+                sys.exit(1)
+            os.environ["LLM_BACKEND"] = args[i + 1]
+            i += 1
+        elif arg.startswith("--llm-backend="):
+            os.environ["LLM_BACKEND"] = arg.split("=", 1)[1]
         elif not arg.startswith("--"):
             entry_arg = arg
+        i += 1
     
     # Disable compiler if requested
     if disable_compiler:
@@ -47,9 +62,14 @@ def main():
     if disable_spec_alignment:
         os.environ["SPEC_ALIGNMENT_ENABLED"] = "false"
         print("Spec alignment disabled (--no-spec-alignment flag)\n")
-    if layer2_quality:
-        os.environ["LAYER2_QUALITY_ENABLED"] = "true"
-        print("Layer 2 execution enabled (--layer2-quality flag)\n")
+    if disable_kernel_feedback:
+        os.environ["KERNEL_FEEDBACK_ENABLED"] = "false"
+        print("Kernel feedback disabled (--no-kernel-feedback flag)\n")
+    if os.getenv("LLM_BACKEND", "api").lower() in ("cli", "codex", "codex-cli"):
+        print(
+            "LLM backend: cli "
+            "(claude→Claude Code, gpt→Codex subscription CLIs; llama→OpenRouter)\n"
+        )
     
     if not seed_file.exists():
         print(f"Error: {seed_file} not found")
@@ -115,12 +135,15 @@ def main():
     compiler_enabled = os.getenv("SYSML_COMPILER_ENABLED", "true").lower() != "false"
     if compiler_enabled:
         try:
-            from compiler_interface import is_compiler_available
+            try:
+                from nl2sysml.compiler_interface import is_compiler_available
+            except ModuleNotFoundError:
+                from compiler_interface import is_compiler_available
             if is_compiler_available():
                 print("Compiler: Enabled (will validate and refine)")
             else:
                 print("Compiler: Disabled (not available)")
-        except:
+        except Exception:
             print("Compiler: Disabled (not available)")
     else:
         print("Compiler: Disabled (via SYSML_COMPILER_ENABLED=false)")
@@ -160,18 +183,19 @@ def main():
             if quality_report.get("error"):
                 print(f"Alignment error: {quality_report['error']}")
         
-        # Save to file
-        out_dir = base / "result_rag_moe"
-        out_dir.mkdir(parents=True, exist_ok=True)
-        output_file = out_dir / f"{entry_id}.sysml"
-        output_file.write_text(f"// {description}\n{code}\n", encoding='utf-8')
-        print(f"\n✓ Saved to: {output_file}")
-        
-        # Save prompt record
-        prompt_file = out_dir / f"{entry_id}_test_prompt.json"
-        with open(prompt_file, 'w', encoding='utf-8') as f:
-            json.dump(prompt_record, f, indent=2, ensure_ascii=False)
-        print(f"✓ Prompt record saved to: {prompt_file}")
+        # Save dataset-style per-seed folder only:
+        # result_rag_moe/{id}/{id}.sysml, {id}.txt, meta.json
+        try:
+            from nl2sysml.batch_generate import write_entry_output
+        except ModuleNotFoundError:
+            from batch_generate import write_entry_output
+
+        out_dir = base / "result_rag_moe" / entry_id
+        write_entry_output(out_dir, entry, code, prompt_record)
+        print(f"\n✓ Saved to: {out_dir}/")
+        print(f"  - {entry_id}.sysml")
+        print(f"  - {entry_id}.txt")
+        print(f"  - meta.json")
         
     except Exception as e:
         print(f"\nError during generation: {e}")

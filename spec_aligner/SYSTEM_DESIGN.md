@@ -52,15 +52,21 @@ selection, and direct coverage of facts the generated model is expected to prese
 
 ## Runtime contract
 
+Generation order after MoE synthesis is:
+
+1. Compiler refine
+2. Kernel execution refine (`KERNEL_FEEDBACK_ENABLED`, default on for CLI/batch)
+3. Spec-mismatch semantic alignment via `run_quality_gate` (combiner repair)
+
 ```python
-from nl2sysml.quality_gate import layer2_executor, run_quality_gate
+from nl2sysml.quality_gate import run_quality_gate
 
 result = run_quality_gate(
     natural_language,
     generated_sysml,
     ask=answer_json_with_llm,
     validate=validate_sysml,
-    execute=layer2_executor,
+    execute=None,  # kernel already ran as its own stage
     repair=repair_sysml_with_llm,
     threshold=0.85,
     max_repairs=1,
@@ -71,19 +77,23 @@ The agentic FastAPI pipeline exposes the same path behind environment flags:
 
 ```env
 SPEC_ALIGNMENT_ENABLED=true
-LAYER2_QUALITY_ENABLED=true
+KERNEL_FEEDBACK_ENABLED=true
 SPEC_ALIGNMENT_PROFILE=runtime
 SPEC_ALIGNMENT_THRESHOLD=0.85
 SPEC_ALIGNMENT_MAX_REPAIRS=1
 SPEC_ALIGNMENT_SHARDS=3
 ```
 
-The FastAPI flags default to `false`, preserving interactive latency unless the
-deployment explicitly enables the gate. The command-line and batch generator enable
+The FastAPI `SPEC_ALIGNMENT_ENABLED` flag defaults to `false`, preserving interactive latency unless the
+deployment explicitly enables the gate. Kernel feedback defaults to `true` when the SysML
+kernel is available (`KERNEL_FEEDBACK_ENABLED`, disable with `--no-kernel-feedback`).
+The command-line and batch generator enable
 spec alignment by default because those paths produce the regenerated research
 artifacts; pass `--no-spec-alignment` or set `SPEC_ALIGNMENT_ENABLED=false` to run the
-legacy generation path. Layer 2 remains opt-in everywhere because it requires a
-working SysML Jupyter kernel.
+legacy generation path. Set `LLM_BACKEND=cli` (or `--llm-backend cli`) to keep the
+same expert/combiner model ids and route Claude through Claude Code and GPT through
+Codex (subscription / ChatGPT sign-in, not API billing). `meta-llama/*` remains on
+OpenRouter.
 
 The result records every attempt, validation and execution status, alignment report,
 final SysML, repair count, and acceptance decision. Unavailable infrastructure is

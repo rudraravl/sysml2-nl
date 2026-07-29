@@ -5,21 +5,21 @@ compiler feedback, and the post-generation spec mismatch quality gate.
 
 ## Usage
 
-### Basic Usage (First 50 entries)
+### Basic Usage
 
 ```bash
 cd /Users/rudraraval/College/sysml2-nl/nl2sysml
-python3 batch_generate.py
+python3 batch_generate.py --num-entries 50
 ```
 
 This will:
-- Process the first 50 entries from `nl_seed.jsonl`
-- Save outputs to `dataset/with_syntax_check/`
+- Process the first 50 entries from `nl_seed.jsonl` (omit `--num-entries` to process all)
+- Save outputs to `dataset/with_kernel_spec/{id}/` (same layout as `dataset/with_syntax_check/`)
 - Run NL-only focused question selection and semantic alignment
 - Repair once when validation or semantic alignment fails
-- Save the full alignment result as `alignment.json`
+- Write `{id}.sysml`, `{id}.txt`, and `meta.json` only
 - Skip entries that already exist (resume capability)
-- Log progress to `dataset/with_syntax_check/generation.log`
+- Log progress to `dataset/with_kernel_spec/generation.log`
 
 ### Custom Number of Entries
 
@@ -47,16 +47,37 @@ python3 batch_generate.py --no-resume
 
 ### Quality Gate Controls
 
-Spec alignment is enabled by default for command-line and batch generation. Layer 2
-execution is opt-in because it requires the SysML Jupyter kernel:
+Default generation order after MoE synthesis:
+
+1. Compiler syntax refine
+2. SysML kernel execution refine (requires Jupyter SysML kernel; on by default)
+3. Spec-mismatch semantic alignment (combiner repair on failures; on by default)
 
 ```bash
-# Full validation -> Layer 2 -> alignment -> repair loop
-python3 batch_generate.py --layer2-quality
+# Disable kernel execution refine
+python3 batch_generate.py --no-kernel-feedback
 
-# Legacy generation and compiler validation only
+# Disable semantic alignment
 python3 batch_generate.py --no-spec-alignment
+
+# Same MoE flow via subscription CLIs + OpenRouter for Llama
+# (anthropic/claude → Claude Code, openai/gpt → Codex, meta-llama → OpenRouter).
+python3 batch_generate.py --llm-backend cli --num-entries 10
 ```
+
+Generation data flow (unchanged):
+
+1. RAG + expert MoE → combiner synthesis  
+2. Compiler refine  
+3. Kernel refine  
+4. Semantic align (combiner repair on failures)
+
+Set `LLM_BACKEND=cli` (or `--llm-backend cli`) to keep the same expert/combiner
+model ids and route Claude through Claude Code and GPT through Codex
+(`spec_aligner/llm.py`) using local subscription sign-in (not API billing).
+Llama stays on OpenRouter.
+`meta-llama/*` stays on OpenRouter. CLI failures (missing binary, auth, empty
+output) raise immediately.
 
 ### Custom Paths
 
@@ -71,18 +92,19 @@ python3 batch_generate.py \
 The script creates the same structure as `dataset/data/`:
 
 ```
-dataset/with_syntax_check/
+result_rag_moe/   # or batch --output-dir
 ├── U140/
 │   ├── U140.sysml      # Generated SysML v2 code
 │   ├── U140.txt        # NL description (from nl_seed.jsonl)
-│   ├── meta.json       # Validation and alignment summary
-│   └── alignment.json  # Full question/answer comparison and repair attempts
+│   └── meta.json       # Validation / alignment summary (dataset-style)
 ├── U544/
 │   ├── U544.sysml
 │   ├── U544.txt
 │   └── meta.json
-└── generation.log      # Generation log with timestamps
+└── generation.log      # Batch runs only
 ```
+
+Same three files as `dataset/with_syntax_check/{id}/`.
 
 ## Features
 
@@ -125,13 +147,13 @@ While running, you can check progress:
 
 ```bash
 # Count completed entries
-ls -d dataset/with_syntax_check/U* | wc -l
+ls -d dataset/with_kernel_spec/U* | wc -l
 
 # Check latest log entries
-tail -f dataset/with_syntax_check/generation.log
+tail -f dataset/with_kernel_spec/generation.log
 
 # Check for errors
-grep ERROR dataset/with_syntax_check/generation.log
+grep ERROR dataset/with_kernel_spec/generation.log
 ```
 
 ## Expected Runtime
@@ -159,6 +181,6 @@ python3 batch_generate.py --start-from <last_completed_index>
 
 ```bash
 # Count valid vs invalid
-grep -r '"is_valid": true' dataset/with_syntax_check/*/meta.json | wc -l
-grep -r '"is_valid": false' dataset/with_syntax_check/*/meta.json | wc -l
+grep -r '"is_valid": true' dataset/with_kernel_spec/*/meta.json | wc -l
+grep -r '"is_valid": false' dataset/with_kernel_spec/*/meta.json | wc -l
 ```

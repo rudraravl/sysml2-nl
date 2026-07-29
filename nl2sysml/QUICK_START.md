@@ -73,8 +73,7 @@ python3 test_single.py U140 --no-compiler
 
 ### Test Script (test_single.py)
 - Prints progress and results
-- Saves to `result_rag_moe/{id}.sysml`
-- Saves prompt record to `result_rag_moe/{id}_test_prompt.json`
+- Saves to `result_rag_moe/{id}/{id}.sysml`, `{id}.txt`, `meta.json` (dataset-style)
 - Shows validation status
 
 ## What Happens

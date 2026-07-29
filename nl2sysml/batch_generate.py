@@ -3,7 +3,7 @@
 Batch generation script for NL-SysML pairs from nl_seed.jsonl.
 
 Generates SysML v2 models for the first N entries in nl_seed.jsonl,
-saving them in dataset/with_syntax_check/ with the same structure as dataset/data/.
+saving them in dataset/with_kernel_spec/ with the same structure as dataset/data/.
 
 Features:
 - Progress tracking and resume capability
@@ -65,6 +65,28 @@ def create_meta_json(entry: Dict[str, Any], sysml_code: str, prompt_record: Dict
     return meta
 
 
+def write_entry_output(
+    entry_dir: Path,
+    entry: Dict[str, Any],
+    sysml_code: str,
+    prompt_record: Dict,
+) -> None:
+    """Write dataset-style per-seed folder: {id}.sysml, {id}.txt, meta.json."""
+    entry_dir.mkdir(parents=True, exist_ok=True)
+    entry_id = str(entry.get("id", "UNKNOWN")).strip() or "UNKNOWN"
+    description = str(entry.get("description", "")).strip()
+
+    (entry_dir / f"{entry_id}.sysml").write_text(
+        sysml_code.strip() + "\n", encoding="utf-8"
+    )
+    (entry_dir / f"{entry_id}.txt").write_text(description + "\n", encoding="utf-8")
+    meta_data = create_meta_json(entry, sysml_code, prompt_record)
+    (entry_dir / "meta.json").write_text(
+        json.dumps(meta_data, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+
+
 def generate_batch(
     seed_file: Path,
     output_dir: Path,
@@ -77,7 +99,7 @@ def generate_batch(
     
     Args:
         seed_file: Path to nl_seed.jsonl
-        output_dir: Output directory (dataset/with_syntax_check)
+        output_dir: Output directory (dataset/with_kernel_spec)
         num_entries: Number of entries to process
         start_from: Index to start from (for resuming)
         resume: If True, skip entries that already exist
@@ -145,20 +167,14 @@ def generate_batch(
         description = entry.get("description", "")
         domain = entry.get("domain", "unknown")
         
-        # Create entry directory
+        # Create entry directory (dataset-style: {id}/{id}.sysml, {id}.txt, meta.json)
         entry_dir = output_dir / entry_id
         sysml_file = entry_dir / f"{entry_id}.sysml"
         txt_file = entry_dir / f"{entry_id}.txt"
-        meta_file = entry_dir / "meta.json"  # Match dataset structure
-        alignment_file = entry_dir / "alignment.json"
+        meta_file = entry_dir / "meta.json"
         
         # Check if already exists (resume)
-        alignment_enabled = os.getenv(
-            "SPEC_ALIGNMENT_ENABLED", "true"
-        ).strip().lower() in ("1", "true", "yes", "on")
         complete = sysml_file.exists() and txt_file.exists() and meta_file.exists()
-        if alignment_enabled:
-            complete = complete and alignment_file.exists()
         if resume and complete:
             log(f"[{idx+1}/{total}] {entry_id}: Already exists, skipping")
             stats["skipped"] += 1
@@ -178,27 +194,8 @@ def generate_batch(
                 stats["errors"] += 1
                 continue
             
-            # Create directory
-            entry_dir.mkdir(parents=True, exist_ok=True)
-            
-            # Save SysML file
-            sysml_file.write_text(sysml_code.strip() + "\n", encoding='utf-8')
-            
-            # Save text file (NL description)
-            txt_file.write_text(description + "\n", encoding='utf-8')
-            
-            # Create and save meta.json
-            meta_data = create_meta_json(entry, sysml_code, prompt_record)
-            meta_file.write_text(
-                json.dumps(meta_data, indent=2, ensure_ascii=False) + "\n",
-                encoding='utf-8'
-            )
+            write_entry_output(entry_dir, entry, sysml_code, prompt_record)
             quality_report = prompt_record.get("quality_report")
-            if quality_report is not None:
-                alignment_file.write_text(
-                    json.dumps(quality_report, indent=2, ensure_ascii=False) + "\n",
-                    encoding="utf-8",
-                )
             
             # Update stats
             stats["processed"] += 1
@@ -266,7 +263,7 @@ def main():
         "--num-entries",
         type=int,
         default=1574,
-        help="Number of entries to process (default: 50)"
+        help="Number of entries to process (default: 1574)"
     )
     parser.add_argument(
         "--start-from",
@@ -289,7 +286,7 @@ def main():
         "--output-dir",
         type=str,
         default=None,
-        help="Output directory (default: dataset/with_syntax_check)"
+        help="Output directory (default: dataset/with_kernel_spec)"
     )
     parser.add_argument(
         "--no-spec-alignment",
@@ -297,16 +294,31 @@ def main():
         help="Disable the post-generation spec mismatch gate",
     )
     parser.add_argument(
+        "--no-kernel-feedback",
+        action="store_true",
+        help="Disable SysML kernel execution refine after compiler checks",
+    )
+    parser.add_argument(
         "--layer2-quality",
         action="store_true",
-        help="Run the Layer 2 execution harness before spec alignment",
+        help="Deprecated alias: enable kernel feedback (same as default)",
+    )
+    parser.add_argument(
+        "--llm-backend",
+        choices=("api", "cli", "codex"),
+        default=None,
+        help="Model transport: api (HTTP) or cli (Claude Code / Codex subscription; llama via OpenRouter)",
     )
     
     args = parser.parse_args()
     if args.no_spec_alignment:
         os.environ["SPEC_ALIGNMENT_ENABLED"] = "false"
+    if args.no_kernel_feedback:
+        os.environ["KERNEL_FEEDBACK_ENABLED"] = "false"
     if args.layer2_quality:
-        os.environ["LAYER2_QUALITY_ENABLED"] = "true"
+        os.environ["KERNEL_FEEDBACK_ENABLED"] = "true"
+    if args.llm_backend:
+        os.environ["LLM_BACKEND"] = args.llm_backend
     
     # Determine paths
     base = Path(__file__).parent
@@ -318,7 +330,7 @@ def main():
     if args.output_dir:
         output_dir = Path(args.output_dir)
     else:
-        output_dir = base.parent / "dataset" / "with_syntax_check"
+        output_dir = base.parent / "dataset" / "with_kernel_spec"
     
     if not seed_file.exists():
         print(f"Error: Seed file not found: {seed_file}")
