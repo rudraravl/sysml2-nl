@@ -419,19 +419,23 @@ def _gemini_invoke(system_msg: str, human_msg: str) -> str:
         resp = llm.invoke([SystemMessage(content=system_msg), HumanMessage(content=human_msg)])
         # LangChain returns an AIMessage; extract plain text content
         try:
-            return resp.content  # type: ignore[attr-defined]
+            text = resp.content  # type: ignore[attr-defined]
         except Exception:
             try:
-                return str(resp["content"])  # type: ignore[index]
+                text = str(resp["content"])  # type: ignore[index]
             except Exception:
-                return str(resp)
+                text = str(resp)
     except Exception as e:
-        print(f"    ✗ Error calling Gemini: {e}", flush=True)
-        return ""
+        raise RuntimeError(f"Gemini API call failed: {e}") from e
+    if not str(text).strip():
+        raise RuntimeError("Gemini API returned empty content")
+    return str(text)
 
 
 def _openrouter_invoke(model: str, system_msg: str, human_msg: str, key: str) -> str:
     # Allowed under LLM_BACKEND=cli for non-CLI experts (e.g. meta-llama/*).
+    if not key:
+        raise RuntimeError(f"OPENROUTER_API_KEY missing for model {model}")
     base = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
     url = f"{base}/chat/completions"
     payload = {
@@ -456,22 +460,31 @@ def _openrouter_invoke(model: str, system_msg: str, human_msg: str, key: str) ->
     req = _req.Request(url, data=data, headers=headers)
     try:
         with _req.urlopen(req, timeout=120) as resp:  # Increased timeout to 120s
-            obj = json.loads(resp.read().decode("utf-8", errors="ignore"))
+            raw = resp.read().decode("utf-8", errors="ignore")
+            obj = json.loads(raw)
     except Exception as e:
-        print(f"    ✗ Error calling OpenRouter ({model}): {e}", flush=True)
-        # Best-effort error surfacing under debug
+        detail = str(e)
         if os.getenv("OPENROUTER_DEBUG"):
             try:
-                body = getattr(e, 'read', lambda: b'')()
-                msg = body.decode('utf-8', errors='ignore') if body else str(e)
+                body = getattr(e, "read", lambda: b"")()
+                msg = body.decode("utf-8", errors="ignore") if body else str(e)
                 (Path(__file__).parent / "result_rag_moe" / "openrouter_error.log").write_text(msg)
+                detail = msg or detail
             except Exception:
                 pass
-        return ""
+        raise RuntimeError(f"OpenRouter call failed ({model}): {detail}") from e
+
+    if isinstance(obj, dict) and obj.get("error"):
+        raise RuntimeError(f"OpenRouter error ({model}): {obj['error']}")
     try:
-        return obj["choices"][0]["message"]["content"]
-    except Exception:
-        return ""
+        text = obj["choices"][0]["message"]["content"]
+    except Exception as e:
+        raise RuntimeError(
+            f"OpenRouter returned unexpected payload for {model}: {obj!r}"
+        ) from e
+    if not str(text).strip():
+        raise RuntimeError(f"OpenRouter returned empty content for {model}")
+    return str(text)
 
 
 def _cli_invoke(
@@ -635,29 +648,38 @@ def _invoke_with_retry(model: str, system_msg: str, human_msg: str, openrouter_k
 
     Under LLM_BACKEND=cli: Claude/GPT (and proxied Gemini) go through local CLIs;
     models without a CLI (e.g. meta-llama/*) stay on OpenRouter.
+
+    Any provider/CLI failure or blank response raises — callers must not continue.
     """
+    def _require(out: str, stage: str) -> str:
+        if not out or not str(out).strip():
+            raise RuntimeError(f"{stage}: empty response from {model}")
+        return out
+
     if _model_uses_cli(model):
         # Propagate CLI failures (missing binary, auth, empty output, etc.).
         out = _postprocess(_cli_invoke(model, system_msg, human_msg, mode="sysml"))
         if (not out) or ("```" in out):
             strong = system_msg + " No markdown, no fences, no prose. Output SysML v2 code only."
             out = _postprocess(_cli_invoke(model, strong, human_msg, mode="sysml"))
-        return out
+        return _require(out, "CLI invoke")
 
     if model == "gemini-2.5-pro" or model.lower().startswith("gemini"):
         out = _postprocess(_gemini_invoke(system_msg, human_msg))
         if (not out) or ("```" in out):
             strong = _default_system_prompt("No markdown, no fences, no prose. Output SysML v2 code only.")
             out = _postprocess(_gemini_invoke(strong, human_msg))
-        return out
+        return _require(out, "Gemini invoke")
 
     if not openrouter_key:
-        return ""
+        raise RuntimeError(
+            f"OPENROUTER_API_KEY missing for model {model}"
+        )
     out = _postprocess(_openrouter_invoke(model, system_msg, human_msg, openrouter_key))
     if (not out) or ("```" in out):
         strong = system_msg + " No markdown, no fences, no prose. Output SysML v2 code only."
         out = _postprocess(_openrouter_invoke(model, strong, human_msg, openrouter_key))
-    return out
+    return _require(out, "OpenRouter invoke")
 
 
 def _refine_with_compiler(
@@ -833,49 +855,74 @@ def generate_sysml_moe(prompt_text: str) -> Tuple[str, dict]:
         print(f"  Experts: {', '.join(routing)}", flush=True)
         print(f"  Combiner: {combiner}->{provider_for_model(combiner)}", flush=True)
 
-    # Collect candidates (each receives RAG-context-augmented prompt)
-    # No compiler validation on individual candidates - happens after synthesis
+    # Collect candidates (each receives RAG-context-augmented prompt).
+    # Soft-fail individual experts (AUP / empty / transient); keep going.
+    # Hard CLI usage limits still abort so the batch can pause cleanly.
+    try:
+        from spec_aligner.llm import CliUsageLimitError
+    except ImportError:
+        CliUsageLimitError = ()  # type: ignore[misc, assignment]
+
     candidates: List[Tuple[str, str]] = []
+    expert_soft_fails: List[dict] = []
     for i, m in enumerate(experts, 1):
         print(f"  [{i}/{len(experts)}] Querying {m}...", flush=True)
         _, ok = _load_env()
-        out = _invoke_with_retry(m, sys_msg, human_msg, ok)
-        if out:
+        try:
+            out = _invoke_with_retry(m, sys_msg, human_msg, ok)
+            if not out or not out.strip():
+                raise RuntimeError(f"Expert {m} returned empty SysML")
             print(f"    ✓ Got response from {m}", flush=True)
             candidates.append((m, out))
-        else:
-            print(f"    ✗ No response from {m}", flush=True)
+        except CliUsageLimitError:
+            raise
+        except Exception as exc:
+            print(f"    ✗ Soft-fail expert {m}: {exc}", flush=True)
+            expert_soft_fails.append({"model": m, "error": str(exc)})
 
-    # Synthesis by combiner using candidates as extra context
+    # Synthesis by combiner using candidates as extra context (or direct if none).
+    _, ok = _load_env()
     if candidates:
         cand_block = []
-        cand_log = []
         for i, (name, code) in enumerate(candidates, 1):
             grp = _model_group(name)
             rating = EXPERT_MODELS_RATING.get(grp, 5)
-            cand_block.append(f"Candidate {i} ({name}, rating={rating}/10):\n{code}\n---")
-            # Compact log snippet for prompt record
-            snippet = "\n".join(code.splitlines()[:40])
-            cand_log.append(f"Candidate {i} ({name}, rating={rating}/10):\n{snippet}\n---")
-        synth_context = context + "\n\nUse the following candidate models as additional context.\n" + "\n".join(cand_block)
+            cand_block.append(
+                f"Candidate {i} ({name}, rating={rating}/10):\n{code}\n---"
+            )
+        synth_context = (
+            context
+            + "\n\nUse the following candidate models as additional context.\n"
+            + "\n".join(cand_block)
+        )
         synth_sys_hint = (
-            "Synthesize a single best model by merging or selecting from candidates when provided."
+            "Synthesize a single best model by merging or selecting from "
+            "candidates when provided."
         )
         synth_sys_msg = _default_system_prompt(synth_sys_hint)
-        synth_human_msg = PROMPT_HUMAN_TEMPLATE.format(context=synth_context, input=prompt_text)
-        _, ok = _load_env()
+        synth_human_msg = PROMPT_HUMAN_TEMPLATE.format(
+            context=synth_context, input=prompt_text
+        )
         print(f"\nSynthesizing final model with {combiner}...", flush=True)
         final = _invoke_with_retry(combiner, synth_sys_msg, synth_human_msg, ok)
-        print("  ✓ Got synthesis response", flush=True)
     else:
-        # Fallback to single call with combiner model
-        _, ok = _load_env()
-        print(f"\nNo candidates generated, using {combiner} directly...", flush=True)
-        final = _invoke_with_retry(combiner, sys_msg, human_msg, ok)
-        print("  ✓ Got response", flush=True)
+        print(
+            f"\nNo expert candidates (soft-fails={len(expert_soft_fails)}); "
+            f"using {combiner} directly...",
+            flush=True,
+        )
         synth_sys_msg = sys_msg
         synth_human_msg = human_msg
-
+        final = _invoke_with_retry(combiner, synth_sys_msg, synth_human_msg, ok)
+    if not final or not final.strip():
+        raise RuntimeError(f"Combiner {combiner} returned empty SysML")
+    print("  ✓ Got synthesis response", flush=True)
+    if expert_soft_fails:
+        print(
+            f"  ⚠ Expert soft-fails this sample: {len(expert_soft_fails)}/"
+            f"{len(experts)}",
+            flush=True,
+        )
     # Compiler validation and refinement happens AFTER synthesis
     # The synthesis model does a synthesis pass, then gets checked by compiler MAX_REFINEMENT_ITERATIONS times
     final_result = CompilerResult(errors=[], is_valid=False)
@@ -926,39 +973,44 @@ def generate_sysml_moe(prompt_text: str) -> Tuple[str, dict]:
             print(f"  {status} after refinement", flush=True)
 
     # Semantic spec-mismatch gate last; combiner repairs go back through the combiner model.
+    # LLM failures here must abort generation (no soft-continue).
     quality_report = None
     if final and final.strip() and _env_flag("SPEC_ALIGNMENT_ENABLED", True):
         print("  Running post-generation spec alignment...", flush=True)
-        try:
-            quality_report = _run_post_generation_quality(prompt_text, final, ok)
-            if quality_report:
-                final = quality_report["final_sysml"]
-                last_alignment = quality_report["attempts"][-1]["alignment"]["summary"]
-                print(
-                    "  "
-                    + ("✓" if quality_report["accepted"] else "✗")
-                    + " Spec alignment "
-                    + f"(similarity={last_alignment.get('similarity')}, "
-                    + f"repairs={quality_report['repairs']})",
-                    flush=True,
-                )
-        except Exception as exc:
-            quality_report = {"accepted": False, "error": str(exc), "attempts": []}
-            print(f"  ✗ Spec alignment failed: {exc}", flush=True)
+        quality_report = _run_post_generation_quality(prompt_text, final, ok)
+        if not quality_report:
+            raise RuntimeError("Spec alignment returned no quality report")
+        final = quality_report["final_sysml"]
+        if not final or not str(final).strip():
+            raise RuntimeError("Spec alignment / repair produced empty SysML")
+        if quality_report.get("error"):
+            raise RuntimeError(f"Spec alignment error: {quality_report['error']}")
+        last_alignment = quality_report["attempts"][-1]["alignment"]["summary"]
+        print(
+            "  "
+            + ("✓" if quality_report["accepted"] else "✗")
+            + " Spec alignment "
+            + f"(similarity={last_alignment.get('similarity')}, "
+            + f"repairs={quality_report['repairs']})",
+            flush=True,
+        )
+
+    if not final or not str(final).strip():
+        raise RuntimeError("Generation finished with empty SysML")
 
     # Build JSON prompt record
     base_prompt_str = "System:\n" + sys_msg + "\n\n" + "Human:\n" + human_msg
-    if candidates:
-        combine_prompt_str = (
-            "System:\n" + synth_sys_msg + "\n\n" + "Human:\n" + synth_human_msg
-        )
-    else:
-        combine_prompt_str = base_prompt_str
+    combine_prompt_str = (
+        "System:\n" + synth_sys_msg + "\n\n" + "Human:\n" + synth_human_msg
+    )
 
     prompt_record = {
         "llm_backend": backend,
         "expert_models": experts,
         "combiner_model": combiner,
+        "expert_candidates": [name for name, _ in candidates],
+        "expert_soft_fails": expert_soft_fails,
+        "expert_soft_fail_count": len(expert_soft_fails),
         "gemini_prompt": base_prompt_str,
         "gpt_prompt": base_prompt_str,
         "claude_prompt": base_prompt_str,

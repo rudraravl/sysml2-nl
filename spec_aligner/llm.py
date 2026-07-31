@@ -49,6 +49,65 @@ _DEFAULT_PROXY_CLAUDE_MODEL = "claude-sonnet-4-5"
 _DEFAULT_PROXY_CODEX_MODEL = "gpt-5.4"
 
 
+class CliUsageLimitError(RuntimeError):
+    """Hard CLI usage/session limit (e.g. ChatGPT/Claude 5-hour window).
+
+    Batch generation should stop and resume later rather than keep failing.
+    """
+
+
+# Phrases that indicate a hard quota stop (not transient capacity throttling).
+_USAGE_LIMIT_MARKERS = (
+    "5-hour limit",
+    "5 hour limit",
+    "5h limit",
+    "limits reset every 5h",
+    "you've hit your usage limit",
+    "you have hit your usage limit",
+    "you've hit your session limit",
+    "you have hit your session limit",
+    "you've hit your weekly limit",
+    "you have hit your weekly limit",
+    "usage limit reached",
+    "usage limit exceeded",
+    "message limit exceeded",
+    "message limit exhausted",
+    "hit your limit",
+    "rate_limit_exceeded",
+)
+
+# Transient server throttles — keep retrying; do not abort the batch.
+_TRANSIENT_LIMIT_MARKERS = (
+    "not your usage limit",
+    "temporarily limiting requests",
+)
+
+# Content/policy refusals — do not retry; expert soft-fail can continue the batch.
+_POLICY_REFUSAL_MARKERS = (
+    "usage policy",
+    "violate our usage policy",
+    "appears to violate",
+    "unable to respond to this request",
+)
+
+
+def is_cli_usage_limit_message(text: str) -> bool:
+    """True when CLI output indicates a hard usage/session quota stop."""
+    lowered = (text or "").lower()
+    if not lowered:
+        return False
+    if any(marker in lowered for marker in _TRANSIENT_LIMIT_MARKERS):
+        return False
+    return any(marker in lowered for marker in _USAGE_LIMIT_MARKERS)
+
+
+def is_cli_policy_refusal_message(text: str) -> bool:
+    """True when CLI refused the request for AUP / content-policy reasons."""
+    lowered = (text or "").lower()
+    if not lowered:
+        return False
+    return any(marker in lowered for marker in _POLICY_REFUSAL_MARKERS)
+
 def ask(prompt: str, model: str | None = None, timeout: int = 600) -> str:
     """JSON-oriented single-shot completion (spec alignment / research CLI)."""
     return ask_completion(prompt, model=model, timeout=timeout, prefix=JSON_PREFIX)
@@ -67,20 +126,27 @@ def ask_completion(
     prefix: str = TEXT_PREFIX,
     provider: str | None = None,
 ) -> str:
-    """Provider-CLI completion with retries for transient rate-limit failures."""
+    """Provider-CLI completion with retries for transient failures.
+
+    Hard usage/session limits (CliUsageLimitError) and policy refusals are not
+    retried.
+    """
     last: Exception | None = None
     for attempt in range(RETRIES):
         try:
             return _ask_once(
                 prompt, model, timeout, prefix=prefix, provider=provider
             )
+        except CliUsageLimitError:
+            raise
         except (subprocess.TimeoutExpired, RuntimeError) as e:
             last = e
+            if is_cli_policy_refusal_message(str(e)):
+                raise
             if attempt < RETRIES - 1:
                 time.sleep(15 * (attempt + 1))
     assert last is not None
     raise last
-
 
 def format_chat_prompt(system_msg: str, human_msg: str) -> str:
     """Combine chat-style system/user messages into one CLI prompt body."""
@@ -231,6 +297,14 @@ def _require_binary(name: str) -> str:
     return path
 
 
+def _raise_cli_failure(cli_name: str, returncode: int, output: str) -> None:
+    detail = (output or "")[-2000:]
+    message = f"{cli_name} failed rc={returncode}: {detail}"
+    if is_cli_usage_limit_message(detail):
+        raise CliUsageLimitError(message)
+    raise RuntimeError(message)
+
+
 def _run_codex(prompt: str, model: str, timeout: int) -> str:
     _require_binary("codex")
     with tempfile.TemporaryDirectory(prefix="cli-codex-") as tmp:
@@ -247,11 +321,14 @@ def _run_codex(prompt: str, model: str, timeout: int) -> str:
             prompt,
         ]
         res = _run(cmd, cwd=tmp, timeout=timeout)
-        if res.returncode != 0:
-            raise RuntimeError(
-                f"codex exec failed rc={res.returncode}: {res.stdout[-2000:]}"
-            )
         text = out.read_text(encoding="utf-8").strip() if out.exists() else ""
+        combined = "\n".join(part for part in (res.stdout or "", text) if part)
+        if is_cli_usage_limit_message(combined):
+            raise CliUsageLimitError(
+                f"codex usage limit hit: {combined[-2000:]}"
+            )
+        if res.returncode != 0:
+            _raise_cli_failure("codex exec", res.returncode, res.stdout or "")
         if not text:
             raise RuntimeError("codex exec produced no output")
         return text
@@ -271,11 +348,13 @@ def _run_claude(prompt: str, model: str, timeout: int) -> str:
             "--tools", "",
         ]
         res = _run(cmd, cwd=tmp, timeout=timeout)
-        if res.returncode != 0:
-            raise RuntimeError(
-                f"claude CLI failed rc={res.returncode}: {res.stdout[-2000:]}"
-            )
         text = (res.stdout or "").strip()
+        if is_cli_usage_limit_message(text):
+            raise CliUsageLimitError(
+                f"claude usage limit hit: {text[-2000:]}"
+            )
+        if res.returncode != 0:
+            _raise_cli_failure("claude CLI", res.returncode, text)
         if not text:
             raise RuntimeError("claude CLI produced no output")
         return text

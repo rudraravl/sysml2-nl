@@ -148,6 +148,45 @@ class BatchGenerationIntegrationTests(unittest.TestCase):
         )
         self.assertEqual(openrouter_calls, ["meta-llama/llama-4-maverick"])
         self.assertEqual(gemini_calls, [])
+        self.assertEqual(record.get("expert_soft_fail_count"), 0)
+
+    def test_expert_soft_fail_continues_with_remaining_experts(self):
+        claude_calls = {"n": 0}
+
+        def fake_cli(model, system_msg, human_msg, *, mode="sysml"):
+            if "claude" in model:
+                claude_calls["n"] += 1
+                # Soft-fail the Claude expert only; combiner (2nd call) succeeds.
+                if claude_calls["n"] == 1:
+                    raise RuntimeError(
+                        "claude CLI failed rc=1: appears to violate our Usage Policy"
+                    )
+            return f"part def FromCLI_{model.split('/')[-1].replace('.', '_')};"
+
+        def fake_openrouter(model, system_msg, human_msg, key):
+            return "part def FromOpenRouter_llama;"
+
+        with patch.dict(os.environ, {
+                "LLM_BACKEND": "cli",
+                "SPEC_ALIGNMENT_ENABLED": "false",
+                "KERNEL_FEEDBACK_ENABLED": "false",
+            }, clear=False), \
+                patch.object(agent_rag_moe, "_load_env",
+                             return_value=(None, "openrouter-key")), \
+                patch.object(agent_rag_moe, "_rag_context", return_value=""), \
+                patch.object(agent_rag_moe, "_cli_invoke", side_effect=fake_cli), \
+                patch.object(agent_rag_moe, "_openrouter_invoke",
+                             side_effect=fake_openrouter), \
+                patch.object(agent_rag_moe, "is_compiler_available",
+                             return_value=False):
+            final, record = agent_rag_moe.generate_sysml_moe("Soft-fail expert test.")
+
+        self.assertTrue(final.startswith("part def FromCLI_"))
+        self.assertEqual(record["expert_soft_fail_count"], 1)
+        self.assertEqual(record["expert_soft_fails"][0]["model"], "anthropic/claude-sonnet-4.5")
+        self.assertIn("openai/gpt-5.5", record["expert_candidates"])
+        self.assertIn("openai/gpt-5.4", record["expert_candidates"])
+        self.assertNotIn("anthropic/claude-sonnet-4.5", record["expert_candidates"])
 
     def test_cli_provider_routing_table(self):
         from spec_aligner.llm import provider_for_model, resolve_cli_model

@@ -65,6 +65,11 @@ python3 batch_generate.py --no-spec-alignment
 python3 batch_generate.py --llm-backend cli --num-entries 10
 ```
 
+If any LLM/provider call fails — OpenRouter errors, CLI 5-hour/weekly limits,
+blank model output, auth/binary failures, or alignment LLM failures — batch
+generation stops immediately (exit code 2), keeps completed outputs, and prints
+a `--start-from N` resume hint.
+
 Generation data flow (unchanged):
 
 1. RAG + expert MoE → combiner synthesis  

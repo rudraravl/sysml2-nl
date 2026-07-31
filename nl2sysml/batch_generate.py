@@ -142,7 +142,8 @@ def generate_batch(
         "total": total,
         "processed": 0,
         "skipped": 0,
-        "errors": 0,
+        "errors": 0,  # entry-level soft-fails (generation failed; batch continues)
+        "expert_soft_fails": 0,  # individual MoE experts that failed within a sample
         "valid": 0,
         "invalid": 0,
         "aligned": 0,
@@ -190,22 +191,28 @@ def generate_batch(
             elapsed = time.time() - start_time
             
             if not sysml_code or not sysml_code.strip():
-                log(f"  ✗ Empty output generated", "ERROR")
-                stats["errors"] += 1
-                continue
+                raise RuntimeError("Generation returned empty SysML")
             
             write_entry_output(entry_dir, entry, sysml_code, prompt_record)
             quality_report = prompt_record.get("quality_report")
-            
+            expert_soft = int(prompt_record.get("expert_soft_fail_count") or 0)
+            stats["expert_soft_fails"] += expert_soft
+
             # Update stats
             stats["processed"] += 1
+            note = ""
+            if expert_soft:
+                note = f", expert_soft_fails={expert_soft}"
             if prompt_record.get("final_valid", False):
                 stats["valid"] += 1
-                log(f"  ✓ Generated (valid, {elapsed:.1f}s)")
+                log(f"  ✓ Generated (valid, {elapsed:.1f}s{note})")
             else:
                 stats["invalid"] += 1
                 error_count = prompt_record.get("final_errors", 0)
-                log(f"  ⚠ Generated (invalid, {error_count} errors, {elapsed:.1f}s)")
+                log(
+                    f"  ⚠ Generated (invalid, {error_count} errors, "
+                    f"{elapsed:.1f}s{note})"
+                )
             if prompt_record.get("spec_alignment_enabled"):
                 if (quality_report or {}).get("accepted", False):
                     stats["aligned"] += 1
@@ -217,22 +224,61 @@ def generate_batch(
             print("\n" + "=" * 70)
             print("Generation interrupted. Progress saved.")
             print(f"Processed: {stats['processed']}/{total}")
-            print(f"To resume, run with: --start-from {idx+1}")
+            print(f"Entry soft-fails: {stats['errors']}")
+            print(f"Expert soft-fails: {stats['expert_soft_fails']}")
+            print(f"To resume, run with: --start-from {idx}")
             sys.exit(0)
-            
+
         except Exception as e:
-            log(f"  ✗ Error: {str(e)}", "ERROR")
             import traceback
             error_log = output_dir / f"{entry_id}_error.log"
-            with open(error_log, 'w', encoding='utf-8') as f:
+            with open(error_log, "w", encoding="utf-8") as f:
                 f.write(f"Error processing {entry_id}:\n")
                 f.write(f"{str(e)}\n\n")
                 f.write(traceback.format_exc())
+
+            try:
+                from spec_aligner.llm import CliUsageLimitError
+            except ImportError:
+                CliUsageLimitError = ()  # type: ignore[misc, assignment]
+
+            is_usage_limit = (
+                isinstance(e, CliUsageLimitError) or _looks_like_cli_usage_limit(e)
+            )
+            # Hard usage quotas still stop the batch (continuing would burn time).
+            # Everything else soft-fails the entry and continues.
+            if is_usage_limit:
+                log(f"  ✗ Stopping batch (CLI usage limit): {e}", "ERROR")
+                print("\n" + "=" * 70)
+                print("Stopped: CLI 5-hour/weekly usage limit.")
+                print("Completed entries are saved; fix the issue then resume.")
+                print(f"Failed entry: {entry_id} (index {idx})")
+                print(f"Processed: {stats['processed']}/{total}")
+                print(f"Entry soft-fails: {stats['errors']}")
+                print(f"Expert soft-fails: {stats['expert_soft_fails']}")
+                print(f"Error log: {error_log}")
+                print(f"To resume, run with: --start-from {idx}")
+                print("=" * 70)
+                log(
+                    f"Batch stopped at {entry_id} (index {idx}) due to CLI usage limit",
+                    "ERROR",
+                )
+                sys.exit(2)
+
             stats["errors"] += 1
+            log(
+                f"  ✗ Soft-fail entry {entry_id}: {e} (log: {error_log})",
+                "ERROR",
+            )
         
         # Progress update every 10 entries
         if (idx + 1) % 10 == 0:
-            log(f"Progress: {idx+1}/{total} ({stats['processed']} generated, {stats['valid']} valid, {stats['errors']} errors)")
+            log(
+                f"Progress: {idx+1}/{total} "
+                f"({stats['processed']} generated, {stats['valid']} valid, "
+                f"{stats['errors']} entry soft-fails, "
+                f"{stats['expert_soft_fails']} expert soft-fails)"
+            )
     
     # Final summary
     print("\n" + "=" * 70)
@@ -241,7 +287,8 @@ def generate_batch(
     print(f"Total entries: {total}")
     print(f"Processed: {stats['processed']}")
     print(f"Skipped (already existed): {stats['skipped']}")
-    print(f"Errors: {stats['errors']}")
+    print(f"Entry soft-fails: {stats['errors']}")
+    print(f"Expert soft-fails: {stats['expert_soft_fails']}")
     print(f"Valid outputs: {stats['valid']}")
     print(f"Invalid outputs: {stats['invalid']}")
     print(f"Spec-aligned outputs: {stats['aligned']}")
@@ -250,7 +297,19 @@ def generate_batch(
     print(f"Log file: {log_file}")
     print("=" * 70)
     
-    log(f"Batch generation complete: {stats['processed']} processed, {stats['valid']} valid, {stats['errors']} errors")
+    log(
+        f"Batch generation complete: {stats['processed']} processed, "
+        f"{stats['valid']} valid, {stats['errors']} entry soft-fails, "
+        f"{stats['expert_soft_fails']} expert soft-fails"
+    )
+
+def _looks_like_cli_usage_limit(exc: BaseException) -> bool:
+    """Fallback detector if CliUsageLimitError could not be imported."""
+    try:
+        from spec_aligner.llm import is_cli_usage_limit_message
+    except ImportError:
+        return False
+    return is_cli_usage_limit_message(str(exc))
 
 
 def main():
