@@ -74,13 +74,65 @@ class QualityGateTests(unittest.TestCase):
 
         self.assertTrue(result["accepted"])
         self.assertEqual(result["repairs"], 1)
+        self.assertEqual(result["repairs_kept"], 1)
+        self.assertEqual(result["kept_attempt"], 1)
         self.assertIn("part battery", result["final_sysml"])
+        self.assertTrue(result["attempts"][1]["kept"])
         self.assertEqual([call[0] for call in calls],
                          ["validate", "execute", "align",
                           "validate", "execute", "align"])
         alignment_calls = [call for call in calls if call[0] == "align"]
         self.assertEqual(alignment_calls[0][3], alignment_calls[1][3])
         self.assertFalse(Path(alignment_calls[0][3]).exists())
+
+    def test_rejects_repair_that_does_not_improve_alignment(self):
+        reports = [alignment(0.5), alignment(0.4)]
+
+        with patch("nl2sysml.quality_gate.compare_pair",
+                   side_effect=lambda *a, **k: reports.pop(0)):
+            result = run_quality_gate(
+                "vehicle requirement",
+                "part def Vehicle;",
+                lambda prompt: "{}",
+                validate=lambda code: {"ok": True, "available": True},
+                execute=lambda code: {"success": True, "kernel_available": True},
+                repair=lambda prompt: "part def Collapsed;",
+            )
+
+        self.assertFalse(result["accepted"])
+        self.assertEqual(result["final_sysml"], "part def Vehicle;")
+        self.assertEqual(result["repairs"], 1)
+        self.assertEqual(result["repairs_kept"], 0)
+        self.assertEqual(result["kept_attempt"], 0)
+        self.assertFalse(result["attempts"][1]["kept"])
+        self.assertEqual(result["attempts"][1]["rejected_reason"],
+                         "no_alignment_improvement")
+
+    def test_rejects_repair_that_worsens_executability(self):
+        reports = [alignment(0.4), alignment(0.9, mismatch=False)]
+
+        def execute(code):
+            if "Broken" in code:
+                return {"success": False, "kernel_available": True}
+            return {"success": True, "kernel_available": True}
+
+        with patch("nl2sysml.quality_gate.compare_pair",
+                   side_effect=lambda *a, **k: reports.pop(0)):
+            result = run_quality_gate(
+                "vehicle requirement",
+                "part def Vehicle;",
+                lambda prompt: "{}",
+                validate=lambda code: {"ok": True, "available": True},
+                execute=execute,
+                repair=lambda prompt: "part def Broken;",
+            )
+
+        self.assertFalse(result["accepted"])
+        self.assertEqual(result["final_sysml"], "part def Vehicle;")
+        self.assertEqual(result["repairs_kept"], 0)
+        self.assertEqual(result["attempts"][1]["rejected_reason"],
+                         "executability_worsened")
+        self.assertEqual(result["attempts"][1]["execution_status"], "failed")
 
     def test_unavailable_layer2_does_not_trigger_a_pointless_repair(self):
         with patch("nl2sysml.quality_gate.compare_pair",

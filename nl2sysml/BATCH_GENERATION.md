@@ -70,12 +70,14 @@ blank model output, auth/binary failures, or alignment LLM failures — batch
 generation stops immediately (exit code 2), keeps completed outputs, and prints
 a `--start-from N` resume hint.
 
-Generation data flow (unchanged):
+Generation data flow:
 
 1. RAG + expert MoE → combiner synthesis  
 2. Compiler refine  
 3. Kernel refine  
-4. Semantic align (combiner repair on failures)
+4. Semantic align (combiner repair on failures; each repair is re-validated with
+   compiler + kernel and kept only if alignment improves without worsening
+   executability)
 
 Set `LLM_BACKEND=cli` (or `--llm-backend cli`) to keep the same expert/combiner
 model ids and route Claude through Claude Code and GPT through Codex

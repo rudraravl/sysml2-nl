@@ -8,7 +8,9 @@ Pipeline (from nl2sysml/agent_rag_moe.py):
 - Post-synthesis gates (in order):
   1. Compiler syntax/semantic refine
   2. SysML kernel execution refine
-  3. Spec-mismatch semantic alignment (combiner repair on failures)
+  3. Spec-mismatch semantic alignment (combiner repair on failures;
+     each repair is re-validated with compiler + kernel and kept only if
+     alignment improves without worsening executability)
 - Output only SysML v2 code; no markdown fences.
 """
 
@@ -371,6 +373,8 @@ def _compact_quality_report(report: dict) -> dict:
             "validation_status": attempt.get("validation_status"),
             "execution_status": attempt.get("execution_status"),
             "accepted": attempt.get("accepted"),
+            "kept": attempt.get("kept"),
+            "rejected_reason": attempt.get("rejected_reason"),
             "alignment": {
                 "summary": alignment.get("summary", {}),
                 "per_category": alignment.get("per_category", {}),
@@ -381,6 +385,8 @@ def _compact_quality_report(report: dict) -> dict:
     return {
         "accepted": report.get("accepted", False),
         "repairs": report.get("repairs", 0),
+        "repairs_kept": report.get("repairs_kept", 0),
+        "kept_attempt": report.get("kept_attempt", 0),
         "threshold": report.get("threshold"),
         "attempts": attempts,
     }
@@ -780,22 +786,27 @@ class AgenticPipeline(BasePipeline):
                 status = "passed" if kernel_result.success else f"{kernel_error_count} errors"
                 self._report_progress("kernel_check_done", f"{status} in {kernel_ms}ms")
 
-        # Step 7: Spec-mismatch semantic alignment (combiner repair). Kernel is not
-        # re-run here; it already ran as its own stage above.
+        # Step 7: Spec-mismatch semantic alignment (combiner repair). After each
+        # repair, re-run compiler + kernel and keep only non-regressing improvements.
         quality_report = None
         if SPEC_ALIGNMENT_ENABLED and final and final.strip():
             self._report_progress("spec_alignment", "Running post-generation quality gate...")
             if str(root) not in sys.path:
                 sys.path.insert(0, str(root))
-            from nl2sysml.quality_gate import run_quality_gate
+            from nl2sysml.quality_gate import layer2_executor, run_quality_gate
 
+            execute = (
+                layer2_executor
+                if kernel_enabled and KERNEL_EXECUTION_AVAILABLE
+                else None
+            )
             gate = partial(
                 run_quality_gate,
                 text,
                 final,
                 _alignment_ask_sync,
                 validate=_alignment_validate_sync if _is_compiler_available_fn() else None,
-                execute=None,
+                execute=execute,
                 repair=_alignment_repair_sync,
                 threshold=SPEC_ALIGNMENT_THRESHOLD,
                 max_repairs=SPEC_ALIGNMENT_MAX_REPAIRS,
@@ -807,22 +818,27 @@ class AgenticPipeline(BasePipeline):
             try:
                 full_quality_report = await loop.run_in_executor(None, gate)
                 final = full_quality_report["final_sysml"]
-                last_attempt = full_quality_report["attempts"][-1]
-                if last_attempt["validation_status"] == "passed":
+                kept_idx = full_quality_report.get(
+                    "kept_attempt", len(full_quality_report["attempts"]) - 1
+                )
+                kept_attempt = full_quality_report["attempts"][kept_idx]
+                if kept_attempt["validation_status"] == "passed":
                     final_valid = True
                     final_errors = 0
                     final_error_details = []
-                elif last_attempt["validation_status"] == "failed":
+                elif kept_attempt["validation_status"] == "failed":
                     final_valid = False
-                    validation = last_attempt.get("validation") or {}
+                    validation = kept_attempt.get("validation") or {}
                     diagnostics_list = validation.get("diagnostics", [])
                     final_errors = validation.get("error_count", len(diagnostics_list))
                     final_error_details = diagnostics_list
                 quality_report = _compact_quality_report(full_quality_report)
-                last_alignment = quality_report["attempts"][-1]["alignment"]["summary"]
+                kept_alignment = quality_report["attempts"][kept_idx]["alignment"]["summary"]
                 self._report_progress(
                     "spec_alignment_done",
-                    f"accepted={quality_report['accepted']}, similarity={last_alignment.get('similarity')}",
+                    f"accepted={quality_report['accepted']}, "
+                    f"similarity={kept_alignment.get('similarity')}, "
+                    f"kept={quality_report.get('repairs_kept', 0)}",
                 )
             except Exception as exc:
                 quality_report = {"accepted": False, "error": str(exc), "attempts": []}

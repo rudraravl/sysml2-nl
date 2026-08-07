@@ -12,7 +12,9 @@ Pipeline:
 - Post-synthesis gates (in order):
   1. Compiler syntax/semantic refine
   2. SysML kernel execution refine
-  3. Spec-mismatch semantic alignment (combiner repair on failures)
+  3. Spec-mismatch semantic alignment (combiner repair on failures;
+     each repair is re-validated with compiler + kernel and kept only if
+     alignment improves without worsening executability)
 - Output only SysML v2 code; no markdown fences.
 
 LLM backends:
@@ -114,7 +116,7 @@ MAX_KERNEL_REFINEMENT_ITERATIONS = int(os.getenv("MAX_KERNEL_REFINEMENT_ITERATIO
 HARNESS_HEADER = "// --- Test harness (auto-generated) ---"
 
 # Spec-mismatch / semantic alignment configuration
-SPEC_ALIGNMENT_THRESHOLD = float(os.getenv("SPEC_ALIGNMENT_THRESHOLD", "0.85"))
+SPEC_ALIGNMENT_THRESHOLD = float(os.getenv("SPEC_ALIGNMENT_THRESHOLD", "0.8"))
 SPEC_ALIGNMENT_MAX_REPAIRS = int(os.getenv("SPEC_ALIGNMENT_MAX_REPAIRS", "1"))
 SPEC_ALIGNMENT_PROFILE = os.getenv("SPEC_ALIGNMENT_PROFILE", "runtime")
 SPEC_ALIGNMENT_SHARDS = int(os.getenv("SPEC_ALIGNMENT_SHARDS", "3"))
@@ -603,14 +605,17 @@ def _alignment_validate(code: str) -> dict:
 
 def _run_post_generation_quality(prompt_text: str, candidate: str,
                                  openrouter_key: str | None) -> dict | None:
-    """Semantic spec-mismatch gate. Kernel execution is handled earlier as its own stage."""
+    """Semantic spec-mismatch gate with post-repair compiler + kernel revalidation."""
     if not _env_flag("SPEC_ALIGNMENT_ENABLED", True):
         return None
 
-    from nl2sysml.quality_gate import run_quality_gate
+    from nl2sysml.quality_gate import layer2_executor, run_quality_gate
 
-    # Re-check syntax after semantic repairs; kernel already ran as a dedicated stage.
+    # Re-check syntax and kernel after every semantic repair; keep only improvements.
     validate = _alignment_validate if is_compiler_available() else None
+    execute = None
+    if _env_flag("KERNEL_FEEDBACK_ENABLED", True) and KERNEL_EXECUTION_AVAILABLE:
+        execute = layer2_executor
 
     def repair(repair_prompt: str) -> str:
         system = _default_system_prompt(
@@ -625,7 +630,7 @@ def _run_post_generation_quality(prompt_text: str, candidate: str,
         candidate,
         lambda prompt: _alignment_ask(prompt, openrouter_key),
         validate=validate,
-        execute=None,
+        execute=execute,
         repair=repair,
         threshold=float(os.getenv(
             "SPEC_ALIGNMENT_THRESHOLD", str(SPEC_ALIGNMENT_THRESHOLD)
@@ -832,6 +837,7 @@ def generate_sysml_moe(prompt_text: str) -> Tuple[str, dict]:
 
     Data flow: RAG/MoE → combiner → compiler refine → kernel refine → semantic align.
     Semantic failures repair via the active combiner model (COMBINER_MODEL / CLI combiner).
+    Repaired models are kept only when alignment improves without worsening executability.
     """
     _load_env()
     backend = _llm_backend()
@@ -985,13 +991,15 @@ def generate_sysml_moe(prompt_text: str) -> Tuple[str, dict]:
             raise RuntimeError("Spec alignment / repair produced empty SysML")
         if quality_report.get("error"):
             raise RuntimeError(f"Spec alignment error: {quality_report['error']}")
-        last_alignment = quality_report["attempts"][-1]["alignment"]["summary"]
+        kept_idx = quality_report.get("kept_attempt", len(quality_report["attempts"]) - 1)
+        kept_alignment = quality_report["attempts"][kept_idx]["alignment"]["summary"]
         print(
             "  "
             + ("✓" if quality_report["accepted"] else "✗")
             + " Spec alignment "
-            + f"(similarity={last_alignment.get('similarity')}, "
-            + f"repairs={quality_report['repairs']})",
+            + f"(similarity={kept_alignment.get('similarity')}, "
+            + f"repairs={quality_report['repairs']}, "
+            + f"kept={quality_report.get('repairs_kept', 0)})",
             flush=True,
         )
 

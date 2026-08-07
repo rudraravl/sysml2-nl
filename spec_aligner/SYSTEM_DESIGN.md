@@ -58,15 +58,20 @@ Generation order after MoE synthesis is:
 2. Kernel execution refine (`KERNEL_FEEDBACK_ENABLED`, default on for CLI/batch)
 3. Spec-mismatch semantic alignment via `run_quality_gate` (combiner repair)
 
+After every semantic repair, the gate re-runs full compiler validation and kernel
+execution. A repaired candidate is kept only when similarity strictly improves and
+neither validation nor execution status regresses relative to the current best
+candidate; otherwise the pre-repair model is retained.
+
 ```python
-from nl2sysml.quality_gate import run_quality_gate
+from nl2sysml.quality_gate import layer2_executor, run_quality_gate
 
 result = run_quality_gate(
     natural_language,
     generated_sysml,
     ask=answer_json_with_llm,
     validate=validate_sysml,
-    execute=None,  # kernel already ran as its own stage
+    execute=layer2_executor,  # re-check kernel after each repair
     repair=repair_sysml_with_llm,
     threshold=0.85,
     max_repairs=1,
@@ -87,7 +92,8 @@ SPEC_ALIGNMENT_SHARDS=3
 The FastAPI `SPEC_ALIGNMENT_ENABLED` flag defaults to `false`, preserving interactive latency unless the
 deployment explicitly enables the gate. Kernel feedback defaults to `true` when the SysML
 kernel is available (`KERNEL_FEEDBACK_ENABLED`, disable with `--no-kernel-feedback`).
-The command-line and batch generator enable
+When kernel feedback is enabled, the quality gate also re-executes repaired candidates
+through Layer 2. The command-line and batch generator enable
 spec alignment by default because those paths produce the regenerated research
 artifacts; pass `--no-spec-alignment` or set `SPEC_ALIGNMENT_ENABLED=false` to run the
 legacy generation path. Set `LLM_BACKEND=cli` (or `--llm-backend cli`) to keep the
@@ -96,7 +102,8 @@ Codex (subscription / ChatGPT sign-in, not API billing). `meta-llama/*` remains 
 OpenRouter.
 
 The result records every attempt, validation and execution status, alignment report,
-final SysML, repair count, and acceptance decision. Unavailable infrastructure is
+whether each repair was kept, final SysML (best retained candidate), repair counts,
+and acceptance decision. Unavailable infrastructure is
 reported as `unavailable`; it never produces fake success and is not sent to the LLM
 as if code repair could fix it.
 
@@ -109,6 +116,10 @@ A candidate is accepted only when:
 3. Similarity meets the configured threshold.
 4. The domain canary does not indicate a wrong-system pairing.
 5. Distractor reliability does not flag an untrustworthy answer set.
+
+Repair retention is stricter than acceptance: a repaired model must improve similarity
+and must not worsen compiler or kernel status versus the current best, even if the
+gate ultimately remains unaccepted.
 
 Research scores remain continuous and category-level. Runtime acceptance is a gate
 on top of that score, not a replacement for the detailed report.

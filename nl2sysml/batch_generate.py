@@ -50,14 +50,19 @@ def create_meta_json(entry: Dict[str, Any], sysml_code: str, prompt_record: Dict
         }
     if alignment_enabled:
         attempts = quality_report.get("attempts", [])
-        last_summary = (
-            attempts[-1].get("alignment", {}).get("summary", {})
-            if attempts else {}
+        kept_idx = quality_report.get("kept_attempt")
+        if kept_idx is None:
+            kept_idx = len(attempts) - 1 if attempts else 0
+        kept_summary = (
+            attempts[kept_idx].get("alignment", {}).get("summary", {})
+            if attempts and 0 <= kept_idx < len(attempts) else {}
         )
         meta["spec_alignment"] = {
             "accepted": quality_report.get("accepted", False),
-            "similarity": last_summary.get("similarity"),
+            "similarity": kept_summary.get("similarity"),
             "repairs": quality_report.get("repairs", 0),
+            "repairs_kept": quality_report.get("repairs_kept", 0),
+            "kept_attempt": kept_idx,
             "threshold": quality_report.get("threshold"),
             "error": quality_report.get("error"),
         }
