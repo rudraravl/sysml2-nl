@@ -1,0 +1,3105 @@
+[
+  {
+    "id": "M001",
+    "split": "rag",
+    "category": "joint_mechanics",
+    "difficulty": "basic",
+    "requirement": "Model a torque-driven revolute robot joint with inertia 0.5 kg.m2, viscous damping 0.1 N.m.s/rad, one N.m of constant torque, and zero initial angle and speed.",
+    "tags": [
+      "joint",
+      "revolute",
+      "torque",
+      "inertia",
+      "damping"
+    ],
+    "model_file": "models/M001.mo",
+    "source": "team-authored",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 2.0
+    },
+    "properties": [
+      {
+        "id": "M001-P1",
+        "kind": "final",
+        "signal": "angle",
+        "lower": 3.0,
+        "upper": 4.0
+      }
+    ],
+    "tier": "core",
+    "archetype": "joint"
+  },
+  {
+    "id": "M002",
+    "split": "rag",
+    "category": "joint_mechanics",
+    "difficulty": "basic",
+    "requirement": "Model a revolute joint attached to a torsional spring and damper, driven by one N.m, with angle and angular velocity outputs.",
+    "tags": [
+      "joint",
+      "spring",
+      "damper",
+      "torque",
+      "steady-state"
+    ],
+    "model_file": "models/M002.mo",
+    "source": "team-authored",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 5.0
+    },
+    "properties": [
+      {
+        "id": "M002-P1",
+        "kind": "final",
+        "signal": "angle",
+        "lower": 0.45,
+        "upper": 0.55
+      }
+    ],
+    "tier": "core",
+    "archetype": "joint"
+  },
+  {
+    "id": "M003",
+    "split": "rag",
+    "category": "joint_mechanics",
+    "difficulty": "intermediate",
+    "requirement": "Model a damped pendulum robot joint released from 0.4 rad with no applied torque and expose its angle and angular velocity.",
+    "tags": [
+      "pendulum",
+      "joint",
+      "gravity",
+      "damping",
+      "nonlinear"
+    ],
+    "model_file": "models/M003.mo",
+    "source": "team-authored",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 8.0
+    },
+    "properties": [
+      {
+        "id": "M003-P1",
+        "kind": "final",
+        "signal": "angle",
+        "lower": -0.2,
+        "upper": 0.2
+      }
+    ],
+    "tier": "core",
+    "archetype": "pendulum"
+  },
+  {
+    "id": "M004",
+    "split": "rag",
+    "category": "electric_actuation",
+    "difficulty": "intermediate",
+    "requirement": "Model a 12 V DC motor driving a robot joint, including winding resistance and inductance, back EMF, torque constant, rotor inertia, and viscous damping.",
+    "tags": [
+      "dc-motor",
+      "electrical",
+      "joint",
+      "back-emf",
+      "current"
+    ],
+    "model_file": "models/M004.mo",
+    "source": "team-authored",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 2.0
+    },
+    "properties": [
+      {
+        "id": "M004-P1",
+        "kind": "eventually",
+        "signal": "angle",
+        "start": 0.0,
+        "end": 2.0,
+        "lower": 0.5
+      }
+    ],
+    "tier": "core",
+    "archetype": "dc_motor"
+  },
+  {
+    "id": "M005",
+    "split": "rag",
+    "category": "electric_actuation",
+    "difficulty": "intermediate",
+    "requirement": "Model a geared rotary actuator with a 40:1 reduction, 90 percent efficiency, reflected motor inertia, load inertia, damping, joint angle, speed, and output torque.",
+    "tags": [
+      "gear",
+      "motor",
+      "actuator",
+      "reflected-inertia",
+      "efficiency"
+    ],
+    "model_file": "models/M005.mo",
+    "source": "team-authored",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 2.0
+    },
+    "properties": [
+      {
+        "id": "M005-P1",
+        "kind": "eventually",
+        "signal": "jointAngle",
+        "start": 0.0,
+        "end": 2.0,
+        "lower": 1.0
+      }
+    ],
+    "tier": "core",
+    "archetype": "gear"
+  },
+  {
+    "id": "M006",
+    "split": "rag",
+    "category": "electric_actuation",
+    "difficulty": "intermediate",
+    "requirement": "Model a motor with rotational inertia and damping plus a first-order thermal state heated by 15 percent of mechanical power and cooled to ambient.",
+    "tags": [
+      "motor",
+      "thermal",
+      "temperature",
+      "power",
+      "multi-domain"
+    ],
+    "model_file": "models/M006.mo",
+    "source": "team-authored",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 5.0
+    },
+    "properties": [
+      {
+        "id": "M006-P1",
+        "kind": "always",
+        "signal": "temperature",
+        "start": 0.0,
+        "end": 5.0,
+        "upper": 300.0
+      }
+    ],
+    "tier": "core",
+    "archetype": "motor"
+  },
+  {
+    "id": "M007",
+    "split": "rag",
+    "category": "feedback_control",
+    "difficulty": "basic",
+    "requirement": "Model a proportional position controller that drives a damped revolute joint from zero to a one-radian target.",
+    "tags": [
+      "position-control",
+      "proportional",
+      "feedback",
+      "joint",
+      "target"
+    ],
+    "model_file": "models/M007.mo",
+    "source": "team-authored",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 5.0
+    },
+    "properties": [
+      {
+        "id": "M007-P1",
+        "kind": "final",
+        "signal": "angle",
+        "lower": 0.95,
+        "upper": 1.05
+      }
+    ],
+    "tier": "core",
+    "archetype": "position_control"
+  },
+  {
+    "id": "M008",
+    "split": "rag",
+    "category": "feedback_control",
+    "difficulty": "intermediate",
+    "requirement": "Model a PD-controlled robot joint tracking a sinusoidal 0.5 rad reference and expose the reference, actual angle, torque, and tracking error.",
+    "tags": [
+      "pd-control",
+      "trajectory",
+      "tracking",
+      "sinusoid",
+      "joint"
+    ],
+    "model_file": "models/M008.mo",
+    "source": "team-authored",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 5.0
+    },
+    "properties": [
+      {
+        "id": "M008-P1",
+        "kind": "eventually",
+        "signal": "trackingError",
+        "start": 1.0,
+        "end": 5.0,
+        "lower": -0.1,
+        "upper": 0.1
+      }
+    ],
+    "tier": "core",
+    "archetype": "pd_control"
+  },
+  {
+    "id": "M009",
+    "split": "rag",
+    "category": "feedback_control",
+    "difficulty": "intermediate",
+    "requirement": "Model a proportional robot joint velocity controller targeting 4 rad/s with commanded torque saturated to plus or minus 1.5 N.m.",
+    "tags": [
+      "velocity-control",
+      "saturation",
+      "torque-limit",
+      "feedback",
+      "joint"
+    ],
+    "model_file": "models/M009.mo",
+    "source": "team-authored",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 5.0
+    },
+    "properties": [
+      {
+        "id": "M009-P1",
+        "kind": "final",
+        "signal": "angularVelocity",
+        "lower": 3.6,
+        "upper": 3.9
+      }
+    ],
+    "tier": "core",
+    "archetype": "velocity_control"
+  },
+  {
+    "id": "M010",
+    "split": "rag",
+    "category": "coupled_transmissions",
+    "difficulty": "advanced",
+    "requirement": "Model a flexible robot transmission with separate motor and joint inertias connected by torsional stiffness and damping, driven by constant motor torque.",
+    "tags": [
+      "flexible-joint",
+      "transmission",
+      "coupling",
+      "motor",
+      "two-mass"
+    ],
+    "model_file": "models/M010.mo",
+    "source": "team-authored",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 5.0
+    },
+    "properties": [
+      {
+        "id": "M010-P1",
+        "kind": "eventually",
+        "signal": "jointAngle",
+        "start": 0.0,
+        "end": 5.0,
+        "lower": 1.0
+      }
+    ],
+    "tier": "core",
+    "archetype": "flexible_joint"
+  },
+  {
+    "id": "M011",
+    "split": "rag",
+    "category": "coupled_transmissions",
+    "difficulty": "advanced",
+    "requirement": "Model two robot joints with different inertias coupled by a torsional spring, with damping on both joints and torque applied to the first joint.",
+    "tags": [
+      "two-joint",
+      "arm",
+      "coupling",
+      "spring",
+      "multi-axis"
+    ],
+    "model_file": "models/M011.mo",
+    "source": "team-authored",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 5.0
+    },
+    "properties": [
+      {
+        "id": "M011-P1",
+        "kind": "eventually",
+        "signal": "angle2",
+        "start": 0.0,
+        "end": 5.0,
+        "lower": 0.5
+      }
+    ],
+    "tier": "core",
+    "archetype": "two_joint"
+  },
+  {
+    "id": "M012",
+    "split": "rag",
+    "category": "coupled_transmissions",
+    "difficulty": "intermediate",
+    "requirement": "Model a symmetric robotic gripper whose opening starts at 8 cm and closes under a constant actuator force with viscous damping.",
+    "tags": [
+      "gripper",
+      "linear-motion",
+      "force",
+      "fingers",
+      "damping"
+    ],
+    "model_file": "models/M012.mo",
+    "source": "team-authored",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 2.0
+    },
+    "properties": [
+      {
+        "id": "M012-P1",
+        "kind": "eventually",
+        "signal": "opening",
+        "start": 0.0,
+        "end": 2.0,
+        "upper": 0.01
+      }
+    ],
+    "tier": "core",
+    "archetype": "gripper"
+  },
+  {
+    "id": "M013",
+    "split": "rag",
+    "category": "hybrid_safety",
+    "difficulty": "intermediate",
+    "requirement": "Model a driven robot joint with a one-radian soft limit that activates a high-gain braking torque beyond the limit.",
+    "tags": [
+      "joint-limit",
+      "brake",
+      "safety",
+      "piecewise",
+      "hybrid"
+    ],
+    "model_file": "models/M013.mo",
+    "source": "team-authored",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 5.0
+    },
+    "properties": [
+      {
+        "id": "M013-P1",
+        "kind": "always",
+        "signal": "angle",
+        "start": 0.0,
+        "end": 5.0,
+        "upper": 1.3
+      }
+    ],
+    "tier": "core",
+    "archetype": "joint_limit"
+  },
+  {
+    "id": "M014",
+    "split": "rag",
+    "category": "hybrid_safety",
+    "difficulty": "intermediate",
+    "requirement": "Model motor heating with a thermostat that disables heating at 300 K and re-enables it after cooling below the threshold.",
+    "tags": [
+      "thermal-shutdown",
+      "motor",
+      "temperature",
+      "event",
+      "safety"
+    ],
+    "model_file": "models/M014.mo",
+    "source": "team-authored",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 20.0
+    },
+    "properties": [
+      {
+        "id": "M014-P1",
+        "kind": "always",
+        "signal": "temperature",
+        "start": 0.0,
+        "end": 20.0,
+        "upper": 300.1
+      }
+    ],
+    "tier": "core",
+    "archetype": "thermal_shutdown"
+  },
+  {
+    "id": "M015",
+    "split": "rag",
+    "category": "hybrid_safety",
+    "difficulty": "advanced",
+    "requirement": "Model a digital position controller sampled every 50 ms that drives a damped robot joint toward one radian with a held torque command.",
+    "tags": [
+      "sampled-control",
+      "discrete",
+      "zero-order-hold",
+      "joint",
+      "hybrid"
+    ],
+    "model_file": "models/M015.mo",
+    "source": "team-authored",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 5.0
+    },
+    "properties": [
+      {
+        "id": "M015-P1",
+        "kind": "final",
+        "signal": "angle",
+        "lower": 0.9,
+        "upper": 1.1
+      }
+    ],
+    "tier": "core",
+    "archetype": "sampled_control"
+  },
+  {
+    "id": "M016",
+    "split": "rag",
+    "category": "mobile_aerial",
+    "difficulty": "basic",
+    "requirement": "Model differential-drive robot kinematics with an 8 cm wheel radius, 40 cm axle track, and constant left and right wheel speeds of 5 and 7 rad/s.",
+    "tags": [
+      "differential-drive",
+      "mobile-robot",
+      "kinematics",
+      "wheels",
+      "pose"
+    ],
+    "model_file": "models/M016.mo",
+    "source": "team-authored",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 5.0
+    },
+    "properties": [
+      {
+        "id": "M016-P1",
+        "kind": "final",
+        "signal": "heading",
+        "lower": 1.99,
+        "upper": 2.01
+      }
+    ],
+    "tier": "core",
+    "archetype": "differential_drive"
+  },
+  {
+    "id": "M017",
+    "split": "rag",
+    "category": "mobile_aerial",
+    "difficulty": "intermediate",
+    "requirement": "Model a mobile robot moving at 0.5 m/s whose proportional heading controller turns it from zero toward a one-radian target.",
+    "tags": [
+      "mobile-robot",
+      "heading-control",
+      "pose",
+      "feedback",
+      "kinematics"
+    ],
+    "model_file": "models/M017.mo",
+    "source": "team-authored",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 5.0
+    },
+    "properties": [
+      {
+        "id": "M017-P1",
+        "kind": "final",
+        "signal": "heading",
+        "lower": 0.99,
+        "upper": 1.01
+      }
+    ],
+    "tier": "core",
+    "archetype": "mobile_robot"
+  },
+  {
+    "id": "M018",
+    "split": "rag",
+    "category": "mobile_aerial",
+    "difficulty": "intermediate",
+    "requirement": "Model the vertical dynamics of a 1.5 kg drone with gravity compensation and PD altitude control toward a two-meter target.",
+    "tags": [
+      "drone",
+      "altitude-control",
+      "vertical-dynamics",
+      "pd-control",
+      "aerial"
+    ],
+    "model_file": "models/M018.mo",
+    "source": "team-authored",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 5.0
+    },
+    "properties": [
+      {
+        "id": "M018-P1",
+        "kind": "final",
+        "signal": "altitude",
+        "lower": 1.9,
+        "upper": 2.1
+      }
+    ],
+    "tier": "core",
+    "archetype": "drone"
+  },
+  {
+    "id": "M019",
+    "split": "rag",
+    "category": "joint_mechanics",
+    "difficulty": "intermediate",
+    "requirement": "Compose a torque-driven robot joint from Modelica Standard Library rotational inertia, damper, constant torque, and fixed support components, exposing angle and speed.",
+    "tags": [
+      "msl",
+      "acausal",
+      "connector",
+      "joint",
+      "rotational"
+    ],
+    "model_file": "models/M019.mo",
+    "source": "team-authored using Modelica Standard Library 4.1.0 APIs",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 2.0
+    },
+    "properties": [
+      {
+        "id": "M019-P1",
+        "kind": "final",
+        "signal": "angle",
+        "lower": 3.0,
+        "upper": 4.0
+      }
+    ],
+    "tier": "core",
+    "archetype": "msl"
+  },
+  {
+    "id": "M020",
+    "split": "rag",
+    "category": "electric_actuation",
+    "difficulty": "advanced",
+    "requirement": "Compose a 12 V DC motor joint from Modelica Standard Library voltage, resistor, inductor, rotational EMF, inertia, and damper components.",
+    "tags": [
+      "msl",
+      "acausal",
+      "dc-motor",
+      "electrical",
+      "connector"
+    ],
+    "model_file": "models/M020.mo",
+    "source": "team-authored using Modelica Standard Library 4.1.0 APIs",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 2.0
+    },
+    "properties": [
+      {
+        "id": "M020-P1",
+        "kind": "eventually",
+        "signal": "angle",
+        "start": 0.0,
+        "end": 2.0,
+        "lower": 0.5
+      }
+    ],
+    "tier": "core",
+    "archetype": "msl"
+  },
+  {
+    "id": "M021",
+    "split": "rag",
+    "category": "feedback_control",
+    "difficulty": "advanced",
+    "requirement": "Compose a one-radian position servo from Modelica Standard Library step, feedback, gain, torque source, rotational plant, and angle sensor components.",
+    "tags": [
+      "msl",
+      "blocks",
+      "position-control",
+      "sensor",
+      "connector"
+    ],
+    "model_file": "models/M021.mo",
+    "source": "team-authored using Modelica Standard Library 4.1.0 APIs",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 5.0
+    },
+    "properties": [
+      {
+        "id": "M021-P1",
+        "kind": "final",
+        "signal": "angle",
+        "lower": 0.95,
+        "upper": 1.05
+      }
+    ],
+    "tier": "core",
+    "archetype": "msl"
+  },
+  {
+    "id": "M022",
+    "split": "rag",
+    "category": "coupled_transmissions",
+    "difficulty": "advanced",
+    "requirement": "Compose a flexible robot transmission from Modelica Standard Library motor and joint inertias, a spring-damper shaft, load damping, and constant torque.",
+    "tags": [
+      "msl",
+      "flexible-joint",
+      "spring-damper",
+      "transmission",
+      "connector"
+    ],
+    "model_file": "models/M022.mo",
+    "source": "team-authored using Modelica Standard Library 4.1.0 APIs",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 5.0
+    },
+    "properties": [
+      {
+        "id": "M022-P1",
+        "kind": "eventually",
+        "signal": "jointAngle",
+        "start": 0.0,
+        "end": 5.0,
+        "lower": 1.0
+      }
+    ],
+    "tier": "core",
+    "archetype": "msl"
+  },
+  {
+    "id": "M023",
+    "split": "rag",
+    "category": "hybrid_safety",
+    "difficulty": "intermediate",
+    "requirement": "Compose a robot joint torque command limiter from Modelica Standard Library ramp, limiter, torque source, inertia, and damping components, bounded to plus or minus 1.5 N.m.",
+    "tags": [
+      "msl",
+      "limiter",
+      "torque-saturation",
+      "safety",
+      "blocks"
+    ],
+    "model_file": "models/M023.mo",
+    "source": "team-authored using Modelica Standard Library 4.1.0 APIs",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 5.0
+    },
+    "properties": [
+      {
+        "id": "M023-P1",
+        "kind": "always",
+        "signal": "commandedTorque",
+        "start": 0.0,
+        "end": 5.0,
+        "lower": -1.5,
+        "upper": 1.5
+      }
+    ],
+    "tier": "core",
+    "archetype": "msl"
+  },
+  {
+    "id": "M024",
+    "split": "rag",
+    "category": "mobile_aerial",
+    "difficulty": "advanced",
+    "requirement": "Compose differential-drive wheel-speed sources and sensors with Modelica Standard Library components and integrate the resulting planar robot pose.",
+    "tags": [
+      "msl",
+      "differential-drive",
+      "speed-source",
+      "sensor",
+      "connector"
+    ],
+    "model_file": "models/M024.mo",
+    "source": "team-authored using Modelica Standard Library 4.1.0 APIs",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 5.0
+    },
+    "properties": [
+      {
+        "id": "M024-P1",
+        "kind": "final",
+        "signal": "heading",
+        "lower": 1.99,
+        "upper": 2.01
+      }
+    ],
+    "tier": "core",
+    "archetype": "msl"
+  },
+  {
+    "id": "M025",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "joint_mechanics",
+    "archetype": "coulomb_friction_joint",
+    "difficulty": "intermediate",
+    "requirement": "Model a torque-driven revolute joint with inertia, viscous damping, and smooth Coulomb friction, starting from rest.",
+    "tags": [
+      "joint",
+      "coulomb-friction",
+      "damping",
+      "torque"
+    ],
+    "model_file": "models/M025.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 3
+    },
+    "properties": [
+      {
+        "id": "M025-P1",
+        "kind": "eventually",
+        "signal": "angle",
+        "start": 0,
+        "end": 3,
+        "lower": 1.0
+      }
+    ]
+  },
+  {
+    "id": "M026",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "joint_mechanics",
+    "archetype": "gravity_loaded_joint",
+    "difficulty": "intermediate",
+    "requirement": "Model a gravity-loaded robot joint held at 0.6 rad by proportional-derivative torque control.",
+    "tags": [
+      "joint",
+      "gravity",
+      "pd-control",
+      "load"
+    ],
+    "model_file": "models/M026.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 5
+    },
+    "properties": [
+      {
+        "id": "M026-P1",
+        "kind": "final",
+        "signal": "angle",
+        "start": 0,
+        "end": 5,
+        "lower": 0.55,
+        "upper": 0.65
+      }
+    ]
+  },
+  {
+    "id": "M027",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "joint_mechanics",
+    "archetype": "prismatic_axis",
+    "difficulty": "basic",
+    "requirement": "Model a prismatic robot axis with a 3 kg carriage, 4 N.s/m damping, and 10 N constant drive force.",
+    "tags": [
+      "prismatic",
+      "linear-axis",
+      "mass",
+      "force",
+      "damping"
+    ],
+    "model_file": "models/M027.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 3
+    },
+    "properties": [
+      {
+        "id": "M027-P1",
+        "kind": "eventually",
+        "signal": "position",
+        "start": 0,
+        "end": 3,
+        "lower": 2.0
+      }
+    ]
+  },
+  {
+    "id": "M028",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "joint_mechanics",
+    "archetype": "soft_joint_stop",
+    "difficulty": "intermediate",
+    "requirement": "Model a revolute joint driven toward a one-radian soft stop using a stiff penalty torque and damping.",
+    "tags": [
+      "joint",
+      "soft-stop",
+      "limit",
+      "penalty-torque"
+    ],
+    "model_file": "models/M028.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 4
+    },
+    "properties": [
+      {
+        "id": "M028-P1",
+        "kind": "always",
+        "signal": "angle",
+        "start": 0,
+        "end": 4,
+        "upper": 1.3
+      }
+    ]
+  },
+  {
+    "id": "M029",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "joint_mechanics",
+    "archetype": "free_torsional_oscillator",
+    "difficulty": "basic",
+    "requirement": "Model an unforced torsional robot joint released from 0.5 rad with stiffness and viscous damping.",
+    "tags": [
+      "joint",
+      "oscillator",
+      "spring",
+      "free-response"
+    ],
+    "model_file": "models/M029.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 6
+    },
+    "properties": [
+      {
+        "id": "M029-P1",
+        "kind": "final",
+        "signal": "angle",
+        "start": 0,
+        "end": 6,
+        "lower": -0.05,
+        "upper": 0.05
+      }
+    ]
+  },
+  {
+    "id": "M030",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "joint_mechanics",
+    "archetype": "disturbed_position_joint",
+    "difficulty": "advanced",
+    "requirement": "Model a one-radian position-controlled joint that rejects a 0.4 N.m load disturbance applied after one second.",
+    "tags": [
+      "joint",
+      "disturbance-rejection",
+      "position-control",
+      "load"
+    ],
+    "model_file": "models/M030.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 6
+    },
+    "properties": [
+      {
+        "id": "M030-P1",
+        "kind": "final",
+        "signal": "angle",
+        "start": 0,
+        "end": 6,
+        "lower": 0.9,
+        "upper": 1.05
+      }
+    ]
+  },
+  {
+    "id": "M031",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "electric_actuation",
+    "archetype": "current_controlled_motor",
+    "difficulty": "intermediate",
+    "requirement": "Model a DC robot motor with an inner proportional current controller tracking 5 A, electrical inductance, resistance, back EMF, inertia, and damping.",
+    "tags": [
+      "electric",
+      "motor",
+      "current-controlled-motor"
+    ],
+    "model_file": "models/M031.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 5
+    },
+    "properties": [
+      {
+        "id": "M031-P1",
+        "kind": "eventually",
+        "signal": "angularVelocity",
+        "start": 0,
+        "end": 5,
+        "lower": 8.0
+      }
+    ]
+  },
+  {
+    "id": "M032",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "electric_actuation",
+    "archetype": "battery_fed_motor",
+    "difficulty": "intermediate",
+    "requirement": "Model a battery-fed robot motor whose terminal voltage droops with current, including winding dynamics, back EMF, and rotor inertia.",
+    "tags": [
+      "electric",
+      "motor",
+      "battery-fed-motor"
+    ],
+    "model_file": "models/M032.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 5
+    },
+    "properties": [
+      {
+        "id": "M032-P1",
+        "kind": "eventually",
+        "signal": "angle",
+        "start": 0,
+        "end": 5,
+        "lower": 2.0
+      }
+    ]
+  },
+  {
+    "id": "M033",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "electric_actuation",
+    "archetype": "geared_electric_servo",
+    "difficulty": "advanced",
+    "requirement": "Model an electric geared servo with voltage proportional to position error, motor current dynamics, gear ratio, and a one-radian output target.",
+    "tags": [
+      "electric",
+      "motor",
+      "geared-electric-servo"
+    ],
+    "model_file": "models/M033.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 5
+    },
+    "properties": [
+      {
+        "id": "M033-P1",
+        "kind": "eventually",
+        "signal": "jointAngle",
+        "start": 0,
+        "end": 5,
+        "lower": 0.7
+      }
+    ]
+  },
+  {
+    "id": "M034",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "electric_actuation",
+    "archetype": "thermal_derating_motor",
+    "difficulty": "advanced",
+    "requirement": "Model a DC motor whose available voltage is linearly derated above 300 K while copper loss heats the winding.",
+    "tags": [
+      "electric",
+      "motor",
+      "thermal-derating-motor"
+    ],
+    "model_file": "models/M034.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 5
+    },
+    "properties": [
+      {
+        "id": "M034-P1",
+        "kind": "always",
+        "signal": "temperature",
+        "start": 0,
+        "end": 5,
+        "upper": 330
+      }
+    ]
+  },
+  {
+    "id": "M035",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "electric_actuation",
+    "archetype": "current_limited_motor",
+    "difficulty": "intermediate",
+    "requirement": "Model a robot motor driven by a current command limited to plus or minus 4 A, with torque production and mechanical damping.",
+    "tags": [
+      "electric",
+      "motor",
+      "current-limited-motor"
+    ],
+    "model_file": "models/M035.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 5
+    },
+    "properties": [
+      {
+        "id": "M035-P1",
+        "kind": "eventually",
+        "signal": "angularVelocity",
+        "start": 0,
+        "end": 5,
+        "lower": 3.0
+      }
+    ]
+  },
+  {
+    "id": "M036",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "electric_actuation",
+    "archetype": "regenerative_braking_motor",
+    "difficulty": "advanced",
+    "requirement": "Model a spinning robot motor under regenerative electrical braking through a resistor, starting at 20 rad/s.",
+    "tags": [
+      "electric",
+      "motor",
+      "regenerative-braking-motor"
+    ],
+    "model_file": "models/M036.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 3
+    },
+    "properties": [
+      {
+        "id": "M036-P1",
+        "kind": "final",
+        "signal": "angularVelocity",
+        "start": 0,
+        "end": 3,
+        "lower": -1,
+        "upper": 5
+      }
+    ]
+  },
+  {
+    "id": "M037",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "feedback_control",
+    "archetype": "pi_velocity",
+    "difficulty": "intermediate",
+    "requirement": "Model a robot joint using PI velocity control with an integral state toward a target of 3.0, exposing reference, state, and torque.",
+    "tags": [
+      "feedback",
+      "controller",
+      "pi-velocity"
+    ],
+    "model_file": "models/M037.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 6
+    },
+    "properties": [
+      {
+        "id": "M037-P1",
+        "kind": "final",
+        "signal": "velocity",
+        "start": 0,
+        "end": 6,
+        "lower": 2.75,
+        "upper": 3.25
+      }
+    ]
+  },
+  {
+    "id": "M038",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "feedback_control",
+    "archetype": "pid_position",
+    "difficulty": "advanced",
+    "requirement": "Model a robot joint using PID position control with filtered derivative action toward a target of 1.2, exposing reference, state, and torque.",
+    "tags": [
+      "feedback",
+      "controller",
+      "pid-position"
+    ],
+    "model_file": "models/M038.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 6
+    },
+    "properties": [
+      {
+        "id": "M038-P1",
+        "kind": "final",
+        "signal": "position",
+        "start": 0,
+        "end": 6,
+        "lower": 1.08,
+        "upper": 1.3199999999999998
+      }
+    ]
+  },
+  {
+    "id": "M039",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "feedback_control",
+    "archetype": "trajectory_feedforward",
+    "difficulty": "advanced",
+    "requirement": "Model a robot joint using feedback plus velocity feedforward tracking of a smooth reference toward a target of 0.8, exposing reference, state, and torque.",
+    "tags": [
+      "feedback",
+      "controller",
+      "trajectory-feedforward"
+    ],
+    "model_file": "models/M039.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 6
+    },
+    "properties": [
+      {
+        "id": "M039-P1",
+        "kind": "final",
+        "signal": "position",
+        "start": 0,
+        "end": 6,
+        "lower": 0.55,
+        "upper": 1.05
+      }
+    ]
+  },
+  {
+    "id": "M040",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "feedback_control",
+    "archetype": "cascade_servo",
+    "difficulty": "advanced",
+    "requirement": "Model a robot joint using cascaded outer position and inner velocity control toward a target of 1.0, exposing reference, state, and torque.",
+    "tags": [
+      "feedback",
+      "controller",
+      "cascade-servo"
+    ],
+    "model_file": "models/M040.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 6
+    },
+    "properties": [
+      {
+        "id": "M040-P1",
+        "kind": "final",
+        "signal": "position",
+        "start": 0,
+        "end": 6,
+        "lower": 0.88,
+        "upper": 1.12
+      }
+    ]
+  },
+  {
+    "id": "M041",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "feedback_control",
+    "archetype": "anti_windup",
+    "difficulty": "advanced",
+    "requirement": "Model a robot joint using PI position control with torque saturation and integral anti-windup toward a target of 1.0, exposing reference, state, and torque.",
+    "tags": [
+      "feedback",
+      "controller",
+      "anti-windup"
+    ],
+    "model_file": "models/M041.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 6
+    },
+    "properties": [
+      {
+        "id": "M041-P1",
+        "kind": "final",
+        "signal": "position",
+        "start": 0,
+        "end": 6,
+        "lower": 0.75,
+        "upper": 1.25
+      }
+    ]
+  },
+  {
+    "id": "M042",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "feedback_control",
+    "archetype": "gravity_compensation",
+    "difficulty": "advanced",
+    "requirement": "Model a robot joint using PD position control with model-based gravity compensation toward a target of 0.7, exposing reference, state, and torque.",
+    "tags": [
+      "feedback",
+      "controller",
+      "gravity-compensation"
+    ],
+    "model_file": "models/M042.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 6
+    },
+    "properties": [
+      {
+        "id": "M042-P1",
+        "kind": "final",
+        "signal": "position",
+        "start": 0,
+        "end": 6,
+        "lower": 0.58,
+        "upper": 0.82
+      }
+    ]
+  },
+  {
+    "id": "M043",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "coupled_transmissions",
+    "archetype": "three_joint_chain",
+    "difficulty": "advanced",
+    "requirement": "Model a coupled robotic transmission containing three inertially distinct joints coupled by torsional springs, exposing q3 as an observable output.",
+    "tags": [
+      "coupled",
+      "transmission",
+      "three-joint-chain"
+    ],
+    "model_file": "models/M043.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 5
+    },
+    "properties": [
+      {
+        "id": "M043-P1",
+        "kind": "eventually",
+        "signal": "q3",
+        "start": 0,
+        "end": 5,
+        "lower": 0.2
+      }
+    ]
+  },
+  {
+    "id": "M044",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "coupled_transmissions",
+    "archetype": "series_elastic_actuator",
+    "difficulty": "advanced",
+    "requirement": "Model a coupled robotic transmission containing a motor, elastic transmission, and controlled load, exposing loadAngle as an observable output.",
+    "tags": [
+      "coupled",
+      "transmission",
+      "series-elastic-actuator"
+    ],
+    "model_file": "models/M044.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 5
+    },
+    "properties": [
+      {
+        "id": "M044-P1",
+        "kind": "eventually",
+        "signal": "loadAngle",
+        "start": 0,
+        "end": 5,
+        "lower": 0.2
+      }
+    ]
+  },
+  {
+    "id": "M045",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "coupled_transmissions",
+    "archetype": "dual_motor_differential",
+    "difficulty": "advanced",
+    "requirement": "Model a coupled robotic transmission containing two motors driving common and differential outputs, exposing commonAngle as an observable output.",
+    "tags": [
+      "coupled",
+      "transmission",
+      "dual-motor-differential"
+    ],
+    "model_file": "models/M045.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 5
+    },
+    "properties": [
+      {
+        "id": "M045-P1",
+        "kind": "eventually",
+        "signal": "commonAngle",
+        "start": 0,
+        "end": 5,
+        "lower": 0.2
+      }
+    ]
+  },
+  {
+    "id": "M046",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "coupled_transmissions",
+    "archetype": "cable_driven_joint",
+    "difficulty": "advanced",
+    "requirement": "Model a coupled robotic transmission containing a motor and joint connected by an elastic cable, exposing jointAngle as an observable output.",
+    "tags": [
+      "coupled",
+      "transmission",
+      "cable-driven-joint"
+    ],
+    "model_file": "models/M046.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 5
+    },
+    "properties": [
+      {
+        "id": "M046-P1",
+        "kind": "eventually",
+        "signal": "jointAngle",
+        "start": 0,
+        "end": 5,
+        "lower": 0.2
+      }
+    ]
+  },
+  {
+    "id": "M047",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "coupled_transmissions",
+    "archetype": "synchronized_fingers",
+    "difficulty": "advanced",
+    "requirement": "Model a coupled robotic transmission containing two gripper fingers coupled by a synchronizing spring, exposing leftPosition as an observable output.",
+    "tags": [
+      "coupled",
+      "transmission",
+      "synchronized-fingers"
+    ],
+    "model_file": "models/M047.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 5
+    },
+    "properties": [
+      {
+        "id": "M047-P1",
+        "kind": "eventually",
+        "signal": "leftPosition",
+        "start": 0,
+        "end": 5,
+        "lower": 0.2
+      }
+    ]
+  },
+  {
+    "id": "M048",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "coupled_transmissions",
+    "archetype": "two_stage_gear_train",
+    "difficulty": "advanced",
+    "requirement": "Model a coupled robotic transmission containing motor, intermediate shaft, and output load with two gear reductions, exposing outputAngle as an observable output.",
+    "tags": [
+      "coupled",
+      "transmission",
+      "two-stage-gear-train"
+    ],
+    "model_file": "models/M048.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 5
+    },
+    "properties": [
+      {
+        "id": "M048-P1",
+        "kind": "eventually",
+        "signal": "outputAngle",
+        "start": 0,
+        "end": 5,
+        "lower": 0.1
+      }
+    ]
+  },
+  {
+    "id": "M049",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "hybrid_safety",
+    "archetype": "emergency_stop",
+    "difficulty": "advanced",
+    "requirement": "Model a hybrid robot axis with an emergency stop at 2 seconds, exposing position, velocity, and applied command.",
+    "tags": [
+      "hybrid",
+      "safety",
+      "emergency-stop"
+    ],
+    "model_file": "models/M049.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 6
+    },
+    "properties": [
+      {
+        "id": "M049-P1",
+        "kind": "final",
+        "signal": "velocity",
+        "start": 4,
+        "end": 6,
+        "lower": -0.2,
+        "upper": 0.2
+      }
+    ]
+  },
+  {
+    "id": "M050",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "hybrid_safety",
+    "archetype": "gain_scheduling",
+    "difficulty": "advanced",
+    "requirement": "Model a hybrid robot axis with gain scheduling between coarse and fine position control, exposing position, velocity, and applied command.",
+    "tags": [
+      "hybrid",
+      "safety",
+      "gain-scheduling"
+    ],
+    "model_file": "models/M050.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 6
+    },
+    "properties": [
+      {
+        "id": "M050-P1",
+        "kind": "final",
+        "signal": "position",
+        "start": 0,
+        "end": 6,
+        "lower": 0.9,
+        "upper": 1.1
+      }
+    ]
+  },
+  {
+    "id": "M051",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "hybrid_safety",
+    "archetype": "velocity_brake",
+    "difficulty": "advanced",
+    "requirement": "Model a hybrid robot axis with a braking mode above 2 rad/s, exposing position, velocity, and applied command.",
+    "tags": [
+      "hybrid",
+      "safety",
+      "velocity-brake"
+    ],
+    "model_file": "models/M051.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 6
+    },
+    "properties": [
+      {
+        "id": "M051-P1",
+        "kind": "always",
+        "signal": "velocity",
+        "start": 0,
+        "end": 6,
+        "lower": -0.1,
+        "upper": 2.2
+      }
+    ]
+  },
+  {
+    "id": "M052",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "hybrid_safety",
+    "archetype": "actuator_dead_zone",
+    "difficulty": "advanced",
+    "requirement": "Model a hybrid robot axis with a 0.2 N.m actuator dead zone around zero command, exposing position, velocity, and applied command.",
+    "tags": [
+      "hybrid",
+      "safety",
+      "actuator-dead-zone"
+    ],
+    "model_file": "models/M052.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 6
+    },
+    "properties": [
+      {
+        "id": "M052-P1",
+        "kind": "always",
+        "signal": "position",
+        "start": 0,
+        "end": 6,
+        "lower": -3.0,
+        "upper": 3.0
+      }
+    ]
+  },
+  {
+    "id": "M053",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "hybrid_safety",
+    "archetype": "timed_actuator_fault",
+    "difficulty": "advanced",
+    "requirement": "Model a hybrid robot axis with an actuator failure after 2 seconds, exposing position, velocity, and applied command.",
+    "tags": [
+      "hybrid",
+      "safety",
+      "timed-actuator-fault"
+    ],
+    "model_file": "models/M053.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 6
+    },
+    "properties": [
+      {
+        "id": "M053-P1",
+        "kind": "always",
+        "signal": "velocity",
+        "start": 0,
+        "end": 6,
+        "lower": 0.0,
+        "upper": 5.0
+      }
+    ]
+  },
+  {
+    "id": "M054",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "hybrid_safety",
+    "archetype": "contact_mode",
+    "difficulty": "advanced",
+    "requirement": "Model a hybrid robot axis with unilateral contact at one meter with compliant reaction force, exposing position, velocity, and applied command.",
+    "tags": [
+      "hybrid",
+      "safety",
+      "contact-mode"
+    ],
+    "model_file": "models/M054.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 6
+    },
+    "properties": [
+      {
+        "id": "M054-P1",
+        "kind": "always",
+        "signal": "position",
+        "start": 0,
+        "end": 6,
+        "lower": -0.1,
+        "upper": 1.3
+      }
+    ]
+  },
+  {
+    "id": "M055",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "mobile_aerial",
+    "archetype": "ackermann_kinematics",
+    "difficulty": "intermediate",
+    "requirement": "Model robotic car-like Ackermann steering, exposing pose coordinates and velocity states.",
+    "tags": [
+      "robot",
+      "kinematics",
+      "ackermann-kinematics"
+    ],
+    "model_file": "models/M055.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 5
+    },
+    "properties": [
+      {
+        "id": "M055-P1",
+        "kind": "eventually",
+        "signal": "heading",
+        "start": 0,
+        "end": 5,
+        "lower": 0.3
+      }
+    ]
+  },
+  {
+    "id": "M056",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "mobile_aerial",
+    "archetype": "omnidirectional_kinematics",
+    "difficulty": "intermediate",
+    "requirement": "Model robotic planar omnidirectional translation and rotation, exposing pose coordinates and velocity states.",
+    "tags": [
+      "robot",
+      "kinematics",
+      "omnidirectional-kinematics"
+    ],
+    "model_file": "models/M056.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 5
+    },
+    "properties": [
+      {
+        "id": "M056-P1",
+        "kind": "eventually",
+        "signal": "x",
+        "start": 0,
+        "end": 5,
+        "lower": 1.0
+      }
+    ]
+  },
+  {
+    "id": "M057",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "mobile_aerial",
+    "archetype": "tracked_vehicle",
+    "difficulty": "intermediate",
+    "requirement": "Model robotic differential track velocities, exposing pose coordinates and velocity states.",
+    "tags": [
+      "robot",
+      "kinematics",
+      "tracked-vehicle"
+    ],
+    "model_file": "models/M057.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 5
+    },
+    "properties": [
+      {
+        "id": "M057-P1",
+        "kind": "eventually",
+        "signal": "heading",
+        "start": 0,
+        "end": 5,
+        "lower": 0.5
+      }
+    ]
+  },
+  {
+    "id": "M058",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "mobile_aerial",
+    "archetype": "drone_roll_control",
+    "difficulty": "intermediate",
+    "requirement": "Model robotic PD roll attitude control, exposing pose coordinates and velocity states.",
+    "tags": [
+      "robot",
+      "kinematics",
+      "drone-roll-control"
+    ],
+    "model_file": "models/M058.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 5
+    },
+    "properties": [
+      {
+        "id": "M058-P1",
+        "kind": "eventually",
+        "signal": "heading",
+        "start": 0,
+        "end": 5,
+        "lower": 0.35
+      }
+    ]
+  },
+  {
+    "id": "M059",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "mobile_aerial",
+    "archetype": "underwater_depth_control",
+    "difficulty": "intermediate",
+    "requirement": "Model robotic buoyancy-compensated depth control, exposing pose coordinates and velocity states.",
+    "tags": [
+      "robot",
+      "kinematics",
+      "underwater-depth-control"
+    ],
+    "model_file": "models/M059.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 5
+    },
+    "properties": [
+      {
+        "id": "M059-P1",
+        "kind": "eventually",
+        "signal": "x",
+        "start": 0,
+        "end": 5,
+        "lower": 1.0
+      }
+    ]
+  },
+  {
+    "id": "M060",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "mobile_aerial",
+    "archetype": "ground_speed_control",
+    "difficulty": "intermediate",
+    "requirement": "Model robotic longitudinal traction and speed control, exposing pose coordinates and velocity states.",
+    "tags": [
+      "robot",
+      "kinematics",
+      "ground-speed-control"
+    ],
+    "model_file": "models/M060.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 5
+    },
+    "properties": [
+      {
+        "id": "M060-P1",
+        "kind": "eventually",
+        "signal": "x",
+        "start": 0,
+        "end": 5,
+        "lower": 2.0
+      }
+    ]
+  },
+  {
+    "id": "M061",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "sensing_estimation",
+    "archetype": "low_pass_position_sensor",
+    "difficulty": "intermediate",
+    "requirement": "Model first-order low-pass position sensing for a robot and expose the true signal, measured signal, bias, and estimation error.",
+    "tags": [
+      "sensor",
+      "estimation",
+      "low-pass-position-sensor"
+    ],
+    "model_file": "models/M061.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 5
+    },
+    "properties": [
+      {
+        "id": "M061-P1",
+        "kind": "final",
+        "signal": "error",
+        "start": 0,
+        "end": 5,
+        "lower": -0.2,
+        "upper": 0.2
+      }
+    ]
+  },
+  {
+    "id": "M062",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "sensing_estimation",
+    "archetype": "biased_encoder",
+    "difficulty": "intermediate",
+    "requirement": "Model an encoder with fixed bias for a robot and expose the true signal, measured signal, bias, and estimation error.",
+    "tags": [
+      "sensor",
+      "estimation",
+      "biased-encoder"
+    ],
+    "model_file": "models/M062.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 5
+    },
+    "properties": [
+      {
+        "id": "M062-P1",
+        "kind": "final",
+        "signal": "error",
+        "start": 0,
+        "end": 5,
+        "lower": -0.2,
+        "upper": 0.2
+      }
+    ]
+  },
+  {
+    "id": "M063",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "sensing_estimation",
+    "archetype": "drifting_gyro",
+    "difficulty": "advanced",
+    "requirement": "Model a gyro with slowly drifting bias for a robot and expose the true signal, measured signal, bias, and estimation error.",
+    "tags": [
+      "sensor",
+      "estimation",
+      "drifting-gyro"
+    ],
+    "model_file": "models/M063.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 5
+    },
+    "properties": [
+      {
+        "id": "M063-P1",
+        "kind": "final",
+        "signal": "error",
+        "start": 0,
+        "end": 5,
+        "lower": -0.2,
+        "upper": 0.2
+      }
+    ]
+  },
+  {
+    "id": "M064",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "sensing_estimation",
+    "archetype": "complementary_filter",
+    "difficulty": "advanced",
+    "requirement": "Model a complementary orientation filter for a robot and expose the true signal, measured signal, bias, and estimation error.",
+    "tags": [
+      "sensor",
+      "estimation",
+      "complementary-filter"
+    ],
+    "model_file": "models/M064.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 5
+    },
+    "properties": [
+      {
+        "id": "M064-P1",
+        "kind": "final",
+        "signal": "error",
+        "start": 0,
+        "end": 5,
+        "lower": -0.2,
+        "upper": 0.2
+      }
+    ]
+  },
+  {
+    "id": "M065",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "sensing_estimation",
+    "archetype": "sampled_encoder",
+    "difficulty": "intermediate",
+    "requirement": "Model a periodically sampled encoder approximation for a robot and expose the true signal, measured signal, bias, and estimation error.",
+    "tags": [
+      "sensor",
+      "estimation",
+      "sampled-encoder"
+    ],
+    "model_file": "models/M065.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 5
+    },
+    "properties": [
+      {
+        "id": "M065-P1",
+        "kind": "final",
+        "signal": "error",
+        "start": 0,
+        "end": 5,
+        "lower": -0.2,
+        "upper": 0.2
+      }
+    ]
+  },
+  {
+    "id": "M066",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "sensing_estimation",
+    "archetype": "rate_limited_sensor",
+    "difficulty": "intermediate",
+    "requirement": "Model a rate-limited position sensor for a robot and expose the true signal, measured signal, bias, and estimation error.",
+    "tags": [
+      "sensor",
+      "estimation",
+      "rate-limited-sensor"
+    ],
+    "model_file": "models/M066.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 5
+    },
+    "properties": [
+      {
+        "id": "M066-P1",
+        "kind": "final",
+        "signal": "error",
+        "start": 0,
+        "end": 5,
+        "lower": -0.2,
+        "upper": 0.2
+      }
+    ]
+  },
+  {
+    "id": "M067",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "sensing_estimation",
+    "archetype": "dual_sensor_fusion",
+    "difficulty": "advanced",
+    "requirement": "Model weighted fusion of two biased position sensors for a robot and expose the true signal, measured signal, bias, and estimation error.",
+    "tags": [
+      "sensor",
+      "estimation",
+      "dual-sensor-fusion"
+    ],
+    "model_file": "models/M067.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 5
+    },
+    "properties": [
+      {
+        "id": "M067-P1",
+        "kind": "final",
+        "signal": "error",
+        "start": 0,
+        "end": 5,
+        "lower": -0.2,
+        "upper": 0.2
+      }
+    ]
+  },
+  {
+    "id": "M068",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "sensing_estimation",
+    "archetype": "velocity_observer",
+    "difficulty": "advanced",
+    "requirement": "Model a filtered velocity observer for a robot and expose the true signal, measured signal, bias, and estimation error.",
+    "tags": [
+      "sensor",
+      "estimation",
+      "velocity-observer"
+    ],
+    "model_file": "models/M068.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 5
+    },
+    "properties": [
+      {
+        "id": "M068-P1",
+        "kind": "final",
+        "signal": "error",
+        "start": 0,
+        "end": 5,
+        "lower": -10,
+        "upper": 10
+      }
+    ]
+  },
+  {
+    "id": "M069",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "sensing_estimation",
+    "archetype": "range_sensor",
+    "difficulty": "intermediate",
+    "requirement": "Model a bounded range sensor approaching an obstacle for a robot and expose the true signal, measured signal, bias, and estimation error.",
+    "tags": [
+      "sensor",
+      "estimation",
+      "range-sensor"
+    ],
+    "model_file": "models/M069.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 5
+    },
+    "properties": [
+      {
+        "id": "M069-P1",
+        "kind": "final",
+        "signal": "error",
+        "start": 0,
+        "end": 5,
+        "lower": -10,
+        "upper": 10
+      }
+    ]
+  },
+  {
+    "id": "M070",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "sensing_estimation",
+    "archetype": "force_sensor",
+    "difficulty": "intermediate",
+    "requirement": "Model a compliant force sensor responding to sinusoidal load for a robot and expose the true signal, measured signal, bias, and estimation error.",
+    "tags": [
+      "sensor",
+      "estimation",
+      "force-sensor"
+    ],
+    "model_file": "models/M070.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 5
+    },
+    "properties": [
+      {
+        "id": "M070-P1",
+        "kind": "final",
+        "signal": "error",
+        "start": 0,
+        "end": 5,
+        "lower": -10,
+        "upper": 10
+      }
+    ]
+  },
+  {
+    "id": "M071",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "fluid_power",
+    "archetype": "hydraulic_cylinder",
+    "difficulty": "advanced",
+    "requirement": "Model a single-chamber hydraulic robot cylinder with fluid compressibility, piston motion, viscous load, pressure, and flow-rate outputs.",
+    "tags": [
+      "fluid-power",
+      "hydraulic-cylinder",
+      "compressibility",
+      "piston"
+    ],
+    "model_file": "models/M071.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 3
+    },
+    "properties": [
+      {
+        "id": "M071-P1",
+        "kind": "eventually",
+        "signal": "position",
+        "start": 0,
+        "end": 3,
+        "lower": 0.05
+      }
+    ]
+  },
+  {
+    "id": "M072",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "fluid_power",
+    "archetype": "servo_valve",
+    "difficulty": "advanced",
+    "requirement": "Model an electro-hydraulic servo valve with first-order spool position and pressure-dependent metered flow.",
+    "tags": [
+      "fluid-power",
+      "servo-valve",
+      "spool",
+      "metered-flow"
+    ],
+    "model_file": "models/M072.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 1.5
+    },
+    "properties": [
+      {
+        "id": "M072-P1",
+        "kind": "final",
+        "signal": "spoolPosition",
+        "start": 0,
+        "end": 1.5,
+        "lower": 0.79,
+        "upper": 0.81
+      }
+    ]
+  },
+  {
+    "id": "M073",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "fluid_power",
+    "archetype": "pneumatic_chamber",
+    "difficulty": "intermediate",
+    "requirement": "Model a pneumatic actuator chamber filling from compressed air with pressure-dependent outflow and a pressure output.",
+    "tags": [
+      "fluid-power",
+      "pneumatic",
+      "chamber",
+      "pressure"
+    ],
+    "model_file": "models/M073.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 2
+    },
+    "properties": [
+      {
+        "id": "M073-P1",
+        "kind": "eventually",
+        "signal": "pressure",
+        "start": 0,
+        "end": 2,
+        "lower": 200000.0
+      }
+    ]
+  },
+  {
+    "id": "M074",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "fluid_power",
+    "archetype": "hydraulic_motor",
+    "difficulty": "advanced",
+    "requirement": "Model a hydraulic robot motor driven by pressure difference, including displacement, leakage, inertia, damping, angle, and speed.",
+    "tags": [
+      "fluid-power",
+      "hydraulic-motor",
+      "rotary",
+      "leakage"
+    ],
+    "model_file": "models/M074.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 3
+    },
+    "properties": [
+      {
+        "id": "M074-P1",
+        "kind": "eventually",
+        "signal": "angle",
+        "start": 0,
+        "end": 3,
+        "lower": 2
+      }
+    ]
+  },
+  {
+    "id": "M075",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "fluid_power",
+    "archetype": "pump_accumulator",
+    "difficulty": "intermediate",
+    "requirement": "Model a pump charging a hydraulic accumulator with pressure-dependent delivery and leakage.",
+    "tags": [
+      "fluid-power",
+      "pump",
+      "accumulator",
+      "energy-storage"
+    ],
+    "model_file": "models/M075.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 15
+    },
+    "properties": [
+      {
+        "id": "M075-P1",
+        "kind": "eventually",
+        "signal": "pressure",
+        "start": 0,
+        "end": 15,
+        "lower": 450000.0
+      }
+    ]
+  },
+  {
+    "id": "M076",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "fluid_power",
+    "archetype": "pressure_relief",
+    "difficulty": "advanced",
+    "requirement": "Model a hydraulic pressure source protected by a relief valve that opens above 700 kPa.",
+    "tags": [
+      "fluid-power",
+      "pressure-relief",
+      "safety",
+      "valve"
+    ],
+    "model_file": "models/M076.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 3
+    },
+    "properties": [
+      {
+        "id": "M076-P1",
+        "kind": "always",
+        "signal": "pressure",
+        "start": 0,
+        "end": 3,
+        "upper": 800000.0
+      }
+    ]
+  },
+  {
+    "id": "M077",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "fluid_power",
+    "archetype": "dual_chamber_cylinder",
+    "difficulty": "advanced",
+    "requirement": "Model a double-acting hydraulic cylinder with separate chamber pressures acting on a damped piston.",
+    "tags": [
+      "fluid-power",
+      "double-acting",
+      "cylinder",
+      "dual-chamber"
+    ],
+    "model_file": "models/M077.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 3
+    },
+    "properties": [
+      {
+        "id": "M077-P1",
+        "kind": "eventually",
+        "signal": "position",
+        "start": 0,
+        "end": 3,
+        "lower": 0.05
+      }
+    ]
+  },
+  {
+    "id": "M078",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "fluid_power",
+    "archetype": "fluid_temperature",
+    "difficulty": "intermediate",
+    "requirement": "Model hydraulic fluid heating from throttling loss with a thermal capacitance and ambient cooling.",
+    "tags": [
+      "fluid-power",
+      "temperature",
+      "throttling",
+      "thermal"
+    ],
+    "model_file": "models/M078.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 5
+    },
+    "properties": [
+      {
+        "id": "M078-P1",
+        "kind": "eventually",
+        "signal": "temperature",
+        "start": 0,
+        "end": 5,
+        "lower": 293.5
+      }
+    ]
+  },
+  {
+    "id": "M079",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "fluid_power",
+    "archetype": "flow_controller",
+    "difficulty": "advanced",
+    "requirement": "Model closed-loop hydraulic flow control with first-order valve dynamics toward a target flow rate.",
+    "tags": [
+      "fluid-power",
+      "flow-control",
+      "feedback",
+      "valve"
+    ],
+    "model_file": "models/M079.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 3
+    },
+    "properties": [
+      {
+        "id": "M079-P1",
+        "kind": "final",
+        "signal": "flowRate",
+        "start": 0,
+        "end": 3,
+        "lower": 7e-05,
+        "upper": 9e-05
+      }
+    ]
+  },
+  {
+    "id": "M080",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "fluid_power",
+    "archetype": "hydraulic_gripper",
+    "difficulty": "advanced",
+    "requirement": "Model a hydraulic gripper whose opening closes from 8 cm under pressure force, damping, and a compliant closed stop.",
+    "tags": [
+      "fluid-power",
+      "gripper",
+      "closure",
+      "compliant-stop"
+    ],
+    "model_file": "models/M080.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 3
+    },
+    "properties": [
+      {
+        "id": "M080-P1",
+        "kind": "eventually",
+        "signal": "opening",
+        "start": 0,
+        "end": 3,
+        "upper": 0.01
+      }
+    ]
+  },
+  {
+    "id": "M081",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "trajectory_generation",
+    "archetype": "sine_reference",
+    "difficulty": "intermediate",
+    "requirement": "Model a sinusoidal one-axis reference and a first-order robot axis that tracks it, exposing reference, position, velocity, and error.",
+    "tags": [
+      "trajectory",
+      "reference",
+      "sine-reference"
+    ],
+    "model_file": "models/M081.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 5
+    },
+    "properties": [
+      {
+        "id": "M081-P1",
+        "kind": "final",
+        "signal": "trackingError",
+        "start": 0,
+        "end": 5,
+        "lower": -0.5,
+        "upper": 0.5
+      }
+    ]
+  },
+  {
+    "id": "M082",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "trajectory_generation",
+    "archetype": "trapezoidal_profile",
+    "difficulty": "intermediate",
+    "requirement": "Model a trapezoidal position profile and a first-order robot axis that tracks it, exposing reference, position, velocity, and error.",
+    "tags": [
+      "trajectory",
+      "reference",
+      "trapezoidal-profile"
+    ],
+    "model_file": "models/M082.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 5
+    },
+    "properties": [
+      {
+        "id": "M082-P1",
+        "kind": "final",
+        "signal": "trackingError",
+        "start": 0,
+        "end": 5,
+        "lower": -0.5,
+        "upper": 0.5
+      }
+    ]
+  },
+  {
+    "id": "M083",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "trajectory_generation",
+    "archetype": "cubic_profile",
+    "difficulty": "intermediate",
+    "requirement": "Model a cubic smooth-step profile over four seconds and a first-order robot axis that tracks it, exposing reference, position, velocity, and error.",
+    "tags": [
+      "trajectory",
+      "reference",
+      "cubic-profile"
+    ],
+    "model_file": "models/M083.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 5
+    },
+    "properties": [
+      {
+        "id": "M083-P1",
+        "kind": "final",
+        "signal": "trackingError",
+        "start": 0,
+        "end": 5,
+        "lower": -0.5,
+        "upper": 0.5
+      }
+    ]
+  },
+  {
+    "id": "M084",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "trajectory_generation",
+    "archetype": "quintic_profile",
+    "difficulty": "advanced",
+    "requirement": "Model a quintic minimum-jerk style profile and a first-order robot axis that tracks it, exposing reference, position, velocity, and error.",
+    "tags": [
+      "trajectory",
+      "reference",
+      "quintic-profile"
+    ],
+    "model_file": "models/M084.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 5
+    },
+    "properties": [
+      {
+        "id": "M084-P1",
+        "kind": "final",
+        "signal": "trackingError",
+        "start": 0,
+        "end": 5,
+        "lower": -0.5,
+        "upper": 0.5
+      }
+    ]
+  },
+  {
+    "id": "M085",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "trajectory_generation",
+    "archetype": "waypoint_profile",
+    "difficulty": "intermediate",
+    "requirement": "Model a piecewise waypoint profile and a first-order robot axis that tracks it, exposing reference, position, velocity, and error.",
+    "tags": [
+      "trajectory",
+      "reference",
+      "waypoint-profile"
+    ],
+    "model_file": "models/M085.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 5
+    },
+    "properties": [
+      {
+        "id": "M085-P1",
+        "kind": "final",
+        "signal": "trackingError",
+        "start": 0,
+        "end": 5,
+        "lower": -0.5,
+        "upper": 0.5
+      }
+    ]
+  },
+  {
+    "id": "M086",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "trajectory_generation",
+    "archetype": "circular_path",
+    "difficulty": "intermediate",
+    "requirement": "Model the x coordinate of a circular end-effector path and a first-order robot axis that tracks it, exposing reference, position, velocity, and error.",
+    "tags": [
+      "trajectory",
+      "reference",
+      "circular-path"
+    ],
+    "model_file": "models/M086.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 5
+    },
+    "properties": [
+      {
+        "id": "M086-P1",
+        "kind": "final",
+        "signal": "trackingError",
+        "start": 0,
+        "end": 5,
+        "lower": -0.5,
+        "upper": 0.5
+      }
+    ]
+  },
+  {
+    "id": "M087",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "trajectory_generation",
+    "archetype": "joint_interpolation",
+    "difficulty": "intermediate",
+    "requirement": "Model linear interpolation between two joint configurations and a first-order robot axis that tracks it, exposing reference, position, velocity, and error.",
+    "tags": [
+      "trajectory",
+      "reference",
+      "joint-interpolation"
+    ],
+    "model_file": "models/M087.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 5
+    },
+    "properties": [
+      {
+        "id": "M087-P1",
+        "kind": "final",
+        "signal": "trackingError",
+        "start": 0,
+        "end": 5,
+        "lower": -0.5,
+        "upper": 0.5
+      }
+    ]
+  },
+  {
+    "id": "M088",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "trajectory_generation",
+    "archetype": "velocity_limited_ramp",
+    "difficulty": "intermediate",
+    "requirement": "Model a velocity-limited position ramp and a first-order robot axis that tracks it, exposing reference, position, velocity, and error.",
+    "tags": [
+      "trajectory",
+      "reference",
+      "velocity-limited-ramp"
+    ],
+    "model_file": "models/M088.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 5
+    },
+    "properties": [
+      {
+        "id": "M088-P1",
+        "kind": "final",
+        "signal": "trackingError",
+        "start": 0,
+        "end": 5,
+        "lower": -0.5,
+        "upper": 0.5
+      }
+    ]
+  },
+  {
+    "id": "M089",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "trajectory_generation",
+    "archetype": "minimum_jerk",
+    "difficulty": "advanced",
+    "requirement": "Model a two-meter minimum-jerk trajectory and a first-order robot axis that tracks it, exposing reference, position, velocity, and error.",
+    "tags": [
+      "trajectory",
+      "reference",
+      "minimum-jerk"
+    ],
+    "model_file": "models/M089.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 5
+    },
+    "properties": [
+      {
+        "id": "M089-P1",
+        "kind": "final",
+        "signal": "trackingError",
+        "start": 0,
+        "end": 5,
+        "lower": -0.5,
+        "upper": 0.5
+      }
+    ]
+  },
+  {
+    "id": "M090",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "trajectory_generation",
+    "archetype": "pick_place_cycle",
+    "difficulty": "advanced",
+    "requirement": "Model a pick-hold-place return cycle and a first-order robot axis that tracks it, exposing reference, position, velocity, and error.",
+    "tags": [
+      "trajectory",
+      "reference",
+      "pick-place-cycle"
+    ],
+    "model_file": "models/M090.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 5
+    },
+    "properties": [
+      {
+        "id": "M090-P1",
+        "kind": "final",
+        "signal": "trackingError",
+        "start": 0,
+        "end": 5,
+        "lower": -0.5,
+        "upper": 0.5
+      }
+    ]
+  },
+  {
+    "id": "M091",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "multibody_kinematics",
+    "archetype": "two_link_forward_kinematics",
+    "difficulty": "intermediate",
+    "requirement": "Model two-link planar arm forward kinematics, exposing joint coordinates, end-effector x and y, and workspace radius.",
+    "tags": [
+      "multibody",
+      "kinematics",
+      "two-link-forward-kinematics"
+    ],
+    "model_file": "models/M091.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 4
+    },
+    "properties": [
+      {
+        "id": "M091-P1",
+        "kind": "always",
+        "signal": "radius",
+        "start": 0,
+        "end": 4,
+        "lower": 0,
+        "upper": 2
+      }
+    ]
+  },
+  {
+    "id": "M092",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "multibody_kinematics",
+    "archetype": "three_link_forward_kinematics",
+    "difficulty": "intermediate",
+    "requirement": "Model three-link planar arm forward kinematics, exposing joint coordinates, end-effector x and y, and workspace radius.",
+    "tags": [
+      "multibody",
+      "kinematics",
+      "three-link-forward-kinematics"
+    ],
+    "model_file": "models/M092.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 4
+    },
+    "properties": [
+      {
+        "id": "M092-P1",
+        "kind": "always",
+        "signal": "radius",
+        "start": 0,
+        "end": 4,
+        "lower": 0,
+        "upper": 2
+      }
+    ]
+  },
+  {
+    "id": "M093",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "multibody_kinematics",
+    "archetype": "planar_jacobian_velocity",
+    "difficulty": "advanced",
+    "requirement": "Model two-link Jacobian end-effector velocity, exposing joint coordinates, end-effector x and y, and workspace radius.",
+    "tags": [
+      "multibody",
+      "kinematics",
+      "planar-jacobian-velocity"
+    ],
+    "model_file": "models/M093.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 4
+    },
+    "properties": [
+      {
+        "id": "M093-P1",
+        "kind": "always",
+        "signal": "radius",
+        "start": 0,
+        "end": 4,
+        "lower": 0,
+        "upper": 2
+      }
+    ]
+  },
+  {
+    "id": "M094",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "multibody_kinematics",
+    "archetype": "scara_kinematics",
+    "difficulty": "intermediate",
+    "requirement": "Model SCARA planar position and vertical prismatic motion, exposing joint coordinates, end-effector x and y, and workspace radius.",
+    "tags": [
+      "multibody",
+      "kinematics",
+      "scara-kinematics"
+    ],
+    "model_file": "models/M094.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 4
+    },
+    "properties": [
+      {
+        "id": "M094-P1",
+        "kind": "always",
+        "signal": "radius",
+        "start": 0,
+        "end": 4,
+        "lower": 0,
+        "upper": 2
+      }
+    ]
+  },
+  {
+    "id": "M095",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "multibody_kinematics",
+    "archetype": "revolute_prismatic_chain",
+    "difficulty": "intermediate",
+    "requirement": "Model revolute-prismatic robot kinematics, exposing joint coordinates, end-effector x and y, and workspace radius.",
+    "tags": [
+      "multibody",
+      "kinematics",
+      "revolute-prismatic-chain"
+    ],
+    "model_file": "models/M095.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 4
+    },
+    "properties": [
+      {
+        "id": "M095-P1",
+        "kind": "always",
+        "signal": "radius",
+        "start": 0,
+        "end": 4,
+        "lower": 0,
+        "upper": 2
+      }
+    ]
+  },
+  {
+    "id": "M096",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "multibody_kinematics",
+    "archetype": "workspace_monitor",
+    "difficulty": "intermediate",
+    "requirement": "Model planar arm workspace-radius monitoring, exposing joint coordinates, end-effector x and y, and workspace radius.",
+    "tags": [
+      "multibody",
+      "kinematics",
+      "workspace-monitor"
+    ],
+    "model_file": "models/M096.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 4
+    },
+    "properties": [
+      {
+        "id": "M096-P1",
+        "kind": "always",
+        "signal": "radius",
+        "start": 0,
+        "end": 4,
+        "lower": 0,
+        "upper": 2
+      }
+    ]
+  },
+  {
+    "id": "M097",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "multibody_kinematics",
+    "archetype": "end_effector_circle",
+    "difficulty": "intermediate",
+    "requirement": "Model joint motion producing an end-effector curve, exposing joint coordinates, end-effector x and y, and workspace radius.",
+    "tags": [
+      "multibody",
+      "kinematics",
+      "end-effector-circle"
+    ],
+    "model_file": "models/M097.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 4
+    },
+    "properties": [
+      {
+        "id": "M097-P1",
+        "kind": "always",
+        "signal": "radius",
+        "start": 0,
+        "end": 4,
+        "lower": 0,
+        "upper": 2
+      }
+    ]
+  },
+  {
+    "id": "M098",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "multibody_kinematics",
+    "archetype": "analytic_inverse_kinematics",
+    "difficulty": "advanced",
+    "requirement": "Model a reachable two-link inverse-kinematics target, exposing joint coordinates, end-effector x and y, and workspace radius.",
+    "tags": [
+      "multibody",
+      "kinematics",
+      "analytic-inverse-kinematics"
+    ],
+    "model_file": "models/M098.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 4
+    },
+    "properties": [
+      {
+        "id": "M098-P1",
+        "kind": "always",
+        "signal": "radius",
+        "start": 0,
+        "end": 4,
+        "lower": 0,
+        "upper": 2
+      }
+    ]
+  },
+  {
+    "id": "M099",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "multibody_kinematics",
+    "archetype": "differential_kinematics",
+    "difficulty": "advanced",
+    "requirement": "Model differential kinematics for changing joint angles, exposing joint coordinates, end-effector x and y, and workspace radius.",
+    "tags": [
+      "multibody",
+      "kinematics",
+      "differential-kinematics"
+    ],
+    "model_file": "models/M099.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 4
+    },
+    "properties": [
+      {
+        "id": "M099-P1",
+        "kind": "always",
+        "signal": "radius",
+        "start": 0,
+        "end": 4,
+        "lower": 0,
+        "upper": 2
+      }
+    ]
+  },
+  {
+    "id": "M100",
+    "split": "rag",
+    "tier": "expanded",
+    "category": "multibody_kinematics",
+    "archetype": "gripper_geometry",
+    "difficulty": "intermediate",
+    "requirement": "Model symmetric gripper fingertip geometry, exposing joint coordinates, end-effector x and y, and workspace radius.",
+    "tags": [
+      "multibody",
+      "kinematics",
+      "gripper-geometry"
+    ],
+    "model_file": "models/M100.mo",
+    "source": "team-authored deterministic robotics scenario",
+    "license": "project-internal",
+    "simulation": {
+      "stop_time": 4
+    },
+    "properties": [
+      {
+        "id": "M100-P1",
+        "kind": "always",
+        "signal": "radius",
+        "start": 0,
+        "end": 4,
+        "lower": 0,
+        "upper": 2
+      }
+    ]
+  }
+]

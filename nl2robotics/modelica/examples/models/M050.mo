@@ -1,0 +1,9 @@
+model GainScheduledJoint
+  Real position(start=0, fixed=true);
+  Real velocity(start=0, fixed=true);
+  Real command;
+equation
+  command = (if abs(1-position) > 0.2 then 10 else 4) * (1-position) - 3*velocity;
+  der(position) = velocity;
+  0.3 * der(velocity) = command - 0.5 * velocity;
+end GainScheduledJoint;
