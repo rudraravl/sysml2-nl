@@ -17,8 +17,10 @@ def main() -> None:
     retrieve = sub.add_parser("retrieve")
     retrieve.add_argument("requirement")
     retrieve.add_argument("-k", type=int, default=5)
-    retrieve.add_argument("--subset", choices=("core24", "balanced50", "full100"),
-                          default="full100")
+    retrieve.add_argument(
+        "--subset", choices=("core24", "balanced50", "full100", "full300"),
+        default="full300",
+    )
 
     run = sub.add_parser("run")
     run.add_argument("model", type=Path)
@@ -35,6 +37,19 @@ def main() -> None:
         "--backend", choices=("auto", "local", "docker"), default="auto"
     )
 
+    fmu = sub.add_parser("fmu")
+    fmu.add_argument("model", type=Path)
+    fmu.add_argument("--output-dir", type=Path, required=True)
+    fmu.add_argument("--properties", type=Path)
+    fmu.add_argument("--outputs", nargs="*", default=[])
+    fmu.add_argument("--start-values", type=Path)
+    fmu.add_argument("--start-time", type=float, default=0.0)
+    fmu.add_argument("--stop-time", type=float, default=5.0)
+    fmu.add_argument("--step-size", type=float, default=0.01)
+    fmu.add_argument(
+        "--backend", choices=("auto", "local", "docker"), default="auto"
+    )
+
     generate = sub.add_parser("generate")
     generate.add_argument("--mode", choices=("moe", "single"), default="moe")
     generate.add_argument("requirement")
@@ -43,8 +58,10 @@ def main() -> None:
     generate.add_argument("--output-dir", type=Path, required=True)
     generate.add_argument("--backend", choices=("auto", "local", "docker"), default="auto")
     generate.add_argument("--max-repairs", type=int, default=2)
-    generate.add_argument("--subset", choices=("core24", "balanced50", "full100"),
-                          default="full100")
+    generate.add_argument(
+        "--subset", choices=("core24", "balanced50", "full100", "full300"),
+        default="full300",
+    )
     generate.add_argument("-k", type=int, default=5)
     args = parser.parse_args()
 
@@ -107,6 +124,28 @@ def main() -> None:
     properties = []
     if args.properties:
         properties = json.loads(args.properties.read_text(encoding="utf-8"))
+    if args.command == "fmu":
+        start_values = {}
+        if args.start_values:
+            start_values = json.loads(
+                args.start_values.read_text(encoding="utf-8")
+            )
+        result = pipeline.export_and_execute_fmu(
+            code,
+            properties=properties,
+            outputs=args.outputs,
+            start_values=start_values,
+            start_time=args.start_time,
+            stop_time=args.stop_time,
+            step_size=args.step_size,
+            output_dir=args.output_dir,
+        )
+        (args.output_dir / "report.json").write_text(
+            json.dumps(result, indent=2, allow_nan=False), encoding="utf-8"
+        )
+        print(json.dumps(result, indent=2, allow_nan=False))
+        raise SystemExit(0 if result["passed"] else 1)
+
     result = pipeline.evaluate(
         code,
         properties,

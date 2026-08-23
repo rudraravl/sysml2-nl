@@ -10,7 +10,8 @@ import subprocess
 import tempfile
 import time
 
-from .models import Diagnostic, ModelicaBuild, ModelicaRun
+from .fmu import FMUInspectionError, inspect_fmu
+from .models import Diagnostic, ModelicaBuild, ModelicaFMU, ModelicaRun
 
 
 _MODEL = re.compile(r"(?m)^\s*model\s+([A-Za-z][A-Za-z0-9_]*)\b")
@@ -176,6 +177,92 @@ class OpenModelicaRunner:
             duration_seconds=duration,
         )
 
+    def export_fmu(self, code: str, *, model_name: str | None = None,
+                   output_dir: Path | None = None) -> ModelicaFMU:
+        """Check a model and export an FMI 2.0 Co-Simulation FMU."""
+        backend = self.resolved_backend()
+        try:
+            name = model_name or find_model_name(code)
+        except ValueError as exc:
+            return ModelicaFMU(
+                backend is not None,
+                model_name or "",
+                diagnostics=[Diagnostic("source", "error", str(exc))],
+            )
+        if not backend:
+            return ModelicaFMU(False, name, diagnostics=[Diagnostic(
+                "infrastructure", "error", "OpenModelica is unavailable"
+            )])
+
+        work = output_dir or Path(tempfile.mkdtemp(prefix="modelica-fmu-"))
+        work.mkdir(parents=True, exist_ok=True)
+        for stale in ("load.txt", "check.txt", "export.txt", "candidate.fmu"):
+            (work / stale).unlink(missing_ok=True)
+        (work / "Candidate.mo").write_text(code, encoding="utf-8")
+        (work / "export.mos").write_text(_fmu_script(name), encoding="utf-8")
+        started = time.monotonic()
+        try:
+            proc = subprocess.run(
+                self._command(backend, work, "export.mos"),
+                cwd=work,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                timeout=self.timeout,
+                env=os.environ.copy(),
+            )
+        except subprocess.TimeoutExpired:
+            return ModelicaFMU(
+                True,
+                name,
+                duration_seconds=time.monotonic() - started,
+                diagnostics=[Diagnostic(
+                    "fmu_export", "error",
+                    f"OpenModelica FMU export timed out after {self.timeout}s",
+                )],
+            )
+
+        duration = time.monotonic() - started
+        load = _read(work / "load.txt")
+        check = _read(work / "check.txt")
+        export = _read(work / "export.txt")
+        combined = "\n".join((proc.stdout, load, check, export))
+        diagnostics = _diagnostics(combined)
+        checked = "completed successfully" in check.lower() and not _has_error(check)
+        fmu_path = work / "candidate.fmu"
+        exported = proc.returncode == 0 and fmu_path.is_file() and not _has_error(export)
+        metadata = {}
+        if exported:
+            try:
+                metadata = inspect_fmu(fmu_path)
+            except FMUInspectionError as exc:
+                exported = False
+                diagnostics.append(Diagnostic("fmu_inspection", "error", str(exc)))
+        if exported and metadata.get("interface_type") != "co_simulation":
+            exported = False
+            diagnostics.append(Diagnostic(
+                "fmu_inspection", "error",
+                "OpenModelica did not export a Co-Simulation FMU",
+            ))
+        if not exported and not diagnostics:
+            diagnostics.append(Diagnostic(
+                "fmu_export", "error",
+                export.strip() or proc.stdout.strip() or "OpenModelica FMU export failed",
+            ))
+        return ModelicaFMU(
+            True,
+            name,
+            checked=checked,
+            exported=exported,
+            fmu_path=fmu_path if fmu_path.is_file() else None,
+            fmi_version=metadata.get("fmi_version", ""),
+            interface_type=metadata.get("interface_type", ""),
+            model_identifier=metadata.get("model_identifier", ""),
+            variables=metadata.get("variables", []),
+            diagnostics=diagnostics,
+            duration_seconds=duration,
+        )
+
     def _command(self, backend: str, work: Path, script: str) -> list[str]:
         if backend == "local":
             return [self.omc, script]
@@ -236,6 +323,24 @@ result := simulate({name}, startTime={start}, stopTime={stop},
   method="{solver}", fileNamePrefix="result");
 writeFile("simulate.txt", result.resultFile + "\\n" + result.messages
   + "\\n" + getErrorString());
+'''
+
+
+def _fmu_script(name: str) -> str:
+    if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*", name):
+        raise ValueError(f"invalid Modelica model name {name!r}")
+    return f'''setCommandLineOptions("--std=3.6");
+if not loadModel(Modelica) then
+  installPackage(Modelica, "4.1.0", exactMatch=true);
+  loadModel(Modelica);
+end if;
+writeFile("library.txt", getErrorString());
+loadFile("Candidate.mo");
+writeFile("load.txt", getErrorString());
+writeFile("check.txt", checkModel({name}) + "\\n" + getErrorString());
+generated := buildModelFMU({name}, version="2.0", fmuType="cs",
+  fileNamePrefix="candidate", platforms={{"static"}});
+writeFile("export.txt", generated + "\\n" + getErrorString());
 '''
 
 

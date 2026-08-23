@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import asdict
 from pathlib import Path
 import tempfile
 
 from .corpus import ExampleCorpus
+from .fmu_runtime import FMIContainerRunner
 from .models import CandidateResult, Layer1CandidateResult
 from .openmodelica import OpenModelicaRunner
 from .properties import evaluate_properties, read_trace
@@ -16,14 +18,18 @@ SYSTEM_PROMPT = """You generate one self-contained, executable Modelica model.
 Return Modelica code only, without markdown or prose. Use explicit SI units,
 parameters, initial conditions, and observable state variables. Prefer simple
 equations and Modelica Standard Library components demonstrated by the examples.
-The top-level model must be directly simulatable by OpenModelica."""
+The top-level model must compile in OpenModelica. Standalone plant requests must
+be directly simulatable. Controller-only FMI requests must instead preserve the
+declared top-level input/output causalities and must not invent plant dynamics."""
 
 
 class ModelicaPipeline:
     def __init__(self, corpus: ExampleCorpus | None = None,
-                 runner: OpenModelicaRunner | None = None):
+                 runner: OpenModelicaRunner | None = None,
+                 fmi_runner: FMIContainerRunner | None = None):
         self.corpus = corpus or ExampleCorpus()
         self.runner = runner or OpenModelicaRunner()
+        self.fmi_runner = fmi_runner or FMIContainerRunner()
 
     def build_prompt(self, requirement: str, *, k: int = 5) -> str:
         return self._prompt(requirement, self.corpus.retrieve(requirement, k=k))
@@ -66,6 +72,53 @@ class ModelicaPipeline:
             code=code,
             build=self.runner.compile(code, output_dir=output_dir),
         )
+
+    def export_and_execute_fmu(
+        self,
+        code: str,
+        *,
+        properties: list[dict] | None = None,
+        outputs: list[str] | None = None,
+        start_values: dict[str, float | int | bool] | None = None,
+        start_time: float = 0.0,
+        stop_time: float = 5.0,
+        step_size: float = 0.01,
+        output_dir: Path | None = None,
+    ) -> dict:
+        """Export FMI 2.0 CS, execute it, and evaluate its trace."""
+        root = output_dir or Path(tempfile.mkdtemp(prefix="modelica-fmi-stage-"))
+        root.mkdir(parents=True, exist_ok=True)
+        fmu = self.runner.export_fmu(code, output_dir=root / "export")
+        execution = None
+        property_results = []
+        if fmu.success and fmu.fmu_path:
+            execution = self.fmi_runner.run(
+                fmu.fmu_path,
+                start_time=start_time,
+                stop_time=stop_time,
+                step_size=step_size,
+                start_values=start_values,
+                outputs=outputs,
+                output_dir=root / "execution",
+            )
+            if execution.success and execution.result_file and properties:
+                property_results = evaluate_properties(
+                    read_trace(execution.result_file), properties
+                )
+        passed = (
+            fmu.success
+            and execution is not None
+            and execution.success
+            and all(item.passed for item in property_results)
+        )
+        return {
+            "stage": "fmi_execution",
+            "passed": passed,
+            "modelica": code,
+            "fmu": fmu.to_dict(),
+            "execution": execution.to_dict() if execution else None,
+            "properties": [asdict(item) for item in property_results],
+        }
 
     def generate(self, requirement: str, ask: Callable[[str], str], *,
                  k: int = 5, max_repairs: int = 2,

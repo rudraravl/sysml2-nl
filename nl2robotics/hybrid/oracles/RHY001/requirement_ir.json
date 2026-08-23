@@ -1,0 +1,132 @@
+{
+  "schema_version": "1.0",
+  "task_id": "RHY001",
+  "source_text": "Create a portable one-degree-of-freedom robot arm. The Modelica plant owns the revolute joint dynamics and exposes joint angle in radians and angular velocity in radians per second. Use rotational inertia 0.5 kg.m2, proportional stiffness 8 N.m/rad, and viscous damping 2 N.m.s/rad. The OpenUSD scene contains a fixed base and a two-kilogram link connected by a Y-axis revolute joint limited from -90 to 90 degrees. Drive the plant toward 30 degrees, run it from 0 to 3 seconds at 50 Hz, and animate the USD link from the FMU joint-angle output. The arm must stay within its joint limits and settle within 2 degrees of the target by 3 seconds.",
+  "execution_mode": "portable_fmu_kinematic",
+  "clock": {
+    "start_time": 0.0,
+    "stop_time": 3.0,
+    "frequency_hz": 50.0,
+    "evidence": ["run it from 0 to 3 seconds at 50 Hz"]
+  },
+  "entities": [
+    {
+      "id": "base",
+      "kind": "fixed_base",
+      "evidence": ["fixed base"]
+    },
+    {
+      "id": "link",
+      "kind": "rigid_link",
+      "mass": 2.0,
+      "mass_unit": "kg",
+      "evidence": ["two-kilogram link"]
+    }
+  ],
+  "joints": [
+    {
+      "id": "shoulder",
+      "type": "revolute",
+      "parent": "base",
+      "child": "link",
+      "axis": "Y",
+      "lower_limit": -90.0,
+      "upper_limit": 90.0,
+      "limit_unit": "deg",
+      "evidence": ["Y-axis revolute joint limited from -90 to 90 degrees"]
+    }
+  ],
+  "parameters": [
+    {
+      "id": "shoulder_inertia",
+      "owner": "fmu_plant",
+      "joint_id": "shoulder",
+      "quantity": "rotational_inertia",
+      "value": 0.5,
+      "unit": "kg.m2",
+      "evidence": ["rotational inertia 0.5 kg.m2"]
+    },
+    {
+      "id": "shoulder_stiffness",
+      "owner": "fmu_plant",
+      "joint_id": "shoulder",
+      "quantity": "stiffness",
+      "value": 8.0,
+      "unit": "N.m/rad",
+      "evidence": ["proportional stiffness 8 N.m/rad"]
+    },
+    {
+      "id": "shoulder_damping",
+      "owner": "fmu_plant",
+      "joint_id": "shoulder",
+      "quantity": "damping",
+      "value": 2.0,
+      "unit": "N.m.s/rad",
+      "evidence": ["viscous damping 2 N.m.s/rad"]
+    },
+    {
+      "id": "shoulder_target",
+      "owner": "fmu_plant",
+      "joint_id": "shoulder",
+      "quantity": "target_position",
+      "value": 30.0,
+      "unit": "deg",
+      "evidence": ["Drive the plant toward 30 degrees"]
+    }
+  ],
+  "dynamics": [
+    {
+      "id": "shoulder_dynamics",
+      "owner": "fmu_plant",
+      "states": ["shoulder.angle", "shoulder.angular_velocity"],
+      "evidence": [
+        "The Modelica plant owns the revolute joint dynamics",
+        "rotational inertia 0.5 kg.m2, proportional stiffness 8 N.m/rad, and viscous damping 2 N.m.s/rad"
+      ]
+    }
+  ],
+  "controllers": [],
+  "actuators": [],
+  "sensors": [],
+  "environment": [],
+  "interfaces": [
+    {
+      "id": "shoulder_angle_to_usd",
+      "joint_id": "shoulder",
+      "state_id": "shoulder.angle",
+      "quantity": "joint_position",
+      "direction": "fmu_to_usd",
+      "source_unit": "rad",
+      "required": true,
+      "evidence": ["animate the USD link from the FMU joint-angle output"]
+    }
+  ],
+  "properties": [
+    {
+      "id": "within_joint_limits",
+      "kind": "always",
+      "interface_id": "shoulder_angle_to_usd",
+      "signal": "jointAngle",
+      "lower": -1.5707963267948966,
+      "upper": 1.5707963267948966,
+      "evidence": ["The arm must stay within its joint limits"]
+    },
+    {
+      "id": "settles_at_target",
+      "kind": "final",
+      "interface_id": "shoulder_angle_to_usd",
+      "signal": "jointAngle",
+      "lower": 0.4886921905584123,
+      "upper": 0.5585053606381855,
+      "evidence": ["settle within 2 degrees of the target by 3 seconds"]
+    }
+  ],
+  "assumptions": [
+    "Primitive link geometry is used because visual dimensions are unspecified.",
+    "Kinematic playback uses linear interpolation between 50 Hz samples."
+  ],
+  "unknowns": [
+    "Exact link geometry and material",
+    "Joint attachment frame offsets"
+  ]
+}

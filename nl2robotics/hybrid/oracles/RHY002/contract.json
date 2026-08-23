@@ -1,0 +1,46 @@
+{
+  "schema_version": "1.0",
+  "task_id": "RHY002",
+  "execution_mode": "portable_fmu_kinematic",
+  "clock": {
+    "start_time": 0.0,
+    "stop_time": 3.0,
+    "step_size": 0.02,
+    "time_codes_per_second": 50.0
+  },
+  "state_ownership": [
+    {
+      "state_id": "lift.position",
+      "kind": "physical",
+      "owner": "fmu_plant"
+    },
+    {
+      "state_id": "lift.velocity",
+      "kind": "physical",
+      "owner": "fmu_plant"
+    }
+  ],
+  "mappings": [
+    {
+      "id": "map_lift_position",
+      "interface_id": "lift_position_to_usd",
+      "state_id": "lift.position",
+      "semantic_joint_id": "lift_joint",
+      "semantic_parent_entity_id": "base",
+      "semantic_child_entity_id": "carriage",
+      "owner": "fmu_plant",
+      "direction": "fmu_to_usd",
+      "fmu_variable": "liftPosition",
+      "source_unit": "m",
+      "usd_joint_path": "/World/LiftJoint",
+      "usd_parent_prim": "/World/Base",
+      "usd_driven_prim": "/World/Carriage",
+      "usd_quantity": "joint_position",
+      "target_unit": "m",
+      "axis": "Z",
+      "interpolation": "linear",
+      "numeric_tolerance": 1e-09,
+      "initial_value": 0.0
+    }
+  ]
+}

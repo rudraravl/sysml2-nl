@@ -1,0 +1,36 @@
+{
+  "schema_version": "1.0",
+  "task_id": "RHY003",
+  "source_text": "Create a portable horizontal robot carriage. The Modelica plant owns the prismatic joint dynamics and exposes carriage position and velocity in meters and meters per second. Use a three-kilogram carriage, stiffness 75 N/m, and damping 30 N.s/m. The OpenUSD scene contains a fixed base and carriage connected by an X-axis prismatic joint limited from 0 to 0.8 meters. Drive the plant toward 0.4 meters, run from 0 to 2 seconds at 100 Hz, and animate the carriage from the FMU position output. The carriage must remain within its limits and finish between 0.38 and 0.42 meters.",
+  "execution_mode": "portable_fmu_kinematic",
+  "clock": {"start_time": 0.0, "stop_time": 2.0, "frequency_hz": 100.0, "evidence": ["run from 0 to 2 seconds at 100 Hz"]},
+  "entities": [
+    {"id": "base", "kind": "fixed_base", "evidence": ["fixed base"]},
+    {"id": "carriage", "kind": "rigid_link", "mass": 3.0, "mass_unit": "kg", "evidence": ["three-kilogram carriage"]}
+  ],
+  "joints": [
+    {"id": "slide_joint", "type": "prismatic", "parent": "base", "child": "carriage", "axis": "X", "lower_limit": 0.0, "upper_limit": 0.8, "limit_unit": "m", "evidence": ["X-axis prismatic joint limited from 0 to 0.8 meters"]}
+  ],
+  "parameters": [
+    {"id": "carriage_mass", "owner": "fmu_plant", "joint_id": "slide_joint", "quantity": "mass", "value": 3.0, "unit": "kg", "evidence": ["three-kilogram carriage"]},
+    {"id": "carriage_stiffness", "owner": "fmu_plant", "joint_id": "slide_joint", "quantity": "stiffness", "value": 75.0, "unit": "N/m", "evidence": ["stiffness 75 N/m"]},
+    {"id": "carriage_damping", "owner": "fmu_plant", "joint_id": "slide_joint", "quantity": "damping", "value": 30.0, "unit": "N.s/m", "evidence": ["damping 30 N.s/m"]},
+    {"id": "carriage_target", "owner": "fmu_plant", "joint_id": "slide_joint", "quantity": "target_position", "value": 0.4, "unit": "m", "evidence": ["Drive the plant toward 0.4 meters"]}
+  ],
+  "dynamics": [
+    {"id": "carriage_dynamics", "owner": "fmu_plant", "states": ["carriage.position", "carriage.velocity"], "evidence": ["The Modelica plant owns the prismatic joint dynamics"]}
+  ],
+  "controllers": [],
+  "actuators": [],
+  "sensors": [],
+  "environment": [],
+  "interfaces": [
+    {"id": "carriage_position_to_usd", "joint_id": "slide_joint", "state_id": "carriage.position", "quantity": "joint_position", "direction": "fmu_to_usd", "source_unit": "m", "required": true, "evidence": ["animate the carriage from the FMU position output"]}
+  ],
+  "properties": [
+    {"id": "within_slide_limits", "kind": "always", "interface_id": "carriage_position_to_usd", "signal": "carriagePosition", "lower": 0.0, "upper": 0.8, "evidence": ["must remain within its limits"]},
+    {"id": "finishes_at_target", "kind": "final", "interface_id": "carriage_position_to_usd", "signal": "carriagePosition", "lower": 0.38, "upper": 0.42, "evidence": ["finish between 0.38 and 0.42 meters"]}
+  ],
+  "assumptions": ["Primitive carriage geometry is used because exact dimensions are unspecified."],
+  "unknowns": ["Carriage material and joint friction"]
+}

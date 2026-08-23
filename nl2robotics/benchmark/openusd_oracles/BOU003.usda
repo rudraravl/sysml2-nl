@@ -1,0 +1,74 @@
+#usda 1.0
+(
+    defaultPrim = "World"
+    kilogramsPerUnit = 1
+    metersPerUnit = 1
+    timeCodesPerSecond = 120
+    upAxis = "Z"
+)
+
+def Xform "World" (
+    prepend apiSchemas = ["PhysicsArticulationRootAPI"]
+)
+{
+    def PhysicsScene "PhysicsScene"
+    {
+        vector3f physics:gravityDirection = (0, 0, -1)
+        float physics:gravityMagnitude = 9.81
+    }
+    def Xform "Mount"
+    {
+        def Cube "Collision" (
+            prepend apiSchemas = ["PhysicsCollisionAPI"]
+        )
+        {
+            double size = 1
+            float3 xformOp:scale = (0.3, 0.3, 0.2)
+            uniform token[] xformOpOrder = ["xformOp:scale"]
+        }
+    }
+    def Xform "UpperLink" (
+        prepend apiSchemas = ["PhysicsMassAPI", "PhysicsRigidBodyAPI"]
+    )
+    {
+        float physics:mass = 3
+        def Cube "Collision" (
+            prepend apiSchemas = ["PhysicsCollisionAPI"]
+        )
+        {
+            double size = 1
+            float3 xformOp:scale = (0.08, 0.08, 0.45)
+            uniform token[] xformOpOrder = ["xformOp:scale"]
+        }
+    }
+    def Xform "Forearm" (
+        prepend apiSchemas = ["PhysicsMassAPI", "PhysicsRigidBodyAPI"]
+    )
+    {
+        float physics:mass = 1
+        def Cube "Collision" (
+            prepend apiSchemas = ["PhysicsCollisionAPI"]
+        )
+        {
+            double size = 1
+            float3 xformOp:scale = (0.07, 0.07, 0.35)
+            uniform token[] xformOpOrder = ["xformOp:scale"]
+        }
+    }
+    def PhysicsRevoluteJoint "Shoulder"
+    {
+        rel physics:body0 = </World/Mount>
+        rel physics:body1 = </World/UpperLink>
+        token physics:axis = "Y"
+        float physics:lowerLimit = -90
+        float physics:upperLimit = 90
+    }
+    def PhysicsRevoluteJoint "Elbow"
+    {
+        rel physics:body0 = </World/UpperLink>
+        rel physics:body1 = </World/Forearm>
+        token physics:axis = "Y"
+        float physics:lowerLimit = 0
+        float physics:upperLimit = 135
+    }
+}

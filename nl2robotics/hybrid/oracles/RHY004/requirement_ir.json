@@ -1,0 +1,36 @@
+{
+  "schema_version": "1.0",
+  "task_id": "RHY004",
+  "source_text": "Create a portable rotary inspection arm. The Modelica plant owns the revolute joint dynamics and exposes its commanded joint angle in degrees. Use rotational inertia 0.8 kg.m2, stiffness 6 N.m/rad, damping 4 N.m.s/rad, and a 45 degree target. The OpenUSD scene contains a fixed pedestal and a 1.5-kilogram arm connected by an X-axis revolute joint limited from -60 to 60 degrees. Run from 0 to 3 seconds at 50 Hz and animate the arm from the degree-valued FMU output. The angle must stay within its limits and finish between 43 and 47 degrees.",
+  "execution_mode": "portable_fmu_kinematic",
+  "clock": {"start_time": 0.0, "stop_time": 3.0, "frequency_hz": 50.0, "evidence": ["Run from 0 to 3 seconds at 50 Hz"]},
+  "entities": [
+    {"id": "pedestal", "kind": "fixed_base", "evidence": ["fixed pedestal"]},
+    {"id": "arm", "kind": "rigid_link", "mass": 1.5, "mass_unit": "kg", "evidence": ["1.5-kilogram arm"]}
+  ],
+  "joints": [
+    {"id": "inspection_joint", "type": "revolute", "parent": "pedestal", "child": "arm", "axis": "X", "lower_limit": -60.0, "upper_limit": 60.0, "limit_unit": "deg", "evidence": ["X-axis revolute joint limited from -60 to 60 degrees"]}
+  ],
+  "parameters": [
+    {"id": "arm_inertia", "owner": "fmu_plant", "joint_id": "inspection_joint", "quantity": "rotational_inertia", "value": 0.8, "unit": "kg.m2", "evidence": ["rotational inertia 0.8 kg.m2"]},
+    {"id": "arm_stiffness", "owner": "fmu_plant", "joint_id": "inspection_joint", "quantity": "stiffness", "value": 6.0, "unit": "N.m/rad", "evidence": ["stiffness 6 N.m/rad"]},
+    {"id": "arm_damping", "owner": "fmu_plant", "joint_id": "inspection_joint", "quantity": "damping", "value": 4.0, "unit": "N.m.s/rad", "evidence": ["damping 4 N.m.s/rad"]},
+    {"id": "arm_target", "owner": "fmu_plant", "joint_id": "inspection_joint", "quantity": "target_position", "value": 45.0, "unit": "deg", "evidence": ["45 degree target"]}
+  ],
+  "dynamics": [
+    {"id": "inspection_dynamics", "owner": "fmu_plant", "states": ["inspection_joint.angle", "inspection_joint.angular_velocity"], "evidence": ["The Modelica plant owns the revolute joint dynamics"]}
+  ],
+  "controllers": [],
+  "actuators": [],
+  "sensors": [],
+  "environment": [],
+  "interfaces": [
+    {"id": "inspection_angle_to_usd", "joint_id": "inspection_joint", "state_id": "inspection_joint.angle", "quantity": "joint_position", "direction": "fmu_to_usd", "source_unit": "deg", "required": true, "evidence": ["animate the arm from the degree-valued FMU output"]}
+  ],
+  "properties": [
+    {"id": "within_rotation_limits", "kind": "always", "interface_id": "inspection_angle_to_usd", "signal": "jointAngleDeg", "lower": -60.0, "upper": 60.0, "evidence": ["must stay within its limits"]},
+    {"id": "finishes_at_target", "kind": "final", "interface_id": "inspection_angle_to_usd", "signal": "jointAngleDeg", "lower": 43.0, "upper": 47.0, "evidence": ["finish between 43 and 47 degrees"]}
+  ],
+  "assumptions": ["Primitive arm geometry is used because exact dimensions are unspecified."],
+  "unknowns": ["Arm material and joint friction"]
+}

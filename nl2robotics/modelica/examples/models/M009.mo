@@ -1,14 +1,13 @@
-model SaturatedVelocityControl
-  parameter Real targetVelocity(unit="rad/s") = 4;
-  parameter Real inertia(unit="kg.m2") = 0.2;
-  parameter Real damping(unit="N.m.s/rad") = 0.1;
-  parameter Real gain(unit="N.m.s/rad") = 2;
-  parameter Real torqueLimit(unit="N.m") = 1.5;
-  Real angularVelocity(unit="rad/s", start=0, fixed=true);
-  Real rawTorque(unit="N.m");
-  Real commandedTorque(unit="N.m");
+model DegreeInputEffortControllerFMU
+  parameter Real targetAngle(unit="rad") = 0.5;
+  parameter Real kp(unit="N.m/rad") = 5.0;
+  parameter Real effortLimit(unit="N.m") = 2.0;
+  input Real jointAngleDegrees(unit="deg", start=0.0);
+  output Real commandedEffort(unit="N.m");
+  Real jointAngle(unit="rad");
+  Real rawEffort(unit="N.m");
 equation
-  rawTorque = gain * (targetVelocity - angularVelocity);
-  commandedTorque = max(-torqueLimit, min(torqueLimit, rawTorque));
-  inertia * der(angularVelocity) = commandedTorque - damping * angularVelocity;
-end SaturatedVelocityControl;
+  jointAngle = jointAngleDegrees * Modelica.Constants.pi / 180.0;
+  rawEffort = kp * (targetAngle - jointAngle);
+  commandedEffort = max(-effortLimit, min(effortLimit, rawEffort));
+end DegreeInputEffortControllerFMU;

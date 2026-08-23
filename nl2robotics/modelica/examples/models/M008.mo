@@ -1,19 +1,15 @@
-model PdTrajectoryTracking
-  parameter Real inertia(unit="kg.m2") = 0.3;
-  parameter Real damping(unit="N.m.s/rad") = 0.2;
-  parameter Real kp(unit="N.m/rad") = 12;
-  parameter Real kd(unit="N.m.s/rad") = 3;
-  Real reference(unit="rad");
-  Real referenceVelocity(unit="rad/s");
-  Real angle(unit="rad", start=0, fixed=true);
-  Real angularVelocity(unit="rad/s", start=0, fixed=true);
-  Real commandedTorque(unit="N.m");
-  Real trackingError(unit="rad");
+model PiVelocityControllerFMU
+  parameter Real targetVelocity(unit="rad/s") = 2.0;
+  parameter Real kp(unit="N.m.s/rad") = 1.0;
+  parameter Real ki(unit="N.m/rad") = 0.5;
+  parameter Real effortLimit(unit="N.m") = 3.0;
+  input Real jointAngularVelocity(unit="rad/s", start=0.0);
+  output Real commandedEffort(unit="N.m");
+  Real integralError(unit="rad", start=0.0, fixed=true);
+  Real rawEffort(unit="N.m");
 equation
-  reference = 0.5 * sin(time);
-  referenceVelocity = 0.5 * cos(time);
-  trackingError = reference - angle;
-  commandedTorque = kp * trackingError + kd * (referenceVelocity - angularVelocity);
-  der(angle) = angularVelocity;
-  inertia * der(angularVelocity) = commandedTorque - damping * angularVelocity;
-end PdTrajectoryTracking;
+  der(integralError) = targetVelocity - jointAngularVelocity;
+  rawEffort = kp * (targetVelocity - jointAngularVelocity)
+    + ki * integralError;
+  commandedEffort = max(-effortLimit, min(effortLimit, rawEffort));
+end PiVelocityControllerFMU;

@@ -4,16 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
-import math
 from pathlib import Path
-import re
 
-
-_TOKEN = re.compile(r"[A-Za-z][A-Za-z0-9_]*")
-
-
-def _tokens(text: str) -> list[str]:
-    return [token.lower() for token in _TOKEN.findall(text)]
+from nl2robotics.retrieval import DiverseBM25, RetrievalDocument
 
 
 @dataclass(frozen=True)
@@ -29,6 +22,9 @@ class Example:
     model_path: Path
     source: str
     license: str
+    semantic_case_id: str
+    lineage_id: str
+    variant_type: str
 
     @property
     def code(self) -> str:
@@ -39,7 +35,7 @@ class ExampleCorpus:
     """Deterministic BM25-style retriever over the approved RAG split."""
 
     def __init__(self, root: Path | None = None, *, split: str = "rag",
-                 subset: str = "full100"):
+                 subset: str = "full300"):
         self.root = root or Path(__file__).with_name("examples")
         self.subset = subset
         rows = json.loads((self.root / "manifest.json").read_text(encoding="utf-8"))
@@ -55,15 +51,14 @@ class ExampleCorpus:
         ]
         if not self.examples:
             raise ValueError(f"no Modelica examples found for split {split!r}")
-        self._docs = [
-            _tokens(" ".join((item.requirement, item.category, *item.tags)))
-            for item in self.examples
-        ]
-        self._df: dict[str, int] = {}
-        for doc in self._docs:
-            for token in set(doc):
-                self._df[token] = self._df.get(token, 0) + 1
-        self._avg_len = sum(map(len, self._docs)) / len(self._docs)
+        self._index = DiverseBM25([
+            RetrievalDocument(
+                " ".join((item.requirement, item.category, *item.tags)),
+                item.semantic_case_id,
+                item.lineage_id,
+                item.category,
+            ) for item in self.examples
+        ])
 
     def _example(self, row: dict) -> Example:
         return Example(
@@ -78,29 +73,20 @@ class ExampleCorpus:
             model_path=self.root / row["model_file"],
             source=row["source"],
             license=row["license"],
+            semantic_case_id=row.get("semantic_case_id", row["id"]),
+            lineage_id=row.get("lineage_id", row.get("archetype", row["id"])),
+            variant_type=row.get("variant_type", "executable_case"),
         )
 
     def retrieve(self, requirement: str, *, k: int = 4,
                  tags: tuple[str, ...] = ()) -> list[tuple[Example, float]]:
         if k < 1:
             raise ValueError("k must be positive")
-        query = _tokens(requirement + " " + " ".join(tags))
-        scores = [self._score(query, doc) for doc in self._docs]
-        ranked = sorted(zip(self.examples, scores), key=lambda item: (-item[1], item[0].id))
-        return ranked[:min(k, len(ranked))]
-
-    def _score(self, query: list[str], doc: list[str]) -> float:
-        counts = {token: doc.count(token) for token in set(query)}
-        score = 0.0
-        for token in query:
-            tf = counts.get(token, 0)
-            if not tf:
-                continue
-            df = self._df.get(token, 0)
-            idf = math.log(1 + (len(self._docs) - df + 0.5) / (df + 0.5))
-            norm = tf + 1.5 * (1 - 0.75 + 0.75 * len(doc) / self._avg_len)
-            score += idf * tf * 2.5 / norm
-        return score
+        ranked = self._index.rank(
+            requirement + " " + " ".join(tags), k=k,
+            max_per_semantic_case=1, max_per_lineage=1,
+        )
+        return [(self.examples[index], score) for index, score in ranked]
 
     def context(self, requirement: str, *, k: int = 5,
                 max_code_lines: int = 100) -> str:

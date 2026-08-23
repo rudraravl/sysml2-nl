@@ -1,0 +1,132 @@
+{
+  "schema_version": "1.0",
+  "task_id": "RHY002",
+  "source_text": "Create a portable vertical robot lift. The Modelica plant owns the prismatic joint dynamics and exposes lift position in meters and lift velocity in meters per second. Use a five-kilogram carriage, stiffness 100 N/m, and damping 20 N.s/m. The OpenUSD scene contains a fixed base and the carriage connected by a Z-axis prismatic joint limited from 0 to 1 meter. Drive the plant toward 0.6 meters, run it from 0 to 3 seconds at 50 Hz, and animate the USD carriage from the FMU lift-position output. The carriage must stay within its travel limits and finish within 0.02 meters of the target by 3 seconds.",
+  "execution_mode": "portable_fmu_kinematic",
+  "clock": {
+    "start_time": 0.0,
+    "stop_time": 3.0,
+    "frequency_hz": 50.0,
+    "evidence": ["run it from 0 to 3 seconds at 50 Hz"]
+  },
+  "entities": [
+    {
+      "id": "base",
+      "kind": "fixed_base",
+      "evidence": ["fixed base"]
+    },
+    {
+      "id": "carriage",
+      "kind": "rigid_link",
+      "mass": 5.0,
+      "mass_unit": "kg",
+      "evidence": ["five-kilogram carriage"]
+    }
+  ],
+  "joints": [
+    {
+      "id": "lift_joint",
+      "type": "prismatic",
+      "parent": "base",
+      "child": "carriage",
+      "axis": "Z",
+      "lower_limit": 0.0,
+      "upper_limit": 1.0,
+      "limit_unit": "m",
+      "evidence": ["Z-axis prismatic joint limited from 0 to 1 meter"]
+    }
+  ],
+  "parameters": [
+    {
+      "id": "lift_mass",
+      "owner": "fmu_plant",
+      "joint_id": "lift_joint",
+      "quantity": "mass",
+      "value": 5.0,
+      "unit": "kg",
+      "evidence": ["five-kilogram carriage"]
+    },
+    {
+      "id": "lift_stiffness",
+      "owner": "fmu_plant",
+      "joint_id": "lift_joint",
+      "quantity": "stiffness",
+      "value": 100.0,
+      "unit": "N/m",
+      "evidence": ["stiffness 100 N/m"]
+    },
+    {
+      "id": "lift_damping",
+      "owner": "fmu_plant",
+      "joint_id": "lift_joint",
+      "quantity": "damping",
+      "value": 20.0,
+      "unit": "N.s/m",
+      "evidence": ["damping 20 N.s/m"]
+    },
+    {
+      "id": "lift_target",
+      "owner": "fmu_plant",
+      "joint_id": "lift_joint",
+      "quantity": "target_position",
+      "value": 0.6,
+      "unit": "m",
+      "evidence": ["Drive the plant toward 0.6 meters"]
+    }
+  ],
+  "dynamics": [
+    {
+      "id": "lift_dynamics",
+      "owner": "fmu_plant",
+      "states": ["lift.position", "lift.velocity"],
+      "evidence": [
+        "The Modelica plant owns the prismatic joint dynamics",
+        "five-kilogram carriage, stiffness 100 N/m, and damping 20 N.s/m"
+      ]
+    }
+  ],
+  "controllers": [],
+  "actuators": [],
+  "sensors": [],
+  "environment": [],
+  "interfaces": [
+    {
+      "id": "lift_position_to_usd",
+      "joint_id": "lift_joint",
+      "state_id": "lift.position",
+      "quantity": "joint_position",
+      "direction": "fmu_to_usd",
+      "source_unit": "m",
+      "required": true,
+      "evidence": ["animate the USD carriage from the FMU lift-position output"]
+    }
+  ],
+  "properties": [
+    {
+      "id": "within_travel_limits",
+      "kind": "always",
+      "interface_id": "lift_position_to_usd",
+      "signal": "liftPosition",
+      "lower": 0.0,
+      "upper": 1.0,
+      "evidence": ["The carriage must stay within its travel limits"]
+    },
+    {
+      "id": "finishes_at_target",
+      "kind": "final",
+      "interface_id": "lift_position_to_usd",
+      "signal": "liftPosition",
+      "lower": 0.58,
+      "upper": 0.62,
+      "evidence": ["finish within 0.02 meters of the target by 3 seconds"]
+    }
+  ],
+  "assumptions": [
+    "Primitive carriage geometry is used because visual dimensions are unspecified.",
+    "Kinematic playback uses linear interpolation between 50 Hz samples."
+  ],
+  "unknowns": [
+    "Exact carriage geometry and material",
+    "Joint attachment frame offsets"
+  ]
+}

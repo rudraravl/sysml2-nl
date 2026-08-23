@@ -1,0 +1,29 @@
+{
+  "version": "1.0.0",
+  "name": "Robotics cross-profile semantic question bank",
+  "policy": {
+    "instantiate_only_grounded_facts": true,
+    "unknowns_penalized": false,
+    "llm_answers_can_block": false,
+    "automatic_repair_requires_deterministic_evidence": true
+  },
+  "families": {
+    "timing": {"weight": 2.0, "authority": "contract", "repair_owner": "cross_profile"},
+    "entity_presence": {"weight": 1.5, "authority": "openusd", "repair_owner": "openusd"},
+    "entity_mass": {"weight": 2.0, "authority": "openusd", "repair_owner": "openusd"},
+    "entity_geometry": {"weight": 2.0, "authority": "openusd", "repair_owner": "openusd"},
+    "joint_topology": {"weight": 3.0, "authority": "openusd_contract", "repair_owner": "openusd"},
+    "joint_axis": {"weight": 1.5, "authority": "openusd", "repair_owner": "openusd"},
+    "joint_limits": {"weight": 2.5, "authority": "openusd", "repair_owner": "openusd"},
+    "parameter": {"weight": 2.0, "authority": "fmu_metadata", "repair_owner": "modelica"},
+    "dynamics": {"weight": 2.5, "authority": "contract", "repair_owner": "cross_profile"},
+    "controller_presence": {"weight": 2.0, "authority": "fmu_contract", "repair_owner": "modelica"},
+    "controller_kind": {"weight": 1.0, "authority": "artifact_text", "repair_owner": "modelica"},
+    "actuator": {"weight": 2.5, "authority": "contract", "repair_owner": "cross_profile"},
+    "sensor_presence": {"weight": 2.0, "authority": "openusd_contract", "repair_owner": "openusd"},
+    "sensor_configuration": {"weight": 1.0, "authority": "openusd", "repair_owner": "openusd"},
+    "environment": {"weight": 2.0, "authority": "openusd", "repair_owner": "openusd"},
+    "interface": {"weight": 3.0, "authority": "fmu_openusd_contract", "repair_owner": "cross_profile"},
+    "property": {"weight": 3.0, "authority": "runtime", "repair_owner": "runtime"}
+  }
+}

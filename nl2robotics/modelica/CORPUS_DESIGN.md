@@ -34,11 +34,14 @@ unique requirement and unique normalized Modelica artifact.
 
 - `core24`: frozen original corpus; six represented families, four each.
 - `balanced50`: five examples from every one of the ten families.
-- `full100`: ten examples from every one of the ten families.
+- `full100`: ten executable semantic cases from every one of the ten families.
+- `full300`: three NL formulations per semantic case; the default RAG pool.
 
 Subset membership is stored explicitly in `corpus_subsets.json`. It is not
 computed by slicing directory order. The default retrieval setting is five
-examples per prompt for direct comparability with the SysML pipeline.
+examples per prompt for direct comparability with the SysML pipeline. Retrieval
+allows only one result per semantic case and lineage, so paraphrases expand
+lexical coverage without filling a prompt with duplicate code.
 
 ## Validation Contract
 

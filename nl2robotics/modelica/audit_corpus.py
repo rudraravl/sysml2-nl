@@ -31,40 +31,52 @@ def audit() -> dict:
     evaluation = json.loads((ROOT / "evaluation_tasks.json").read_text(encoding="utf-8"))
     errors = []
     ids = [row["id"] for row in rows]
-    if len(rows) != 100 or len(set(ids)) != 100:
-        errors.append("manifest must contain 100 unique IDs")
+    if len(rows) != 300 or len(set(ids)) != 300:
+        errors.append("manifest must contain 300 unique retrieval-pair IDs")
     categories = Counter(row["category"] for row in rows)
-    if len(categories) != 10 or set(categories.values()) != {10}:
+    if len(categories) != 10 or set(categories.values()) != {30}:
         errors.append(f"expected ten balanced categories, got {dict(categories)}")
     tiers = Counter(row["tier"] for row in rows)
-    if tiers != {"core": 24, "expanded": 76}:
+    if tiers != {"core": 24, "expanded": 76, "paraphrase": 200}:
         errors.append(f"unexpected tier counts: {dict(tiers)}")
     requirements = [row["requirement"].strip().lower() for row in rows]
     if len(set(requirements)) != len(requirements):
         errors.append("duplicate natural-language requirements")
+    semantic_counts = Counter(row.get("semantic_case_id") for row in rows)
+    if len(semantic_counts) != 100 or set(semantic_counts.values()) != {3}:
+        errors.append("expected 100 semantic cases with three NL formulations each")
     code_hashes: dict[str, list[str]] = {}
     codes = {}
     property_ids = []
+    seen_semantic = set()
     for row in rows:
         path = ROOT / row["model_file"]
         if not path.is_file():
             errors.append(f"missing model file for {row['id']}")
             continue
-        code = normalized_code(path.read_text(encoding="utf-8"))
-        codes[row["id"]] = code
-        digest = hashlib.sha256(code.encode()).hexdigest()
-        code_hashes.setdefault(digest, []).append(row["id"])
+        semantic_id = row.get("semantic_case_id")
+        if semantic_id not in seen_semantic:
+            seen_semantic.add(semantic_id)
+            code = normalized_code(path.read_text(encoding="utf-8"))
+            codes[semantic_id] = code
+            digest = hashlib.sha256(code.encode()).hexdigest()
+            code_hashes.setdefault(digest, []).append(semantic_id)
+            property_ids.extend(item.get("id") for item in row.get("properties", []))
         for key in ("split", "tier", "category", "archetype", "difficulty",
                     "source", "license", "simulation", "properties"):
             if not row.get(key):
                 errors.append(f"{row['id']} missing {key}")
-        property_ids.extend(item.get("id") for item in row.get("properties", []))
+        for key in ("semantic_case_id", "lineage_id", "variant_type"):
+            if not row.get(key):
+                errors.append(f"{row['id']} missing {key}")
     duplicates = [group for group in code_hashes.values() if len(group) > 1]
     if duplicates:
         errors.append(f"duplicate normalized code: {duplicates}")
     if len(property_ids) != len(set(property_ids)):
         errors.append("duplicate or missing property IDs")
-    expected_subsets = {"core24": 24, "balanced50": 50, "full100": 100}
+    expected_subsets = {
+        "core24": 24, "balanced50": 50, "full100": 100, "full300": 300,
+    }
     for name, size in expected_subsets.items():
         values = subsets.get(name, [])
         if len(values) != size or len(set(values)) != size or not set(values) <= set(ids):
@@ -85,6 +97,8 @@ def audit() -> dict:
     return {
         "ok": not errors,
         "examples": len(rows),
+        "retrieval_pairs": len(rows),
+        "semantic_cases": len(semantic_counts),
         "categories": dict(sorted(categories.items())),
         "tiers": dict(tiers),
         "subsets": {name: len(values) for name, values in subsets.items()},
