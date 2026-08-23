@@ -438,6 +438,51 @@ class OrchestratorTests(unittest.TestCase):
         self.assertEqual("gpu_execution_pending", result["failure_stage"])
         self.assertEqual("isaac_closed_loop", observed["execution_mode"])
 
+    def test_newton_mode_selects_newton_preparer_and_preserves_mode(self):
+        ir = h2_oracle_ir()
+        ir["execution_mode"] = "newton_closed_loop"
+        observed = {}
+
+        def prepare(**kwargs):
+            observed["execution_mode"] = json.loads(
+                kwargs["contract_path"].read_text()
+            )["execution_mode"]
+            kwargs["output_dir"].mkdir(parents=True, exist_ok=True)
+            (kwargs["output_dir"] / "execution-input.json").write_text(
+                "{}\n", encoding="utf-8"
+            )
+            return {
+                "stage": "newton_closed_loop_bundle_preparation",
+                "success": True,
+                "claim_eligible_h2": False,
+                "contract": {"success": True},
+            }
+
+        with tempfile.TemporaryDirectory() as tmp:
+            pipeline = RoboticsOrchestrator(
+                modelica_generator=lambda requirement, output: (
+                    "model RobotTask_RHY101_Controller end RobotTask_RHY101_Controller;",
+                    {"passed": True, "repairs": 0},
+                ),
+                openusd_generator=lambda requirement, output: (
+                    "#usda 1.0\n", {"passed": True, "repairs": 0},
+                ),
+                isaac_preparer=lambda **kwargs: self.fail("Isaac preparer called"),
+                newton_preparer=prepare,
+            )
+            result = pipeline.run(
+                ir["source_text"], lambda _: json.dumps(ir),
+                output_dir=Path(tmp), task_id="RHY201",
+                execution_mode="newton_closed_loop", max_ir_repairs=0,
+                enable_alignment=False,
+            )
+
+        self.assertTrue(result["ready_for_gpu"], result)
+        self.assertEqual("newton_closed_loop", observed["execution_mode"])
+        self.assertEqual(
+            "newton_closed_loop", result["hybrid"]["execution_mode"]
+        )
+
     def test_h2_semantic_repair_is_revalidated_before_gpu_readiness(self):
         ir = h2_oracle_ir()
 

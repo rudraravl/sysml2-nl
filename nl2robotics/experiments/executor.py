@@ -25,6 +25,7 @@ class PipelineExperimentExecutor:
                  openusd_pipeline: OpenUSDPipeline | None = None,
                  portable_pipeline: PortableHybridPipeline | None = None,
                  isaac_preparer=None,
+                 newton_preparer=None,
                  h2_handoff=None,
                  modelica_moe=generate_modelica_moe,
                  openusd_moe=generate_openusd_moe,
@@ -38,6 +39,7 @@ class PipelineExperimentExecutor:
             modelica_runner=self.modelica.runner
         )
         self.isaac_preparer = isaac_preparer
+        self.newton_preparer = newton_preparer
         self.h2_handoff = h2_handoff
         self.modelica_moe = modelica_moe
         self.openusd_moe = openusd_moe
@@ -132,6 +134,7 @@ class PipelineExperimentExecutor:
             k=self.k,
             max_profile_repairs=(self.max_tool_repairs if condition.tool_repair else 0),
             isaac_preparer=self.isaac_preparer,
+            newton_preparer=self.newton_preparer,
         )
         result = orchestrator.run(
             prompt,
@@ -139,9 +142,10 @@ class PipelineExperimentExecutor:
             output_dir=output_dir,
             task_id=f"{task.id}-{condition.id}",
             execution_mode=(
-                "isaac_closed_loop"
-                if task.target_level == "isaac_h2"
-                else "portable_fmu_kinematic"
+                {
+                    "isaac_h2": "isaac_closed_loop",
+                    "newton_h2": "newton_closed_loop",
+                }.get(task.target_level, "portable_fmu_kinematic")
             ),
             max_ir_repairs=1,
             alignment_ask=self.json_ask if condition.alignment else None,
@@ -149,17 +153,19 @@ class PipelineExperimentExecutor:
             max_semantic_repairs=(1 if condition.alignment else 0),
             enable_alignment=condition.alignment,
         )
-        if task.target_level == "isaac_h2":
-            return self._complete_h2(result, output_dir)
+        if task.target_level in {"isaac_h2", "newton_h2"}:
+            return self._complete_h2(result, output_dir, task.target_level)
         return result
 
-    def _complete_h2(self, result: dict, output_dir: Path) -> dict:
+    def _complete_h2(self, result: dict, output_dir: Path,
+                     target_level: str = "isaac_h2") -> dict:
+        backend = "newton" if target_level == "newton_h2" else "isaac"
         if result.get("ready_for_gpu") is not True:
             return result
         if self.h2_handoff is None:
             result["infrastructure_pending"] = True
             result["infrastructure_reason"] = (
-                "validated H2 bundle requires the configured Isaac GPU handoff"
+                f"validated H2 bundle requires the configured {backend} handoff"
             )
             return result
         manifest = result.get("hybrid", {}).get("manifest")
@@ -171,20 +177,26 @@ class PipelineExperimentExecutor:
             output_dir=output_dir / "gpu-handoff",
         )
         result["gpu_handoff"] = handoff
-        isaac = handoff.get("isaac_report") if isinstance(handoff, dict) else None
+        simulator_report = (
+            handoff.get(f"{backend}_report") if isinstance(handoff, dict) else None
+        )
         if handoff.get("failure_stage") == "gpu_preflight":
             result["infrastructure_pending"] = True
-            result["infrastructure_reason"] = "Isaac GPU preflight failed"
+            result["infrastructure_reason"] = f"{backend} GPU preflight failed"
             return result
-        if not isinstance(isaac, dict):
+        if not isinstance(simulator_report, dict):
             result["passed"] = False
-            result["failure_stage"] = "isaac_execution"
+            result["failure_stage"] = f"{backend}_execution"
             return result
         result["h2_preparation"] = result["hybrid"]
-        result["hybrid"] = isaac
-        result["passed"] = isaac.get("success") is True
-        result["claim_eligible_h2"] = isaac.get("claim_eligible_h2") is True
-        result["failure_stage"] = None if result["passed"] else "isaac_execution"
+        result["hybrid"] = simulator_report
+        result["passed"] = simulator_report.get("success") is True
+        result["claim_eligible_h2"] = (
+            simulator_report.get("claim_eligible_h2") is True
+        )
+        result["failure_stage"] = (
+            None if result["passed"] else f"{backend}_execution"
+        )
         return result
 
     def _generate_modelica(self, requirement: str, condition: AblationCondition,

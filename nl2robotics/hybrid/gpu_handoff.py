@@ -13,6 +13,10 @@ import sys
 from .isaac_bundle import IsaacBundleError, load_isaac_bundle
 
 
+_UNSUPPORTED_GPU_TOKENS = ("A100", "H100", "H200")
+_SUPPORTED_RT_GPU_TOKENS = ("RTX", "A40", "L4", "L40", "A10")
+
+
 def main() -> None:
     args = _arguments()
     args.output_dir.mkdir(parents=True, exist_ok=True)
@@ -127,6 +131,8 @@ def inspect_gpu_host(isaac_python: Path,
         "nvidia_driver", bool(gpu_rows),
         gpu["stderr"] or (json.dumps(gpu_rows) if gpu_rows else "no GPU reported"),
     ))
+    rt_compatible, rt_detail = classify_rt_capability(gpu_rows)
+    checks.append(_check("rt_capable_gpu", rt_compatible, rt_detail))
     checks.append(_check(
         "isaac_python", isaac_python.is_file() and os.access(isaac_python, os.X_OK),
         str(isaac_python),
@@ -145,8 +151,9 @@ def inspect_gpu_host(isaac_python: Path,
         "checks": checks,
         "gpus": gpu_rows,
         "rt_capability_note": (
-            "nvidia-smi does not prove RTX/RT-core compatibility; run NVIDIA's "
-            "Isaac Sim Compatibility Checker before headline experiments."
+            "The model-name gate rejects known unsupported accelerators and "
+            "unknown GPU families. NVIDIA's Isaac Sim Compatibility Checker "
+            "must still pass before headline experiments."
         ),
     }
 
@@ -183,6 +190,25 @@ def parse_nvidia_smi(output: str) -> list[dict]:
             "driver_version": parts[2],
         })
     return rows
+
+
+def classify_rt_capability(gpus: list[dict]) -> tuple[bool, str]:
+    """Fail closed when visible GPUs are not known RT-capable families."""
+    if not gpus:
+        return False, "no GPU reported"
+    unsupported = []
+    unknown = []
+    for row in gpus:
+        name = str(row.get("name", "")).upper()
+        if any(token in name for token in _UNSUPPORTED_GPU_TOKENS):
+            unsupported.append(str(row.get("name", "")))
+        elif not any(token in name for token in _SUPPORTED_RT_GPU_TOKENS):
+            unknown.append(str(row.get("name", "")))
+    if unsupported:
+        return False, f"known non-RT Isaac accelerators: {unsupported}"
+    if unknown:
+        return False, f"unrecognized GPU families require review: {unknown}"
+    return True, f"RT-capable candidate GPU models: {[row['name'] for row in gpus]}"
 
 
 def _isaac_api_probe(controller_backend: str) -> str:

@@ -130,6 +130,9 @@ class ClosedLoopMaster:
                 "stage": "closed_loop_core",
                 "success": False,
                 "claim_eligible_h2": False,
+                "claim_eligible_isaac_h2": False,
+                "claim_eligible_newton_h2": False,
+                "claim_eligible_deltaai_h2": False,
                 "error": f"{type(exc).__name__}: {exc}",
                 "completed_steps": len(rows),
                 "controller": dict(controller.metadata),
@@ -144,23 +147,52 @@ class ClosedLoopMaster:
         _write_trace(trace_path, rows)
         physics_metadata = dict(physics.metadata)
         controller_metadata = dict(controller.metadata)
-        claim_eligible = (
-            physics_metadata.get("backend") == "isaac_sim"
-            and physics_metadata.get("executed") is True
-            and physics_metadata.get("engine") == "PhysX"
-            and physics_metadata.get("provenance_complete") is True
-            and controller_metadata.get("backend") in {
+        controller_eligible = (
+            controller_metadata.get("backend") in {
                 "fmpy_fmi2", "fmpy_fmi2_container",
             }
             and controller_metadata.get("executed") is True
         )
+        isaac_eligible = (
+            physics_metadata.get("backend") == "isaac_sim"
+            and physics_metadata.get("executed") is True
+            and physics_metadata.get("engine") == "PhysX"
+            and physics_metadata.get("provenance_complete") is True
+            and controller_eligible
+        )
+        newton_eligible = (
+            physics_metadata.get("backend") == "newton_physics"
+            and physics_metadata.get("executed") is True
+            and physics_metadata.get("engine") == "Newton Physics"
+            and physics_metadata.get("provenance_complete") is True
+            and controller_eligible
+        )
+        deltaai_eligible = (
+            newton_eligible
+            and physics_metadata.get("device_is_cuda") is True
+            and str(physics_metadata.get("platform_system", "")).lower() == "linux"
+            and str(physics_metadata.get("platform_machine", "")).lower()
+            in {"aarch64", "arm64"}
+            and any(
+                token in str(physics_metadata.get("device_name", "")).upper()
+                for token in ("H100", "GH200")
+            )
+        )
+        claim_eligible = isaac_eligible or newton_eligible
+        if isaac_eligible:
+            execution_mode = "isaac_closed_loop"
+        elif newton_eligible:
+            execution_mode = "newton_closed_loop"
+        else:
+            execution_mode = "reference_closed_loop"
         return {
             "stage": "closed_loop_core",
             "success": True,
-            "execution_mode": (
-                "isaac_closed_loop" if claim_eligible else "reference_closed_loop"
-            ),
+            "execution_mode": execution_mode,
             "claim_eligible_h2": claim_eligible,
+            "claim_eligible_isaac_h2": isaac_eligible,
+            "claim_eligible_newton_h2": newton_eligible,
+            "claim_eligible_deltaai_h2": deltaai_eligible,
             "coupling": dict(coupling),
             "clock": dict(clock),
             "completed_steps": len(rows),

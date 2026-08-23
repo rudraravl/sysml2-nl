@@ -31,7 +31,7 @@ def extract_metrics(profile: str, result: dict, *,
     modelica = result.get("modelica", {})
     openusd = result.get("openusd", {})
     hybrid = result.get("hybrid", result if result.get("stage") in {
-        "portable_hybrid", "isaac_closed_loop"
+        "portable_hybrid", "isaac_closed_loop", "newton_closed_loop"
     } else {})
     contract = hybrid.get("contract", result.get("contract", {}))
     fmu = hybrid.get("fmu", result.get("fmu", {}))

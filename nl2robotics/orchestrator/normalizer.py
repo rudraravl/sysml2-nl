@@ -144,7 +144,11 @@ and carry joint_position."""
             '    "source_unit": "rad|deg|m", "initial_value": 0.0'
         )
     else:
-        profile = """The closed-loop profile uses OpenUSD/Isaac physics as physical-state
+        simulator = (
+            "Newton Physics" if execution_mode == "newton_closed_loop"
+            else "Isaac Sim/PhysX"
+        )
+        profile = f"""The closed-loop profile uses OpenUSD/{simulator} as physical-state
 owner and a Modelica FMI 2.0 Co-Simulation FMU as controller. Extract explicit
 usd_to_fmu observations and fmu_to_usd commands. Do not infer an actuator,
 controller, feedback signal, geometry, mass, gravity, or initial condition."""

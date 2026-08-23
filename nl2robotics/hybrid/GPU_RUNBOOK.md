@@ -10,7 +10,14 @@
   image when `--controller-backend docker` is used.
 
 Run NVIDIA's Isaac Sim Compatibility Checker before headline experiments.
-`nvidia-smi` identifies the device and driver but does not prove RT-core support.
+The handoff rejects known non-RT accelerators and unknown GPU families, but the
+Compatibility Checker remains the final hardware gate.
+
+NCSA DeltaAI is not a valid host for this checkpoint: its Grace CPU is ARM and
+its H100 GPU has no RT cores. A regular NCSA Delta `gpuA40x4` allocation is a
+candidate because those nodes are x86_64 and have A40 RT cores, subject to the
+Compatibility Checker and Isaac Sim availability. The lowest-risk cloud route
+is NVIDIA's Isaac Sim 6.0 AWS workstation on `g6e.2xlarge` (L40S).
 
 ## One command
 
@@ -18,7 +25,7 @@ From the repository root on the GPU machine:
 
 ```bash
 python3 -m nl2robotics.hybrid.gpu_handoff \
-  --bundle outputs/RHY101-isaac-input-v3/execution-input.json \
+  --bundle outputs/RHY101-isaac-input-v4/execution-input.json \
   --output-dir outputs/RHY101-isaac-handoff \
   --isaac-python /opt/isaacsim/python.sh \
   --controller-backend local \

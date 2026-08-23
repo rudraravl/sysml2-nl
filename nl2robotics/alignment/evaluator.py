@@ -126,6 +126,8 @@ class RoboticsAlignmentEvaluator:
 
 def _deterministic_answer(question: FocusedQuestion, ir: dict,
                           context: AlignmentContext) -> dict:
+    if question.family == "execution_backend":
+        return _execution_backend_answer(question, context)
     if question.family == "timing":
         return _clock_answer(question, ir, context)
     if question.family == "property":
@@ -151,6 +153,20 @@ def _deterministic_answer(question: FocusedQuestion, ir: dict,
     if question.family == "environment":
         return _environment_answer(question, context)
     return _answer("unknown", "no deterministic evidence adapter for this fact")
+
+
+def _execution_backend_answer(question: FocusedQuestion,
+                              context: AlignmentContext) -> dict:
+    expected = question.expected.get("execution_mode")
+    actual = context.contract.get("execution_mode")
+    if actual == expected:
+        return _answer(
+            "satisfied", f"validated contract execution_mode is {actual!r}"
+        )
+    return _answer(
+        "violated", f"required execution_mode {expected!r}, found {actual!r}",
+        blocking=True, repair_eligible=True,
+    )
 
 
 def _clock_answer(question: FocusedQuestion, ir: dict,

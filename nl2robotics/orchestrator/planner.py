@@ -8,7 +8,10 @@ import json
 import math
 import re
 
-from nl2robotics.contracts.requirement_ir import validate_requirement_ir
+from nl2robotics.contracts.requirement_ir import (
+    is_closed_loop_mode,
+    validate_requirement_ir,
+)
 from nl2robotics.contracts.units import UnitError, conversion
 
 
@@ -62,7 +65,7 @@ class H2Plan:
         return {
             "schema_version": "1.0",
             "task_id": self.task_id,
-            "execution_mode": "isaac_closed_loop",
+            "execution_mode": self.requirement_ir["execution_mode"],
             "model_name": self.model_name,
             "identifiers": self.identifiers,
         }
@@ -72,7 +75,7 @@ def build_plan(requirement_ir: dict) -> H1Plan | H2Plan:
     mode = requirement_ir.get("execution_mode")
     if mode == "portable_fmu_kinematic":
         return build_h1_plan(requirement_ir)
-    if mode == "isaac_closed_loop":
+    if is_closed_loop_mode(mode):
         return build_h2_plan(requirement_ir)
     raise PlanningError([PlanIssue(
         "unsupported_mode", f"unsupported execution mode {mode!r}",
@@ -229,6 +232,7 @@ def build_h2_plan(requirement_ir: dict) -> H2Plan:
         if assumption not in ir["assumptions"]:
             ir["assumptions"].append(assumption)
     task_id = ir["task_id"]
+    execution_mode = ir["execution_mode"]
     model_name = f"RobotTask_{_modelica_identifier(task_id)}_Controller"
     entities = {item["id"]: item for item in ir["entities"]}
     joints = {item["id"]: item for item in ir["joints"]}
@@ -324,7 +328,7 @@ def build_h2_plan(requirement_ir: dict) -> H2Plan:
     contract = {
         "schema_version": "1.0",
         "task_id": task_id,
-        "execution_mode": "isaac_closed_loop",
+        "execution_mode": execution_mode,
         "clock": clock,
         "coupling": coupling,
         "state_ownership": list(owners.values()),
@@ -567,9 +571,9 @@ def _h2_readiness_issues(ir: dict) -> list[PlanIssue]:
     validation = validate_requirement_ir(ir)
     issues = [PlanIssue(item.code, item.message, item.path)
               for item in validation.issues]
-    if ir.get("execution_mode") != "isaac_closed_loop":
+    if not is_closed_loop_mode(ir.get("execution_mode")):
         issues.append(PlanIssue(
-            "unsupported_mode", "H2 planning requires isaac_closed_loop",
+            "unsupported_mode", "H2 planning requires a closed-loop mode",
             "$.execution_mode",
         ))
     clock = ir.get("clock")

@@ -10,6 +10,7 @@ from pathlib import Path
 from nl2robotics.alignment.evaluator import RoboticsAlignmentEvaluator
 from nl2robotics.alignment.guarded import guarded_semantic_repair
 from nl2robotics.hybrid.isaac_bundle import prepare_isaac_bundle
+from nl2robotics.hybrid.newton_bundle import prepare_newton_bundle
 from nl2robotics.hybrid.portable import PortableHybridPipeline
 from nl2robotics.modelica.moe import generate_modelica_moe
 from nl2robotics.modelica.pipeline import ModelicaPipeline
@@ -21,7 +22,7 @@ from .planner import H2Plan, PlanningError, build_plan
 
 
 ProfileGenerator = Callable[[str, Path], tuple[str, dict]]
-IsaacPreparer = Callable[..., dict]
+H2Preparer = Callable[..., dict]
 
 
 class RoboticsOrchestrator:
@@ -37,7 +38,8 @@ class RoboticsOrchestrator:
         modelica_generator: ProfileGenerator | None = None,
         openusd_generator: ProfileGenerator | None = None,
         alignment_evaluator: RoboticsAlignmentEvaluator | None = None,
-        isaac_preparer: IsaacPreparer | None = None,
+        isaac_preparer: H2Preparer | None = None,
+        newton_preparer: H2Preparer | None = None,
         k: int = 5,
         max_profile_repairs: int = 2,
     ):
@@ -49,6 +51,7 @@ class RoboticsOrchestrator:
         self.openusd_generator = openusd_generator
         self.alignment_evaluator = alignment_evaluator or RoboticsAlignmentEvaluator()
         self.isaac_preparer = isaac_preparer or prepare_isaac_bundle
+        self.newton_preparer = newton_preparer or prepare_newton_bundle
         self.k = k
         self.max_profile_repairs = max_profile_repairs
 
@@ -372,8 +375,14 @@ class RoboticsOrchestrator:
                     enable_alignment: bool) -> dict:
         result["failure_stage"] = "h2_bundle_preparation"
         bundle_dir = output_dir / "hybrid"
+        execution_mode = plan.requirement_ir["execution_mode"]
+        preparer = (
+            self.newton_preparer
+            if execution_mode == "newton_closed_loop"
+            else self.isaac_preparer
+        )
         try:
-            preparation = self.isaac_preparer(
+            preparation = preparer(
                 modelica_path=output_dir / "modelica" / "model.mo",
                 usd_path=source_usd,
                 requirement_ir_path=output_dir / "requirement_ir.json",
@@ -390,6 +399,7 @@ class RoboticsOrchestrator:
         result["hybrid"] = _h2_summary(
             preparation, report_path="hybrid/bundle.json",
             manifest_path="hybrid/execution-input.json",
+            execution_mode=execution_mode,
         )
         if not prep_passed:
             return self._finish(output_dir, result)
@@ -459,7 +469,7 @@ class RoboticsOrchestrator:
                     _write_json(contract_path, plan.contract)
                     bundle_path = attempt_root / "hybrid"
                     try:
-                        candidate_preparation = self.isaac_preparer(
+                        candidate_preparation = preparer(
                             modelica_path=model_path,
                             usd_path=usd_path,
                             requirement_ir_path=ir_path,
@@ -517,6 +527,7 @@ class RoboticsOrchestrator:
                     preparation,
                     report_path=final_candidate["bundle_report"],
                     manifest_path=final_candidate["bundle_manifest"],
+                    execution_mode=execution_mode,
                 )
             _write_json(output_dir / "semantic-repair.json", repair_report)
         _write_json(output_dir / "alignment.json", alignment)
@@ -535,7 +546,7 @@ class RoboticsOrchestrator:
         }
         ready = alignment["passed"] is True
         result["ready_for_gpu"] = ready
-        result["execution_status"] = "pending_isaac_gpu_run"
+        result["execution_status"] = f"pending_{execution_mode}"
         result["passed"] = False
         result["failure_stage"] = (
             "gpu_execution_pending" if ready else "semantic_alignment"
@@ -575,7 +586,7 @@ def _h1_summary(report: dict) -> dict:
 
 
 def _h2_summary(report: dict, *, report_path: str,
-                manifest_path: str | None) -> dict:
+                manifest_path: str | None, execution_mode: str) -> dict:
     prepared = report.get("success") is True
     return {
         "passed": False,
@@ -587,7 +598,8 @@ def _h2_summary(report: dict, *, report_path: str,
         "contract": report.get("contract", {}),
         "fmu": report.get("fmu", {}),
         "controller_conformance": report.get("controller_conformance", {}),
-        "execution": {"success": False, "status": "pending_isaac_gpu_run"},
+        "execution_mode": execution_mode,
+        "execution": {"success": False, "status": f"pending_{execution_mode}"},
         "properties": [],
         "property_count": 0,
     }

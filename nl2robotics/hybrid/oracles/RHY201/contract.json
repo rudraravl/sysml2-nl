@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "task_id": "RHY201",
+  "execution_mode": "newton_closed_loop",
+  "clock": {"start_time": 0.0, "stop_time": 3.0, "step_size": 0.01, "time_codes_per_second": 100.0},
+  "coupling": {
+    "algorithm": "sampled_data_sequential",
+    "hold": "zero_order",
+    "observation_phase": "step_start",
+    "command_phase": "before_physics_step",
+    "physics_substeps": 2
+  },
+  "state_ownership": [
+    {"state_id": "shoulder.angle", "kind": "physical", "owner": "usd_physics"},
+    {"state_id": "shoulder.angular_velocity", "kind": "physical", "owner": "usd_physics"},
+    {"state_id": "shoulder.command_effort", "kind": "control", "owner": "fmu_controller"}
+  ],
+  "mappings": [
+    {
+      "id": "map_shoulder_angle", "interface_id": "shoulder_angle_to_controller", "state_id": "shoulder.angle", "semantic_joint_id": "shoulder", "semantic_parent_entity_id": "base", "semantic_child_entity_id": "link", "owner": "usd_physics", "direction": "usd_to_fmu", "fmu_variable": "shoulderAngle", "source_unit": "rad", "usd_joint_path": "/World/Shoulder", "usd_parent_prim": "/World/Base", "usd_driven_prim": "/World/Link", "usd_quantity": "joint_position", "target_unit": "rad", "axis": "Y", "interpolation": "sample", "numeric_tolerance": 1e-6, "initial_value": 0.0
+    },
+    {
+      "id": "map_shoulder_velocity", "interface_id": "shoulder_velocity_to_controller", "state_id": "shoulder.angular_velocity", "semantic_joint_id": "shoulder", "semantic_parent_entity_id": "base", "semantic_child_entity_id": "link", "owner": "usd_physics", "direction": "usd_to_fmu", "fmu_variable": "shoulderAngularVelocity", "source_unit": "rad/s", "usd_joint_path": "/World/Shoulder", "usd_parent_prim": "/World/Base", "usd_driven_prim": "/World/Link", "usd_quantity": "joint_velocity", "target_unit": "rad/s", "axis": "Y", "interpolation": "sample", "numeric_tolerance": 1e-6, "initial_value": 0.0
+    },
+    {
+      "id": "map_shoulder_torque", "interface_id": "shoulder_torque_to_simulator", "state_id": "shoulder.command_effort", "semantic_joint_id": "shoulder", "semantic_parent_entity_id": "base", "semantic_child_entity_id": "link", "owner": "fmu_controller", "direction": "fmu_to_usd", "fmu_variable": "shoulderTorque", "source_unit": "N.m", "usd_joint_path": "/World/Shoulder", "usd_parent_prim": "/World/Base", "usd_driven_prim": "/World/Link", "usd_quantity": "joint_effort", "target_unit": "N.m", "axis": "Y", "interpolation": "zero_order", "numeric_tolerance": 1e-6, "command_lower": -5.0, "command_upper": 5.0
+    }
+  ]
+}

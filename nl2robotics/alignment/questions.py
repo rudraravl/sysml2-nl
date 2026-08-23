@@ -39,6 +39,16 @@ def instantiate_questions(requirement_ir: dict) -> list[FocusedQuestion]:
         raise ValueError(f"cannot instantiate questions from invalid IR: {messages}")
 
     questions: list[FocusedQuestion] = []
+    backend = _grounded_backend(requirement_ir)
+    if backend is not None:
+        mode, evidence = backend
+        questions.append(_question(
+            "execution_backend", mode, "cross_profile",
+            {"evidence": [evidence]},
+            f"Does the contract select the explicitly required "
+            f"{evidence} execution backend?",
+            {"execution_mode": mode},
+        ))
     clock = requirement_ir.get("clock")
     if isinstance(clock, dict):
         expected = _select(clock, "start_time", "stop_time", "frequency_hz")
@@ -226,3 +236,15 @@ def _without_metadata(record: dict) -> dict:
 
 def _slug(value: str) -> str:
     return "".join(char.upper() if char.isalnum() else "-" for char in value).strip("-")
+
+
+def _grounded_backend(requirement_ir: dict) -> tuple[str, str] | None:
+    source = str(requirement_ir.get("source_text", ""))
+    mode = requirement_ir.get("execution_mode")
+    expected = {
+        "isaac_closed_loop": "Isaac Sim",
+        "newton_closed_loop": "Newton Physics",
+    }.get(mode)
+    if expected is not None and expected in source:
+        return str(mode), expected
+    return None

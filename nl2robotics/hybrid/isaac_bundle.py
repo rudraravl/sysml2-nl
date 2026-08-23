@@ -34,7 +34,29 @@ def prepare_isaac_bundle(*, modelica_path: Path, usd_path: Path,
                          usd_validator: OpenUSDValidator | None = None,
                          controller_runtime_factory: Callable[[Path], object]
                          | None = None) -> dict:
-    """Compile and cross-check H2 inputs before simulator execution."""
+    return prepare_hybrid_bundle(
+        modelica_path=modelica_path,
+        usd_path=usd_path,
+        requirement_ir_path=requirement_ir_path,
+        contract_path=contract_path,
+        output_dir=output_dir,
+        execution_mode="isaac_closed_loop",
+        modelica_backend=modelica_backend,
+        modelica_runner=modelica_runner,
+        usd_validator=usd_validator,
+        controller_runtime_factory=controller_runtime_factory,
+    )
+
+
+def prepare_hybrid_bundle(*, modelica_path: Path, usd_path: Path,
+                          requirement_ir_path: Path, contract_path: Path,
+                          output_dir: Path, execution_mode: str,
+                          modelica_backend: str = "docker",
+                          modelica_runner: OpenModelicaRunner | None = None,
+                          usd_validator: OpenUSDValidator | None = None,
+                          controller_runtime_factory: Callable[[Path], object]
+                          | None = None) -> dict:
+    """Compile and cross-check closed-loop inputs before simulator execution."""
     output_dir.mkdir(parents=True, exist_ok=True)
     manifest_path = output_dir / "execution-input.json"
     if manifest_path.exists():
@@ -43,6 +65,10 @@ def prepare_isaac_bundle(*, modelica_path: Path, usd_path: Path,
     modelica = modelica_path.read_text(encoding="utf-8")
     requirement_ir = load_json(requirement_ir_path)
     contract = load_json(contract_path)
+    if contract.get("execution_mode") != execution_mode:
+        raise IsaacBundleError(
+            f"bundle requires {execution_mode}, found {contract.get('execution_mode')!r}"
+        )
     modelica_runner = modelica_runner or OpenModelicaRunner(
         backend=modelica_backend
     )
@@ -51,7 +77,7 @@ def prepare_isaac_bundle(*, modelica_path: Path, usd_path: Path,
         modelica, output_dir=output_dir / "modelica"
     )
     report = {
-        "stage": "isaac_bundle_preparation",
+        "stage": f"{execution_mode}_bundle_preparation",
         "success": False,
         "claim_eligible_h2": False,
         "fmu": export.to_dict(),
@@ -148,13 +174,24 @@ def prepare_isaac_bundle(*, modelica_path: Path, usd_path: Path,
 
 
 def load_isaac_bundle(manifest_path: Path) -> dict:
+    return load_hybrid_bundle(
+        manifest_path, expected_mode="isaac_closed_loop", backend_name="Isaac"
+    )
+
+
+def load_hybrid_bundle(manifest_path: Path, *, expected_mode: str,
+                       backend_name: str) -> dict:
     """Load a bundle and reject modified or escaping artifacts."""
     manifest_path = manifest_path.resolve()
     manifest = load_json(manifest_path)
     if manifest.get("schema_version") != BUNDLE_SCHEMA_VERSION:
-        raise IsaacBundleError("unsupported Isaac execution bundle schema")
-    if manifest.get("execution_mode") != "isaac_closed_loop":
-        raise IsaacBundleError("Isaac runner requires isaac_closed_loop mode")
+        raise IsaacBundleError(
+            f"unsupported {backend_name} execution bundle schema"
+        )
+    if manifest.get("execution_mode") != expected_mode:
+        raise IsaacBundleError(
+            f"{backend_name} runner requires {expected_mode} mode"
+        )
     root = manifest_path.parent
     resolved = {}
     artifacts = manifest.get("artifacts")

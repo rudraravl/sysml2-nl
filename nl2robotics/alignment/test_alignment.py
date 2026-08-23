@@ -96,13 +96,22 @@ class QuestionTests(unittest.TestCase):
         ir = oracle_ir()
         questions = instantiate_questions(ir)
         ids = {item.id for item in questions}
-        self.assertEqual(22, len(questions))
+        self.assertEqual(23, len(questions))
+        self.assertIn("execution_backend", {item.family for item in questions})
         self.assertIn("RQ-JOINT-LIMITS-SHOULDER", ids)
         self.assertIn("RQ-PARAMETER-TORQUE-LIMIT", ids)
         self.assertFalse(any("friction" in item.text.lower() for item in questions))
         self.assertTrue(all(item.evidence for item in questions))
         self.assertIn("RQ-CONTROLLER-PRESENCE-SHOULDER-PD", ids)
         self.assertIn("RQ-CONTROLLER-KIND-SHOULDER-PD", ids)
+
+    def test_backend_question_requires_matching_grounded_mode_and_source(self):
+        ir = oracle_ir()
+        ir["execution_mode"] = "newton_closed_loop"
+        self.assertNotIn(
+            "execution_backend",
+            {item.family for item in instantiate_questions(ir)},
+        )
 
 
 class EvaluatorTests(unittest.TestCase):

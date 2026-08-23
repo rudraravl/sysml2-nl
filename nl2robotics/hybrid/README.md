@@ -97,7 +97,7 @@ python3 -m nl2robotics.hybrid.isaac_prepare \
   --usd nl2robotics/hybrid/oracles/RHY101/scene.usda \
   --ir nl2robotics/hybrid/oracles/RHY101/requirement_ir.json \
   --contract nl2robotics/hybrid/oracles/RHY101/contract.json \
-  --output-dir outputs/RHY101-isaac-input-v3
+  --output-dir outputs/RHY101-isaac-input-v4
 ```
 
 On a Linux RTX machine with Isaac Sim 6.0.x, run the checked bundle through
@@ -105,7 +105,7 @@ Isaac's own Python launcher:
 
 ```bash
 ./python.sh -m nl2robotics.hybrid.isaac_cli \
-  --bundle outputs/RHY101-isaac-input-v3/execution-input.json \
+  --bundle outputs/RHY101-isaac-input-v4/execution-input.json \
   --output-dir outputs/RHY101-isaac-evidence \
   --controller-backend docker \
   --device cpu --solver TGS --repetitions 3
@@ -115,7 +115,7 @@ The preferred handoff wraps preflight and the three-run gate in one command:
 
 ```bash
 python3 -m nl2robotics.hybrid.gpu_handoff \
-  --bundle outputs/RHY101-isaac-input-v3/execution-input.json \
+  --bundle outputs/RHY101-isaac-input-v4/execution-input.json \
   --output-dir outputs/RHY101-isaac-handoff \
   --isaac-python /opt/isaacsim/python.sh \
   --controller-backend local --device cpu --solver TGS --repetitions 3
@@ -136,3 +136,17 @@ and the traces agree within the frozen numerical tolerance. A missing
 simulator, stale bundle, changed artifact, wrong joint path, failed property, or
 non-repeatable trajectory remains an explicit failure rather than falling back
 to reference physics.
+
+## H2 Newton evidence on DeltaAI
+
+DeltaAI's Grace/H100 nodes cannot run the Isaac/PhysX evidence path, but they
+can run the same closed-loop contract with Newton Physics. `RHY201` names that
+backend explicitly so its result is not confused with `RHY101` Isaac evidence.
+The runner imports the UsdPhysics articulation by exact joint path, executes the
+same FMU exchange order and zero-order hold, and records separate
+`claim_eligible_newton_h2` and `claim_eligible_isaac_h2` flags.
+
+The pinned ARM64 Apptainer workflow compiles the FMU on the Grace host, validates
+OpenUSD in-container, executes Newton 1.5.0 through Warp CUDA on the H100, and
+requires three deterministic traces plus passing properties and post-execution
+alignment. See `deltaai/README.md` for the build and submit commands.

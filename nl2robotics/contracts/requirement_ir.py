@@ -8,7 +8,12 @@ import math
 from pathlib import Path
 
 
-EXECUTION_MODES = {"portable_fmu_kinematic", "isaac_closed_loop"}
+EXECUTION_MODES = {
+    "portable_fmu_kinematic",
+    "isaac_closed_loop",
+    "newton_closed_loop",
+}
+CLOSED_LOOP_MODES = {"isaac_closed_loop", "newton_closed_loop"}
 RECORD_COLLECTIONS = (
     "entities",
     "joints",
@@ -21,6 +26,10 @@ RECORD_COLLECTIONS = (
     "interfaces",
     "properties",
 )
+
+
+def is_closed_loop_mode(mode: object) -> bool:
+    return mode in CLOSED_LOOP_MODES
 
 
 @dataclass(frozen=True)

@@ -10,7 +10,7 @@ from pathlib import Path
 from nl2robotics.modelica.fmu import FMUInspectionError, inspect_fmu
 from nl2robotics.openusd.validator import OpenUSDValidator
 
-from .requirement_ir import validate_requirement_ir
+from .requirement_ir import is_closed_loop_mode, validate_requirement_ir
 from .units import UnitError, canonical_unit, conversion
 
 
@@ -242,18 +242,18 @@ def _validate_clock(clock: object, openusd: dict,
 
 def _validate_coupling(coupling: object, mode: object,
                        issues: list[ContractIssue]) -> None:
-    if mode != "isaac_closed_loop":
+    if not is_closed_loop_mode(mode):
         if coupling is not None:
             issues.append(ContractIssue(
                 "unexpected_coupling",
-                "coupling configuration is reserved for isaac_closed_loop",
+                "coupling configuration is reserved for closed-loop execution",
                 "$.coupling",
             ))
         return
     if not isinstance(coupling, dict):
         issues.append(ContractIssue(
             "missing_coupling",
-            "isaac_closed_loop requires an explicit coupling configuration",
+            "closed-loop execution requires an explicit coupling configuration",
             "$.coupling",
         ))
         return
@@ -291,6 +291,7 @@ def _validate_ownership(rows: object, mode: object,
     expected_owner = {
         "portable_fmu_kinematic": "fmu_plant",
         "isaac_closed_loop": "usd_physics",
+        "newton_closed_loop": "usd_physics",
     }.get(mode)
     state_owners: dict[str, str] = {}
     for index, row in enumerate(rows):
@@ -469,7 +470,7 @@ def _validate_mappings(rows: object, requirement_ir: dict, fmu: dict,
             ))
         command_lower = row.get("command_lower")
         command_upper = row.get("command_upper")
-        if (mode == "isaac_closed_loop" and direction == "fmu_to_usd"
+        if (is_closed_loop_mode(mode) and direction == "fmu_to_usd"
                 and row.get("usd_quantity") == "joint_effort"):
             limit_record = effort_limits.get(semantic_joint_id)
             if limit_record is None:
@@ -615,7 +616,7 @@ def _validate_mappings(rows: object, requirement_ir: dict, fmu: dict,
             f"required IR interface {missing!r} has no contract mapping",
             "$.mappings",
         ))
-    if mode == "isaac_closed_loop":
+    if is_closed_loop_mode(mode):
         _validate_closed_loop_mappings(rows, issues)
     return resolved
 
@@ -660,7 +661,7 @@ def _validate_fixed_base_anchors(rows: list[dict], ir_entities: dict,
                                  joint_details: dict,
                                  articulation_roots: set[str], mode: object,
                                  issues: list[ContractIssue]) -> None:
-    if mode != "isaac_closed_loop":
+    if not is_closed_loop_mode(mode):
         return
     semantic_to_usd: dict[str, set[str]] = {}
     for row in rows:
@@ -705,7 +706,7 @@ def _validate_fixed_base_anchors(rows: list[dict], ir_entities: dict,
 
 def _validate_environment(requirement_ir: dict, openusd: dict, mode: object,
                           issues: list[ContractIssue]) -> None:
-    if mode != "isaac_closed_loop":
+    if not is_closed_loop_mode(mode):
         return
     gravity = [
         row for row in requirement_ir.get("environment", [])
@@ -791,13 +792,13 @@ def _validate_closed_loop_mappings(rows: list[dict],
     if not feedback:
         issues.append(ContractIssue(
             "missing_feedback_mapping",
-            "isaac_closed_loop requires at least one USD-to-FMU observation",
+            "closed-loop execution requires at least one USD-to-FMU observation",
             "$.mappings",
         ))
     if not commands:
         issues.append(ContractIssue(
             "missing_command_mapping",
-            "isaac_closed_loop requires at least one FMU-to-USD command",
+            "closed-loop execution requires at least one FMU-to-USD command",
             "$.mappings",
         ))
     command_joints: set[str] = set()
@@ -912,14 +913,14 @@ def _validate_joint_consistency(row: dict, ir_joint: dict, ir_entities: dict,
             f"{path}.usd_driven_prim",
             stage="openusd",
         ))
-    if mode == "isaac_closed_loop" and body.get("kinematic_enabled"):
+    if is_closed_loop_mode(mode) and body.get("kinematic_enabled"):
         issues.append(ContractIssue(
             "kinematic_closed_loop_body",
-            "isaac_closed_loop requires USD physics to own a dynamic driven body",
+            "closed-loop execution requires USD physics to own a dynamic driven body",
             f"{path}.usd_driven_prim",
             stage="openusd",
         ))
-    if (mode == "isaac_closed_loop"
+    if (is_closed_loop_mode(mode)
             and row.get("direction") == "fmu_to_usd"
             and row.get("usd_quantity") == "joint_effort"
             and usd_joint.get("drives")):

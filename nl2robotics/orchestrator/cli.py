@@ -25,7 +25,9 @@ def main() -> None:
     parser.add_argument("--task-id")
     parser.add_argument(
         "--execution-mode",
-        choices=("portable_fmu_kinematic", "isaac_closed_loop"),
+        choices=(
+            "portable_fmu_kinematic", "isaac_closed_loop", "newton_closed_loop"
+        ),
         default="portable_fmu_kinematic",
     )
     parser.add_argument("--mode", choices=("moe", "single"), default="moe")
