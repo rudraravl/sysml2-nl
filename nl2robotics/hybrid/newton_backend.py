@@ -257,15 +257,15 @@ class Newton15Runtime:
         q_starts = self._model.joint_q_start.numpy().tolist()
         qd_starts = self._model.joint_qd_start.numpy().tolist()
         joint_types = self._model.joint_type.numpy().tolist()
-        one_dof_types = {
+        articulated_joint_types = {
             int(newton.JointType.PRISMATIC), int(newton.JointType.REVOLUTE)
         }
         ordered = sorted(
             (path, index) for path, index in path_map.items()
-            if int(joint_types[index]) in one_dof_types
+            if int(joint_types[index]) in articulated_joint_types
         )
         if not ordered:
-            raise CouplingError("Newton imported no supported one-DOF joints")
+            raise CouplingError("Newton imported no supported articulated joints")
         self._joint_paths = [path for path, _ in ordered]
         self._q_indices = [int(q_starts[index]) for _, index in ordered]
         self._qd_indices = [int(qd_starts[index]) for _, index in ordered]

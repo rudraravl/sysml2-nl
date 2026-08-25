@@ -149,14 +149,17 @@ and carry joint_position."""
             else "Isaac Sim/PhysX"
         )
         profile = f"""The closed-loop profile uses OpenUSD/{simulator} as physical-state
-owner and a Modelica FMI 2.0 Co-Simulation FMU as controller. Extract explicit
-usd_to_fmu observations and fmu_to_usd commands. Do not infer an actuator,
+owner and a Modelica FMI 2.0 Co-Simulation FMU as controller. It supports one
+fixed-base serial or branching articulation with multiple revolute and prismatic
+joints on principal axes. Extract every link, joint, controller, actuator,
+usd_to_fmu observation, and fmu_to_usd command. Do not infer an actuator,
 controller, feedback signal, geometry, mass, gravity, or initial condition."""
         clock_extra = ',\n    "physics_substeps": 2'
         parameter_owner = '"owner": "fmu_controller"'
         dynamics_owner = '"owner": "usd_physics"'
         role_examples = """"controllers": [{
-    "id": "...", "owner": "fmu_controller", "kind": "PD|PI|PID",
+    "id": "...", "owner": "fmu_controller", "kind": "PD",
+    "joint_ids": ["joint_id"],
     "evidence": ["..."]
   }],
   "actuators": [{
@@ -196,8 +199,11 @@ Required object shape:
     "evidence": ["exact source excerpt"]
   }},
   "entities": [{{
-    "id": "...", "kind": "fixed_base|rigid_link", "mass": 1.0,
-    "mass_unit": "kg", "evidence": ["..."]
+    "id": "...", "kind": "fixed_base|rigid_link",
+    "shape": "box|sphere|cylinder|capsule", "mass": 1.0,
+    "mass_unit": "kg", "length": 1.0, "width": 0.1, "depth": 0.1,
+    "height": 1.0, "radius": 0.1, "dimension_unit": "m|mm",
+    "evidence": ["..."]
   }}],
   "joints": [{{
     "id": "...", "type": "revolute|prismatic", "parent": "entity_id",
@@ -206,8 +212,8 @@ Required object shape:
   }}],
   "parameters": [{{
     "id": "...", {parameter_owner}, "joint_id": "...",
-    "quantity": "rotational_inertia|mass|stiffness|damping|target_position",
-    "value": 1.0, "unit": "kg.m2|kg|N.m/rad|N.m.s/rad|N/m|N.s/m|rad|deg|m",
+    "quantity": "proportional_gain|derivative_gain|target_position|effort_limit",
+    "value": 1.0, "unit": "N.m/rad|N.m.s/rad|N/m|N.s/m|N.m|N|rad|deg|m",
     "evidence": ["..."]
   }}],
   "dynamics": [{{

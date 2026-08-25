@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "task_id": "RHY202",
+  "execution_mode": "newton_closed_loop",
+  "clock": {"start_time": 0.0, "stop_time": 2.5, "step_size": 0.01, "time_codes_per_second": 100.0},
+  "coupling": {"algorithm": "sampled_data_sequential", "hold": "zero_order", "observation_phase": "step_start", "command_phase": "before_physics_step", "physics_substeps": 2},
+  "state_ownership": [
+    {"state_id": "shoulder.position", "kind": "physical", "owner": "usd_physics"},
+    {"state_id": "shoulder.velocity", "kind": "physical", "owner": "usd_physics"},
+    {"state_id": "extension.position", "kind": "physical", "owner": "usd_physics"},
+    {"state_id": "extension.velocity", "kind": "physical", "owner": "usd_physics"},
+    {"state_id": "shoulder.command_effort", "kind": "control", "owner": "fmu_controller"},
+    {"state_id": "extension.command_effort", "kind": "control", "owner": "fmu_controller"}
+  ],
+  "mappings": [
+    {"id": "map_shoulder_position", "interface_id": "shoulder_position_feedback", "state_id": "shoulder.position", "semantic_joint_id": "shoulder", "semantic_parent_entity_id": "base", "semantic_child_entity_id": "arm", "owner": "usd_physics", "direction": "usd_to_fmu", "fmu_variable": "shoulderPosition", "source_unit": "rad", "usd_joint_path": "/World/Shoulder", "usd_parent_prim": "/World/Base", "usd_driven_prim": "/World/Arm", "usd_quantity": "joint_position", "target_unit": "rad", "axis": "Y", "interpolation": "sample", "numeric_tolerance": 1e-6, "initial_value": 0.0},
+    {"id": "map_shoulder_velocity", "interface_id": "shoulder_velocity_feedback", "state_id": "shoulder.velocity", "semantic_joint_id": "shoulder", "semantic_parent_entity_id": "base", "semantic_child_entity_id": "arm", "owner": "usd_physics", "direction": "usd_to_fmu", "fmu_variable": "shoulderVelocity", "source_unit": "rad/s", "usd_joint_path": "/World/Shoulder", "usd_parent_prim": "/World/Base", "usd_driven_prim": "/World/Arm", "usd_quantity": "joint_velocity", "target_unit": "rad/s", "axis": "Y", "interpolation": "sample", "numeric_tolerance": 1e-6, "initial_value": 0.0},
+    {"id": "map_shoulder_effort", "interface_id": "shoulder_effort_command", "state_id": "shoulder.command_effort", "semantic_joint_id": "shoulder", "semantic_parent_entity_id": "base", "semantic_child_entity_id": "arm", "owner": "fmu_controller", "direction": "fmu_to_usd", "fmu_variable": "shoulderEffort", "source_unit": "N.m", "usd_joint_path": "/World/Shoulder", "usd_parent_prim": "/World/Base", "usd_driven_prim": "/World/Arm", "usd_quantity": "joint_effort", "target_unit": "N.m", "axis": "Y", "interpolation": "zero_order", "numeric_tolerance": 1e-6, "command_lower": -4.0, "command_upper": 4.0},
+    {"id": "map_extension_position", "interface_id": "extension_position_feedback", "state_id": "extension.position", "semantic_joint_id": "extension", "semantic_parent_entity_id": "arm", "semantic_child_entity_id": "slider", "owner": "usd_physics", "direction": "usd_to_fmu", "fmu_variable": "extensionPosition", "source_unit": "m", "usd_joint_path": "/World/Extension", "usd_parent_prim": "/World/Arm", "usd_driven_prim": "/World/Slider", "usd_quantity": "joint_position", "target_unit": "m", "axis": "X", "interpolation": "sample", "numeric_tolerance": 1e-6, "initial_value": 0.0},
+    {"id": "map_extension_velocity", "interface_id": "extension_velocity_feedback", "state_id": "extension.velocity", "semantic_joint_id": "extension", "semantic_parent_entity_id": "arm", "semantic_child_entity_id": "slider", "owner": "usd_physics", "direction": "usd_to_fmu", "fmu_variable": "extensionVelocity", "source_unit": "m/s", "usd_joint_path": "/World/Extension", "usd_parent_prim": "/World/Arm", "usd_driven_prim": "/World/Slider", "usd_quantity": "joint_velocity", "target_unit": "m/s", "axis": "X", "interpolation": "sample", "numeric_tolerance": 1e-6, "initial_value": 0.0},
+    {"id": "map_extension_effort", "interface_id": "extension_effort_command", "state_id": "extension.command_effort", "semantic_joint_id": "extension", "semantic_parent_entity_id": "arm", "semantic_child_entity_id": "slider", "owner": "fmu_controller", "direction": "fmu_to_usd", "fmu_variable": "extensionEffort", "source_unit": "N", "usd_joint_path": "/World/Extension", "usd_parent_prim": "/World/Arm", "usd_driven_prim": "/World/Slider", "usd_quantity": "joint_effort", "target_unit": "N", "axis": "X", "interpolation": "zero_order", "numeric_tolerance": 1e-6, "command_lower": -12.0, "command_upper": 12.0}
+  ]
+}

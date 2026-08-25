@@ -73,7 +73,7 @@ def instantiate_questions(requirement_ir: dict) -> list[FocusedQuestion]:
                 _select(entity, "mass", "mass_unit"),
             ))
         dimensions = _select(
-            entity, "length", "width", "height", "depth", "radius",
+            entity, "shape", "length", "width", "height", "depth", "radius",
             "dimension_unit",
         )
         if len(dimensions) > (1 if "dimension_unit" in dimensions else 0):

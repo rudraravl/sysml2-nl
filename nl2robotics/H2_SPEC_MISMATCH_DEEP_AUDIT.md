@@ -1,5 +1,8 @@
 # H2 Execution and Spec-Mismatch Deep Audit
 
+> Historical audit of the frozen one-joint baseline. The current articulated
+> MVP scope is documented in `ARTICULATED_MVP.md`.
+
 Date: 2026-08-22
 
 ## Research verdict

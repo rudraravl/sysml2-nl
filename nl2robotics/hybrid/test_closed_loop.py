@@ -14,10 +14,16 @@ from nl2robotics.modelica.models import FMUVariable
 from .closed_loop import ClosedLoopMaster
 from .closed_loop_properties import evaluate_closed_loop_properties
 from .controller_conformance import evaluate_controller_conformance
-from .reference_runtime import ReferenceOneDOFPhysics, ReferencePDController
+from .reference_runtime import (
+    ReferenceArticulatedPhysics,
+    ReferenceMultiJointPDController,
+    ReferenceOneDOFPhysics,
+    ReferencePDController,
+)
 
 
 ORACLE = Path(__file__).resolve().parent / "oracles" / "RHY101"
+MIXED_ORACLE = Path(__file__).resolve().parent / "oracles" / "RHY202"
 
 
 def load(name: str) -> dict:
@@ -79,6 +85,76 @@ def resolved_mappings() -> list[dict]:
     result = HybridContractValidator().validate_metadata(
         load("contract.json"), load("requirement_ir.json"),
         fmu_metadata(), openusd_metadata(),
+    )
+    if not result.success:
+        raise AssertionError(result.to_dict())
+    return result.resolved_mappings
+
+
+def mixed_load(name: str) -> dict:
+    return json.loads((MIXED_ORACLE / name).read_text(encoding="utf-8"))
+
+
+def mixed_fmu_metadata() -> dict:
+    variables = [
+        FMUVariable("shoulderPosition", 1, "real", "input", "continuous", unit="rad"),
+        FMUVariable("shoulderVelocity", 2, "real", "input", "continuous", unit="rad/s"),
+        FMUVariable("shoulderEffort", 3, "real", "output", "continuous", unit="N.m"),
+        FMUVariable("extensionPosition", 4, "real", "input", "continuous", unit="m"),
+        FMUVariable("extensionVelocity", 5, "real", "input", "continuous", unit="m/s"),
+        FMUVariable("extensionEffort", 6, "real", "output", "continuous", unit="N"),
+    ]
+    return {
+        "fmi_version": "2.0",
+        "interface_type": "co_simulation",
+        "model_name": "MixedJointController",
+        "model_identifier": "MixedJointController",
+        "variables": variables,
+    }
+
+
+def mixed_openusd_metadata() -> dict:
+    return {
+        "success": True,
+        "metadata": {"time_codes_per_second": 100.0},
+        "evidence": {
+            "physics_scene_details": [{
+                "path": "/World/PhysicsScene",
+                "gravity_direction": [0.0, 0.0, -1.0],
+                "gravity_magnitude": 0.0,
+            }],
+            "rigid_body_details": [
+                {"path": "/World/Arm", "mass": 2.0, "kinematic_enabled": False},
+                {"path": "/World/Slider", "mass": 1.0, "kinematic_enabled": False},
+            ],
+            "joint_details": [
+                {
+                    "path": "/World/Shoulder", "type": "revolute",
+                    "body0": ["/World/Base"], "body1": ["/World/Arm"],
+                    "axis": "Y", "lower_limit": -60.0, "upper_limit": 60.0,
+                    "drives": [],
+                },
+                {
+                    "path": "/World/Extension", "type": "prismatic",
+                    "body0": ["/World/Arm"], "body1": ["/World/Slider"],
+                    "axis": "X", "lower_limit": -0.15, "upper_limit": 0.15,
+                    "drives": [],
+                },
+                {
+                    "path": "/World/WorldAnchor", "type": "fixed",
+                    "body0": ["/World/Base"], "body1": [], "axis": None,
+                    "lower_limit": None, "upper_limit": None, "drives": [],
+                },
+            ],
+            "articulations": ["/World/WorldAnchor"],
+        },
+    }
+
+
+def mixed_resolved_mappings() -> list[dict]:
+    result = HybridContractValidator().validate_metadata(
+        mixed_load("contract.json"), mixed_load("requirement_ir.json"),
+        mixed_fmu_metadata(), mixed_openusd_metadata(),
     )
     if not result.success:
         raise AssertionError(result.to_dict())
@@ -335,6 +411,79 @@ class ControllerConformanceTests(unittest.TestCase):
         )
         self.assertFalse(result["success"])
         self.assertLess(result["passed_probes"], result["probe_count"])
+
+
+class MixedJointFunctionalTests(unittest.TestCase):
+    @staticmethod
+    def controller() -> ReferenceMultiJointPDController:
+        return ReferenceMultiJointPDController([
+            {
+                "position_input": "shoulderPosition",
+                "velocity_input": "shoulderVelocity",
+                "effort_output": "shoulderEffort",
+                "target": 0.3490658503988659,
+                "kp": 10.0,
+                "kd": 1.5,
+                "effort_limit": 4.0,
+            },
+            {
+                "position_input": "extensionPosition",
+                "velocity_input": "extensionVelocity",
+                "effort_output": "extensionEffort",
+                "target": 0.08,
+                "kp": 50.0,
+                "kd": 8.0,
+                "effort_limit": 12.0,
+            },
+        ])
+
+    def test_contract_resolves_mixed_revolute_prismatic_channels(self):
+        mappings = mixed_resolved_mappings()
+        self.assertEqual(6, len(mappings))
+        self.assertEqual({"revolute", "prismatic"}, {
+            row["joint_type"] for row in mappings
+        })
+        commands = [row for row in mappings if row["direction"] == "fmu_to_usd"]
+        self.assertEqual({"N.m", "N"}, {row["target_unit"] for row in commands})
+
+    def test_multi_joint_conformance_checks_each_channel_and_isolation(self):
+        result = evaluate_controller_conformance(
+            Path("unused.fmu"), mixed_load("requirement_ir.json"),
+            mixed_resolved_mappings(), mixed_load("contract.json")["clock"],
+            lambda _: self.controller(),
+        )
+        self.assertTrue(result["success"], result)
+        self.assertEqual(2, result["joint_count"])
+        self.assertEqual(14, result["probe_count"])
+        shoulder_probe = next(
+            row for row in result["probes"]
+            if row["id"] == "shoulder__positive_position_error"
+        )
+        self.assertEqual(0.0, shoulder_probe["expected_outputs"]["extensionEffort"])
+        self.assertTrue(shoulder_probe["output_checks"]["extensionEffort"]["passed"])
+
+    def test_multi_joint_master_runs_all_channels_and_properties(self):
+        physics = ReferenceArticulatedPhysics([
+            {"joint_path": "/World/Shoulder", "joint_type": "revolute",
+             "inertia": 0.5, "damping": 0.2},
+            {"joint_path": "/World/Extension", "joint_type": "prismatic",
+             "inertia": 1.0, "damping": 0.2},
+        ])
+        contract = mixed_load("contract.json")
+        with tempfile.TemporaryDirectory() as tmp:
+            report = ClosedLoopMaster().run(
+                self.controller(), physics, mappings=mixed_resolved_mappings(),
+                clock=contract["clock"], coupling=contract["coupling"],
+                output_dir=Path(tmp),
+            )
+            properties = evaluate_closed_loop_properties(
+                Path(report["trace"]), mixed_resolved_mappings(),
+                mixed_load("requirement_ir.json")["properties"],
+            )
+        self.assertTrue(report["success"], report)
+        self.assertEqual(250, report["completed_steps"])
+        self.assertTrue(all(item.passed for item in properties), properties)
+        self.assertFalse(report["claim_eligible_h2"])
 
 
 if __name__ == "__main__":

@@ -32,6 +32,14 @@ def h2_oracle_ir() -> dict:
     )
 
 
+def mixed_h2_oracle_ir() -> dict:
+    return json.loads(
+        (ORACLE.parent / "RHY202" / "requirement_ir.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+
 class NormalizerTests(unittest.TestCase):
     def test_oracle_json_is_accepted_and_authoritative_fields_are_frozen(self):
         source = oracle_ir()["source_text"]
@@ -148,6 +156,43 @@ class PlannerTests(unittest.TestCase):
         self.assertIn(
             "missing_physics_substeps", {item.code for item in caught.exception.issues}
         )
+
+    def test_h2_plan_supports_mixed_multi_joint_articulation(self):
+        plan = build_h2_plan(mixed_h2_oracle_ir())
+        self.assertEqual(6, len(plan.contract["mappings"]))
+        commands = {
+            row["semantic_joint_id"]: row
+            for row in plan.contract["mappings"]
+            if row["direction"] == "fmu_to_usd"
+        }
+        self.assertEqual({"shoulder", "extension"}, set(commands))
+        self.assertEqual((-4.0, 4.0), (
+            commands["shoulder"]["command_lower"],
+            commands["shoulder"]["command_upper"],
+        ))
+        self.assertEqual((-12.0, 12.0), (
+            commands["extension"]["command_lower"],
+            commands["extension"]["command_upper"],
+        ))
+        self.assertIn("independent", plan.modelica_requirement)
+        self.assertIn("prismatic joint extension", plan.openusd_requirement)
+        self.assertIn("body0 /World/Arm", plan.openusd_requirement)
+
+    def test_h2_topology_accepts_branching_and_rejects_cycles(self):
+        branched = mixed_h2_oracle_ir()
+        extension = next(row for row in branched["joints"]
+                         if row["id"] == "extension")
+        extension["parent"] = "base"
+        plan = build_h2_plan(branched)
+        self.assertIn("body0 /World/Base", plan.openusd_requirement)
+
+        cyclic = mixed_h2_oracle_ir()
+        next(row for row in cyclic["joints"]
+             if row["id"] == "shoulder")["parent"] = "slider"
+        with self.assertRaises(PlanningError) as caught:
+            build_h2_plan(cyclic)
+        codes = {item.code for item in caught.exception.issues}
+        self.assertTrue({"disconnected_articulation", "cyclic_articulation"} & codes)
 
     def test_h2_rejects_incomplete_pd_semantics_and_missing_properties(self):
         missing_parameter = h2_oracle_ir()

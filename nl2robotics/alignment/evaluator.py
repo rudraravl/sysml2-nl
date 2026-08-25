@@ -365,37 +365,55 @@ def _geometry_answer(question: FocusedQuestion, paths: set[str],
         unit_conversion = conversion(unit, "m")
     except UnitError:
         return _answer("unknown", f"unsupported geometry unit {unit!r}")
-    expected_dimensions = [
+    expected_shape = str(question.expected.get("shape", "box")).lower()
+    shape_aliases = {"cube": "box"}
+    box_dimensions = [
         unit_conversion.apply(float(question.expected[key]))
-        for key in ("length", "width", "height", "depth")
+        for key in ("length", "width", "depth")
         if key in question.expected
     ]
     expected_radius = question.expected.get("radius")
+    expected_height = question.expected.get("height")
     for item in collisions:
+        actual_shape = shape_aliases.get(
+            str(item.get("shape", "")).lower(),
+            str(item.get("shape", "")).lower(),
+        )
+        if actual_shape != expected_shape:
+            continue
         actual_dimensions = item.get("dimensions")
-        if expected_dimensions and isinstance(actual_dimensions, list):
+        if expected_shape == "box" and box_dimensions and isinstance(
+            actual_dimensions, list
+        ):
             actual = sorted(float(value) for value in actual_dimensions)
-            required = sorted(expected_dimensions)
+            required = sorted(box_dimensions)
             if len(required) == len(actual) and all(
                 _close(left, right) for left, right in zip(actual, required)
             ):
                 return _answer(
                     "satisfied", f"collision {item.get('path')} dimensions are {actual} m"
                 )
-            if len(required) == 1 and any(_close(required[0], value) for value in actual):
-                return _answer(
-                    "satisfied", f"collision {item.get('path')} includes dimension "
-                    f"{required[0]} m"
-                )
         if expected_radius is not None and item.get("radius") is not None:
             required_radius = unit_conversion.apply(float(expected_radius))
             scale = item.get("scale") or [1.0, 1.0, 1.0]
             actual_radius = float(item["radius"]) * max(abs(float(scale[0])),
                                                         abs(float(scale[1])))
-            if _close(actual_radius, required_radius):
+            radius_matches = _close(actual_radius, required_radius)
+            height_matches = True
+            actual_height = None
+            if expected_height is not None:
+                if item.get("height") is None:
+                    height_matches = False
+                else:
+                    required_height = unit_conversion.apply(float(expected_height))
+                    actual_height = float(item["height"]) * abs(float(scale[2]))
+                    height_matches = _close(actual_height, required_height)
+            if radius_matches and height_matches:
+                detail = f"radius {actual_radius} m"
+                if actual_height is not None:
+                    detail += f" and height {actual_height} m"
                 return _answer(
-                    "satisfied", f"collision {item.get('path')} radius is "
-                    f"{actual_radius} m"
+                    "satisfied", f"collision {item.get('path')} has {detail}"
                 )
     return _answer(
         "violated",

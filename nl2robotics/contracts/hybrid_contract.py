@@ -10,6 +10,7 @@ from pathlib import Path
 from nl2robotics.modelica.fmu import FMUInspectionError, inspect_fmu
 from nl2robotics.openusd.validator import OpenUSDValidator
 
+from .articulated_profile import joint_units
 from .requirement_ir import is_closed_loop_mode, validate_requirement_ir
 from .units import UnitError, canonical_unit, conversion
 
@@ -267,7 +268,7 @@ def _validate_coupling(coupling: object, mode: object,
         if coupling.get(key) != value:
             issues.append(ContractIssue(
                 "unsupported_coupling_semantics",
-                f"{key} must be {value!r} for the H2 MVP",
+                f"{key} must be {value!r} for articulated H2 execution",
                 f"$.coupling.{key}",
             ))
     substeps = coupling.get("physics_substeps")
@@ -758,17 +759,19 @@ def _validate_target_quantity(row: dict, joint: dict, path: str,
     direction = row.get("direction")
     simulator_field = "target_unit" if direction == "fmu_to_usd" else "source_unit"
     simulator_unit = canonical_unit(str(row.get(simulator_field)))
-    expected_units = {
-        ("revolute", "joint_position"): (
-            "deg" if mode == "portable_fmu_kinematic" else "rad"
-        ),
-        ("revolute", "joint_velocity"): "rad/s",
-        ("revolute", "joint_effort"): "N.m",
-        ("prismatic", "joint_position"): "m",
-        ("prismatic", "joint_velocity"): "m/s",
-        ("prismatic", "joint_effort"): "N",
-    }
-    expected = expected_units.get((joint_type, quantity))
+    try:
+        units = joint_units(str(joint_type))
+    except ValueError:
+        expected = None
+    else:
+        expected = {
+            "joint_position": (
+                "deg" if joint_type == "revolute"
+                and mode == "portable_fmu_kinematic" else units.position
+            ),
+            "joint_velocity": units.velocity,
+            "joint_effort": units.effort,
+        }.get(quantity)
     if expected is not None and simulator_unit != expected:
         issues.append(ContractIssue(
             "invalid_simulator_unit",
@@ -809,7 +812,7 @@ def _validate_closed_loop_mappings(rows: list[dict],
         if joint in command_joints:
             issues.append(ContractIssue(
                 "multiple_joint_command_modes",
-                "H2 MVP permits exactly one command mapping per joint",
+                "articulated H2 permits exactly one command mode per joint",
                 f"$.mappings[{index}]",
             ))
         command_joints.add(joint)

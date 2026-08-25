@@ -1,5 +1,8 @@
 # Robotics Pipeline Research Readiness Audit
 
+> Historical audit of the frozen one-joint baseline. The current articulated
+> MVP scope is documented in `ARTICULATED_MVP.md`.
+
 Date: 2026-08-22
 
 ## Verdict

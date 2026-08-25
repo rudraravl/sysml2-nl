@@ -12,12 +12,14 @@
 set -euo pipefail
 
 REPO="${REPO:-$SLURM_SUBMIT_DIR}"
+ORACLE="${ORACLE:-RHY201}"
 IMAGE="${IMAGE:-$REPO/openmodelica-v1.27.0-arm64.sif}"
 PYTHON_DEPS="${PYTHON_DEPS:-$REPO/.deltaai-python}"
-OUTPUT_ROOT="${OUTPUT_ROOT:-$REPO/outputs/deltaai-rhy201-$SLURM_JOB_ID}"
+OUTPUT_ROOT="${OUTPUT_ROOT:-$REPO/outputs/deltaai-${ORACLE,,}-$SLURM_JOB_ID}"
 
 test -f "$IMAGE"
 test -d "$PYTHON_DEPS"
+test -d "$REPO/nl2robotics/hybrid/oracles/$ORACLE"
 case "$OUTPUT_ROOT" in
   "$REPO"/*) ;;
   *) echo "OUTPUT_ROOT must be inside REPO" >&2; exit 2 ;;
@@ -30,7 +32,7 @@ apptainer exec --cleanenv --nv \
   --env WARP_CACHE_PATH="/workspace/${OUTPUT_ROOT#"$REPO"/}/warp-cache" \
   "$IMAGE" \
   python3 -m nl2robotics.hybrid.deltaai.preflight \
-    --stage /workspace/nl2robotics/hybrid/oracles/RHY201/scene.usda \
+    --stage "/workspace/nl2robotics/hybrid/oracles/$ORACLE/scene.usda" \
     --output "/workspace/${OUTPUT_ROOT#"$REPO"/}/preflight.json"
 
 apptainer exec --cleanenv --nv \
@@ -38,10 +40,10 @@ apptainer exec --cleanenv --nv \
   --env PYTHONPATH="/workspace:/workspace/${PYTHON_DEPS#"$REPO"/}" \
   "$IMAGE" \
   python3 -m nl2robotics.hybrid.newton_prepare \
-    --modelica /workspace/nl2robotics/hybrid/oracles/RHY201/model.mo \
-    --usd /workspace/nl2robotics/hybrid/oracles/RHY201/scene.usda \
-    --ir /workspace/nl2robotics/hybrid/oracles/RHY201/requirement_ir.json \
-    --contract /workspace/nl2robotics/hybrid/oracles/RHY201/contract.json \
+    --modelica "/workspace/nl2robotics/hybrid/oracles/$ORACLE/model.mo" \
+    --usd "/workspace/nl2robotics/hybrid/oracles/$ORACLE/scene.usda" \
+    --ir "/workspace/nl2robotics/hybrid/oracles/$ORACLE/requirement_ir.json" \
+    --contract "/workspace/nl2robotics/hybrid/oracles/$ORACLE/contract.json" \
     --output-dir "/workspace/${OUTPUT_ROOT#"$REPO"/}/bundle" \
     --modelica-backend local
 

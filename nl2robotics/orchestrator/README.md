@@ -25,7 +25,7 @@ python3 -m nl2robotics.orchestrator.cli \
   --backend docker
 ```
 
-For the implemented one-DOF Isaac profile, add:
+For the articulated Isaac/PhysX profile, add:
 
 ```bash
   --execution-mode isaac_closed_loop
@@ -47,4 +47,6 @@ python3 -m nl2robotics.orchestrator.oracle_smoke RHY001 \
   --output-dir outputs/RHY001-smoke --backend docker
 python3 -m nl2robotics.orchestrator.oracle_smoke RHY101 \
   --output-dir outputs/RHY101-preparation-smoke --backend docker
+python3 -m nl2robotics.orchestrator.oracle_smoke RHY202 \
+  --output-dir outputs/RHY202-preparation-smoke --backend docker
 ```

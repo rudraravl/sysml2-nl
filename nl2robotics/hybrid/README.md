@@ -47,11 +47,11 @@ The run emits:
 - temporal-property results; and
 - SHA-256 hashes for all major artifacts.
 
-The generated H2 profile deliberately supports exactly one fixed-base X- or
-Y-axis revolute joint with position and velocity feedback, PD effort control,
-and grounded properties. Broader Modelica and OpenUSD artifacts exist in the
-profile corpora, but prismatic, multi-joint, and other controller topologies are
-not H2 execution claims.
+The generated H2 research MVP supports one fixed-base serial or branching
+articulation with multiple revolute and prismatic X/Y/Z joints, primitive-link
+collision geometry, position and velocity feedback, per-joint saturated PD
+effort control, and grounded properties. See `../ARTICULATED_MVP.md` for the
+demonstrated boundary and intentional next extensions.
 
 ## H2 closed-loop core
 
@@ -88,7 +88,8 @@ executed may use the `isaac_closed_loop` result label.
 
 Isaac execution is split at a deliberate trust boundary. The ordinary host
 first compiles the controller FMU, validates the real USD stage and contract,
-executes seven controller-law conformance probes, copies immutable inputs, and
+executes seven controller-law conformance probes per actuated joint (including
+cross-channel isolation), copies immutable inputs, and
 hashes every artifact in a schema-1.1 bundle:
 
 ```bash
@@ -140,8 +141,9 @@ to reference physics.
 ## H2 Newton evidence on DeltaAI
 
 DeltaAI's Grace/H100 nodes cannot run the Isaac/PhysX evidence path, but they
-can run the same closed-loop contract with Newton Physics. `RHY201` names that
-backend explicitly so its result is not confused with `RHY101` Isaac evidence.
+can run the same closed-loop contract with Newton Physics. `RHY201` is the
+minimal Newton regression; `RHY202` exercises mixed revolute/prismatic
+multi-joint execution. Neither is labeled as Isaac/PhysX evidence.
 The runner imports the UsdPhysics articulation by exact joint path, executes the
 same FMU exchange order and zero-order hold, and records separate
 `claim_eligible_newton_h2` and `claim_eligible_isaac_h2` flags.

@@ -1,5 +1,8 @@
 # End-to-End Robotics Pipeline Plan
 
+> The original one-joint milestone in this plan has been superseded by the
+> articulated research MVP in `ARTICULATED_MVP.md`.
+
 ## Implementation Status (2026-08-17)
 
 The portable path is now complete from one NL request:

@@ -57,6 +57,8 @@ Primary references:
   Modelica plant, USD scene, properties, and contract.
 - `../hybrid/oracles/RHY101/`: the one-joint closed-loop controller and dynamic
   USD oracle used to freeze the H2 interface.
+- `../hybrid/oracles/RHY202/`: a mixed revolute/prismatic multi-joint oracle for
+  generalized planning, mapping, controller conformance, and execution.
 
 ## Validation command
 

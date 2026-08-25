@@ -12,6 +12,14 @@ from nl2robotics.contracts.requirement_ir import (
     is_closed_loop_mode,
     validate_requirement_ir,
 )
+from nl2robotics.contracts.articulated_profile import (
+    SUPPORTED_CONTROLLER_KINDS,
+    SUPPORTED_JOINT_AXES,
+    SUPPORTED_JOINT_TYPES,
+    entity_shape,
+    geometry_fields,
+    joint_units,
+)
 from nl2robotics.contracts.units import UnitError, conversion
 
 
@@ -224,10 +232,11 @@ def build_h2_plan(requirement_ir: dict) -> H2Plan:
     ir.setdefault("assumptions", [])
     ir.setdefault("unknowns", [])
     for assumption in (
-        "H2 one-DOF profile places the fixed-base joint at the world origin and "
-        "centers the box link one half-length below that joint.",
-        "H2 one-DOF profile uses a 0.2 m fixed-base collision cube when the "
-        "request does not specify base geometry.",
+        "The articulated H2 profile derives a deterministic collision-free rest "
+        "layout from the grounded parent-child topology when joint frames are not "
+        "specified by the request.",
+        "The articulated H2 profile uses a 0.2 m fixed-base collision cube when "
+        "the request does not specify base geometry.",
     ):
         if assumption not in ir["assumptions"]:
             ir["assumptions"].append(assumption)
@@ -261,9 +270,10 @@ def build_h2_plan(requirement_ir: dict) -> H2Plan:
     interface_names = {}
     owners: dict[str, dict] = {}
     effort_limits = {
-        item["joint_id"]: conversion(str(item["unit"]), "N.m").apply(
-            float(item["value"])
-        )
+        item["joint_id"]: conversion(
+            str(item["unit"]),
+            joint_units(joints[item["joint_id"]]["type"]).effort,
+        ).apply(float(item["value"]))
         for item in ir["parameters"]
         if item.get("quantity") == "effort_limit"
     }
@@ -620,71 +630,106 @@ def _h2_readiness_issues(ir: dict) -> list[PlanIssue]:
     dynamics = [item for item in ir.get("dynamics", []) if isinstance(item, dict)]
     controllers = [item for item in ir.get("controllers", []) if isinstance(item, dict)]
     actuators = [item for item in ir.get("actuators", []) if isinstance(item, dict)]
-    if (len(dynamics) != 1
-            or any(item.get("owner") != "usd_physics" for item in dynamics)):
+
+    if not dynamics or any(
+            item.get("owner") != "usd_physics" for item in dynamics):
         issues.append(PlanIssue(
             "invalid_h2_dynamics_owner",
-            "H2 requires exactly one dynamics record owned by usd_physics",
+            "H2 requires one or more dynamics records owned by usd_physics",
             "$.dynamics",
         ))
-    if len(joints) != 1:
+    if not controllers:
         issues.append(PlanIssue(
-            "unsupported_h2_topology",
-            "the generated H2 MVP supports exactly one articulated joint",
-            "$.joints",
-        ))
-    if (len(controllers) != 1
-            or controllers[0].get("owner") != "fmu_controller"
-            or str(controllers[0].get("kind", "")).upper() != "PD"):
-        issues.append(PlanIssue(
-            "unsupported_h2_controller",
-            "the generated H2 profile requires exactly one fmu_controller PD controller",
+            "missing_h2_controller",
+            "H2 requires at least one grounded fmu_controller",
             "$.controllers",
         ))
-    if (len(actuators) != 1
-            or actuators[0].get("owner") != "fmu_controller"
-            or actuators[0].get("command") != "joint_effort"):
+    for index, controller in enumerate(controllers):
+        if (controller.get("owner") != "fmu_controller"
+                or str(controller.get("kind", "")).upper()
+                not in SUPPORTED_CONTROLLER_KINDS):
+            issues.append(PlanIssue(
+                "unsupported_h2_controller",
+                "the executable articulated profile supports fmu_controller PD laws",
+                f"$.controllers[{index}]",
+            ))
+
+    actuator_joints: set[object] = set()
+    for index, actuator in enumerate(actuators):
+        joint_id = actuator.get("joint_id")
+        if (actuator.get("owner") != "fmu_controller"
+                or actuator.get("command") != "joint_effort"):
+            issues.append(PlanIssue(
+                "invalid_fmu_actuator",
+                "H2 actuators must be fmu_controller joint_effort actuators",
+                f"$.actuators[{index}]",
+            ))
+        if joint_id in actuator_joints:
+            issues.append(PlanIssue(
+                "duplicate_joint_actuator",
+                f"joint {joint_id!r} has multiple effort actuators",
+                f"$.actuators[{index}]",
+            ))
+        actuator_joints.add(joint_id)
+    if not actuators:
         issues.append(PlanIssue(
             "missing_fmu_actuator",
-            "H2 requires exactly one fmu_controller joint_effort actuator",
+            "H2 requires at least one grounded joint_effort actuator",
             "$.actuators",
         ))
+    issues.extend(_controller_assignment_issues(controllers, actuator_joints))
 
     required = [item for item in ir.get("interfaces", [])
                 if isinstance(item, dict) and item.get("required", True)]
-    directions = {item.get("direction") for item in required}
-    if "usd_to_fmu" not in directions or "fmu_to_usd" not in directions:
+    commands = [item for item in required if item.get("direction") == "fmu_to_usd"]
+    feedback = [item for item in required if item.get("direction") == "usd_to_fmu"]
+    if not commands or not feedback:
         issues.append(PlanIssue(
             "open_loop_interface",
             "H2 requires at least one observation and one command interface",
             "$.interfaces",
         ))
-    command_joints = {
-        item.get("joint_id") for item in required
-        if item.get("direction") == "fmu_to_usd"
-    }
-    actuator_joints = {item.get("joint_id") for item in actuators}
+
+    command_joints = {item.get("joint_id") for item in commands}
     if command_joints != actuator_joints:
         issues.append(PlanIssue(
             "actuator_interface_mismatch",
             "actuator joints and command-interface joints must match exactly",
             "$.actuators",
         ))
-    commands = [item for item in required if item.get("direction") == "fmu_to_usd"]
-    feedback = [item for item in required if item.get("direction") == "usd_to_fmu"]
-    feedback_quantities = [item.get("quantity") for item in feedback]
-    if len(commands) != 1 or commands[0].get("quantity") != "joint_effort":
+    grouped_interfaces: dict[tuple[object, object, object], list[dict]] = {}
+    for interface in required:
+        key = (interface.get("joint_id"), interface.get("direction"),
+               interface.get("quantity"))
+        grouped_interfaces.setdefault(key, []).append(interface)
+    for key, rows in grouped_interfaces.items():
+        if len(rows) > 1:
+            issues.append(PlanIssue(
+                "duplicate_h2_interface",
+                f"multiple required interfaces have joint/direction/quantity {key}",
+                "$.interfaces",
+            ))
+    for joint_id in joints:
+        for quantity in ("joint_position", "joint_velocity"):
+            if len(grouped_interfaces.get(
+                    (joint_id, "usd_to_fmu", quantity), [])) != 1:
+                issues.append(PlanIssue(
+                    "incomplete_h2_feedback",
+                    f"joint {joint_id!r} requires exactly one {quantity} observation",
+                    "$.interfaces",
+                ))
+        expected_commands = 1 if joint_id in actuator_joints else 0
+        if len(grouped_interfaces.get(
+                (joint_id, "fmu_to_usd", "joint_effort"), [])) != expected_commands:
+            issues.append(PlanIssue(
+                "unsupported_h2_command",
+                f"joint {joint_id!r} requires {expected_commands} joint_effort command",
+                "$.interfaces",
+            ))
+    if any(item.get("quantity") != "joint_effort" for item in commands):
         issues.append(PlanIssue(
             "unsupported_h2_command",
-            "the generated H2 MVP requires exactly one joint_effort command",
-            "$.interfaces",
-        ))
-    if (len(feedback) != 2
-            or feedback_quantities.count("joint_position") != 1
-            or feedback_quantities.count("joint_velocity") != 1):
-        issues.append(PlanIssue(
-            "incomplete_h2_feedback",
-            "the generated H2 MVP requires exactly one position and one velocity input",
+            "closed-loop commands must use joint_effort",
             "$.interfaces",
         ))
     feedback_states = {item.get("state_id") for item in feedback}
@@ -701,12 +746,15 @@ def _h2_readiness_issues(ir: dict) -> list[PlanIssue]:
 
     for joint_id, joint in joints.items():
         path = f"$.joints[{joint_id}]"
-        if joint.get("type") != "revolute" or joint.get("axis") not in {"X", "Y"}:
+        if (joint.get("type") not in SUPPORTED_JOINT_TYPES
+                or joint.get("axis") not in SUPPORTED_JOINT_AXES):
             issues.append(PlanIssue(
                 "unsupported_h2_joint",
-                "the generated H2 MVP supports X- or Y-axis revolute joints",
+                "H2 supports revolute or prismatic joints on principal X/Y/Z axes",
                 path,
             ))
+            continue
+        units = joint_units(str(joint["type"]))
         limits = (joint.get("lower_limit"), joint.get("upper_limit"))
         if not all(_finite_number(value) for value in limits):
             issues.append(PlanIssue(
@@ -716,23 +764,56 @@ def _h2_readiness_issues(ir: dict) -> list[PlanIssue]:
             issues.append(PlanIssue(
                 "reversed_joint_limits", "joint lower limit exceeds upper limit", path
             ))
-        child = entities.get(joint.get("child"), {})
-        if (not _finite_number(child.get("mass"))
-                or float(child.get("mass", 0)) <= 0
-                or child.get("mass_unit") != "kg"):
+        try:
+            conversion(str(joint.get("limit_unit")), units.position)
+        except UnitError as exc:
             issues.append(PlanIssue(
-                "missing_dynamic_body_mass",
-                "H2 dynamic links require a positive grounded mass in kg",
+                "invalid_joint_limit_unit", str(exc), f"{path}.limit_unit"
+            ))
+        child = entities.get(joint.get("child"), {})
+        try:
+            mass = conversion(str(child.get("mass_unit")), "kg").apply(
+                float(child.get("mass"))
+            )
+        except (TypeError, ValueError, UnitError) as exc:
+            issues.append(PlanIssue(
+                "missing_dynamic_body_mass", str(exc),
                 f"$.entities[{joint.get('child')}].mass",
             ))
-        dimensions = (child.get("length"), child.get("width"), child.get("depth"))
-        if (not all(_finite_number(value) and float(value) > 0 for value in dimensions)
-                or child.get("dimension_unit") != "m"):
+        else:
+            if mass <= 0:
+                issues.append(PlanIssue(
+                    "missing_dynamic_body_mass",
+                    "H2 dynamic links require positive mass",
+                    f"$.entities[{joint.get('child')}].mass",
+                ))
+        shape = entity_shape(child)
+        fields = geometry_fields(shape)
+        if not fields:
             issues.append(PlanIssue(
-                "missing_collision_geometry",
-                "H2 dynamic links require positive box dimensions in meters",
-                f"$.entities[{joint.get('child')}].length",
+                "unsupported_collision_geometry",
+                f"unsupported rigid-link shape {shape!r}",
+                f"$.entities[{joint.get('child')}].shape",
             ))
+        try:
+            dimensions = [
+                conversion(str(child.get("dimension_unit")), "m").apply(
+                    float(child.get(field))
+                )
+                for field in fields
+            ]
+        except (TypeError, ValueError, UnitError) as exc:
+            issues.append(PlanIssue(
+                "missing_collision_geometry", str(exc),
+                f"$.entities[{joint.get('child')}].{fields[0] if fields else 'shape'}",
+            ))
+        else:
+            if any(value <= 0 for value in dimensions):
+                issues.append(PlanIssue(
+                    "missing_collision_geometry",
+                    f"H2 {shape} dimensions must be positive",
+                    f"$.entities[{joint.get('child')}].{fields[0]}",
+                ))
 
     parameters_by_joint: dict[object, dict[object, dict]] = {}
     for index, parameter in enumerate(ir.get("parameters", [])):
@@ -752,13 +833,14 @@ def _h2_readiness_issues(ir: dict) -> list[PlanIssue]:
             ))
         else:
             joint_parameters[quantity] = parameter
-    required_parameter_units = {
-        "proportional_gain": "N.m/rad",
-        "derivative_gain": "N.m.s/rad",
-        "target_position": "rad",
-        "effort_limit": "N.m",
-    }
-    for joint_id in joints:
+    for joint_id in actuator_joints & joints.keys():
+        units = joint_units(str(joints[joint_id]["type"]))
+        required_parameter_units = {
+            "proportional_gain": units.proportional_gain,
+            "derivative_gain": units.derivative_gain,
+            "target_position": units.position,
+            "effort_limit": units.effort,
+        }
         joint_parameters = parameters_by_joint.get(joint_id, {})
         missing = required_parameter_units.keys() - joint_parameters.keys()
         if missing:
@@ -817,6 +899,8 @@ def _h2_readiness_issues(ir: dict) -> list[PlanIssue]:
         path = f"$.interfaces[{index}]"
         if interface.get("joint_id") not in joints:
             continue
+        joint = joints[interface["joint_id"]]
+        units = joint_units(str(joint["type"]))
         if not isinstance(interface.get("target_unit"), str):
             issues.append(PlanIssue(
                 "missing_target_unit", "H2 interfaces require explicit target_unit",
@@ -826,6 +910,23 @@ def _h2_readiness_issues(ir: dict) -> list[PlanIssue]:
             conversion(str(interface.get("source_unit")), str(interface.get("target_unit")))
         except UnitError as exc:
             issues.append(PlanIssue("unit_mismatch", str(exc), f"{path}.source_unit"))
+        simulator_unit = (
+            interface.get("source_unit")
+            if interface.get("direction") == "usd_to_fmu"
+            else interface.get("target_unit")
+        )
+        expected_unit = {
+            "joint_position": units.position,
+            "joint_velocity": units.velocity,
+            "joint_effort": units.effort,
+        }.get(interface.get("quantity"))
+        if expected_unit is not None and str(simulator_unit) != expected_unit:
+            issues.append(PlanIssue(
+                "invalid_h2_simulator_unit",
+                f"{joint['type']} {interface.get('quantity')} must use "
+                f"{expected_unit} at the simulator boundary",
+                path,
+            ))
         if (interface.get("direction") == "usd_to_fmu"
                 and interface.get("quantity") == "joint_position"
                 and _finite_number(interface.get("initial_value"))):
@@ -892,7 +993,52 @@ def _h2_readiness_issues(ir: dict) -> list[PlanIssue]:
     return issues
 
 
+def _controller_assignment_issues(controllers: list[dict],
+                                  actuator_joints: set[object]) -> list[PlanIssue]:
+    issues: list[PlanIssue] = []
+    assigned: set[object] = set()
+    for index, controller in enumerate(controllers):
+        references = controller.get("joint_ids")
+        if references is None and controller.get("joint_id") is not None:
+            references = [controller.get("joint_id")]
+        if references is None:
+            if len(controllers) == 1:
+                references = sorted(actuator_joints, key=str)
+            else:
+                issues.append(PlanIssue(
+                    "ambiguous_controller_assignment",
+                    "multiple controllers must declare joint_ids",
+                    f"$.controllers[{index}].joint_ids",
+                ))
+                continue
+        if not isinstance(references, list):
+            continue
+        for joint_id in references:
+            if joint_id not in actuator_joints:
+                issues.append(PlanIssue(
+                    "controller_actuator_mismatch",
+                    f"controller references non-actuated joint {joint_id!r}",
+                    f"$.controllers[{index}].joint_ids",
+                ))
+            if joint_id in assigned:
+                issues.append(PlanIssue(
+                    "duplicate_controller_assignment",
+                    f"joint {joint_id!r} is assigned to multiple controllers",
+                    f"$.controllers[{index}].joint_ids",
+                ))
+            assigned.add(joint_id)
+    missing = sorted(actuator_joints - assigned, key=str)
+    if missing:
+        issues.append(PlanIssue(
+            "unassigned_actuator_controller",
+            f"actuated joints lack a controller assignment: {missing}",
+            "$.controllers",
+        ))
+    return issues
+
+
 def _h2_modelica_requirement(ir: dict, contract: dict, model_name: str) -> str:
+    joints = {item["id"]: item for item in ir["joints"]}
     interface_lines = []
     for mapping in contract["mappings"]:
         causality = "input" if mapping["direction"] == "usd_to_fmu" else "output"
@@ -905,22 +1051,53 @@ def _h2_modelica_requirement(ir: dict, contract: dict, model_name: str) -> str:
             f"- Declare {causality} Real {mapping['fmu_variable']}"
             f"(unit=\"{fmu_unit}\") for {mapping['state_id']}."
         )
-    parameter_lines = [
-        f"- Declare parameter Real {_modelica_identifier(item['id'])}"
-        f"(unit=\"{item['unit']}\") = {item['value']}."
+    parameter_lines = []
+    for item in ir["parameters"]:
+        target_unit = _controller_parameter_unit(item, joints)
+        value = float(item["value"])
+        if str(item["unit"]) != target_unit:
+            value = conversion(str(item["unit"]), target_unit).apply(value)
+        parameter_lines.append(
+            f"- Declare parameter Real {_modelica_identifier(item['id'])}"
+            f"(unit=\"{target_unit}\") = {value:.17g}; this is the canonical "
+            f"SI representation of {item['value']} {item['unit']}."
+        )
+    mappings = {
+        (row["semantic_joint_id"], row["direction"], row["usd_quantity"]): row
+        for row in contract["mappings"]
+    }
+    parameters = {
+        (item.get("joint_id"), item.get("quantity")): item
         for item in ir["parameters"]
-    ]
+    }
+    control_lines = []
+    for actuator in ir["actuators"]:
+        joint_id = actuator["joint_id"]
+        position = mappings[(joint_id, "usd_to_fmu", "joint_position")]
+        velocity = mappings[(joint_id, "usd_to_fmu", "joint_velocity")]
+        effort = mappings[(joint_id, "fmu_to_usd", "joint_effort")]
+        kp = _modelica_identifier(parameters[(joint_id, "proportional_gain")]["id"])
+        kd = _modelica_identifier(parameters[(joint_id, "derivative_gain")]["id"])
+        target = _modelica_identifier(parameters[(joint_id, "target_position")]["id"])
+        limit = _modelica_identifier(parameters[(joint_id, "effort_limit")]["id"])
+        control_lines.append(
+            f"- Implement exactly {effort['fmu_variable']} = max(-{limit}, "
+            f"min({limit}, {kp} * ({target} - {position['fmu_variable']}) - "
+            f"{kd} * {velocity['fmu_variable']}))."
+        )
     return f"""{ir['source_text']}
 
-FROZEN H2 MODELICA/FMI CONTROLLER OBLIGATIONS
+ARTICULATED H2 MODELICA/FMI CONTROLLER OBLIGATIONS
 - Return exactly one self-contained top-level model named {model_name}.
 - The model contains controller logic only; it must not reproduce the rigid-body
-  plant dynamics owned by Isaac/UsdPhysics.
+  plant dynamics owned by the selected OpenUSD physics backend.
 - It must compile in OpenModelica and export as an FMI 2.0 Co-Simulation FMU.
 {chr(10).join(interface_lines)}
 {chr(10).join(parameter_lines)}
-- Preserve every exact variable name, causality, unit, parameter, saturation,
-  and control law stated in the grounded IR.
+{chr(10).join(control_lines)}
+- The per-joint equations are independent unless the grounded requirement says
+  otherwise. Preserve every exact variable name, causality, SI boundary unit,
+  parameter value, saturation, and control law above.
 
 GROUNDED REQUIREMENT IR
 {json.dumps(ir, indent=2, sort_keys=True)}
@@ -928,17 +1105,23 @@ GROUNDED REQUIREMENT IR
 
 
 def _h2_openusd_requirement(ir: dict, contract: dict) -> str:
+    layout = _h2_layout(ir)
     entity_lines = []
     for entity in ir["entities"]:
         path = f"/World/{_usd_identifier(entity['id'])}"
         if entity["kind"] == "fixed_base":
-            entity_lines.append(f"- Fixed base {entity['id']} at exact path {path}.")
+            entity_lines.append(
+                f"- Fixed base {entity['id']} at exact path {path}, world "
+                f"translation {_format_vector(layout['entities'][entity['id']])}. "
+                "If no source geometry is present, use a 0.2 m collision cube."
+            )
         else:
             entity_lines.append(
                 f"- Dynamic rigid link {entity['id']} at exact path {path}, mass "
-                f"{entity['mass']} {entity['mass_unit']}, box dimensions "
-                f"{entity['length']} x {entity['width']} x {entity['depth']} "
-                f"{entity['dimension_unit']}. Apply PhysicsRigidBodyAPI and set "
+                f"{entity['mass']} {entity['mass_unit']}, "
+                f"{_geometry_description(entity)}, world translation "
+                f"{_format_vector(layout['entities'][entity['id']])}. Apply "
+                "PhysicsMassAPI and PhysicsRigidBodyAPI and set "
                 "physics:kinematicEnabled=false."
             )
     joint_lines = []
@@ -952,7 +1135,10 @@ def _h2_openusd_requirement(ir: dict, contract: dict) -> str:
             f"{mapping['usd_joint_path']}, body0 {mapping['usd_parent_prim']}, "
             f"body1 {mapping['usd_driven_prim']}, axis {joint['axis']}, limits "
             f"{joint['lower_limit']} to {joint['upper_limit']} "
-            f"{joint['limit_unit']}."
+            f"{joint['limit_unit']}, physics:localPos0 "
+            f"{_format_vector(layout['joints'][joint['id']]['local_pos0'])}, and "
+            f"physics:localPos1 "
+            f"{_format_vector(layout['joints'][joint['id']]['local_pos1'])}."
         )
     gravity_lines = [
         f"- Author one PhysicsScene with gravity magnitude {item['magnitude']} "
@@ -960,12 +1146,9 @@ def _h2_openusd_requirement(ir: dict, contract: dict) -> str:
         for item in ir["environment"] if item.get("kind") == "gravity"
     ]
     rate = contract["clock"]["time_codes_per_second"]
-    driven_id = ir["joints"][0]["child"]
-    driven = next(item for item in ir["entities"] if item["id"] == driven_id)
-    half_length = float(driven["length"]) / 2.0
     return f"""{ir['source_text']}
 
-FROZEN H2 OPENUSD/USD PHYSICS OBLIGATIONS
+ARTICULATED H2 OPENUSD/USD PHYSICS OBLIGATIONS
 - Return one self-contained USDA stage with default prim /World. Apply
   PhysicsArticulationRootAPI to the fixed world-anchor joint at exact path
   /World/WorldAnchor. Set metersPerUnit=1, kilogramsPerUnit=1, upAxis=Z, and
@@ -974,18 +1157,140 @@ FROZEN H2 OPENUSD/USD PHYSICS OBLIGATIONS
 {chr(10).join(joint_lines)}
 {chr(10).join(gravity_lines)}
 - Use portable OpenUSD/UsdPhysics core schemas for the plant. Include collision
-  geometry. Fix each fixed base to the world using the articulation-root joint.
-- Use the frozen one-DOF layout: put the world-anchor joint at the world origin,
-  use a 0.2 m collision cube for the fixed base when no base size was stated,
-  orient the box link's declared length along Z, center it at
-  (0, 0, {-half_length:g}), and set the revolute joint's body1 local position to
-  (0, 0, {half_length:g}). These are disclosed profile assumptions, not NL facts.
-- The FMU commands joint effort at runtime. Do not author a position or velocity
-  drive on an effort-commanded joint, and do not author a prerecorded trajectory.
+  geometry. Fix the single fixed base to the world using the articulation-root
+  joint. Author every listed body and joint; preserve the serial or branching
+  topology exactly.
+- The exact translations and joint frames above are a deterministic derived rest
+  layout. Orient each box length or cylinder/capsule height along local Z. Joint
+  local rotations are identity. These are disclosed layout assumptions, not NL
+  facts.
+- The FMU commands effort at runtime on actuated joints. Do not author a position
+  or velocity drive on any effort-commanded joint, and do not author a prerecorded
+  trajectory. Passive joints have no drive.
 
 GROUNDED REQUIREMENT IR
 {json.dumps(ir, indent=2, sort_keys=True)}
 """
+
+
+def _controller_parameter_unit(parameter: dict, joints: dict[str, dict]) -> str:
+    joint = joints.get(parameter.get("joint_id"))
+    if joint is None:
+        return str(parameter["unit"])
+    units = joint_units(str(joint["type"]))
+    return {
+        "proportional_gain": units.proportional_gain,
+        "derivative_gain": units.derivative_gain,
+        "target_position": units.position,
+        "effort_limit": units.effort,
+    }.get(str(parameter.get("quantity")), str(parameter["unit"]))
+
+
+def _h2_layout(ir: dict) -> dict:
+    """Derive deterministic non-overlapping body translations and joint frames."""
+    entities = {item["id"]: item for item in ir["entities"]}
+    joints = {item["id"]: item for item in ir["joints"]}
+    children: dict[str, list[dict]] = {}
+    for joint in joints.values():
+        children.setdefault(joint["parent"], []).append(joint)
+    for rows in children.values():
+        rows.sort(key=lambda item: item["id"])
+    root = next(item["id"] for item in ir["entities"]
+                if item["kind"] == "fixed_base")
+
+    widths = [_entity_lateral_extent_m(item) for item in entities.values()
+              if item.get("kind") == "rigid_link"]
+    spacing = max([0.4, *(2.5 * value for value in widths)])
+    leaf_order: list[str] = []
+
+    def collect_leaves(entity_id: str) -> list[str]:
+        rows = children.get(entity_id, [])
+        if not rows:
+            leaf_order.append(entity_id)
+            return [entity_id]
+        leaves = []
+        for row in rows:
+            leaves.extend(collect_leaves(row["child"]))
+        return leaves
+
+    collect_leaves(root)
+    center = (len(leaf_order) - 1) / 2.0
+    leaf_x = {
+        entity_id: (index - center) * spacing
+        for index, entity_id in enumerate(leaf_order)
+    }
+
+    def subtree_x(entity_id: str) -> float:
+        rows = children.get(entity_id, [])
+        if not rows:
+            return leaf_x[entity_id]
+        values = [subtree_x(row["child"]) for row in rows]
+        return sum(values) / len(values)
+
+    entity_positions: dict[str, tuple[float, float, float]] = {
+        root: (subtree_x(root), 0.0, 0.0)
+    }
+    joint_frames: dict[str, dict[str, tuple[float, float, float]]] = {}
+
+    def place(parent_id: str) -> None:
+        parent_position = entity_positions[parent_id]
+        parent = entities[parent_id]
+        parent_half = (
+            0.0 if parent.get("kind") == "fixed_base"
+            else _entity_axial_extent_m(parent) / 2.0
+        )
+        for joint in children.get(parent_id, []):
+            child_id = joint["child"]
+            child_half = _entity_axial_extent_m(entities[child_id]) / 2.0
+            child_x = subtree_x(child_id)
+            pivot_z = parent_position[2] - parent_half
+            entity_positions[child_id] = (
+                child_x, parent_position[1], pivot_z - child_half
+            )
+            joint_frames[joint["id"]] = {
+                "local_pos0": (
+                    child_x - parent_position[0], 0.0, -parent_half
+                ),
+                "local_pos1": (0.0, 0.0, child_half),
+            }
+            place(child_id)
+
+    place(root)
+    return {"entities": entity_positions, "joints": joint_frames}
+
+
+def _entity_axial_extent_m(entity: dict) -> float:
+    unit = str(entity.get("dimension_unit", "m"))
+    shape = entity_shape(entity)
+    raw = (2.0 * float(entity["radius"]) if shape == "sphere"
+           else float(entity["length"] if shape == "box" else entity["height"]))
+    return conversion(unit, "m").apply(raw)
+
+
+def _entity_lateral_extent_m(entity: dict) -> float:
+    unit = str(entity.get("dimension_unit", "m"))
+    shape = entity_shape(entity)
+    if shape == "box":
+        raw = max(float(entity["width"]), float(entity["depth"]))
+    else:
+        raw = 2.0 * float(entity["radius"])
+    return conversion(unit, "m").apply(raw)
+
+
+def _geometry_description(entity: dict) -> str:
+    shape = entity_shape(entity)
+    unit = entity["dimension_unit"]
+    if shape == "box":
+        return (f"box collision dimensions {entity['length']} x "
+                f"{entity['width']} x {entity['depth']} {unit}")
+    if shape == "sphere":
+        return f"sphere collision radius {entity['radius']} {unit}"
+    return (f"{shape} collision radius {entity['radius']} {unit} and height "
+            f"{entity['height']} {unit}")
+
+
+def _format_vector(values: tuple[float, float, float]) -> str:
+    return "(" + ", ".join(f"{value:.9g}" for value in values) + ")"
 
 
 def _finite_number(value: object) -> bool:

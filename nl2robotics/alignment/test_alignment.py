@@ -206,6 +206,45 @@ class EvaluatorTests(unittest.TestCase):
                          [row["question"]["id"] for row in violated])
         self.assertEqual("openusd", result["repair_plan"]["actions"][0]["owner"])
 
+    def test_cylindrical_geometry_requires_shape_radius_and_height(self):
+        ir = oracle_ir()
+        ir["entities"][1].update({
+            "shape": "cylinder", "radius": 0.05, "height": 0.6,
+        })
+        for key in ("length", "width", "depth"):
+            ir["entities"][1].pop(key, None)
+        report = evidence_report()
+        collision = report["contract"]["openusd"]["collision_details"][0]
+        collision.update({
+            "shape": "cylinder", "radius": 0.05, "height": 0.6,
+            "scale": [1.0, 1.0, 1.0], "dimensions": None,
+        })
+
+        passing = RoboticsAlignmentEvaluator().evaluate(
+            ir,
+            modelica=(ORACLE / "model.mo").read_text(encoding="utf-8"),
+            openusd=(ORACLE / "scene.usda").read_text(encoding="utf-8"),
+            contract=oracle_contract(), hybrid_report=report,
+        )
+        passing_geometry = next(
+            row for row in passing["rows"]
+            if row["question"]["family"] == "entity_geometry"
+        )
+        self.assertEqual("satisfied", passing_geometry["artifact"]["status"])
+
+        report["contract"]["openusd"]["collision_details"][0]["height"] = 0.3
+        failing = RoboticsAlignmentEvaluator().evaluate(
+            ir,
+            modelica=(ORACLE / "model.mo").read_text(encoding="utf-8"),
+            openusd=(ORACLE / "scene.usda").read_text(encoding="utf-8"),
+            contract=oracle_contract(), hybrid_report=report,
+        )
+        failing_geometry = next(
+            row for row in failing["rows"]
+            if row["question"]["family"] == "entity_geometry"
+        )
+        self.assertEqual("violated", failing_geometry["artifact"]["status"])
+
     def test_openusd_sensor_presence_and_configuration_are_deterministic(self):
         ir = oracle_ir()
         sensor_evidence = "an IMU on the link translated 0.2 meters upward"

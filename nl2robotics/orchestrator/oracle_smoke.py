@@ -18,7 +18,10 @@ from .planner import build_plan
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "oracle", choices=("RHY001", "RHY002", "RHY003", "RHY004", "RHY101")
+        "oracle", choices=(
+            "RHY001", "RHY002", "RHY003", "RHY004",
+            "RHY101", "RHY201", "RHY202",
+        )
     )
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--backend", choices=("auto", "local", "docker"),

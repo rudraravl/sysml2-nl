@@ -67,7 +67,9 @@ def inspect_host(stage: Path | None = None) -> dict:
             )
             paths = sorted(imported.get("path_joint_map", {}))
             checks.append(_check(
-                "newton_usd_import", "/World/Shoulder" in paths, repr(paths)
+                "newton_usd_import",
+                any(path != "/World/WorldAnchor" for path in paths),
+                repr(paths),
             ))
     except Exception as exc:
         checks.append(_check(

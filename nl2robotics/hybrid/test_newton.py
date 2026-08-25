@@ -172,6 +172,61 @@ class NewtonBackendTests(unittest.TestCase):
                 backend.initialize(step_size=0.01, substeps=1)
             self.assertTrue(runtime.closed)
 
+    def test_multiple_joint_paths_are_resolved_independently(self):
+        class MultiRuntime(FakeNewtonRuntime):
+            def __init__(self):
+                super().__init__(["/World/Shoulder", "/World/Extension"])
+                self.positions = [0.1, 0.02]
+                self.velocities = [0.0, 0.0]
+                self.efforts = [0.0, 0.0]
+
+            def read_position(self, index):
+                return self.positions[index]
+
+            def read_velocity(self, index):
+                return self.velocities[index]
+
+            def read_effort(self, index):
+                return self.efforts[index]
+
+            def set_position_state(self, index, value):
+                self.positions[index] = value
+
+            def set_velocity_state(self, index, value):
+                self.velocities[index] = value
+
+            def set_effort(self, index, value):
+                self.efforts[index] = value
+                self.effort_set_calls += 1
+
+            def step(self, steps):
+                for index in range(2):
+                    self.velocities[index] += self.efforts[index] * 0.005 * steps
+                    self.positions[index] += self.velocities[index] * 0.005 * steps
+
+        with tempfile.TemporaryDirectory() as tmp:
+            stage = Path(tmp) / "scene.usda"
+            stage.write_text("#usda 1.0\n", encoding="utf-8")
+            shoulder = mapping("joint_position")
+            extension_position = {
+                **mapping("joint_position"), "usd_joint_path": "/World/Extension"
+            }
+            extension_effort = {
+                **mapping("joint_effort", "fmu_to_usd"),
+                "usd_joint_path": "/World/Extension",
+            }
+            backend = NewtonPhysics(
+                stage_path=stage,
+                mappings=[shoulder, extension_position, extension_effort],
+                device="cpu", runtime=MultiRuntime(),
+            )
+            backend.initialize(step_size=0.01, substeps=2)
+            backend.apply(extension_effort, 3.0)
+            backend.step(step_size=0.01, substeps=2)
+            self.assertEqual(0.1, backend.read(shoulder))
+            self.assertGreater(backend.read(extension_position), 0.02)
+            backend.close()
+
     def test_grounded_initial_state_is_applied(self):
         with tempfile.TemporaryDirectory() as tmp:
             stage = Path(tmp) / "scene.usda"
