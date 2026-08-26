@@ -59,6 +59,8 @@ Primary references:
   USD oracle used to freeze the H2 interface.
 - `../hybrid/oracles/RHY202/`: a mixed revolute/prismatic multi-joint oracle for
   generalized planning, mapping, controller conformance, and execution.
+- `../hybrid/oracles/RHY203/`: a three-joint branching oracle spanning X/Y/Z
+  axes and cylinder/capsule/sphere link geometry.
 
 ## Validation command
 

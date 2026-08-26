@@ -76,11 +76,14 @@ python3 -m nl2robotics.hybrid.closed_loop_cli \
   --ir nl2robotics/hybrid/oracles/RHY101/requirement_ir.json \
   --contract nl2robotics/hybrid/oracles/RHY101/contract.json \
   --output-dir outputs/RHY101-reference \
-  --inertia 0.5 --damping 0.2
+  --damping 0.2
 ```
 
-That command is an integration test of the master, contract, real FMU, trace,
-and property evaluator. Its report always sets `claim_eligible_h2` to false.
+The reference CLI supports every mapped joint and derives a deterministic
+effective inertia from grounded link mass and geometry. Per-joint overrides use
+`--joint-dynamics shoulder=0.5,0.2`; the legacy global `--inertia` flag remains
+available. This is an integration test of the master, contract, real FMU,
+trace, and property evaluator. Its report always sets `claim_eligible_h2` to false.
 Only a run whose backend metadata proves that pinned Isaac Sim actually
 executed may use the `isaac_closed_loop` result label.
 
@@ -142,8 +145,10 @@ to reference physics.
 
 DeltaAI's Grace/H100 nodes cannot run the Isaac/PhysX evidence path, but they
 can run the same closed-loop contract with Newton Physics. `RHY201` is the
-minimal Newton regression; `RHY202` exercises mixed revolute/prismatic
-multi-joint execution. Neither is labeled as Isaac/PhysX evidence.
+minimal Newton regression, `RHY202` exercises mixed revolute/prismatic serial
+execution, and `RHY203` exercises a three-joint branching tree with every
+supported axis and non-box primitive geometry. None is labeled as Isaac/PhysX
+evidence.
 The runner imports the UsdPhysics articulation by exact joint path, executes the
 same FMU exchange order and zero-order hold, and records separate
 `claim_eligible_newton_h2` and `claim_eligible_isaac_h2` flags.

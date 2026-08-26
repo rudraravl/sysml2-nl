@@ -11,6 +11,8 @@
 
 set -euo pipefail
 
+module load apptainer
+
 REPO="${REPO:-$SLURM_SUBMIT_DIR}"
 ORACLE="${ORACLE:-RHY201}"
 IMAGE="${IMAGE:-$REPO/openmodelica-v1.27.0-arm64.sif}"

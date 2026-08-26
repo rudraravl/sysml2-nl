@@ -13,6 +13,7 @@ from .newton_bundle import (
     NewtonBundleError,
     load_newton_bundle,
 )
+from .newton_cli import run_newton_bundle
 
 
 class FakeNewtonRuntime:
@@ -294,6 +295,26 @@ class NewtonBackendTests(unittest.TestCase):
 
 
 class NewtonBundleTests(unittest.TestCase):
+    def test_public_runner_persists_fail_closed_claim_flags(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp) / "execution"
+            result = run_newton_bundle(
+                bundle_path=Path(tmp) / "missing.json",
+                output_dir=output,
+                device="cpu",
+                repetitions=1,
+            )
+            self.assertFalse(result["success"])
+            self.assertFalse(result["passed"])
+            self.assertFalse(result["claim_eligible_h2"])
+            self.assertFalse(result["claim_eligible_newton_h2"])
+            self.assertFalse(result["claim_eligible_deltaai_h2"])
+            self.assertFalse(result["claim_eligible_isaac_h2"])
+            self.assertEqual(
+                result,
+                json.loads((output / "newton-report.json").read_text()),
+            )
+
     def test_loader_accepts_only_hashed_newton_mode_bundles(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

@@ -104,6 +104,7 @@ class ExperimentTests(unittest.TestCase):
         executor.h2_handoff = lambda **kwargs: {
             "success": True, "failure_stage": None, "isaac_report": isaac,
         }
+        executor.newton_handoff = None
         with tempfile.TemporaryDirectory() as tmp:
             result = executor._complete_h2({
                 "ready_for_gpu": True,
@@ -113,6 +114,26 @@ class ExperimentTests(unittest.TestCase):
         self.assertTrue(result["passed"])
         self.assertTrue(result["claim_eligible_h2"])
         self.assertIs(result["hybrid"], isaac)
+
+    def test_newton_handoff_result_populates_claim_metrics(self):
+        newton = {
+            "stage": "newton_closed_loop", "success": True, "passed": True,
+            "claim_eligible_h2": True, "claim_eligible_newton_h2": True,
+        }
+        executor = object.__new__(PipelineExperimentExecutor)
+        executor.h2_handoff = None
+        executor.newton_handoff = lambda **kwargs: {
+            "success": True, "failure_stage": None, "newton_report": newton,
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            result = executor._complete_h2({
+                "ready_for_gpu": True,
+                "passed": False,
+                "hybrid": {"manifest": "hybrid/execution-input.json"},
+            }, Path(tmp), "newton_h2")
+        self.assertTrue(result["passed"])
+        self.assertTrue(result["claim_eligible_h2"])
+        self.assertIs(result["hybrid"], newton)
 
 
 if __name__ == "__main__":

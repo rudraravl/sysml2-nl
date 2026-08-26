@@ -27,6 +27,7 @@ class PipelineExperimentExecutor:
                  isaac_preparer=None,
                  newton_preparer=None,
                  h2_handoff=None,
+                 newton_handoff=None,
                  modelica_moe=generate_modelica_moe,
                  openusd_moe=generate_openusd_moe,
                  k: int = 5, max_tool_repairs: int = 2):
@@ -41,6 +42,7 @@ class PipelineExperimentExecutor:
         self.isaac_preparer = isaac_preparer
         self.newton_preparer = newton_preparer
         self.h2_handoff = h2_handoff
+        self.newton_handoff = newton_handoff
         self.modelica_moe = modelica_moe
         self.openusd_moe = openusd_moe
         self.k = k
@@ -162,7 +164,10 @@ class PipelineExperimentExecutor:
         backend = "newton" if target_level == "newton_h2" else "isaac"
         if result.get("ready_for_gpu") is not True:
             return result
-        if self.h2_handoff is None:
+        handoff_runner = (
+            self.newton_handoff if backend == "newton" else self.h2_handoff
+        )
+        if handoff_runner is None:
             result["infrastructure_pending"] = True
             result["infrastructure_reason"] = (
                 f"validated H2 bundle requires the configured {backend} handoff"
@@ -172,13 +177,16 @@ class PipelineExperimentExecutor:
         if not isinstance(manifest, str):
             result["failure_stage"] = "missing_h2_manifest"
             return result
-        handoff = self.h2_handoff(
+        handoff = handoff_runner(
             bundle_path=output_dir / manifest,
             output_dir=output_dir / "gpu-handoff",
         )
-        result["gpu_handoff"] = handoff
+        result[f"{backend}_handoff"] = handoff
+        if backend == "isaac":
+            result["gpu_handoff"] = handoff
         simulator_report = (
-            handoff.get(f"{backend}_report") if isinstance(handoff, dict) else None
+            handoff.get(f"{backend}_report", handoff)
+            if isinstance(handoff, dict) else None
         )
         if handoff.get("failure_stage") == "gpu_preflight":
             result["infrastructure_pending"] = True

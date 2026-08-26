@@ -11,24 +11,72 @@ import traceback
 
 def main() -> None:
     args = _arguments()
-    args.output_dir.mkdir(parents=True, exist_ok=True)
+    report = run_newton_bundle(
+        bundle_path=args.bundle,
+        output_dir=args.output_dir,
+        controller_backend=args.controller_backend,
+        fmi_runtime_image=args.fmi_runtime_image,
+        device=args.device,
+        solver=args.solver,
+        newton_version=args.newton_version,
+        repetitions=args.repetitions,
+        repeatability_tolerance=args.repeatability_tolerance,
+    )
+    print(json.dumps(report, indent=2, allow_nan=False))
+    raise SystemExit(0 if report.get("success") is True else 1)
+
+
+def run_newton_bundle(*, bundle_path: Path, output_dir: Path,
+                      controller_backend: str = "local",
+                      fmi_runtime_image: str = "nl2robotics-fmi-runtime:0.1",
+                      device: str = "cuda:0", solver: str = "featherstone",
+                      newton_version: str = "1.5.0", repetitions: int = 3,
+                      repeatability_tolerance: float = 1e-6) -> dict:
+    """Execute one verified bundle and persist the complete Newton report.
+
+    This public entry point lets the experiment runner use the exact same
+    fail-closed path as the command-line tool instead of shelling out or
+    duplicating claim logic.
+    """
+    if controller_backend not in {"local", "docker"}:
+        raise ValueError("controller_backend must be local or docker")
+    if solver not in {"featherstone", "mujoco_warp"}:
+        raise ValueError("unsupported Newton solver")
+    if repetitions < 1:
+        raise ValueError("repetitions must be positive")
+    if repeatability_tolerance < 0:
+        raise ValueError("repeatability_tolerance must be non-negative")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    args = argparse.Namespace(
+        bundle=bundle_path,
+        output_dir=output_dir,
+        controller_backend=controller_backend,
+        fmi_runtime_image=fmi_runtime_image,
+        device=device,
+        solver=solver,
+        newton_version=newton_version,
+        repetitions=repetitions,
+        repeatability_tolerance=repeatability_tolerance,
+    )
     try:
         report = _run(args)
     except Exception as exc:
         report = {
             "stage": "newton_closed_loop",
             "success": False,
+            "passed": False,
             "claim_eligible_h2": False,
             "claim_eligible_newton_h2": False,
+            "claim_eligible_deltaai_h2": False,
+            "claim_eligible_isaac_h2": False,
             "error": f"{type(exc).__name__}: {exc}",
             "traceback": traceback.format_exc(),
         }
-    (args.output_dir / "newton-report.json").write_text(
+    (output_dir / "newton-report.json").write_text(
         json.dumps(report, indent=2, sort_keys=True, allow_nan=False) + "\n",
         encoding="utf-8",
     )
-    print(json.dumps(report, indent=2, allow_nan=False))
-    raise SystemExit(0 if report.get("success") is True else 1)
+    return report
 
 
 def _run(args: argparse.Namespace) -> dict:

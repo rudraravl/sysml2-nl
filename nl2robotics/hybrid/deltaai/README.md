@@ -31,12 +31,31 @@ ORACLE=RHY202 sbatch -A YOUR_ALLOCATION \
   --job-name=nl2robotics-rhy202 nl2robotics/hybrid/deltaai/run_rhy201.sbatch
 ```
 
+Use the broad branching oracle with:
+
+```bash
+ORACLE=RHY203 sbatch -A YOUR_ALLOCATION \
+  --job-name=nl2robotics-rhy203 nl2robotics/hybrid/deltaai/run_rhy201.sbatch
+```
+
+After that broad smoke passes, the economical breadth matrix runs RHY201,
+RHY202, and RHY203 sequentially with at most one H100 allocated at a time:
+
+```bash
+sbatch -A YOUR_ALLOCATION \
+  nl2robotics/hybrid/deltaai/run_articulated_study.sbatch
+```
+
+The three-task array has a maximum reservation of 1.5 GPU-hours and normally
+finishes far below that ceiling. Start with RHY203 alone when debugging cluster
+setup so a shared configuration failure does not spend three job allocations.
+
 The job fails before simulation unless it sees ARM64, an H100, pinned Newton and
 Warp versions, CUDA through Apptainer, OpenModelica, FMPy, and a successful
 Newton import of the articulated USD stage. The FMU is exported inside the ARM64
 container so its binary matches the DeltaAI host.
 
-Each job writes a unique `outputs/deltaai-rhy201-JOB_ID` directory containing
+Each job writes a unique `outputs/deltaai-ORACLE-JOB_ID` directory containing
 preflight evidence, the hashed execution bundle, three traces, STL property
 results, repeatability comparison, post-execution alignment, and the final
 Newton claim gate.

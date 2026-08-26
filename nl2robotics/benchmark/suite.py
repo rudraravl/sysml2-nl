@@ -28,9 +28,21 @@ class BenchmarkTask:
 
 
 class BenchmarkSuite:
-    def __init__(self, root: Path | None = None):
-        self.root = root or Path(__file__).resolve().parent
-        rows = json.loads((self.root / "manifest.json").read_text(encoding="utf-8"))
+    def __init__(self, root: Path | None = None,
+                 manifest_path: Path | None = None):
+        if manifest_path is not None:
+            self.manifest_path = manifest_path.resolve()
+            self.root = self.manifest_path.parent
+            self._expected_profile_counts = None
+        else:
+            self.root = root or Path(__file__).resolve().parent
+            self.manifest_path = self.root / "manifest.json"
+            self._expected_profile_counts = {
+                "modelica": 5, "openusd": 5, "hybrid": 5,
+            }
+        rows = json.loads(self.manifest_path.read_text(encoding="utf-8"))
+        if not isinstance(rows, list) or not rows:
+            raise ValueError("benchmark manifest must contain a non-empty task list")
         self.tasks = [self._load(row) for row in rows]
 
     def _load(self, row: dict) -> BenchmarkTask:
@@ -107,7 +119,8 @@ class BenchmarkSuite:
                     if ir.get("source_text", "").strip() != task.prompt_variants["rich"]:
                         issues.append(_issue("hybrid_prompt_mismatch", path, task.id))
 
-        if counts != {"modelica": 5, "openusd": 5, "hybrid": 5}:
+        if (self._expected_profile_counts is not None
+                and counts != self._expected_profile_counts):
             issues.append(_issue("unbalanced_profiles", "$", str(counts)))
         return {
             "stage": "benchmark_static_audit",
@@ -117,7 +130,8 @@ class BenchmarkSuite:
             "profile_counts": counts,
             "variant_count": len(self.tasks) * len(VARIANTS),
             "issues": issues,
-            "manifest_sha256": _hash_file(self.root / "manifest.json"),
+            "manifest": str(self.manifest_path),
+            "manifest_sha256": _hash_file(self.manifest_path),
         }
 
 

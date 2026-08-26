@@ -12,6 +12,7 @@ from nl2robotics.contracts.hybrid_contract import HybridContractValidator
 from nl2robotics.modelica.models import FMUVariable
 
 from .closed_loop import ClosedLoopMaster
+from .closed_loop_cli import _parse_joint_dynamics, _reference_joint_configs
 from .closed_loop_properties import evaluate_closed_loop_properties
 from .controller_conformance import evaluate_controller_conformance
 from .reference_runtime import (
@@ -484,6 +485,34 @@ class MixedJointFunctionalTests(unittest.TestCase):
         self.assertEqual(250, report["completed_steps"])
         self.assertTrue(all(item.passed for item in properties), properties)
         self.assertFalse(report["claim_eligible_h2"])
+
+    def test_reference_cli_derives_each_joint_dynamics_and_allows_overrides(self):
+        configs = _reference_joint_configs(
+            mixed_load("requirement_ir.json"),
+            mixed_load("contract.json")["mappings"],
+            inertia=None,
+            damping=0.2,
+            overrides={"extension": (1.25, 0.3)},
+        )
+        by_path = {row["joint_path"]: row for row in configs}
+        self.assertAlmostEqual(2.0 * 0.5 ** 2 / 3.0,
+                               by_path["/World/Shoulder"]["inertia"])
+        self.assertEqual("revolute", by_path["/World/Shoulder"]["joint_type"])
+        self.assertEqual(1.25, by_path["/World/Extension"]["inertia"])
+        self.assertEqual(0.3, by_path["/World/Extension"]["damping"])
+        self.assertEqual("prismatic", by_path["/World/Extension"]["joint_type"])
+
+    def test_reference_cli_rejects_bad_or_unknown_dynamics_overrides(self):
+        with self.assertRaisesRegex(ValueError, "expected JOINT=INERTIA,DAMPING"):
+            _parse_joint_dynamics(["shoulder=bad"])
+        with self.assertRaisesRegex(ValueError, "unknown --joint-dynamics"):
+            _reference_joint_configs(
+                mixed_load("requirement_ir.json"),
+                mixed_load("contract.json")["mappings"],
+                inertia=None,
+                damping=0.0,
+                overrides={"ghost": (1.0, 0.0)},
+            )
 
 
 if __name__ == "__main__":

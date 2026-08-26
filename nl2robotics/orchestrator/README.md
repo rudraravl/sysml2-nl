@@ -12,7 +12,7 @@ execution bundle or an H2 GPU-ready execution bundle:
    evaluates trace properties; or
 6. the H2 path exports a controller FMU, validates a dynamic effort-controlled
    OpenUSD articulation and bidirectional contract, and freezes a hash-checked
-   bundle for the Isaac Sim handoff.
+   bundle for the Newton Physics or Isaac Sim execution handoff.
 
 Unknown timing or interface facts stop before generation. The planner does not
 invent values to make an underspecified request executable.
@@ -30,6 +30,9 @@ For the articulated Isaac/PhysX profile, add:
 ```bash
   --execution-mode isaac_closed_loop
 ```
+
+For the open-source Newton Physics profile, use
+`--execution-mode newton_closed_loop` instead.
 
 An H2 preparation exits successfully with `ready_for_gpu=true`, while
 `passed=false` and `failure_stage=gpu_execution_pending` remain until the real
@@ -49,4 +52,6 @@ python3 -m nl2robotics.orchestrator.oracle_smoke RHY101 \
   --output-dir outputs/RHY101-preparation-smoke --backend docker
 python3 -m nl2robotics.orchestrator.oracle_smoke RHY202 \
   --output-dir outputs/RHY202-preparation-smoke --backend docker
+python3 -m nl2robotics.orchestrator.oracle_smoke RHY203 \
+  --output-dir outputs/RHY203-preparation-smoke --backend docker
 ```

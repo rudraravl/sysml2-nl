@@ -10,10 +10,10 @@ properties, alignment report, and claim gate.
 | Dimension | Supported in the executable profile |
 |---|---|
 | Topology | One fixed-base serial or branching articulation tree |
-| Scale | One or more joints and rigid links |
+| Scale | No hard-coded joint-count cap; verified with one, two, and three simultaneously controlled joints |
 | Joint types | Revolute and prismatic, mixed in one robot |
 | Axes | Principal X, Y, and Z axes |
-| Geometry | Box executed end to end; sphere, cylinder, and capsule supported by planning and semantic validation |
+| Geometry | Box, sphere, cylinder, and capsule executed end to end |
 | Control | Independent saturated joint-space PD effort control in one FMU |
 | Feedback | Position and velocity for every joint |
 | Actuation | Torque for revolute joints, force for prismatic joints |
@@ -41,14 +41,23 @@ degrees are preserved in the IR and converted explicitly.
 6. Run the FMU and physics backend in a zero-order-hold closed loop, evaluate
    temporal properties, repeat the run, and emit provenance-backed evidence.
 
-`RHY201` remains the minimal one-joint regression oracle. `RHY202` is the broad
-integration oracle: a two-link serial articulation with a Y-axis revolute
-shoulder and X-axis prismatic extension, six FMI/USD signal mappings, two
-actuators, and four runtime properties.
+The executable breadth suite is machine-audited rather than inferred from one
+example. `RHY201` is the minimal one-joint regression. `RHY202` covers a serial
+mixed revolute/prismatic mechanism. `RHY203` covers a branching three-joint
+tree, all X/Y/Z axes, cylinder/capsule/sphere geometry, nine FMI/USD mappings,
+three simultaneous PD channels, and position, velocity, limit, and convergence
+properties. Together they cover all joint types, axes, and primitive shapes in
+the current articulated profile. Run the audit with:
+
+```bash
+python3 -m nl2robotics.studies.articulated
+```
 
 ## Intentional next research extensions
 
-The MVP does not claim arbitrary robotics. Floating/mobile bases, closed-chain
-kinematics, contact-task properties, trajectory controllers, coupled
-operational-space control, and PI/PID state semantics are separate extensions.
-They can be added without changing the shared mapping or evidence architecture.
+The current profile deliberately targets fixed-base acyclic articulation trees
+with independent joint-space PD effort channels. Floating/mobile bases,
+closed-chain constraints, contact-task specifications, trajectory control,
+coupled operational-space control, and integral controller state are the next
+profile extensions; the shared mapping, execution, and evidence architecture
+does not depend on a one-joint assumption.

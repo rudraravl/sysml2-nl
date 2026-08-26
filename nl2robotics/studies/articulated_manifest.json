@@ -1,0 +1,44 @@
+[
+  {
+    "id": "RBAH201",
+    "profile": "hybrid",
+    "category": "single_joint_closed_loop",
+    "difficulty": "intermediate",
+    "target_level": "newton_h2",
+    "oracle": {"bundle": "../hybrid/oracles/RHY201"},
+    "prompt_variants": {
+      "rich": "@request",
+      "concise": "Create a Newton and Modelica closed-loop rotary arm with a fixed base, bounded Y-axis shoulder, SI feedback, saturated PD torque, and executable final-target properties.",
+      "underspecified": "Create a closed-loop Modelica-controlled rotary mechanism in Newton."
+    },
+    "labeled_unknowns": ["link geometry", "mass", "joint limits", "controller gains", "clock", "gravity", "property bounds"]
+  },
+  {
+    "id": "RBAH202",
+    "profile": "hybrid",
+    "category": "serial_mixed_articulation",
+    "difficulty": "advanced",
+    "target_level": "newton_h2",
+    "oracle": {"bundle": "../hybrid/oracles/RHY202"},
+    "prompt_variants": {
+      "rich": "@request",
+      "concise": "Create a two-link Newton articulation with serial revolute and prismatic joints, independent saturated Modelica PD channels, SI bidirectional coupling, and executable limit and target properties.",
+      "underspecified": "Create a Modelica-controlled two-joint pick-and-place articulation in Newton."
+    },
+    "labeled_unknowns": ["link dimensions", "masses", "joint types and axes", "joint limits", "controller parameters", "clock", "gravity", "property bounds"]
+  },
+  {
+    "id": "RBAH203",
+    "profile": "hybrid",
+    "category": "branching_mixed_articulation",
+    "difficulty": "advanced",
+    "target_level": "newton_h2",
+    "oracle": {"bundle": "../hybrid/oracles/RHY203"},
+    "prompt_variants": {
+      "rich": "@request",
+      "concise": "Create a three-joint branching Newton mechanism using revolute and prismatic joints across X, Y, and Z, non-box primitive links, three independent Modelica PD channels, and executable limit and target properties.",
+      "underspecified": "Create a branching multi-joint mechanism controlled by a Modelica FMU in Newton."
+    },
+    "labeled_unknowns": ["branch topology", "primitive geometry", "masses", "joint types and axes", "joint limits", "controller parameters", "clock", "gravity", "property bounds"]
+  }
+]

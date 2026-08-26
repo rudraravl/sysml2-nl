@@ -20,7 +20,7 @@ def main() -> None:
     parser.add_argument(
         "oracle", choices=(
             "RHY001", "RHY002", "RHY003", "RHY004",
-            "RHY101", "RHY201", "RHY202",
+            "RHY101", "RHY201", "RHY202", "RHY203",
         )
     )
     parser.add_argument("--output-dir", type=Path, required=True)

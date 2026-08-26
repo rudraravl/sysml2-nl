@@ -32,6 +32,21 @@ device, solver, controller backend, and repetition options when needed). The
 executor then runs the handoff and merges the real Isaac report into the same
 cell before metrics are extracted.
 
+Newton studies use a study manifest and the same in-process, fail-closed runner:
+
+```bash
+python3 -m nl2robotics.experiments.run_cli \
+  --benchmark-manifest nl2robotics/studies/articulated_manifest.json \
+  --profile hybrid --condition FULL --variant rich \
+  --newton-handoff --newton-device cpu \
+  --newton-controller-backend docker --newton-repetitions 3 \
+  --output-dir outputs/articulated-full-pilot
+```
+
+On DeltaAI use `--newton-device cuda:0 --newton-controller-backend local`.
+Newton evidence remains labeled as Newton, and DeltaAI eligibility still
+depends on genuine Linux ARM64 H100 CUDA provenance from each executed run.
+
 The metric layer separates infrastructure failures from generated-artifact
 failures, reports binary rates with seeded bootstrap confidence intervals,
 continuous summaries, failure-stage distributions, and exact paired McNemar
