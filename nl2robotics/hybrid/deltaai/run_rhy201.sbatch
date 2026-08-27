@@ -11,16 +11,15 @@
 
 set -euo pipefail
 
-module load apptainer
-
 REPO="${REPO:-$SLURM_SUBMIT_DIR}"
 ORACLE="${ORACLE:-RHY201}"
 IMAGE="${IMAGE:-$REPO/openmodelica-v1.27.0-arm64.sif}"
-PYTHON_DEPS="${PYTHON_DEPS:-$REPO/.deltaai-python}"
+PYTHON_ENV="${PYTHON_ENV:-${PYTHON_DEPS:-$REPO/.deltaai-python}}"
 OUTPUT_ROOT="${OUTPUT_ROOT:-$REPO/outputs/deltaai-${ORACLE,,}-$SLURM_JOB_ID}"
+CONTAINER_PYTHON="/workspace/${PYTHON_ENV#"$REPO"/}/bin/python"
 
 test -f "$IMAGE"
-test -d "$PYTHON_DEPS"
+test -x "$PYTHON_ENV/bin/python"
 test -d "$REPO/nl2robotics/hybrid/oracles/$ORACLE"
 case "$OUTPUT_ROOT" in
   "$REPO"/*) ;;
@@ -30,18 +29,20 @@ mkdir -p "$OUTPUT_ROOT" "$OUTPUT_ROOT/warp-cache"
 
 apptainer exec --cleanenv --nv \
   --bind "$REPO:/workspace" \
-  --env PYTHONPATH="/workspace:/workspace/${PYTHON_DEPS#"$REPO"/}" \
+  --env PYTHONPATH="/workspace" \
+  --env PYTHONNOUSERSITE=1 \
   --env WARP_CACHE_PATH="/workspace/${OUTPUT_ROOT#"$REPO"/}/warp-cache" \
   "$IMAGE" \
-  python3 -m nl2robotics.hybrid.deltaai.preflight \
+  "$CONTAINER_PYTHON" -m nl2robotics.hybrid.deltaai.preflight \
     --stage "/workspace/nl2robotics/hybrid/oracles/$ORACLE/scene.usda" \
     --output "/workspace/${OUTPUT_ROOT#"$REPO"/}/preflight.json"
 
 apptainer exec --cleanenv --nv \
   --bind "$REPO:/workspace" \
-  --env PYTHONPATH="/workspace:/workspace/${PYTHON_DEPS#"$REPO"/}" \
+  --env PYTHONPATH="/workspace" \
+  --env PYTHONNOUSERSITE=1 \
   "$IMAGE" \
-  python3 -m nl2robotics.hybrid.newton_prepare \
+  "$CONTAINER_PYTHON" -m nl2robotics.hybrid.newton_prepare \
     --modelica "/workspace/nl2robotics/hybrid/oracles/$ORACLE/model.mo" \
     --usd "/workspace/nl2robotics/hybrid/oracles/$ORACLE/scene.usda" \
     --ir "/workspace/nl2robotics/hybrid/oracles/$ORACLE/requirement_ir.json" \
@@ -51,10 +52,11 @@ apptainer exec --cleanenv --nv \
 
 apptainer exec --cleanenv --nv \
   --bind "$REPO:/workspace" \
-  --env PYTHONPATH="/workspace:/workspace/${PYTHON_DEPS#"$REPO"/}" \
+  --env PYTHONPATH="/workspace" \
+  --env PYTHONNOUSERSITE=1 \
   --env WARP_CACHE_PATH="/workspace/${OUTPUT_ROOT#"$REPO"/}/warp-cache" \
   "$IMAGE" \
-  python3 -m nl2robotics.hybrid.newton_cli \
+  "$CONTAINER_PYTHON" -m nl2robotics.hybrid.newton_cli \
     --bundle "/workspace/${OUTPUT_ROOT#"$REPO"/}/bundle/execution-input.json" \
     --output-dir "/workspace/${OUTPUT_ROOT#"$REPO"/}/execution" \
     --controller-backend local \

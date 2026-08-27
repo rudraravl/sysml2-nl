@@ -9,14 +9,20 @@ PhysX evidence.
 From the repository root on DeltaAI:
 
 ```bash
-module load apptainer
 bash nl2robotics/hybrid/deltaai/setup_deltaai.sh
 ```
 
-This pulls the official ARM64 OpenModelica SIF and installs the pinned Newton,
-Warp, OpenUSD, and FMPy packages into `.deltaai-python`. It uses only user-space
-files; no root, `fakeroot`, proprietary package, or paid license is required.
-`Apptainer.def` is retained as an optional single-image build recipe.
+DeltaAI currently exposes Apptainer at `/usr/bin/apptainer`; no module load is
+required. If a future software stack provides it as a module, loading that
+module first remains compatible.
+
+This pulls the official ARM64 OpenModelica SIF and creates the pinned Newton,
+Warp, OpenUSD, and FMPy environment in `.deltaai-python`. Newton's native ARM
+dependency path uses `usd-exchange==3.0.0` for OpenUSD 26.08. Pinned
+micromamba supplies Python 3.11 because the OpenUSD binding needs a shared
+libpython and Newton 1.5 relies on Warp array annotations unsupported by Python
+3.10. It uses only user-space files; no root, `fakeroot`, proprietary package,
+or paid license is required.
 
 ## Submit
 
@@ -50,10 +56,10 @@ The three-task array has a maximum reservation of 1.5 GPU-hours and normally
 finishes far below that ceiling. Start with RHY203 alone when debugging cluster
 setup so a shared configuration failure does not spend three job allocations.
 
-The job fails before simulation unless it sees ARM64, an H100, pinned Newton and
-Warp versions, CUDA through Apptainer, OpenModelica, FMPy, and a successful
-Newton import of the articulated USD stage. The FMU is exported inside the ARM64
-container so its binary matches the DeltaAI host.
+The job fails before simulation unless it sees ARM64, an H100 or GH200 Hopper
+GPU, pinned Newton and Warp versions, CUDA through Apptainer, OpenModelica,
+FMPy, and a successful Newton import of the articulated USD stage. The FMU is
+exported inside the ARM64 container so its binary matches the DeltaAI host.
 
 Each job writes a unique `outputs/deltaai-ORACLE-JOB_ID` directory containing
 preflight evidence, the hashed execution bundle, three traces, STL property
