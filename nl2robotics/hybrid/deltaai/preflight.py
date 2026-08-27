@@ -21,8 +21,8 @@ def inspect_host(stage: Path | None = None) -> dict:
     ])
     gpu_rows = [row.strip() for row in gpu["stdout"].splitlines() if row.strip()]
     checks.append(_check(
-        "deltaai_h100", gpu["returncode"] == 0
-        and any("H100" in row.upper() for row in gpu_rows),
+        "deltaai_hopper_gpu", gpu["returncode"] == 0
+        and _is_deltaai_hopper_gpu(gpu_rows),
         gpu["stderr"] or repr(gpu_rows),
     ))
     omc = _command(["omc", "--version"])
@@ -119,6 +119,14 @@ def _command(command: list[str]) -> dict:
 
 def _check(name: str, passed: bool, detail: str) -> dict:
     return {"name": name, "passed": bool(passed), "detail": detail}
+
+
+def _is_deltaai_hopper_gpu(gpu_rows: list[str]) -> bool:
+    return any(
+        token in row.upper()
+        for row in gpu_rows
+        for token in ("H100", "GH200")
+    )
 
 
 if __name__ == "__main__":

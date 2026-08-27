@@ -27,10 +27,10 @@ optional single-image build recipe.
 sbatch -A YOUR_ALLOCATION nl2robotics/hybrid/deltaai/run_rhy201.sbatch
 ```
 
-The job fails before simulation unless it sees ARM64, an H100, pinned Newton and
-Warp versions, CUDA through Apptainer, OpenModelica, FMPy, and a successful
-Newton import of the exact USD joint path. The FMU is exported inside the ARM64
-container so its binary matches the DeltaAI host.
+The job fails before simulation unless it sees ARM64, an H100 or GH200 Hopper
+GPU, pinned Newton and Warp versions, CUDA through Apptainer, OpenModelica,
+FMPy, and a successful Newton import of the exact USD joint path. The FMU is
+exported inside the ARM64 container so its binary matches the DeltaAI host.
 
 Each job writes a unique `outputs/deltaai-rhy201-JOB_ID` directory containing
 preflight evidence, the hashed execution bundle, three traces, STL property
