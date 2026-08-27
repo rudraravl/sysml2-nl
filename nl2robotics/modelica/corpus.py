@@ -35,7 +35,7 @@ class ExampleCorpus:
     """Deterministic BM25-style retriever over the approved RAG split."""
 
     def __init__(self, root: Path | None = None, *, split: str = "rag",
-                 subset: str = "full300"):
+                 subset: str = "full1500"):
         self.root = root or Path(__file__).with_name("examples")
         self.subset = subset
         rows = json.loads((self.root / "manifest.json").read_text(encoding="utf-8"))

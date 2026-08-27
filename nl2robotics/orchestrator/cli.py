@@ -36,8 +36,11 @@ def main() -> None:
     parser.add_argument("--backend", choices=("auto", "local", "docker"),
                         default="auto")
     parser.add_argument(
-        "--subset", choices=("core24", "balanced50", "full100", "full300"),
-        default="full300",
+        "--subset", choices=(
+            "core24", "balanced50", "full100", "full300",
+            "semantic500", "full1500",
+        ),
+        default="full1500",
     )
     parser.add_argument("-k", type=int, default=5)
     parser.add_argument("--max-ir-repairs", type=int, default=1)

@@ -18,8 +18,11 @@ def main() -> None:
     retrieve.add_argument("requirement")
     retrieve.add_argument("-k", type=int, default=5)
     retrieve.add_argument(
-        "--subset", choices=("core24", "balanced50", "full100", "full300"),
-        default="full300",
+        "--subset", choices=(
+            "core24", "balanced50", "full100", "full300",
+            "semantic500", "full1500",
+        ),
+        default="full1500",
     )
 
     run = sub.add_parser("run")
@@ -59,8 +62,11 @@ def main() -> None:
     generate.add_argument("--backend", choices=("auto", "local", "docker"), default="auto")
     generate.add_argument("--max-repairs", type=int, default=2)
     generate.add_argument(
-        "--subset", choices=("core24", "balanced50", "full100", "full300"),
-        default="full300",
+        "--subset", choices=(
+            "core24", "balanced50", "full100", "full300",
+            "semantic500", "full1500",
+        ),
+        default="full1500",
     )
     generate.add_argument("-k", type=int, default=5)
     args = parser.parse_args()

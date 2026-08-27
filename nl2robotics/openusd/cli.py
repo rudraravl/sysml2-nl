@@ -19,8 +19,10 @@ def main() -> None:
     retrieve.add_argument("requirement")
     retrieve.add_argument("-k", type=int, default=5)
     retrieve.add_argument(
-        "--subset", choices=("core20", "semantic100", "full300"),
-        default="full300",
+        "--subset", choices=(
+            "core20", "semantic100", "full300", "semantic500", "full1500",
+        ),
+        default="full1500",
     )
 
     validate = commands.add_parser("validate")

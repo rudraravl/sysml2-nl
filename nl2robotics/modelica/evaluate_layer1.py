@@ -34,8 +34,11 @@ def main() -> None:
     parser.add_argument("--llm-backend", choices=("api", "cli"), default="cli")
     parser.add_argument("--single-model", default="openai/gpt-5.4")
     parser.add_argument(
-        "--subset", choices=("core24", "balanced50", "full100", "full300"),
-        default="full300",
+        "--subset", choices=(
+            "core24", "balanced50", "full100", "full300",
+            "semantic500", "full1500",
+        ),
+        default="full1500",
     )
     parser.add_argument("-k", type=int, default=5)
     parser.add_argument("--max-repairs", type=int, default=2)

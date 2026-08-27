@@ -31,16 +31,16 @@ from nl2robotics.modelica.properties import evaluate_properties, read_trace
 class CorpusTests(unittest.TestCase):
     def test_manifest_is_balanced_and_files_exist(self):
         corpus = ExampleCorpus()
-        self.assertEqual(300, len(corpus.examples))
-        self.assertEqual(300, len({item.id for item in corpus.examples}))
-        self.assertEqual(100, len({item.semantic_case_id for item in corpus.examples}))
+        self.assertEqual(1500, len(corpus.examples))
+        self.assertEqual(1500, len({item.id for item in corpus.examples}))
+        self.assertEqual(500, len({item.semantic_case_id for item in corpus.examples}))
         categories = {}
         for item in corpus.examples:
             categories[item.category] = categories.get(item.category, 0) + 1
             self.assertTrue(item.model_path.is_file())
             self.assertIn("model ", item.code)
         self.assertEqual(10, len(categories))
-        self.assertTrue(all(count == 30 for count in categories.values()))
+        self.assertTrue(all(count == 150 for count in categories.values()))
 
     def test_named_ablation_subsets(self):
         self.assertEqual(24, len(ExampleCorpus(subset="core24").examples))
@@ -51,17 +51,21 @@ class CorpusTests(unittest.TestCase):
             counts[item.category] = counts.get(item.category, 0) + 1
         self.assertEqual({5}, set(counts.values()))
         self.assertEqual(100, len(ExampleCorpus(subset="full100").examples))
+        self.assertEqual(300, len(ExampleCorpus(subset="full300").examples))
+        self.assertEqual(500, len(ExampleCorpus(subset="semantic500").examples))
+        self.assertEqual(1500, len(ExampleCorpus(subset="full1500").examples))
 
     def test_corpus_audit(self):
         report = audit()
         self.assertTrue(report["ok"], report["errors"])
         self.assertEqual([], report["exact_code_duplicates"])
+        self.assertEqual(94, report["structural_lineages"])
 
     def test_retrieval_uses_domain_terms(self):
         hits = ExampleCorpus().retrieve(
             "A voltage driven DC motor with winding current and back EMF", k=3
         )
-        self.assertEqual("M004", hits[0][0].id)
+        self.assertEqual("M004", hits[0][0].semantic_case_id)
         self.assertTrue(all(item.split == "rag" for item, _ in hits))
         self.assertEqual(
             len(hits), len({item.semantic_case_id for item, _ in hits})
@@ -128,7 +132,7 @@ class PipelineTests(unittest.TestCase):
         report = pipeline.generate("move", lambda _: next(answers), max_repairs=1)
         self.assertEqual(good.code, report["final_modelica"])
         self.assertFalse(report["attempts"][1]["accepted_as_best"])
-        self.assertEqual("full300", report["corpus_subset"])
+        self.assertEqual("full1500", report["corpus_subset"])
         self.assertEqual(5, len(report["retrieved_examples"]))
 
     def test_compile_only_script_never_runs_the_model(self):

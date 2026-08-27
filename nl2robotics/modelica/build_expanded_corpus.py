@@ -643,4 +643,7 @@ if __name__ == "__main__":
     from .build_retrieval_corpus import build as build_retrieval_corpus
 
     pairs = build_retrieval_corpus()
-    print(f"wrote {len(result)} semantic cases and {len(pairs)} retrieval pairs")
+    print(
+        f"wrote {len(result)} base cases and {len(pairs)} retrieval pairs "
+        "(500 executable semantic cases)"
+    )

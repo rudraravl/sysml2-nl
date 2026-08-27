@@ -61,6 +61,6 @@ expert still requires `OPENROUTER_API_KEY` in CLI mode.
 ```bash
 python3 -m unittest discover -v
 python3 -m nl2robotics.modelica.validate_layer1 \
-  --subset full100 --backend docker \
+  --subset semantic500 --backend docker \
   --output-dir modelica-layer1-validation
 ```

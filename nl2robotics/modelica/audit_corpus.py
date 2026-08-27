@@ -31,20 +31,23 @@ def audit() -> dict:
     evaluation = json.loads((ROOT / "evaluation_tasks.json").read_text(encoding="utf-8"))
     errors = []
     ids = [row["id"] for row in rows]
-    if len(rows) != 300 or len(set(ids)) != 300:
-        errors.append("manifest must contain 300 unique retrieval-pair IDs")
+    if len(rows) != 1500 or len(set(ids)) != 1500:
+        errors.append("manifest must contain 1,500 unique retrieval-pair IDs")
     categories = Counter(row["category"] for row in rows)
-    if len(categories) != 10 or set(categories.values()) != {30}:
+    if len(categories) != 10 or set(categories.values()) != {150}:
         errors.append(f"expected ten balanced categories, got {dict(categories)}")
     tiers = Counter(row["tier"] for row in rows)
-    if tiers != {"core": 24, "expanded": 76, "paraphrase": 200}:
+    expected_tiers = {
+        "core": 24, "expanded": 76, "augmented": 400, "paraphrase": 1000,
+    }
+    if tiers != expected_tiers:
         errors.append(f"unexpected tier counts: {dict(tiers)}")
     requirements = [row["requirement"].strip().lower() for row in rows]
     if len(set(requirements)) != len(requirements):
         errors.append("duplicate natural-language requirements")
     semantic_counts = Counter(row.get("semantic_case_id") for row in rows)
-    if len(semantic_counts) != 100 or set(semantic_counts.values()) != {3}:
-        errors.append("expected 100 semantic cases with three NL formulations each")
+    if len(semantic_counts) != 500 or set(semantic_counts.values()) != {3}:
+        errors.append("expected 500 semantic cases with three NL formulations each")
     code_hashes: dict[str, list[str]] = {}
     codes = {}
     property_ids = []
@@ -76,6 +79,7 @@ def audit() -> dict:
         errors.append("duplicate or missing property IDs")
     expected_subsets = {
         "core24": 24, "balanced50": 50, "full100": 100, "full300": 300,
+        "semantic500": 500, "full1500": 1500,
     }
     for name, size in expected_subsets.items():
         values = subsets.get(name, [])
@@ -99,6 +103,7 @@ def audit() -> dict:
         "examples": len(rows),
         "retrieval_pairs": len(rows),
         "semantic_cases": len(semantic_counts),
+        "structural_lineages": len({row.get("lineage_id") for row in rows}),
         "categories": dict(sorted(categories.items())),
         "tiers": dict(tiers),
         "subsets": {name: len(values) for name, values in subsets.items()},

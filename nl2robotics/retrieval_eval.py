@@ -90,8 +90,8 @@ def _metrics(result: dict) -> dict:
 
 def evaluate() -> dict:
     profiles = {
-        "modelica": (ExampleCorpus, "full300", MODELICA_QUERIES),
-        "openusd": (OpenUSDExampleCorpus, "full300", OPENUSD_QUERIES),
+        "modelica": (ExampleCorpus, "full1500", MODELICA_QUERIES),
+        "openusd": (OpenUSDExampleCorpus, "full1500", OPENUSD_QUERIES),
     }
     report = {"stage": "robotics_retrieval_evaluation", "schema_version": "1.0"}
     all_rows = []
@@ -103,13 +103,18 @@ def evaluate() -> dict:
             subset: _metrics(_evaluate_corpus(
                 ExampleCorpus(subset=subset), MODELICA_QUERIES
             ))
-            for subset in ("core24", "balanced50", "full100", "full300")
+            for subset in (
+                "core24", "balanced50", "full100", "full300",
+                "semantic500", "full1500",
+            )
         },
         "openusd": {
             subset: _metrics(_evaluate_corpus(
                 OpenUSDExampleCorpus(subset=subset), OPENUSD_QUERIES
             ))
-            for subset in ("core20", "semantic100", "full300")
+            for subset in (
+                "core20", "semantic100", "full300", "semantic500", "full1500",
+            )
         },
     }
     report["success"] = all(

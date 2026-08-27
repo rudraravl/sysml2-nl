@@ -8,35 +8,49 @@ from unittest.mock import patch
 
 from nl2robotics.openusd.corpus import OpenUSDExampleCorpus
 from nl2robotics.openusd.audit_corpus import audit
+from nl2robotics.openusd.build_core_corpus import _effort_revolute_scene
 from nl2robotics.openusd import moe
 from nl2robotics.openusd.pipeline import OpenUSDPipeline, clean_usda
 from nl2robotics.openusd.validator import OpenUSDValidation, OpenUSDValidator
 
 
 class OpenUSDCorpusTests(unittest.TestCase):
-    def test_full300_is_balanced_and_lineage_aware(self):
+    def test_full1500_is_balanced_and_lineage_aware(self):
         corpus = OpenUSDExampleCorpus()
-        self.assertEqual(300, len(corpus.examples))
-        self.assertEqual(300, len({item.id for item in corpus.examples}))
-        self.assertEqual(100, len({item.semantic_case_id for item in corpus.examples}))
+        self.assertEqual(1500, len(corpus.examples))
+        self.assertEqual(1500, len({item.id for item in corpus.examples}))
+        self.assertEqual(500, len({item.semantic_case_id for item in corpus.examples}))
         categories = {}
         for item in corpus.examples:
             categories[item.category] = categories.get(item.category, 0) + 1
             self.assertTrue(item.model_path.is_file())
             self.assertTrue(item.code.startswith("#usda 1.0"))
         self.assertEqual(10, len(categories))
-        self.assertEqual({30}, set(categories.values()))
-        self.assertTrue(audit()["ok"], audit()["errors"])
+        self.assertEqual({150}, set(categories.values()))
+        report = audit()
+        self.assertTrue(report["ok"], report["errors"])
+        self.assertEqual(20, report["structural_lineages"])
+
+    def test_effort_seed_builder_matches_leakage_safe_corpus_stage(self):
+        example = next(
+            item for item in OpenUSDExampleCorpus(subset="core20").examples
+            if item.id == "O001"
+        )
+        self.assertEqual(_effort_revolute_scene(), example.code)
+        self.assertNotIn("PhysicsDriveAPI", example.code)
 
     def test_named_subsets(self):
         self.assertEqual(20, len(OpenUSDExampleCorpus(subset="core20").examples))
         self.assertEqual(100, len(OpenUSDExampleCorpus(subset="semantic100").examples))
+        self.assertEqual(300, len(OpenUSDExampleCorpus(subset="full300").examples))
+        self.assertEqual(500, len(OpenUSDExampleCorpus(subset="semantic500").examples))
+        self.assertEqual(1500, len(OpenUSDExampleCorpus(subset="full1500").examples))
 
     def test_retrieval_finds_prismatic_lift(self):
         hits = OpenUSDExampleCorpus().retrieve(
             "A prismatic vertical lift with a linear drive", k=3
         )
-        self.assertEqual("O002", hits[0][0].id)
+        self.assertEqual("O002", hits[0][0].semantic_case_id)
         self.assertEqual(
             len(hits), len({item.semantic_case_id for item, _ in hits})
         )

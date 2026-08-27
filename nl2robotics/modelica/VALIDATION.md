@@ -35,7 +35,7 @@ Reproduction command:
 
 ```bash
 python3 -m nl2robotics.modelica.validate_layer1 \
-  --subset full100 --backend docker --output-dir modelica-layer1-validation
+  --subset semantic500 --backend docker --output-dir modelica-layer1-validation
 ```
 
 The generated compiler artifacts are intentionally not tracked. The validator

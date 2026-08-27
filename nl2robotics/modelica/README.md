@@ -42,10 +42,11 @@ progress without allowing a later regression to replace the best candidate.
 ## Example Methodology
 
 The retrieval corpus contains 300 NL/Modelica pairs balanced across ten
-capability families. They are transparently backed by 100 unique executable
-semantic cases with three distinct requirement formulations per case. The
-original 24 form a frozen core tier; 76 expanded semantic cases broaden the
-domain and difficulty:
+capability families. They are transparently backed by 500 unique executable
+semantic cases with three distinct requirement formulations per case, for
+1,500 retrieval pairs. The original 24 form a frozen core tier; 76 expanded
+semantic cases broaden the domain and difficulty, and 400 controlled operating
+variants cover parameterized configurations without changing the mechanism:
 
 - joint mechanics
 - electric actuation and multi-domain dynamics
@@ -60,12 +61,15 @@ domain and difficulty:
 
 Every manifest entry also records `semantic_case_id`, `lineage_id`, and
 `variant_type`, so lexical variants cannot be mistaken for independent models.
-All 100 unique models are self-contained and have been checked, compiled,
-simulated, and property-tested with OpenModelica.
+All 500 unique models are self-contained and have been checked, compiled,
+simulated, and property-tested with OpenModelica. The audit reports 94
+structural lineages separately from the semantic-case count.
 
-Four explicit subsets support corpus-size ablations without relying on file
-order: `core24`, `balanced50`, `full100`, and `full300`. `full100` contains one
-prompt per executable case; `full300` is the default retrieval pool. The
+Six explicit subsets support corpus-size ablations without relying on file
+order: `core24`, `balanced50`, `full100`, `full300`, `semantic500`, and
+`full1500`. `semantic500` contains one prompt per executable case; `full1500`
+is the default retrieval pool. The legacy `full300` membership is preserved.
+The
 lineage-aware BM25 ranker permits only one hit per semantic case and archetype,
 preventing near-duplicate prompts from crowding out useful context.
 
@@ -131,7 +135,7 @@ Retrieve examples:
 ```bash
 python3 -m nl2robotics.modelica.cli retrieve \
   "DC motor driving a geared joint with position feedback" \
-  --subset full300 -k 5
+  --subset full1500 -k 5
 ```
 
 Check and build one candidate without executing it:
@@ -147,7 +151,7 @@ Generate with the SysML-equivalent MoE, then check, build, and optionally repair
 python3 -m nl2robotics.modelica.cli generate \
   "Model a damped one-axis joint driven to one radian" \
   --mode moe --backend docker \
-  --subset full300 -k 5 --output-dir results/run-001
+  --subset full1500 -k 5 --output-dir results/run-001
 ```
 
 `LLM_BACKEND=cli` uses Codex for GPT experts and Claude Code for Claude. The
@@ -160,7 +164,7 @@ Run the single-model ablation through one authenticated local CLI:
 python3 -m nl2robotics.modelica.cli generate \
   "Model a damped one-axis joint driven to one radian" \
   --mode single --provider codex --model gpt-5.4 --backend docker \
-  --subset full300 -k 5 --output-dir results/single-001
+  --subset full1500 -k 5 --output-dir results/single-001
 ```
 
 Run the held-out Layer 1 experiment. The conditions are direct single-model,
@@ -179,7 +183,7 @@ Validate the complete retrieval corpus through the compile-only Layer 1 path:
 
 ```bash
 python3 -m nl2robotics.modelica.validate_layer1 \
-  --subset full100 --backend docker --output-dir modelica-layer1-validation
+  --subset semantic500 --backend docker --output-dir modelica-layer1-validation
 ```
 
 Audit corpus composition and duplication:

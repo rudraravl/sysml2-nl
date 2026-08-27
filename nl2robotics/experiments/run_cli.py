@@ -41,8 +41,11 @@ def main() -> None:
     parser.add_argument("--modelica-backend", choices=("auto", "local", "docker"),
                         default="docker")
     parser.add_argument("--modelica-subset",
-                        choices=("core24", "balanced50", "full100", "full300"),
-                        default="full300")
+                        choices=(
+                            "core24", "balanced50", "full100", "full300",
+                            "semantic500", "full1500",
+                        ),
+                        default="full1500")
     parser.add_argument("-k", type=int, default=5)
     parser.add_argument("--max-tool-repairs", type=int, default=2)
     parser.add_argument("--isaac-python", type=Path)

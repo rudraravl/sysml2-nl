@@ -1,6 +1,6 @@
 # Robotics RAG and Semantic Alignment Maturity Report
 
-Date: 2026-08-18
+Updated: 2026-08-26
 
 ## Scope
 
@@ -11,22 +11,22 @@ that remains gated on the external GPU runtime.
 
 ## RAG corpus
 
-The legacy SysML retriever scans up to 300 NL/code pairs from a larger local
-pool. Each robotics profile now exposes the same 300-pair retrieval scale:
+The local SysML seed contains 1,574 NL examples. Each robotics artifact profile
+now exposes a comparable 1,500-pair retrieval pool:
 
 | Profile | Retrieval pairs | Unique executable artifacts | Families | Balance |
 | --- | ---: | ---: | ---: | ---: |
-| Modelica | 300 | 100 | 10 | 30 pairs/family |
-| OpenUSD | 300 | 100 | 10 | 30 pairs/family |
+| Modelica | 1,500 | 500 | 10 | 150 pairs/family |
+| OpenUSD | 1,500 | 500 | 10 | 150 pairs/family |
 
 Each executable semantic case has three NL formulations. Manifest fields
 `semantic_case_id`, `lineage_id`, and `variant_type` make this relationship
-explicit. Modelica has 100 distinct executable models, including three
+explicit. Modelica has 500 distinct executable models, including three
 controller-only FMI interface cases with typed observation inputs, effort
-outputs, saturation, and unit conversion. OpenUSD has 20 base
-embodiment archetypes expanded into 100 distinct, validated sampling-rate
-scenarios. This is intentionally reported as 100 semantic stages, not as 100
-independent robot mechanisms.
+outputs, saturation, and unit conversion. OpenUSD has 20 structural embodiment
+lineages expanded into 500 distinct validated stages through controlled time
+rate and physical-attribute scenarios. These are intentionally reported as 500
+semantic stages and 20 structural lineages, not as 500 independent mechanisms.
 
 The shared BM25 retriever normalizes common robotics terms and units and allows
 only one result per semantic case and lineage. A frozen 40-query evaluation
@@ -42,11 +42,16 @@ Modelica top-1 accuracy rises from 35% (`core24`) to 80% (`balanced50`) and
 OpenUSD remains at 95% top-1 and 100% recall@5 for `core20`, `semantic100`,
 and `full300`. Thus the OpenUSD expansion adds controlled parameter and wording
 coverage, but this family-level evaluation does not establish a quality gain
-from those extra pairs.
+from those extra pairs. The current expanded pools add `semantic500` and
+`full1500` cells for both profiles while retaining every legacy subset.
 
-All 100 Modelica artifacts passed OpenModelica compilation, FMI execution, and
-their temporal properties. All 100 OpenUSD artifacts passed the pinned OpenUSD
-parser and robotics-semantic validator.
+All 500 Modelica artifacts pass OpenModelica check/build, simulation, and their
+unchanged temporal properties. All 500 OpenUSD artifacts pass the pinned
+OpenUSD parser and robotics-semantic validator. Each profile now exposes 1,500
+retrieval pairs (three NL formulations per executable case), balanced at 150
+pairs per capability family. Audits separately report 94 Modelica and 20
+OpenUSD structural lineages so the controlled variants are not misrepresented
+as independent mechanisms.
 
 The audit also removed a semantic near-leak between the first OpenUSD retrieval
 case and RHY101: the retrieval case had reused the oracle's distinctive mass,

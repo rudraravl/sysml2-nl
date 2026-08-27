@@ -16,7 +16,9 @@ def main() -> None:
                         default="auto")
     parser.add_argument("--output-dir", type=Path,
                         default=Path("modelica-layer1-validation"))
-    parser.add_argument("--subset", choices=("core24", "balanced50", "full100"),
+    parser.add_argument("--subset", choices=(
+        "core24", "balanced50", "full100", "semantic500",
+    ),
                         default="full100")
     parser.add_argument("--ids", nargs="*", help="optional RAG example IDs")
     args = parser.parse_args()

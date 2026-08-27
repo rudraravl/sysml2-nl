@@ -382,7 +382,9 @@ Build the corpus in explicit semantic and lexical tiers:
 
 - `core20`: two hand-reviewed examples per capability family,
 - `semantic100`: ten executable stages per family after validator validation,
-- `full300`: three NL formulations per semantic stage for retrieval.
+- `full300`: legacy three-formulation pool for the first 100 stages,
+- `semantic500`: 50 executable stages per family after validator validation,
+- `full1500`: three NL formulations per executable stage for retrieval.
 
 Every retrieval example must have:
 

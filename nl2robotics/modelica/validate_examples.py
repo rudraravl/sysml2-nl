@@ -14,7 +14,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--backend", choices=("auto", "local", "docker"), default="auto")
     parser.add_argument("--output-dir", type=Path, default=Path("modelica-example-results"))
-    parser.add_argument("--subset", choices=("core24", "balanced50", "full100"),
+    parser.add_argument("--subset", choices=(
+        "core24", "balanced50", "full100", "semantic500",
+    ),
                         default="full100")
     parser.add_argument("--ids", nargs="*", help="optional example IDs to validate")
     args = parser.parse_args()

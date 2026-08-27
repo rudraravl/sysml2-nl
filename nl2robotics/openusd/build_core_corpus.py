@@ -11,8 +11,8 @@ MODELS = ROOT / "models"
 
 
 SCENES = [
-    ("O001", "joint_drives", "Create a Z-up SI-unit robot scene with a fixed base and a two-kilogram arm connected by a Y-axis revolute shoulder joint limited to plus or minus ninety degrees and driven toward thirty degrees.",
-     _kind := "revolute", {"axis": "Y", "low": -90, "high": 90, "target": 30}),
+    ("O001", "joint_drives", "Create a Z-up SI-unit dynamic articulation with a fixed pedestal and a 1.5 kg box forearm on an X-axis revolute hinge limited from -60 to 70 degrees, intended for runtime effort commands with no authored drive.",
+     _kind := "effort_revolute", {}),
     ("O002", "joint_drives", "Create a vertical prismatic lift with a five-kilogram carriage, collision geometry, travel from zero to one meter, and a linear drive targeting 0.6 meters.",
      "prismatic", {"axis": "Z", "low": 0, "high": 1, "target": 0.6, "mass": 5}),
     ("O003", "geometry_transforms", "Represent a one-kilogram capsule link positioned 0.8 meters above the ground with explicit translation, orientation, scale, and collision geometry.",
@@ -76,6 +76,8 @@ def build() -> None:
 
 
 def _render(kind: str, options: dict) -> str:
+    if kind == "effort_revolute":
+        return _effort_revolute_scene()
     if kind in {"revolute", "prismatic", "fixed", "spherical"}:
         return _joint_scene(kind, options)
     if kind == "two_link":
@@ -248,6 +250,77 @@ def _joint_scene(kind: str, options: dict) -> str:
     return code
 
 
+def _effort_revolute_scene() -> str:
+    """Portable effort-controlled seed, intentionally distinct from H2 oracles."""
+    return '''#usda 1.0
+(
+    defaultPrim = "World"
+    kilogramsPerUnit = 1
+    metersPerUnit = 1
+    timeCodesPerSecond = 60
+    upAxis = "Z"
+)
+
+def Xform "World"
+{
+    def PhysicsScene "PhysicsScene"
+    {
+        vector3f physics:gravityDirection = (0, 0, -1)
+        float physics:gravityMagnitude = 9.81
+    }
+
+    def Xform "Pedestal" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI"]
+    )
+    {
+        bool physics:kinematicEnabled = false
+        def Cube "Collision" (
+            prepend apiSchemas = ["PhysicsCollisionAPI"]
+        )
+        {
+            double size = 1
+            float3 xformOp:scale = (0.25, 0.25, 0.2)
+            uniform token[] xformOpOrder = ["xformOp:scale"]
+        }
+    }
+
+    def Xform "Forearm" (
+        prepend apiSchemas = ["PhysicsMassAPI", "PhysicsRigidBodyAPI"]
+    )
+    {
+        float physics:mass = 1.5
+        bool physics:kinematicEnabled = false
+        double3 xformOp:translate = (0, 0, 0.3)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+        def Cube "Collision" (
+            prepend apiSchemas = ["PhysicsCollisionAPI"]
+        )
+        {
+            double size = 1
+            float3 xformOp:scale = (0.12, 0.08, 0.5)
+            uniform token[] xformOpOrder = ["xformOp:scale"]
+        }
+    }
+
+    def PhysicsFixedJoint "WorldAnchor" (
+        prepend apiSchemas = ["PhysicsArticulationRootAPI"]
+    )
+    {
+        rel physics:body0 = </World/Pedestal>
+    }
+
+    def PhysicsRevoluteJoint "Hinge"
+    {
+        rel physics:body0 = </World/Pedestal>
+        rel physics:body1 = </World/Forearm>
+        token physics:axis = "X"
+        float physics:lowerLimit = -60
+        float physics:upperLimit = 70
+    }
+}
+'''
+
+
 def _two_link_scene() -> str:
     code = _header(articulation=True) + _physics_scene()
     code += _rigid_body("UpperArm", mass=2, height=0.8)
@@ -335,6 +408,8 @@ def _sensor_scene(options: dict) -> str:
 
 
 def _tags(kind: str, options: dict) -> list[str]:
+    if kind == "effort_revolute":
+        return ["revolute", "effort-control", "dynamic-articulation", "no-drive"]
     tags = [kind, "usdphysics", "si-units"]
     tags.extend(str(value).lower() for value in (
         options.get("shape"), options.get("sensor"), options.get("variant")
@@ -347,4 +422,4 @@ if __name__ == "__main__":
     from .build_retrieval_corpus import build as build_retrieval_corpus
 
     pairs = build_retrieval_corpus()
-    print(f"wrote 100 semantic cases and {len(pairs)} retrieval pairs")
+    print(f"wrote 500 semantic cases and {len(pairs)} retrieval pairs")

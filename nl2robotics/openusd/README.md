@@ -32,12 +32,12 @@ python3 -m nl2robotics.openusd.cli validate scene.usda \
   --output-dir results/openusd-validation
 ```
 
-Validate all 100 unique semantic stages (the 300 retrieval pairs reuse these
+Validate all 500 unique semantic stages (the 1,500 retrieval pairs reuse these
 artifacts through explicit lineage metadata):
 
 ```bash
 python3 -m nl2robotics.openusd.validate_corpus \
-  --output-dir results/openusd-semantic100
+  --subset semantic500 --output-dir results/openusd-semantic500
 ```
 
 Generate through RAG, rated MoE synthesis, and grounded repair:
@@ -53,6 +53,10 @@ Core validity means the stage passes strict USD compliance and the profile's
 robotics-semantic checks. It does not imply execution in a physics engine.
 Isaac/PhysX loading and simulation are separate named extension stages.
 
-The corpus exposes `core20`, `semantic100`, and `full300` subsets. Retrieval is
-lineage-aware, so alternate phrasings and controlled sampling-rate variants of
-one archetype cannot occupy the complete few-shot context.
+The corpus exposes `core20`, `semantic100`, `full300`, `semantic500`, and
+`full1500` subsets. `full1500` is the default and contains three NL
+formulations for each of 500 validated stages, balanced at 50 semantic cases
+per capability family. The audit reports the 20 structural lineages separately
+from controlled rate/physical-attribute scenarios. Retrieval is lineage-aware,
+so alternate phrasings and variants of one archetype cannot occupy the complete
+few-shot context. The legacy `full300` subset remains available for ablations.
