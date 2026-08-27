@@ -14,9 +14,12 @@ bash nl2robotics/hybrid/deltaai/setup_deltaai.sh
 ```
 
 This pulls the official ARM64 OpenModelica SIF and installs the pinned Newton,
-Warp, OpenUSD, and FMPy packages into `.deltaai-python`. It uses only user-space
-files; no root, `fakeroot`, proprietary package, or paid license is required.
-`Apptainer.def` is retained as an optional single-image build recipe.
+Warp, OpenUSD, and FMPy packages into `.deltaai-python`. PyPI does not publish
+the standalone `usd-core` wheel for Linux ARM64, so setup follows Newton 1.5's
+native AArch64 dependency path and pins `usd-exchange==3.0.0`, which supplies
+OpenUSD 26.08. It uses only user-space files; no root, `fakeroot`, proprietary
+package, or paid license is required. `Apptainer.def` is retained as an
+optional single-image build recipe.
 
 ## Submit
 

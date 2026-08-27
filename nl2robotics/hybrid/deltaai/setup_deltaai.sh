@@ -17,14 +17,14 @@ apptainer exec "$IMAGE" python3 -m pip install --upgrade --target "$PYTHON_DEPS"
   "newton[sim,importers]==1.5.0" \
   newton-usd-schemas==0.5.0 \
   warp-lang==1.16.0 \
-  usd-core==26.3 \
+  usd-exchange==3.0.0 \
   mujoco==3.11.0 \
   mujoco-warp==3.11.0
 
 apptainer exec \
   --env PYTHONPATH="$PYTHON_DEPS" \
   "$IMAGE" \
-  python3 -c "import fmpy, newton, warp; assert fmpy.__version__ == '0.3.29'; assert newton.__version__ == '1.5.0'; assert warp.__version__ == '1.16.0'; from pxr import Usd, UsdPhysics"
+  python3 -c "import fmpy, newton, warp; assert fmpy.__version__ == '0.3.29'; assert newton.__version__ == '1.5.0'; assert warp.__version__ == '1.16.0'; from pxr import Usd, UsdPhysics; assert Usd.GetVersion() == (0, 26, 8)"
 
 echo "DeltaAI environment ready"
 echo "IMAGE=$IMAGE"
