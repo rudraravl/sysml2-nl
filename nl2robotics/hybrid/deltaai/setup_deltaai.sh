@@ -23,10 +23,12 @@ fi
 
 # usd-exchange's ARM64 OpenUSD bindings require a shared libpython.  The
 # OpenModelica image intentionally ships a minimal Python executable without
-# that library, so create a small, pinned user-space Python runtime for them.
+# that library. Newton 1.5 also uses Warp's PEP 604 array annotations, whose
+# upstream implementation requires Python 3.11+, so create a pinned user-space
+# runtime satisfying both constraints.
 if test ! -x "$PYTHON_ENV/bin/python"; then
   "$MICROMAMBA" create -y -p "$PYTHON_ENV" -c conda-forge \
-    python=3.10.21 pip
+    python=3.11.16 pip
 fi
 
 "$PYTHON_ENV/bin/python" -m pip install --upgrade \

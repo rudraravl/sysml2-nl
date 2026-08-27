@@ -18,7 +18,7 @@ Warp, OpenUSD, and FMPy packages into `.deltaai-python`. PyPI does not publish
 the standalone `usd-core` wheel for Linux ARM64, so setup follows Newton 1.5's
 native AArch64 dependency path and pins `usd-exchange==3.0.0`, which supplies
 OpenUSD 26.08. The OpenUSD bindings need a shared Python library omitted by the
-minimal OpenModelica image, so pinned micromamba creates the Python 3.10 runtime
+minimal OpenModelica image, so pinned micromamba creates a Python 3.11 runtime
 inside `.deltaai-python`. It uses only user-space files; no root, `fakeroot`,
 proprietary package, or paid license is required. `Apptainer.def` is retained
 as an optional single-image build recipe.
