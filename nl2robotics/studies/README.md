@@ -49,6 +49,22 @@ requests. Audit its profile and evidence-tier coverage with:
 python3 -m nl2robotics.studies.capability_matrix
 ```
 
+Each case is a numerical, source-grounded system specification rather than a
+one-line category label. Execute the economical tier-2 breadth smoke locally
+with the frozen full-1500 retrieval corpora and checkpoint after every family:
+
+```bash
+python3 -m nl2robotics.studies.run_capability_smoke \
+  --output-dir outputs/capability-breadth-smoke \
+  --model gpt-5.4 --provider codex --backend auto --subset full1500
+```
+
+The runner is resumable by a manifest-and-configuration fingerprint. Use
+repeatable `--case-id RCB003` arguments to run or rerun a subset. Every case
+retains the raw process log, complete orchestrator bundle, and a strict-JSON
+case record; `summary.json` is rewritten after every completed case. A provider
+usage limit stops the batch cleanly so the same command can resume later.
+
 Only the already executed articulated profile has a tier-5 target. The other
 families target validated complementary artifacts until dedicated runtime
 adapters produce stronger evidence.

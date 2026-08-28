@@ -1,9 +1,19 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
+import tempfile
 import unittest
 
 from .articulated import audit_articulated_suite
 from .capability_matrix import audit_manifest as audit_capabilities
+from .run_capability_smoke import (
+    case_fingerprint,
+    load_cases,
+    resumable,
+    select_cases,
+    summarize_result,
+)
 
 
 class ArticulatedStudyTests(unittest.TestCase):
@@ -35,6 +45,60 @@ class CapabilityBreadthStudyTests(unittest.TestCase):
         self.assertEqual(1500, report["rag"]["openusd_example_count"])
         self.assertTrue(report["launch"]["success"], report["launch"])
         self.assertEqual(2, report["launch"]["phase_count"])
+
+    def test_every_family_has_a_paper_grade_grounded_request(self):
+        _, cases = load_cases()
+        self.assertEqual(13, len(cases))
+        for case in cases:
+            with self.subTest(case=case["id"]):
+                request = case["request"]
+                self.assertGreaterEqual(len(request.split()), 100)
+                self.assertIn("Hz", request)
+                self.assertIn("Require", request)
+
+    def test_case_selection_is_ordered_and_rejects_unknown_ids(self):
+        _, cases = load_cases()
+        selected = select_cases(cases, ["RCB013", "RCB001"])
+        self.assertEqual(["RCB013", "RCB001"], [row["id"] for row in selected])
+        with self.assertRaises(ValueError):
+            select_cases(cases, ["RCB999"])
+
+    def test_resume_requires_matching_fingerprint_and_passed_result(self):
+        _, cases = load_cases()
+        case = cases[0]
+        fingerprint = case_fingerprint(case, {"model": "test"}, "abc")
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            (root / "case-record.json").write_text(json.dumps({
+                "fingerprint": fingerprint,
+                "completed": True,
+            }), encoding="utf-8")
+            (root / "result.json").write_text(json.dumps({
+                "passed": True,
+            }), encoding="utf-8")
+            self.assertTrue(resumable(root, fingerprint))
+            self.assertFalse(resumable(root, "different"))
+
+    def test_smoke_summary_preserves_honest_claim_state(self):
+        _, cases = load_cases()
+        summary = summarize_result(cases[0], {
+            "passed": True,
+            "failure_stage": None,
+            "capabilities": {
+                "highest_reached_tier": 2,
+                "requested_feature_count": 20,
+                "profile_count": 2,
+            },
+            "modelica": {"passed": True, "repairs": 0},
+            "openusd": {"passed": True, "repairs": 1},
+            "normalization": {"attempt_count": 1},
+            "claim_eligible_h2": False,
+            "claim_eligible_deltaai_h2": False,
+        })
+        self.assertTrue(summary["passed"])
+        self.assertEqual(2, summary["highest_reached_tier"])
+        self.assertFalse(summary["claim_eligible_h2"])
+        self.assertFalse(summary["claim_eligible_deltaai_h2"])
 
 
 if __name__ == "__main__":
