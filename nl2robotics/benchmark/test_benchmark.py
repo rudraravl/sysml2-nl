@@ -47,6 +47,28 @@ class BenchmarkTests(unittest.TestCase):
         self.assertEqual({"modelica": 0, "openusd": 0, "hybrid": 1},
                          audit["profile_counts"])
 
+    def test_custom_capability_manifest_requires_tier_two_profile_targets(self):
+        row = {
+            "id": "CAP001", "profile": "capability",
+            "category": "mobile_robotics", "difficulty": "medium",
+            "target_level": "capability_tier2",
+            "oracle": {"expected_profiles": [
+                "general_modelica_openusd", "mobile_floating_base"
+            ]},
+            "prompt_variants": {
+                "rich": "Generate a floating mobile robot with wheel control and lidar.",
+                "concise": "Create a wheeled robot with lidar.",
+                "underspecified": "Create a mobile robot.",
+            },
+            "labeled_unknowns": ["dimensions", "masses", "timing"],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest = Path(tmp) / "manifest.json"
+            manifest.write_text(json.dumps([row]), encoding="utf-8")
+            report = BenchmarkSuite(manifest_path=manifest).audit()
+        self.assertTrue(report["success"], report)
+        self.assertEqual(1, report["profile_counts"]["capability"])
+
 
 if __name__ == "__main__":
     unittest.main()

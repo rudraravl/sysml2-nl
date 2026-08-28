@@ -21,6 +21,7 @@ from nl2robotics.contracts.articulated_profile import (
     joint_units,
 )
 from nl2robotics.contracts.units import UnitError, conversion
+from .profiled_planner import CapabilityPlan, build_capability_plan
 
 
 @dataclass(frozen=True)
@@ -79,12 +80,14 @@ class H2Plan:
         }
 
 
-def build_plan(requirement_ir: dict) -> H1Plan | H2Plan:
+def build_plan(requirement_ir: dict) -> H1Plan | H2Plan | CapabilityPlan:
     mode = requirement_ir.get("execution_mode")
     if mode == "portable_fmu_kinematic":
         return build_h1_plan(requirement_ir)
     if is_closed_loop_mode(mode):
         return build_h2_plan(requirement_ir)
+    if mode == "capability_tiered":
+        return build_capability_plan(requirement_ir)
     raise PlanningError([PlanIssue(
         "unsupported_mode", f"unsupported execution mode {mode!r}",
         "$.execution_mode",
@@ -834,6 +837,10 @@ def _h2_readiness_issues(ir: dict) -> list[PlanIssue]:
         else:
             joint_parameters[quantity] = parameter
     for joint_id in actuator_joints & joints.keys():
+        if joints[joint_id].get("type") not in SUPPORTED_JOINT_TYPES:
+            # The broad IR accepts additional joint types; the strict H2
+            # diagnostic was already emitted above and unit checks do not apply.
+            continue
         units = joint_units(str(joints[joint_id]["type"]))
         required_parameter_units = {
             "proportional_gain": units.proportional_gain,
@@ -900,6 +907,8 @@ def _h2_readiness_issues(ir: dict) -> list[PlanIssue]:
         if interface.get("joint_id") not in joints:
             continue
         joint = joints[interface["joint_id"]]
+        if joint.get("type") not in SUPPORTED_JOINT_TYPES:
+            continue
         units = joint_units(str(joint["type"]))
         if not isinstance(interface.get("target_unit"), str):
             issues.append(PlanIssue(

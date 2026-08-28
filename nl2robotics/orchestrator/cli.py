@@ -26,9 +26,10 @@ def main() -> None:
     parser.add_argument(
         "--execution-mode",
         choices=(
-            "portable_fmu_kinematic", "isaac_closed_loop", "newton_closed_loop"
+            "portable_fmu_kinematic", "isaac_closed_loop", "newton_closed_loop",
+            "capability_tiered",
         ),
-        default="portable_fmu_kinematic",
+        default="capability_tiered",
     )
     parser.add_argument("--mode", choices=("moe", "single"), default="moe")
     parser.add_argument("--model", default="gpt-5.4")

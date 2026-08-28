@@ -21,6 +21,7 @@ invent values to make an underspecified request executable.
 python3 -m nl2robotics.orchestrator.cli \
   --request request.txt \
   --output-dir outputs/robotics-run \
+  --execution-mode portable_fmu_kinematic \
   --mode moe \
   --backend docker
 ```
@@ -42,6 +43,22 @@ executed H2 result.
 Use `--mode single --model gpt-5.4 --provider codex` for a lower-cost smoke run.
 Success means both source artifacts passed their validators and the complete H1
 bundle passed; syntax-only success is never promoted to end-to-end success.
+
+For broad robotics requests that should not be forced into the articulated H2
+subset, use:
+
+```bash
+python3 -m nl2robotics.orchestrator.cli \
+  --request request.txt --output-dir outputs/broad-run \
+  --execution-mode capability_tiered --subset full1500
+```
+
+This path accepts mobile/floating, aerial, legged, marine, sensing, contact,
+trajectory, multi-DOF, closed-chain, fluid-power, electromechanical, and soft
+robotics requirements. It generates and validates complementary Modelica and
+OpenUSD artifacts and writes an explicit verification-tier report. It never
+reports artifact-only success as coupled physics or GPU evidence. See
+`../CAPABILITY_TIERED_PIPELINE.md`.
 
 Checked local profile smoke tests are available without model calls:
 

@@ -5,6 +5,10 @@ robots, not a one-joint demo. A single grounded requirement IR drives the
 Modelica controller, OpenUSD plant, coupling contract, runtime, temporal
 properties, alignment report, and claim gate.
 
+This is one strict executable profile inside the broader capability-tiered
+pipeline documented in `CAPABILITY_TIERED_PIPELINE.md`; it is not the global
+input or artifact-generation boundary.
+
 ## Demonstrated capability
 
 | Dimension | Supported in the executable profile |

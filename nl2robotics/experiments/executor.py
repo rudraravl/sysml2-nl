@@ -147,6 +147,7 @@ class PipelineExperimentExecutor:
                 {
                     "isaac_h2": "isaac_closed_loop",
                     "newton_h2": "newton_closed_loop",
+                    "capability_tier2": "capability_tiered",
                 }.get(task.target_level, "portable_fmu_kinematic")
             ),
             max_ir_repairs=1,

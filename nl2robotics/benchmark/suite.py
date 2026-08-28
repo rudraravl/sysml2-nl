@@ -11,7 +11,7 @@ import re
 from nl2robotics.contracts.requirement_ir import validate_requirement_ir
 
 
-PROFILES = {"modelica", "openusd", "hybrid"}
+PROFILES = {"modelica", "openusd", "hybrid", "capability"}
 VARIANTS = {"rich", "concise", "underspecified"}
 
 
@@ -69,7 +69,12 @@ class BenchmarkSuite:
     def audit(self) -> dict:
         issues: list[dict] = []
         ids: set[str] = set()
-        counts = {profile: 0 for profile in PROFILES}
+        count_profiles = set(self._expected_profile_counts or {
+            "modelica", "openusd", "hybrid"
+        })
+        if any(task.profile == "capability" for task in self.tasks):
+            count_profiles.add("capability")
+        counts = {profile: 0 for profile in count_profiles}
         modelica_eval = _modelica_evaluation_ids()
         rag_hashes = _rag_artifact_hashes()
 
@@ -81,7 +86,7 @@ class BenchmarkSuite:
             if task.profile not in PROFILES:
                 issues.append(_issue("invalid_profile", path, task.profile))
                 continue
-            counts[task.profile] += 1
+            counts[task.profile] = counts.get(task.profile, 0) + 1
             if set(task.prompt_variants) != VARIANTS:
                 issues.append(_issue("missing_variant", path, str(task.prompt_variants)))
             elif len(set(task.prompt_variants.values())) != len(VARIANTS):
@@ -103,7 +108,7 @@ class BenchmarkSuite:
                     issues.append(_issue("missing_openusd_oracle", path, str(artifact)))
                 elif _hash_file(artifact) in rag_hashes:
                     issues.append(_issue("rag_artifact_leakage", path, str(artifact)))
-            else:
+            elif task.profile == "hybrid":
                 bundle = (self.root / str(task.oracle.get("bundle", ""))).resolve()
                 required = ("request.txt", "requirement_ir.json", "model.mo",
                             "scene.usda", "contract.json")
@@ -118,6 +123,16 @@ class BenchmarkSuite:
                         issues.append(_issue(item.code, path + item.path, item.message))
                     if ir.get("source_text", "").strip() != task.prompt_variants["rich"]:
                         issues.append(_issue("hybrid_prompt_mismatch", path, task.id))
+            else:
+                expected = task.oracle.get("expected_profiles")
+                if not isinstance(expected, list) or not expected:
+                    issues.append(_issue(
+                        "missing_capability_profiles", path, str(expected)
+                    ))
+                if task.target_level != "capability_tier2":
+                    issues.append(_issue(
+                        "invalid_capability_target", path, task.target_level
+                    ))
 
         if (self._expected_profile_counts is not None
                 and counts != self._expected_profile_counts):

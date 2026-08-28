@@ -9,6 +9,7 @@ from pathlib import Path
 
 from nl2robotics.alignment.evaluator import RoboticsAlignmentEvaluator
 from nl2robotics.alignment.guarded import guarded_semantic_repair
+from nl2robotics.contracts.capabilities import capability_report
 from nl2robotics.hybrid.isaac_bundle import prepare_isaac_bundle
 from nl2robotics.hybrid.newton_bundle import prepare_newton_bundle
 from nl2robotics.hybrid.portable import PortableHybridPipeline
@@ -19,6 +20,7 @@ from nl2robotics.openusd.pipeline import OpenUSDPipeline
 
 from .normalizer import Ask, RequirementNormalizer
 from .planner import H2Plan, PlanningError, build_plan
+from .profiled_planner import CapabilityPlan
 
 
 ProfileGenerator = Callable[[str, Path], tuple[str, dict]]
@@ -148,7 +150,8 @@ class RoboticsOrchestrator:
         result["modelica"] = _profile_summary(
             modelica_report, "modelica/model.mo", "modelica/generation.json"
         )
-        if modelica_report.get("passed") is not True:
+        if (modelica_report.get("passed") is not True
+                and not isinstance(plan, CapabilityPlan)):
             result["failure_stage"] = "modelica_validation"
             return self._finish(output_dir, result)
 
@@ -168,8 +171,41 @@ class RoboticsOrchestrator:
         result["openusd"] = _profile_summary(
             openusd_report, "openusd/scene.usda", "openusd/generation.json"
         )
-        if openusd_report.get("passed") is not True:
+        if (openusd_report.get("passed") is not True
+                and not isinstance(plan, CapabilityPlan)):
             result["failure_stage"] = "openusd_validation"
+            return self._finish(output_dir, result)
+
+        if isinstance(plan, CapabilityPlan):
+            report = capability_report(
+                plan.requirement_ir,
+                modelica_passed=modelica_report.get("passed") is True,
+                openusd_passed=openusd_report.get("passed") is True,
+            )
+            _write_json(output_dir / "capability-report.json", report)
+            result["capabilities"] = {
+                "report": "capability-report.json",
+                **report["verification"],
+                "requested_feature_count": len(report["requested_features"]),
+                "profile_count": len(report["profiles"]),
+            }
+            pair_passed = (
+                modelica_report.get("passed") is True
+                and openusd_report.get("passed") is True
+            )
+            result["execution_status"] = (
+                "artifacts_validated" if pair_passed
+                else "artifact_validation_failed"
+            )
+            result["claim_eligible_h2"] = False
+            result["claim_eligible_deltaai_h2"] = False
+            result["passed"] = pair_passed
+            if pair_passed:
+                result["failure_stage"] = None
+            elif modelica_report.get("passed") is not True:
+                result["failure_stage"] = "modelica_validation"
+            else:
+                result["failure_stage"] = "openusd_validation"
             return self._finish(output_dir, result)
 
         if isinstance(plan, H2Plan):

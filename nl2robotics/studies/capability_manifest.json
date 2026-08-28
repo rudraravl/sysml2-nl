@@ -1,0 +1,35 @@
+{
+  "schema_version": "1.0",
+  "study_id": "robotics-capability-breadth-v1",
+  "execution_mode": "capability_tiered",
+  "rag_family_routes": {
+    "articulated_manipulation": {"modelica":["joint_mechanics","feedback_control","multibody_kinematics"],"openusd":["articulations","joint_topology","joint_drives"]},
+    "mobile_robotics": {"modelica":["mobile_aerial","feedback_control","sensing_estimation"],"openusd":["articulations","environments","sensor_placement"]},
+    "aerial_robotics": {"modelica":["mobile_aerial","feedback_control","sensing_estimation"],"openusd":["mass_inertia","environments","sensor_placement"]},
+    "legged_robotics": {"modelica":["multibody_kinematics","trajectory_generation","hybrid_safety"],"openusd":["articulations","materials_contact","sensor_placement"]},
+    "marine_robotics": {"modelica":["mobile_aerial","feedback_control","sensing_estimation"],"openusd":["mass_inertia","environments","sensor_placement"]},
+    "contact_manipulation": {"modelica":["feedback_control","hybrid_safety","multibody_kinematics"],"openusd":["materials_contact","rigid_body_collision","sensor_placement"]},
+    "trajectory_control": {"modelica":["trajectory_generation","feedback_control","hybrid_safety"],"openusd":["joint_drives","articulations","stage_metadata"]},
+    "closed_chain_mechanisms": {"modelica":["multibody_kinematics","coupled_transmissions","joint_mechanics"],"openusd":["joint_topology","articulations","geometry_transforms"]},
+    "sensor_estimation": {"modelica":["sensing_estimation","feedback_control","hybrid_safety"],"openusd":["sensor_placement","geometry_transforms","stage_metadata"]},
+    "fluid_power": {"modelica":["fluid_power","feedback_control","hybrid_safety"],"openusd":["joint_drives","mass_inertia","rigid_body_collision"]},
+    "electromechanical_actuation": {"modelica":["electric_actuation","coupled_transmissions","feedback_control"],"openusd":["joint_drives","mass_inertia","articulations"]},
+    "soft_robotics": {"modelica":["multibody_kinematics","fluid_power","feedback_control"],"openusd":["geometry_transforms","materials_contact","sensor_placement"]},
+    "multi_robot_systems": {"modelica":["mobile_aerial","sensing_estimation","trajectory_generation"],"openusd":["environments","articulations","sensor_placement"]}
+  },
+  "cases": [
+    {"id":"RCB001","family":"articulated_manipulation","request":"Generate a fixed-base branching manipulator with revolute and prismatic joints, joint-space PD effort control, encoder feedback, and bounded joint-position requirements.","expected_profiles":["general_modelica_openusd","articulated_joint_space_h2"],"target_tier":5},
+    {"id":"RCB002","family":"mobile_robotics","request":"Generate a floating differential-drive mobile robot with two driven wheels, wheel encoders, planar odometry, a lidar, and collision geometry for a ground plane and obstacles.","expected_profiles":["general_modelica_openusd","mobile_floating_base","sensor_estimation","contact_environment"],"target_tier":2},
+    {"id":"RCB003","family":"aerial_robotics","request":"Generate a free-base quadrotor with four thrust actuators, rigid-body pose and twist, an IMU, altitude feedback, gravity, and a PID attitude controller.","expected_profiles":["general_modelica_openusd","aerial_multibody","sensor_estimation"],"target_tier":2},
+    {"id":"RCB004","family":"legged_robotics","request":"Generate a floating-base quadruped with spherical hip joints, revolute knee joints, foot contact sensing, terrain collision, and a joint trajectory controller.","expected_profiles":["general_modelica_openusd","legged_locomotion","sensor_estimation","contact_environment","trajectory_coupled_control"],"target_tier":2},
+    {"id":"RCB005","family":"marine_robotics","request":"Generate a free-base underwater vehicle with body-wrench thrusters, depth and IMU sensing, buoyancy and drag dynamics, and a depth-hold controller.","expected_profiles":["general_modelica_openusd","marine_robotics","sensor_estimation"],"target_tier":2},
+    {"id":"RCB006","family":"contact_manipulation","request":"Generate a gripper and object scene with finger joints, contact-force sensing, frictional materials, collision requirements, and an impedance controller for a grasp task.","expected_profiles":["general_modelica_openusd","contact_environment","sensor_estimation"],"target_tier":2},
+    {"id":"RCB007","family":"trajectory_control","request":"Generate a six-axis robot following a time-indexed joint trajectory with PID plus velocity feedforward, effort saturation, settling-time, and overshoot requirements.","expected_profiles":["general_modelica_openusd","trajectory_coupled_control"],"target_tier":2},
+    {"id":"RCB008","family":"closed_chain_mechanisms","request":"Generate a four-bar closed-chain mechanism with revolute joints, loop-closure constraints, a motor input, encoder observation, and range-of-motion requirements.","expected_profiles":["general_modelica_openusd","closed_chain_mechanism"],"target_tier":2},
+    {"id":"RCB009","family":"sensor_estimation","request":"Generate a rigid robot carrying an IMU, camera, lidar, and wheel encoders, with an estimator that outputs fused pose and velocity and requirements on update rate and error bounds.","expected_profiles":["general_modelica_openusd","sensor_estimation"],"target_tier":2},
+    {"id":"RCB010","family":"fluid_power","request":"Generate a prismatic hydraulic actuator with valve flow, chamber pressures, piston force, end stops, position sensing, and closed-loop position control.","expected_profiles":["general_modelica_openusd","fluid_power_actuation"],"target_tier":2},
+    {"id":"RCB011","family":"electromechanical_actuation","request":"Generate a geared electric joint with motor voltage, current, rotor speed, output torque, encoder feedback, thermal state, and current-limited PID control.","expected_profiles":["general_modelica_openusd","electromechanical_actuation","sensor_estimation"],"target_tier":2},
+    {"id":"RCB012","family":"soft_robotics","request":"Generate a tendon-driven continuum robot with cable tension, deformation state, tip-pose sensing, obstacle contact, and a custom shape controller.","expected_profiles":["general_modelica_openusd","soft_continuum_robotics","sensor_estimation","contact_environment"],"target_tier":2},
+    {"id":"RCB013","family":"multi_robot_systems","request":"Generate two mobile robots sharing an environment, each with a floating base, lidar and odometry, collision avoidance, and a relative-distance coordination requirement.","expected_profiles":["general_modelica_openusd","mobile_floating_base","multi_robot_system","sensor_estimation","contact_environment"],"target_tier":2}
+  ]
+}

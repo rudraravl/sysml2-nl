@@ -131,6 +131,8 @@ def _parse_json_object(response: str) -> dict:
 
 def _normalization_prompt(source_text: str, task_id: str,
                           execution_mode: str) -> str:
+    if execution_mode == "capability_tiered":
+        return _capability_normalization_prompt(source_text, task_id)
     if execution_mode == "portable_fmu_kinematic":
         profile = """The portable profile uses a Modelica/FMI plant as physical-state
 owner and OpenUSD as a kinematic embodiment. Required interfaces flow fmu_to_usd
@@ -237,6 +239,116 @@ Required object shape:
 Omit optional numeric fields that are not stated. Property bounds must use the
 source unit of the referenced interface. Do not place unsupported prose in
 numeric fields. Return raw JSON only.
+
+SOURCE_TEXT:
+{source_text}
+"""
+
+
+def _capability_normalization_prompt(source_text: str, task_id: str) -> str:
+    return f"""Normalize the robotics request below into one grounded JSON object.
+
+This broad profile is not limited to a single-joint arm. Extract every stated
+robot, rigid or soft component, fixed or floating base, serial/branching/closed
+topology, joint, actuator, controller, trajectory, sensor, estimator,
+environment, material/contact fact, interface, timing fact, and property.
+
+This remains fact extraction, not robot design. Every record and the optional
+clock must contain an `evidence` array of exact, case-sensitive SOURCE_TEXT
+substrings. Never invent dimensions, masses, inertia, gains, transforms,
+collision geometry, sensors, timing, or missing interfaces. Put omissions in
+`unknowns`. Preserve unsupported-but-grounded features in the IR; capability
+routing happens after normalization.
+
+Use task_id {task_id!r}, schema_version "1.0", execution_mode
+"capability_tiered", unique snake_case IDs, and copy SOURCE_TEXT exactly.
+
+Vocabulary includes, but is not restricted to:
+- entity kinds: fixed_base, floating_base, rigid_link, mobile_base,
+  wheeled_base, tracked_base, aerial_base, end_effector, tool, object;
+- joints: revolute, continuous, prismatic, fixed, spherical/ball, free,
+  distance, D6, planar, screw and gear, with principal `axis` or 3-vector
+  `axis_vector` when stated;
+- controllers: P, PI, PD, PID, feedforward, trajectory, state_feedback,
+  impedance, admittance, computed_torque, operational_space, differential_drive,
+  Ackermann, quadrotor, MPC or custom;
+- sensors: encoder, IMU, contact, force_torque, camera, lidar, GPS, odometry,
+  range, pressure, flow and temperature;
+- geometry: box, sphere, cylinder, capsule, cone, plane, mesh, convex_mesh,
+  heightfield, compound or unspecified;
+- interfaces may target one `joint_id`, `entity_id`, or `sensor_id` and may
+  carry joint/base/body motion, effort, wrench, wheel, thrust, contact, sensor,
+  electrical, fluid, or custom signals.
+
+Required root shape:
+{{
+  "schema_version": "1.0",
+  "task_id": "{task_id}",
+  "source_text": "...",
+  "execution_mode": "capability_tiered",
+  "domains": [{{
+    "id": "...", "kind": "articulated_manipulation|mobile_robotics|aerial_robotics|legged_robotics|marine_robotics|soft_robotics|fluid_power|electromechanical|multi_robot|sensing|contact|trajectory_control|custom",
+    "evidence": ["..."]
+  }}],
+  "clock": {{
+    "start_time": 0.0, "stop_time": 1.0, "frequency_hz": 100.0,
+    "physics_substeps": 2, "evidence": ["exact excerpt"]
+  }},
+  "entities": [{{
+    "id": "...", "kind": "...", "shape": "...", "mass": 1.0,
+    "mass_unit": "kg", "length": 1.0, "width": 0.2, "height": 0.2,
+    "radius": 0.1, "dimension_unit": "m", "mesh_uri": "...",
+    "evidence": ["..."]
+  }}],
+  "joints": [{{
+    "id": "...", "type": "...", "parent": "entity_id",
+    "child": "entity_id", "axis": "X|Y|Z|arbitrary|multi_axis|none",
+    "axis_vector": [1.0, 0.0, 0.0], "lower_limit": -1.0,
+    "upper_limit": 1.0, "limit_unit": "rad|deg|m", "evidence": ["..."]
+  }}],
+  "parameters": [{{
+    "id": "...", "owner": "fmu_controller|fmu_plant|usd_physics",
+    "joint_id": "...", "quantity": "...", "value": 1.0,
+    "unit": "...", "evidence": ["..."]
+  }}],
+  "dynamics": [{{
+    "id": "...", "owner": "fmu_plant|usd_physics|fmu_controller",
+    "states": ["semantic.state"], "evidence": ["..."]
+  }}],
+  "controllers": [{{
+    "id": "...", "owner": "fmu_controller", "kind": "...",
+    "joint_ids": ["..."], "entity_ids": ["..."], "evidence": ["..."]
+  }}],
+  "actuators": [{{
+    "id": "...", "owner": "...", "joint_id": "...",
+    "entity_id": "...", "command": "...", "evidence": ["..."]
+  }}],
+  "sensors": [{{
+    "id": "...", "owner": "usd_physics|fmu_plant", "kind": "...",
+    "entity_id": "...", "evidence": ["..."]
+  }}],
+  "environment": [{{
+    "id": "...", "kind": "gravity|ground|obstacle|terrain|material|contact",
+    "magnitude": 9.81, "unit": "m/s2", "evidence": ["..."]
+  }}],
+  "interfaces": [{{
+    "id": "...", "joint_id": "...", "entity_id": "...",
+    "sensor_id": "...", "state_id": "...", "quantity": "...",
+    "direction": "usd_to_fmu|fmu_to_usd", "source_unit": "...",
+    "target_unit": "...", "initial_value": 0.0, "required": true,
+    "evidence": ["..."]
+  }}],
+  "properties": [{{
+    "id": "...", "kind": "always|eventually|final|response|reach_avoid|custom",
+    "interface_id": "...", "lower": 0.0, "upper": 1.0,
+    "start": 0.0, "end": 1.0, "evidence": ["..."]
+  }}],
+  "assumptions": [], "unknowns": []
+}}
+
+Omit optional fields not stated, including the entire clock when timing is not
+stated. Do not include multiple interface target IDs on one record. Return raw
+JSON only.
 
 SOURCE_TEXT:
 {source_text}

@@ -7,10 +7,12 @@ import json
 import math
 from pathlib import Path
 
-from .articulated_profile import (
-    SUPPORTED_JOINT_AXES,
-    SUPPORTED_JOINT_TYPES,
-    SUPPORTED_LINK_SHAPES,
+from .capabilities import (
+    BROAD_INTERFACE_QUANTITIES,
+    BROAD_JOINT_AXES,
+    BROAD_JOINT_TYPES,
+    BROAD_LINK_SHAPES,
+    BROAD_PROPERTY_KINDS,
 )
 
 
@@ -18,9 +20,11 @@ EXECUTION_MODES = {
     "portable_fmu_kinematic",
     "isaac_closed_loop",
     "newton_closed_loop",
+    "capability_tiered",
 }
 CLOSED_LOOP_MODES = {"isaac_closed_loop", "newton_closed_loop"}
 RECORD_COLLECTIONS = (
+    "domains",
     "entities",
     "joints",
     "parameters",
@@ -122,10 +126,14 @@ def validate_requirement_ir(data: dict) -> RequirementIRValidation:
             else:
                 all_ids[record_id] = path
             _validate_evidence(record, source, path, issues)
-            _validate_record_shape(collection, record, path, issues)
+            _validate_record_shape(
+                collection, record, path, issues,
+                execution_mode=data.get("execution_mode"),
+            )
 
     entity_ids = {item.get("id") for item in records["entities"]}
     joint_ids = {item.get("id") for item in records["joints"]}
+    sensor_ids = {item.get("id") for item in records["sensors"]}
     for index, joint in enumerate(records["joints"]):
         for key in ("parent", "child"):
             reference = joint.get(key)
@@ -142,6 +150,20 @@ def validate_requirement_ir(data: dict) -> RequirementIRValidation:
                 "unknown_joint_reference",
                 f"interface references unknown joint {joint_id!r}",
                 f"$.interfaces[{index}].joint_id",
+            ))
+        entity_id = interface.get("entity_id")
+        if entity_id is not None and entity_id not in entity_ids:
+            issues.append(IRIssue(
+                "unknown_entity_reference",
+                f"interface references unknown entity {entity_id!r}",
+                f"$.interfaces[{index}].entity_id",
+            ))
+        sensor_id = interface.get("sensor_id")
+        if sensor_id is not None and sensor_id not in sensor_ids:
+            issues.append(IRIssue(
+                "unknown_sensor_reference",
+                f"interface references unknown sensor {sensor_id!r}",
+                f"$.interfaces[{index}].sensor_id",
             ))
         state_id = interface.get("state_id")
         declared_states = {
@@ -198,6 +220,13 @@ def validate_requirement_ir(data: dict) -> RequirementIRValidation:
                 "unknown_interface_reference",
                 f"property references unknown interface {interface_id!r}",
                 f"$.properties[{index}].interface_id",
+            ))
+        entity_id = prop.get("entity_id")
+        if entity_id is not None and entity_id not in entity_ids:
+            issues.append(IRIssue(
+                "unknown_entity_reference",
+                f"property references unknown entity {entity_id!r}",
+                f"$.properties[{index}].entity_id",
             ))
 
     clock = data.get("clock")
@@ -266,20 +295,20 @@ def _validate_evidence(record: dict, source: str, path: str,
 
 
 def _validate_record_shape(collection: str, record: dict, path: str,
-                           issues: list[IRIssue]) -> None:
+                           issues: list[IRIssue], *,
+                           execution_mode: object) -> None:
     required_strings = {
+        "domains": ("kind",),
         "entities": ("kind",),
-        "joints": ("type", "parent", "child", "axis"),
-        "parameters": ("owner", "quantity", "unit"),
-        "dynamics": ("owner",),
-        "controllers": ("owner", "kind"),
-        "actuators": ("owner", "joint_id", "command"),
-        "sensors": ("owner", "kind"),
+        "joints": ("type", "parent", "child"),
+        "parameters": ("quantity", "unit"),
+        "dynamics": (),
+        "controllers": ("kind",),
+        "actuators": ("command",),
+        "sensors": ("kind",),
         "environment": ("kind",),
-        "interfaces": (
-            "joint_id", "state_id", "quantity", "direction", "source_unit"
-        ),
-        "properties": ("kind", "interface_id"),
+        "interfaces": ("state_id", "quantity", "direction", "source_unit"),
+        "properties": ("kind",),
     }
     for key in required_strings.get(collection, ()):
         if not isinstance(record.get(key), str) or not record[key].strip():
@@ -290,17 +319,28 @@ def _validate_record_shape(collection: str, record: dict, path: str,
             ))
 
     enum_fields = {
-        "joints": {"type": SUPPORTED_JOINT_TYPES, "axis": SUPPORTED_JOINT_AXES},
-        "entities": {"shape": SUPPORTED_LINK_SHAPES},
+        "joints": {"type": BROAD_JOINT_TYPES, "axis": BROAD_JOINT_AXES},
+        "entities": {"shape": BROAD_LINK_SHAPES},
         "interfaces": {
             "direction": {"fmu_to_usd", "usd_to_fmu"},
-            "quantity": {"joint_position", "joint_velocity", "joint_effort"},
+            "quantity": BROAD_INTERFACE_QUANTITIES,
         },
-        "properties": {"kind": {"always", "eventually", "final"}},
+        "properties": {"kind": BROAD_PROPERTY_KINDS},
     }
     for key, allowed in enum_fields.get(collection, {}).items():
         value = record.get(key)
-        if isinstance(value, str) and value not in allowed:
+        # The general artifact path is open-world by design. Unknown but
+        # grounded feature names remain representable and are routed to the
+        # generic profile. Executable modes stay closed-world.
+        open_world = (
+            execution_mode == "capability_tiered"
+            and not (collection == "interfaces" and key == "direction")
+        )
+        comparable = value
+        if (isinstance(value, str) and collection in {"joints", "entities"}
+                and key in {"type", "shape"}):
+            comparable = value.lower()
+        if isinstance(value, str) and not open_world and comparable not in allowed:
             issues.append(IRIssue(
                 "invalid_field_value",
                 f"{collection} {key} must be one of {sorted(allowed)}",
@@ -328,6 +368,27 @@ def _validate_record_shape(collection: str, record: dict, path: str,
             "missing_required_field", "parameters record requires value",
             f"{path}.value",
         ))
+    if collection == "joints":
+        joint_type = str(record.get("type", "")).lower()
+        if joint_type in {"revolute", "continuous", "prismatic", "planar", "screw"}:
+            has_axis = isinstance(record.get("axis"), str) and bool(record["axis"].strip())
+            axis_vector = record.get("axis_vector")
+            has_vector = (
+                isinstance(axis_vector, list) and len(axis_vector) == 3
+                and all(_is_finite_number(value) for value in axis_vector)
+                and any(abs(float(value)) > 0 for value in axis_vector)
+            )
+            if not has_axis and not has_vector:
+                code = (
+                    "missing_required_field"
+                    if "axis" not in record and "axis_vector" not in record
+                    else "invalid_joint_axis"
+                )
+                issues.append(IRIssue(
+                    code,
+                    "one-DOF joint requires axis or nonzero axis_vector",
+                    path,
+                ))
     if collection == "dynamics":
         states = record.get("states")
         if (not isinstance(states, list) or not states
@@ -338,21 +399,41 @@ def _validate_record_shape(collection: str, record: dict, path: str,
                 f"{path}.states",
             ))
     if collection == "interfaces":
+        targets = [
+            key for key in ("joint_id", "entity_id", "sensor_id")
+            if isinstance(record.get(key), str) and record[key].strip()
+        ]
+        if len(targets) > 1:
+            issues.append(IRIssue(
+                "ambiguous_interface_target",
+                "interface may target at most one joint, entity, or sensor",
+                path,
+            ))
         if "required" in record and not isinstance(record["required"], bool):
             issues.append(IRIssue(
                 "invalid_required_flag", "interface required must be boolean",
                 f"{path}.required",
             ))
-        if (record.get("direction") == "usd_to_fmu"
-                and (not isinstance(record.get("target_unit"), str)
-                     or not record["target_unit"].strip())):
+    if collection == "properties":
+        targets = [
+            key for key in ("interface_id", "state_id", "entity_id")
+            if isinstance(record.get(key), str) and record[key].strip()
+        ]
+        if not targets:
             issues.append(IRIssue(
-                "missing_required_field",
-                "usd_to_fmu interface requires target_unit",
-                f"{path}.target_unit",
+                "missing_property_target",
+                "property requires interface_id, state_id, or entity_id",
+                path,
             ))
-    if collection == "properties" and not any(
-            key in record for key in ("lower", "upper")):
+        elif len(targets) > 1:
+            issues.append(IRIssue(
+                "ambiguous_property_target",
+                "property may target only one interface, state, or entity",
+                path,
+            ))
+    if (collection == "properties"
+            and record.get("kind") in {"always", "eventually", "final", "until"}
+            and not any(key in record for key in ("lower", "upper"))):
         issues.append(IRIssue(
             "missing_property_bound", "property requires lower and/or upper",
             path,

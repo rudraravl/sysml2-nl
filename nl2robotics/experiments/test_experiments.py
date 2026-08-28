@@ -95,6 +95,22 @@ class ExperimentTests(unittest.TestCase):
         self.assertFalse(metrics["infrastructure_available"])
         self.assertIsNone(metrics["end_to_end"])
 
+    def test_capability_result_records_tier_without_claiming_execution(self):
+        metrics = extract_metrics("capability", {
+            "passed": True, "failure_stage": None,
+            "normalization": {"success": True},
+            "plan": {"success": True},
+            "modelica": {"passed": True},
+            "openusd": {"passed": True},
+            "capabilities": {"highest_reached_tier": 2},
+        })
+        self.assertTrue(metrics["normalization_valid"])
+        self.assertTrue(metrics["ir_valid"])
+        self.assertTrue(metrics["artifact_pair_valid"])
+        self.assertEqual(2, metrics["verification_tier"])
+        self.assertIsNone(metrics["end_to_end"])
+        self.assertIsNone(metrics["fmu_execution"])
+
     def test_h2_handoff_result_replaces_preparation_for_metrics(self):
         isaac = {
             "stage": "isaac_closed_loop", "success": True, "passed": True,

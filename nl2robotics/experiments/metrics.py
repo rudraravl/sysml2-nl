@@ -8,6 +8,7 @@ import random
 
 
 BINARY_METRICS = (
+    "normalization_valid", "ir_valid", "artifact_pair_valid",
     "modelica_build", "fmu_export", "fmu_execution",
     "usd_semantic_valid", "named_simulator_load", "stable_simulation",
     "contract_valid", "end_to_end", "all_properties_pass",
@@ -38,9 +39,17 @@ def extract_metrics(profile: str, result: dict, *,
     execution = hybrid.get("execution", result.get("execution", {}))
     properties = hybrid.get("properties", result.get("properties", []))
     alignment = result.get("alignment", {})
+    capabilities = result.get("capabilities", {})
 
     modelica_pass = _truth(modelica.get("passed"))
     usd_pass = _truth(openusd.get("passed"))
+    normalization_valid = _truth(result.get("normalization", {}).get("success"))
+    ir_valid = _truth(result.get("plan", {}).get("success"))
+    artifact_pair_valid = (
+        modelica_pass and usd_pass
+        if isinstance(modelica_pass, bool) and isinstance(usd_pass, bool)
+        else None
+    )
     fmu_export = _truth(fmu.get("success"))
     fmu_execution = _truth(execution.get("success"))
     contract_valid = _truth(contract.get("success"))
@@ -59,11 +68,23 @@ def extract_metrics(profile: str, result: dict, *,
         modelica_pass = _truth(result.get("passed", modelica_pass))
     elif profile == "openusd":
         usd_pass = _truth(result.get("passed", usd_pass))
+    elif profile == "capability":
+        # Tier-2 artifact completion is useful but is not coupled execution.
+        end_to_end = None
+        fmu_export = None
+        fmu_execution = None
+        contract_valid = None
+        property_pass = None
+        simulator_load = None
+        stable = None
 
     summary = alignment.get("summary", alignment)
     return {
         "infrastructure_available": True,
         "failure_stage": result.get("failure_stage"),
+        "normalization_valid": normalization_valid,
+        "ir_valid": ir_valid,
+        "artifact_pair_valid": artifact_pair_valid,
         "modelica_build": modelica_pass,
         "fmu_export": fmu_export,
         "fmu_execution": fmu_execution,
@@ -76,6 +97,7 @@ def extract_metrics(profile: str, result: dict, *,
         "semantic_score": summary.get("weighted_semantic_score"),
         "semantic_coverage": summary.get("evidence_coverage"),
         "blocking_violations": summary.get("blocking_violations"),
+        "verification_tier": capabilities.get("highest_reached_tier"),
         "repairs": _repairs(result),
     }
 
@@ -99,7 +121,9 @@ def summarize_records(records: list[dict], *, bootstrap_samples: int = 2000,
                 seed=seed + sum(map(ord, condition + metric)),
             )
         continuous = {}
-        for metric in ("semantic_score", "semantic_coverage", "repairs"):
+        for metric in (
+            "semantic_score", "semantic_coverage", "verification_tier", "repairs"
+        ):
             values = [item["metrics"].get(metric) for item in rows]
             numeric = [float(value) for value in values
                        if isinstance(value, (int, float)) and not isinstance(value, bool)]

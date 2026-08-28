@@ -39,3 +39,16 @@ Apptainer environment.
 The current study boundary is fixed-base acyclic trees with independent
 joint-space PD effort control. It does not relabel mobile bases, closed chains,
 contact tasks, or operational-space controllers as if they had been executed.
+
+The complementary broad capability matrix contains 13 paper-facing families
+covering articulated, mobile, aerial, legged, marine, contact, trajectory,
+closed-chain, sensing, fluid-power, electromechanical, soft, and multi-robot
+requests. Audit its profile and evidence-tier coverage with:
+
+```bash
+python3 -m nl2robotics.studies.capability_matrix
+```
+
+Only the already executed articulated profile has a tier-5 target. The other
+families target validated complementary artifacts until dedicated runtime
+adapters produce stronger evidence.
