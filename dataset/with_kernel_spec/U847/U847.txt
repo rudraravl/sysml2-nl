@@ -1,0 +1,11 @@
+This model describes a comprehensive Radar Tracker System designed to detect, locate, and continuously follow the movement of multiple objects in three-dimensional space. The system's primary function is to provide real-time position and velocity data for each target it is tracking.
+
+The system is composed of several key functional components that work in a coordinated cycle. A high-power **Transmitter** generates specific radar pulses, which are then broadcast into the environment by a steerable **Antenna Assembly**. This same antenna also listens for and collects the faint echoes that reflect off objects.
+
+The returning echoes are captured by a sensitive **Receiver**, which measures their properties like range, angle, and Doppler shift (indicating speed). This raw data is then passed to a **Signal Processor**. This processor first filters out unwanted noise and environmental clutter before analyzing the cleaned signal to identify potential targets, which are called "detections."
+
+The core intelligence of the system resides in the **Track Manager**. This component maintains a list of all currently tracked objects, known as a "track file." For each new set of detections from the Signal Processor, the Track Manager predicts where existing targets should be, correlates the new detections with those predictions to update their position and velocity, and initiates new tracks for any detections that don't match an existing target. It continuously refines its estimates and prunes tracks that are lost or have low confidence.
+
+The system operates in a continuous loop: it transmits a pulse, listens for echoes, processes the signals, updates all track files, and then sends steering commands to the antenna to optimize scanning or follow the targets. Its primary output is a constantly updated data stream of all tracked objects, including their 3D position, velocity, and a quality metric for each track.
+
+The system also operates in different modes. It can be in a standby state, a wide-area `searching` mode to find new targets, a focused `tracking` mode once a single target is acquired, or a `multi-target` tracking mode where it intelligently interleaves its scans to follow multiple objects simultaneously. The system automatically transitions between these modes based on the detection and tracking situation.

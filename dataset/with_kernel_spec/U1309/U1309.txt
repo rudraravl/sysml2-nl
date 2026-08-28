@@ -1,0 +1,7 @@
+This model describes a self-contained, WiFi-enabled Internet of Things (IoT) device designed for environmental monitoring. The system is built around an Openpicus Flyport module, which serves as an integrated platform for sensing, processing, and communication.
+
+The device's core function is to autonomously measure environmental conditions—specifically temperature, humidity, and atmospheric pressure—using an integrated sensor. This data is processed by an onboard PIC32 microcontroller, which then formats the readings into a standard web (HTTP) request.
+
+A key component is the WiFi transceiver, which allows the device to connect to a local wireless network. Once connected, it transmits the collected sensor data to a designated cloud server or online service. The system includes a power management unit that takes a standard input voltage and regulates it to provide stable power to all internal components while also monitoring overall energy consumption.
+
+Operationally, the device follows a defined cycle. Upon power-up, it initializes and attempts to connect to its configured WiFi network. If the connection fails, it enters an error state and retries. Once successfully connected, it enters its main active loop: continuously gathering sensor readings at a set interval, packaging the data, and transmitting it to the cloud. This cycle allows for consistent, remote environmental monitoring without manual intervention.

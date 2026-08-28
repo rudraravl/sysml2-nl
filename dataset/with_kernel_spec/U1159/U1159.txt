@@ -1,0 +1,13 @@
+This model describes an automated insulin delivery system, commonly known as an "artificial pancreas," designed to help manage diabetes. The system operates in a closed loop, automatically monitoring a person's blood glucose levels and delivering the appropriate amount of insulin to keep them within a target range.
+
+The system is composed of four primary components that work together:
+
+1.  **Continuous Glucose Monitor (CGM):** This is a small sensor placed just under the skin that measures glucose levels in the body's fluid every five minutes. It has a sensor component that takes the raw measurement and a wireless transmitter to send the glucose readings to the main controller.
+
+2.  **Insulin Pump:** This is a programmable device that holds a reservoir of rapid-acting insulin. Based on commands from the control algorithm, a small motor in the pump precisely pushes insulin from the reservoir through a thin tube (the infusion set) and into the body.
+
+3.  **Control Algorithm:** This is the "brain" of the system. It receives real-time glucose data from the CGM and uses a predictive model to forecast where glucose levels are headed. Based on this prediction, the patient's personal data (like weight and insulin sensitivity), and the target glucose range, it calculates the optimal insulin dose. This algorithm includes numerous safety constraints, such as a maximum amount of active insulin, to prevent over-delivery.
+
+4.  **User Interface:** This component, likely a dedicated handheld device or a smartphone app, allows the patient to interact with the system. It displays current glucose levels, trends, and the amount of active insulin. The user can also use it to input information, such as meals, and manually command an insulin bolus.
+
+The system operates through several states. It can be turned off, run in a `manual` mode where the user controls all insulin delivery, or operate in its primary `closedLoop` mode for automatic control. For safety, it has a `suspend` mode that automatically halts all insulin delivery if glucose levels drop too low or are predicted to do so. An `alarm` state alerts the user to critical situations like severe high or low glucose, a sensor failure, or a blockage in the insulin pump.

@@ -1,0 +1,10 @@
+This is a distributed building automation system for controlling the HVAC (Heating, Ventilation, and Air Conditioning) in a facility. It uses the LonWorks industrial networking protocol to create an intelligent, automated environmental control system.
+
+The system is composed of several smart devices, or "nodes," that are interconnected over a network running on twisted-pair cabling. Each device has its own processing capability, allowing them to operate and communicate in a peer-to-peer fashion without relying on a single central computer.
+
+Key components of this system include:
+*   **Sensor Nodes:** These devices are placed throughout the building to monitor environmental conditions. There are dedicated nodes for measuring temperature and others for measuring humidity. They periodically take readings and broadcast this information onto the network.
+*   **HVAC Controller Node:** This is the local "brain" for a specific zone. It subscribes to data from the sensor nodes. It compares the incoming temperature and humidity readings against desired setpoints (e.g., maintain 22°C and 50% humidity). Using an internal control algorithm, it decides what adjustments are needed to maintain the target environment.
+*   **Actuator Nodes:** These devices control the physical HVAC equipment. The controller sends commands to these nodes. A **Damper Actuator** controls a motor to open or close an air damper in the ductwork, regulating airflow. A **Fan Actuator** controls the speed of a ventilation fan.
+
+In operation, the system works as a continuous feedback loop. The sensors report the current conditions. The HVAC controller receives this data, processes it, and calculates the necessary response. It then sends command messages—such as "set damper position to 75%" or "increase fan speed to 1500 RPM"—to the appropriate actuators. The actuators execute these commands and can report their status back to the controller, ensuring the system is operating as intended to create a stable and comfortable indoor environment.

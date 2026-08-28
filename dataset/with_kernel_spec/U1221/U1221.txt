@@ -1,0 +1,15 @@
+This model describes a coordinated swarm robotics system, a distributed and autonomous system composed of multiple mobile robots (called Swarm Agents) that work together to achieve a common goal without direct, centralized control of their every move.
+
+The system consists of two main parts: a fleet of Swarm Agents and a central Control Station, all linked by a wireless mesh network.
+
+Each Swarm Agent is an independent, mobile robot. It's equipped with a sensor array to detect nearby obstacles and mission targets, motors and actuators to move, a radio to communicate with other agents and the station, and an onboard battery pack for power. The "brain" of each agent is a processing unit that runs a sophisticated behavior program. This program makes the robot act based on a few simple, local rules that result in complex group behavior. Specifically, an agent continuously calculates its movement by balancing several competing urges:
+
+*   **Cohesion:** Moving toward the average position of its neighbors to stay with the group.
+*   **Separation:** Keeping a minimum distance from its neighbors to avoid collisions.
+*   **Alignment:** Steering in the same average direction as its neighbors.
+*   **Obstacle Avoidance:** Maneuvering to avoid crashing into detected obstacles.
+*   **Target Seeking:** Moving toward the mission objectives it identifies.
+
+The Control Station acts as the mission commander. It is responsible for defining the overall objectives (like target locations or an area to survey), a desired formation pattern, and deploying the agents. During the mission, it doesn't command individual robot movements but instead monitors the swarm's overall progress by listening to status messages from the agents. If agents fail or are lost, the Control Station can dynamically re-plan the mission for the remaining agents, making the system highly robust and fault-tolerant.
+
+In operation, the Control Station would assign a mission, and the swarm of agents would execute it. The agents would move as a coordinated group, navigating the environment and searching for targets based on their collective sensing and local communication. Agents are also self-aware enough to monitor their own battery level and will automatically return to base when power is low. Once the overall mission objective is met (e.g., 95% of an area has been surveyed), the Control Station recalls the entire swarm.

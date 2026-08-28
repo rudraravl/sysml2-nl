@@ -1,0 +1,11 @@
+This model describes a high-precision digital sun sensor, a device designed to determine the direction of the sun relative to itself. It is typically used in applications like spacecraft for attitude control or on Earth for aiming solar panel arrays. The sensor's primary function is to measure sunlight and output the sun's precise azimuth and elevation angles.
+
+The core of the system is a sensor head composed of four photodiode elements arranged in a quadrant configuration. When sunlight hits the sensor, each of these four photodiodes generates a raw voltage signal. The intensity of the voltage from each photodiode depends on how directly the sun is shining on it.
+
+These four raw, and often weak, voltage signals are immediately passed to an internal Signal Processor. This processor first amplifies the signals to a more usable level and then applies a filter to remove unwanted electronic noise, resulting in a clean set of four voltage readings.
+
+The cleaned signals are then fed into an Angle Calculator. Using pre-set calibration coefficients, this unit calculates the difference in voltage between opposing pairs of photodiodes (top vs. bottom, left vs. right) to precisely compute the sun's azimuth and elevation angles.
+
+Before the final output is sent, the calculated angles go through a Measurement Validator. This component performs a final quality check, ensuring the readings are within plausible limits (for example, not pointing below the horizon) and assigns a quality score to the measurement. The final, validated data package includes the azimuth and elevation angles, a timestamp, and the quality score.
+
+The entire sensor operates according to a defined lifecycle. When powered on, it goes through an initialization and a calibration sequence. Once ready, it enters its main operational state, where it continuously takes measurements. The system also includes a fault state to handle errors, from which it can be reset.

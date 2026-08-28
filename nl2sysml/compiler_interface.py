@@ -7,6 +7,7 @@ without modifying the core generation loop in agent_rag_moe.py.
 
 import os
 import tempfile
+import threading
 from pathlib import Path
 from typing import List, Optional
 
@@ -70,15 +71,52 @@ class CompilerResult:
 
 # Global compiler instance (lazy-loaded)
 _compiler_instance = None
+_compiler_init_lock = threading.Lock()
+
+# Each check_code call spawns a JVM, so parallel batch workers must not launch
+# an unbounded number of them at once.
+_compiler_slots: Optional[threading.BoundedSemaphore] = None
+_compiler_slots_lock = threading.Lock()
+
+
+def _compiler_gate() -> threading.BoundedSemaphore:
+    global _compiler_slots
+    with _compiler_slots_lock:
+        if _compiler_slots is None:
+            cap = max(1, int(os.getenv("SYSML_COMPILER_MAX_CONCURRENCY", "4")))
+            _compiler_slots = threading.BoundedSemaphore(cap)
+        return _compiler_slots
+
+
+_compiler_init_done = False
 
 
 def _get_compiler():
-    """Get or initialize the compiler instance."""
-    global _compiler_instance
-    
+    """Get or initialize the compiler instance (thread-safe, init once)."""
+    global _compiler_init_done
+
     if _compiler_instance is not None:
         return _compiler_instance
-    
+    if _compiler_init_done:
+        # Init already ran and produced nothing; don't retry under the lock on
+        # every call, which would serialize parallel workers.
+        return None
+
+    with _compiler_init_lock:
+        if _compiler_instance is not None:
+            return _compiler_instance
+        if _compiler_init_done:
+            return None
+        try:
+            return _init_compiler()
+        finally:
+            _compiler_init_done = True
+
+
+def _init_compiler():
+    """Build the checker instance. Callers must hold _compiler_init_lock."""
+    global _compiler_instance
+
     # Check if compiler is enabled
     enabled = os.getenv("SYSML_COMPILER_ENABLED", "true").lower()
     if enabled == "false":
@@ -192,9 +230,10 @@ def check_code(code: str, syntax_only: bool = False) -> CompilerResult:
         temp_file = f.name
     
     try:
-        # Check the file
-        sysml_errors = compiler.check_file(temp_file, syntax_only=syntax_only)
-        
+        # Check the file (bounded: one JVM per in-flight check)
+        with _compiler_gate():
+            sysml_errors = compiler.check_file(temp_file, syntax_only=syntax_only)
+
         # Convert to our CompilerError format
         errors = []
         for err in sysml_errors:

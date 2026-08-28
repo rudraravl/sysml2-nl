@@ -1,0 +1,11 @@
+This model describes a centralized platform for patient monitoring and data management, designed for use in a clinical setting like a hospital or intensive care unit. Its primary purpose is to automatically collect, analyze, store, and display vital signs from multiple medical devices connected to a single patient.
+
+The system is composed of several key components that work together in a continuous data-processing pipeline. It begins with dedicated interfaces for specific bedside medical devices, such as an ECG monitor for heart rate, a blood pressure monitor, and a pulse oximeter for oxygen saturation. Each of these devices continuously streams patient data into the system.
+
+This raw data from the various sources is then fed into a central Data Aggregator. This component's job is to combine the different data streams, organizing and correlating them by patient and timestamp to create a single, unified view of the patient's condition.
+
+Once aggregated, the data is passed to a Clinical Data Processor. This is the analytical core of the system. It constantly analyzes the incoming vital signs, checking them against pre-defined safe thresholds. If any measurement, like heart rate or oxygen saturation, falls outside the safe range, the processor immediately generates an alarm signal. This ensures that clinical staff are alerted to potentially critical events within seconds of their detection.
+
+After processing, the unified patient data and any alarm statuses are distributed to three destinations simultaneously. First, the information is sent to a Clinical Display, which provides a real-time visualization of the patient's current and historical vital signs for doctors and nurses to monitor. Second, all data is sent to a long-term Data Repository, which securely archives the complete patient record for a minimum of seven years for legal and medical auditing purposes.
+
+Finally, the data is sent to an Interoperability Gateway. This component acts as a translator, allowing the system to securely share patient data with other external healthcare information systems, such as the hospital's main Electronic Health Record (EHR). It supports standard medical data exchange protocols like HL7 FHIR and DICOM to ensure seamless communication and data integrity across the wider healthcare ecosystem.

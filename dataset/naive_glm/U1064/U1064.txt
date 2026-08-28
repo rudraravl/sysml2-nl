@@ -1,0 +1,15 @@
+This model describes a General Packet Radio Service (GPRS) network, a 2G/3G cellular technology designed to provide mobile data services like internet access for mobile devices. It's a complete system that manages how a mobile device connects to a network, sends and receives data packets, and disconnects.
+
+The core of the system is comprised of four main parts:
+
+1.  **Mobile Station:** This is the user's device, such as a cell phone. It has a unique identifier (IMSI), a transceiver for radio communication, and tracks its own battery level. It operates through various session states, starting from `idle`, then `attaching` to the network, becoming `active` for a data session, `transferring` data, and finally `releasing` the connection.
+
+2.  **Base Station Subsystem (BSS):** This is the radio access part of the network that the mobile station communicates with wirelessly. It consists of the cell towers (Base Transceiver Stations) that provide coverage over a specific area and controllers (Base Station Controllers) that manage the radio resources for multiple towers.
+
+3.  **Serving GPRS Node (SGSN):** This is a central node in the core network. Its primary job is to manage the mobile device's session, which includes authenticating the user, tracking the device's location as it moves between different base stations, and routing data packets to and from the device within the GPRS network.
+
+4.  **Gateway GPRS Node (GGSN):** This component acts as the gateway between the GPRS network and external networks, like the public internet. It assigns an IP address to the mobile device, manages the data connection contexts, and uses an IP router and firewall to securely route traffic to and from the internet.
+
+These components work together to facilitate a data session. A mobile station first initiates an attachment process with the network via the Base Station Subsystem. This request is handled by the SGSN. Once attached, the device requests a data context from the SGSN, which then works with the GGSN to establish a session and get an IP address.
+
+With an active session, the mobile device can send and receive data packets. A packet travels wirelessly from the mobile station to a Base Station, then through a wired backhaul link to the SGSN. The SGSN routes it to the GGSN, which then sends it out to the external network. The process is reversed for incoming data. The system is designed to handle this entire lifecycle, including the transmission, routing, and eventual deactivation and detachment of the mobile device's data session.

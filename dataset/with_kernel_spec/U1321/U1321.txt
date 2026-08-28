@@ -1,0 +1,13 @@
+This is a home automation system designed to control household lights and appliances remotely from a computer. The system uses the X10 "Firecracker" technology, which combines wireless radio frequency (RF) communication with power-line signaling to command devices throughout a house without needing new wiring.
+
+The system is composed of several key components that work in sequence:
+
+1.  **Host Computer:** This is the control center where a user initiates commands. For example, a user might use software on the computer to specify turning on a lamp in the living room.
+
+2.  **Firecracker Transmitter Module:** This small hardware module connects directly to the host computer, typically via a serial port. It receives a command from the computer (e.g., "turn on device A1"), converts it into a 310 MHz radio frequency (RF) signal, and broadcasts it wirelessly. This module essentially acts as a bridge from the computer to the airwaves.
+
+3.  **RF Receiver Module:** This module is plugged into a standard electrical outlet somewhere in the house. Its job is to listen for the RF signals sent by the Firecracker transmitter. Upon receiving a valid command, it demodulates the signal and then injects an equivalent command onto the home's existing 60 Hz AC power lines.
+
+4.  **X10 Device Modules:** These are the final targets of the command, such as lamp modules or appliance modules. Each device module is plugged into an outlet, with a lamp or appliance plugged into it. Each module is configured with a unique address (a "House Code" like 'A' and a "Unit Code" like '1'). These modules constantly monitor the power lines for commands. When a module detects a command that matches its own address, it executes the function—turning its connected device on or off, or adjusting its brightness.
+
+The overall process is as follows: A command originates on the computer, is transmitted wirelessly via RF by the Firecracker module, is received and converted by the RF receiver, and is then sent through the house's electrical wiring to the specific device module, which then controls the attached lamp or appliance. The system supports a range of commands including on, off, dim, bright, and group commands like "all lights on."

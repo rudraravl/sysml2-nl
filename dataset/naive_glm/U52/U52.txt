@@ -1,0 +1,11 @@
+This model describes a laboratory cytocentrifuge system used for preparing biological samples for microscopic analysis. The primary function of this machine is to take a liquid biological sample, which may have a low cell count, and concentrate the cells onto a small, defined area of a microscope slide, forming a thin, uniform layer.
+
+The system is built around a central, high-speed `RotorAssembly` that can hold and process up to twelve samples simultaneously. Each sample is contained within a dedicated `sampleChamber` assembly, which consists of the liquid sample itself, a specialized `FilterCard`, and a standard microscope slide held in a `SlideCarrier`.
+
+The process is driven by a powerful `DriveMotor` that spins the rotor. A central `ControllerUnit` acts as the brain of the system, managing the entire operational cycle. A technician interacts with the machine through a `UserPanel`, where they can select a speed mode (such as low, medium, or high) and start the process.
+
+During operation, the motor accelerates the rotor to a precise, user-defined rotational speed. The centrifugal force pushes the liquid sample through the `FilterCard`. The card's membrane has microscopic pores that allow the fluid to pass through and be absorbed by a pad, but are small enough to trap the cells. These captured cells are gently deposited onto the surface of the adjacent microscope slide.
+
+A critical component is the integrated `SafetySystem`, which prevents operation unless the lid is securely locked and the rotor is properly balanced. It continuously monitors for excessive vibration and includes an emergency stop feature.
+
+The system operates through a clear sequence of states: it starts in an `idle` state, moves to `loading` as samples are inserted, then proceeds through `accelerating`, `spinning` for a set duration, and `decelerating`. Once the rotor has stopped, the cycle is `complete`, and the prepared slides, now containing a high-quality monolayer of cells, can be safely removed for staining and diagnostic analysis.

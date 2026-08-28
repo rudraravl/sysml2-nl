@@ -1,0 +1,13 @@
+This model describes a self-contained photoelectric sensing unit, a type of non-contact sensor commonly used in industrial automation and robotics. Its primary function is to detect the presence of a target object by emitting a beam of light and measuring its reflection.
+
+The sensor is a complete system-in-a-package, comprised of three core components that work in sequence: a Light Emitter, a Photodetector, and a Signal Processor.
+
+1.  **Light Emitter:** This component takes in electrical power and generates a focused beam of light at a specific intensity and wavelength (in this case, infrared light at 850nm). This beam is projected out from the sensor's optical port into the environment.
+
+2.  **Photodetector:** When an object passes in front of the sensor, it reflects the emitted light back. The Photodetector is designed to capture this returning light. It measures the intensity of the reflection and, based on its sensitivity, converts this light energy into a small electrical signal.
+
+3.  **Signal Processor:** The raw, low-level signal from the photodetector is then fed into the Signal Processor. This component first amplifies the signal to a more robust voltage level. It then compares this amplified voltage against a predefined threshold to make a clear, definitive decision about whether an object has been detected.
+
+The entire unit operates through distinct states. It is `idle` until powered, after which it enters an `active` state where it is constantly `detecting`. When a reflection is strong enough to cross the internal threshold, it signals that an object has been `detected`. The system also has a `fault` state to indicate an internal failure.
+
+Overall, this system represents a complete industrial sensor that provides a reliable digital output (object detected/not detected) and an analog voltage level, which can be used by a larger control system, such as a PLC or a robot controller, to make decisions.

@@ -1,0 +1,9 @@
+This model describes a pitot-static airspeed measurement system, a standard instrument found on most aircraft. Its primary purpose is to continuously measure and display the aircraft's speed relative to the surrounding air, a critical piece of information for the pilot during flight.
+
+The system is composed of several key components that work together. An external sensor, the **Pitot Tube**, is mounted on the aircraft to capture air pressure. It has separate sensors to measure two types of pressure simultaneously: the total pressure from the air flowing directly into the tube's opening, and the static (or ambient) air pressure from the undisturbed air around the aircraft.
+
+These raw pressure measurements are sent to an **Air Data Computer**. This central processing unit is the "brain" of the system. It first calculates the "dynamic pressure" by finding the difference between the total and static pressures. Then, using this dynamic pressure value along with the current air density (which changes with altitude and temperature), the computer applies Bernoulli's principle to calculate the aircraft's indicated airspeed. The system also performs a validation check on this calculation to ensure the data is plausible.
+
+The final, calculated airspeed is then transmitted to a **Display Unit** in the cockpit. This unit presents the speed to the pilot in a clear format, typically in knots, and updates at a regular rate to provide real-time information.
+
+The system operates through distinct states. It initializes upon power-up and remains in a standby mode while the aircraft is on the ground. As soon as airflow is detected (i.e., the aircraft starts moving), it switches to an active state, continuously measuring pressure and updating the cockpit display. If the aircraft stops, the system returns to standby mode.

@@ -2,12 +2,12 @@
 """
 Test script to run a single example from nl_seed.jsonl through the MoE pipeline.
 Usage: python test_single.py [id_or_index] [--no-compiler] [--no-spec-alignment]
-       [--no-kernel-feedback] [--llm-backend api|cli]
+       [--no-kernel-feedback] [--llm-backend cli|api]
   - If id_or_index is a number, uses that line number (1-indexed)
   - If id_or_index is a string like "U140", finds that ID
   - If no argument, uses the first entry
   - --no-compiler: Disable compiler checking for faster testing
-  - --llm-backend cli: Claude→Claude Code, GPT→Codex (subscription CLIs), Llama→OpenRouter
+  - --llm-backend: api (default; OpenRouter) or cli (Claude Code / Codex)
 """
 
 import json
@@ -65,11 +65,14 @@ def main():
     if disable_kernel_feedback:
         os.environ["KERNEL_FEEDBACK_ENABLED"] = "false"
         print("Kernel feedback disabled (--no-kernel-feedback flag)\n")
-    if os.getenv("LLM_BACKEND", "api").lower() in ("cli", "codex", "codex-cli"):
+    backend = os.getenv("LLM_BACKEND", "api").lower()
+    if backend in ("cli", "codex", "codex-cli", "claude", "claude-cli"):
         print(
             "LLM backend: cli "
-            "(claude→Claude Code, gpt→Codex subscription CLIs; llama→OpenRouter)\n"
+            "(claude→Claude Code, gpt→Codex subscription CLIs; everything else→OpenRouter)\n"
         )
+    else:
+        print("LLM backend: api (OpenRouter HTTP)\n")
     
     if not seed_file.exists():
         print(f"Error: {seed_file} not found")

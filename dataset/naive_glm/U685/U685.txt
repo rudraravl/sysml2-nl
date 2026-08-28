@@ -1,0 +1,9 @@
+This is a Free Fall Sensing Unit, a compact electronic device designed to continuously monitor acceleration and detect when an object is in a state of free fall. It could be used in safety systems, such as deploying an airbag for a falling smartphone, activating emergency beacons on falling equipment, or triggering parachute systems for drones.
+
+The system is built around a core `FreeFallSensor` which contains a three-axis `Accelerometer`. This accelerometer constantly measures acceleration forces, sampling the data 100 times per second to ensure high accuracy. The raw data from the accelerometer is immediately passed to an internal `SignalProcessor`, which filters out noise and calculates the overall magnitude of acceleration at any given moment.
+
+This processed, real-time acceleration data is then sent to two places: externally to any connected system that needs it, and internally to a `FreeFallDetector` module. The detector's sole job is to analyze this data stream. It compares the measured acceleration against a pre-set sensitivity threshold (for example, less than 2.0 m/s²). If the acceleration remains below this level for a minimum duration (such as 100 milliseconds), the module officially recognizes a free fall event and generates an alert.
+
+When a free fall event is detected, the alert is sent out of the unit's event port. Simultaneously, an onboard `DataLogger` records the event, capturing key information like when the free fall was detected, how long it lasted, and the minimum acceleration reached. The logger can store up to 1000 such events.
+
+The entire unit can be controlled by an external system through a dedicated control port, which allows it to be enabled or disabled, to have its free fall detection threshold adjusted, and to report its current operational status.

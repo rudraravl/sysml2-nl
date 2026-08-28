@@ -1,0 +1,10 @@
+This model describes a Bticino brand home automation system designed for integrated lighting control within a residence. The system is built around a central, low-voltage communication and power bus, known as the SCS Bus, which connects all the devices.
+
+The core of the system is a dedicated Power Supply Unit that converts standard 230V household electricity into a stable, low-voltage 27V DC supply. This single power source energizes all the control components, ensuring a safe and efficient installation.
+
+The system's components include:
+*   **Light Actuators:** These are the modules that physically control the lights in various rooms, such as the living room, bedroom, kitchen, and hallway. Each actuator is connected to both the power supply and the communication bus. It listens for commands and can turn a light on, off, or dim its brightness to a specific level.
+*   **Touch Sensors:** These are the user-facing wall switches located in places like the entrance and various rooms. When a user presses a switch, it doesn't directly complete an electrical circuit to a light. Instead, it generates a digital command message and sends it onto the SCS bus.
+*   **Scenario Controller:** This is a central logic unit that coordinates complex actions. It can be programmed with preset "scenarios" like "welcome," "goodnight," or "away." When a scenario is activated, the controller sends a sequence of commands over the bus to multiple light actuators simultaneously, for instance, turning all lights off for the "goodnight" scene.
+
+The entire system operates through a message-based communication protocol. When a touch sensor is pressed, it broadcasts a message with a source and destination address. The appropriate light actuator receives this message, validates the command (e.g., "turnOn"), and executes the action. This architecture allows for flexible control, where any switch can be configured to control any light or activate any scenario, and the system can be expanded by simply adding more devices to the bus.

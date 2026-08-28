@@ -96,10 +96,12 @@ When kernel feedback is enabled, the quality gate also re-executes repaired cand
 through Layer 2. The command-line and batch generator enable
 spec alignment by default because those paths produce the regenerated research
 artifacts; pass `--no-spec-alignment` or set `SPEC_ALIGNMENT_ENABLED=false` to run the
-legacy generation path. Set `LLM_BACKEND=cli` (or `--llm-backend cli`) to keep the
-same expert/combiner model ids and route Claude through Claude Code and GPT through
-Codex (subscription / ChatGPT sign-in, not API billing). `meta-llama/*` remains on
-OpenRouter.
+legacy generation path. `LLM_BACKEND` defaults to `api` (OpenRouter HTTP), which
+carries the whole expert set — `z-ai/glm-5.2` (combiner),
+`deepseek/deepseek-v4-pro`, `qwen/qwen3.8-max`, `meta-llama/llama-4-maverick`.
+Pass `--llm-backend cli` or set `LLM_BACKEND=cli` for the local Claude Code /
+Codex transport; it only takes effect for `anthropic/*` and `openai/*` models,
+which are no longer in the default set.
 
 The result records every attempt, validation and execution status, alignment report,
 whether each repair was kept, final SysML (best retained candidate), repair counts,

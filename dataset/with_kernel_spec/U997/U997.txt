@@ -1,0 +1,9 @@
+This is a system for looking up detailed information on scholarly publications using a standardized bibliographic code, or "Bibcode." Primarily used in fields like astronomy and astrophysics, its purpose is to take a specific 19-character Bibcode and return a complete record of the corresponding academic paper.
+
+The system is composed of several key interacting parts. A central `Query Coordinator` acts as the brain of the operation, managing the entire lookup process from start to finish. When a request with a Bibcode arrives, the coordinator first passes it to a `Bibcode Validator`. This component checks if the 19-character code follows the correct format (e.g., year, journal, volume, page).
+
+If the format is valid, the coordinator first queries a high-speed `Response Cache`. This cache stores the records of recently or frequently requested papers to provide near-instantaneous results for common queries. If the paper is found in the cache (a "cache hit"), the information is returned immediately.
+
+If the record is not in the cache, the coordinator then queries the main `Metadata Repository`. This repository is the comprehensive, authoritative database containing the full collection of all publication records, including details like title, authors, abstract, journal information, and citation counts. Once the repository finds the record, it sends it back to the coordinator. Before returning the result to the user, the coordinator instructs the cache to store this new record, ensuring that the next request for the same paper will be much faster.
+
+The system operates through distinct states, such as being idle while waiting for a query, actively processing a request, or updating its cache. It is designed to be robust, providing clear error messages if a Bibcode is invalid or if a corresponding publication record cannot be found in the repository.

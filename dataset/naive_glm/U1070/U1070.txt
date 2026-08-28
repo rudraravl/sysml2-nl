@@ -1,0 +1,11 @@
+This model describes an industrial robot cell from HD Hyundai, designed for high-precision, automated material handling and assembly tasks in a manufacturing environment. The system's primary function is to autonomously identify, pick up, and move workpieces from one location to another.
+
+The core of the cell is a six-axis manipulator arm with a reach of 1.7 meters, capable of handling payloads up to 25 kg. It is engineered for high precision, achieving a positioning repeatability of ±0.03 mm, which is critical for assembly operations. Attached to the arm is a gripper, or end-effector, that can open up to 180 mm and apply a finely controlled gripping force of up to 600 Newtons to securely handle a variety of components.
+
+To perceive its environment, the system is equipped with a high-resolution vision sensor. This "eye" of the robot scans the workspace to detect workpieces, identifying their exact position and orientation before the arm attempts to pick them up.
+
+The entire operation is orchestrated by a central Robot Controller, which serves as the brain of the system. It processes data from the vision sensor, plans the arm's optimal path to a target, and sends precise commands for movement and gripping. A separate, dedicated Safety Controller constantly monitors the robot's speed and position within a 1.5-meter safety zone. It can detect potential collisions or respond to an emergency stop signal, halting all motion to ensure a safe working environment. The entire cell is powered by a Power Distribution unit that takes a 400V industrial supply and provides the necessary power to the arm and its sensors.
+
+A typical operational cycle involves the robot first performing a safety check. It then uses its vision system to locate a workpiece. The controller plans a trajectory to the object, and the arm moves to the pick-up position. The gripper grasps the object, and the arm then follows a second planned path to move the workpiece to its destination, releases it, and returns to a home position.
+
+The system operates through various states, including `idle` when inactive, `initializing` during startup, `ready` when awaiting a command, and `operating` while performing a task. It can also be `paused`, or enter an `error` or `emergencyStop` state if a fault or safety event occurs.

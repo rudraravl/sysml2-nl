@@ -1,256 +1,369 @@
 package HydraulicPumpingSubsystem {
-	private import ScalarValues::*;
-	
-	public import Definitions::*;
-	
-	package Definitions {
-		item def HydraulicFluid {
-			attribute density : Real;
-			attribute viscosity : Real;
-			attribute temperature : Real;
-			attribute volume : Real;
-		}
-		
-		attribute def Pressure;
-		attribute def FlowRate;
-		attribute def Volume;
-		attribute def Temperature;
-		attribute def Power;
-		attribute def RotationalSpeed;
-		
-		port def FluidOutPort {
-			attribute pressure : Pressure;
-			attribute temperature : Temperature;
-			out item fluid : HydraulicFluid;
-		}
-		
-		port def FluidInPort {
-			attribute pressure : Pressure;
-			attribute temperature : Temperature;
-			in item fluid : HydraulicFluid;
-		}
-		
-		port def CaseDrainPort {
-			out item leakageFluid : HydraulicFluid;
-		}
-		
-		port def PowerInPort {
-			in attribute power : Power;
-			in attribute speed : RotationalSpeed;
-		}
-		
-		interface def FluidTransferInterface {
-			end port supplierPort : FluidOutPort;
-			end port consumerPort : FluidInPort;
-		}
-		
-		action def PumpFluid {
-			in fluidIn : HydraulicFluid;
-			in power : Power;
-			out fluidOut : HydraulicFluid;
-		}
-		
-		action def MoveFluid {
-			in fluidIn : HydraulicFluid;
-			out fluidOut : HydraulicFluid;
-		}
-		
-		action def primeInlet;
-		
-		action def StartCommand;
-		action def StopCommand;
-		action def ResetCommand;
-		
-		state def PumpOperatingStates {
-			entry; then off;
-			
-			state off;
-			transition off_to_priming
-				first off
-				accept StartCommand
-				then priming;
-			
-			state priming;
-			transition priming_to_running
-				first priming
-				then running;
-			
-			state running;
-			transition running_to_off
-				first running
-				accept StopCommand
-				then off;
-			
-			transition running_to_fault
-				first running
-				then fault;
-			
-			state fault;
-			transition fault_to_off
-				first fault
-				accept ResetCommand
-				then off;
-		}
-		
-		part def Reservoir {
-			attribute capacity : Volume;
-			attribute currentLevel : Volume;
-			attribute minLevel : Volume;
-			
-			port supplyPort : FluidOutPort;
-			port returnPort : ~FluidOutPort;
-			
-			item storedFluid : HydraulicFluid {
-				attribute volume : Volume;
-			}
-		}
-		
-		part def HydraulicPump {
-			attribute ratedFlowRate : FlowRate;
-			attribute maxPressure : Pressure;
-			attribute minInletPressure : Pressure;
-			attribute displacement : Real;
-			attribute efficiency : Real;
-			
-			port suctionPort : FluidInPort;
-			port dischargePort : FluidOutPort;
-			port caseDrainPort : CaseDrainPort;
-			port drivePort : PowerInPort;
-			
-			perform action pumpFluid : PumpFluid {
-				in fluidIn = suctionPort.fluid;
-				in power = drivePort.power;
-				out fluidOut = dischargePort.fluid;
-			}
-			
-			exhibit state pumpStates : PumpOperatingStates;
-		}
-		
-		part def PressureReliefValve {
-			attribute crackingPressure : Pressure;
-			attribute maxFlowRate : FlowRate;
-			
-			port inletPort : FluidInPort;
-			port outletPort : FluidOutPort;
-		}
-		
-		part def HydraulicActuator {
-			attribute requiredFlow : FlowRate;
-			attribute requiredPressure : Pressure;
-			attribute strokeLength : Real;
-			
-			port supplyPort : FluidInPort;
-			port returnPort : FluidOutPort;
-		}
-		
-		part def ElectricMotor {
-			attribute ratedPower : Power;
-			attribute operatingSpeed : RotationalSpeed;
-			
-			port driveOutput : PowerInPort;
-		}
-	}
-	
-	package Usages {
-		public import Definitions::*;
-		
-		part hydraulicPumpingSubsystem {
-			part reservoir : Reservoir {
-				attribute redefines capacity = 100.0;
-				attribute redefines currentLevel = 80.0;
-				attribute redefines minLevel = 15.0;
-			}
-			
-			part motor : ElectricMotor {
-				attribute redefines ratedPower = 15.0;
-				attribute redefines operatingSpeed = 1800.0;
-			}
-			
-			part pump : HydraulicPump {
-				attribute redefines ratedFlowRate = 50.0;
-				attribute redefines maxPressure = 21000.0;
-				attribute redefines minInletPressure = 80.0;
-				attribute redefines displacement = 28.0;
-				attribute redefines efficiency = 0.88;
-			}
-			
-			part reliefValve : PressureReliefValve {
-				attribute redefines crackingPressure = 21500.0;
-				attribute redefines maxFlowRate = 60.0;
-			}
-			
-			part actuator : HydraulicActuator {
-				attribute redefines requiredFlow = 40.0;
-				attribute redefines requiredPressure = 18000.0;
-				attribute redefines strokeLength = 250.0;
-			}
-			
-			interface reservoirToPump : FluidTransferInterface connect
-				supplierPort ::> reservoir.supplyPort to
-				consumerPort ::> pump.suctionPort;
-			
-			interface pumpToRelief : FluidTransferInterface connect
-				supplierPort ::> pump.dischargePort to
-				consumerPort ::> reliefValve.inletPort;
-			
-			interface reliefToActuator : FluidTransferInterface connect
-				supplierPort ::> reliefValve.outletPort to
-				consumerPort ::> actuator.supplyPort;
-			
-			flow of fluid : HydraulicFluid
-				from reservoir.supplyPort.fluid to pump.suctionPort.fluid;
-			
-			flow of fluid : HydraulicFluid
-				from pump.dischargePort.fluid to reliefValve.inletPort.fluid;
-			
-			flow of fluid : HydraulicFluid
-				from reliefValve.outletPort.fluid to actuator.supplyPort.fluid;
-			
-			flow returnFlow of fluid : HydraulicFluid
-				from actuator.returnPort.fluid to reservoir.returnPort.fluid;
-			
-			flow drainFlow of fluid : HydraulicFluid
-				from pump.caseDrainPort.leakageFluid to reservoir.returnPort.fluid;
-			
-			bind motor.driveOutput.power = pump.drivePort.power;
-			bind motor.driveOutput.speed = pump.drivePort.speed;
-			
-			perform action moveFluid : MoveFluid {
-				in fluidIn = reservoir.supplyPort.fluid;
-				out fluidOut = actuator.supplyPort.fluid;
-			}
-			
-			assert constraint adequateFluidLevel {
-				reservoir.currentLevel > reservoir.minLevel
-			}
-			
-			assert constraint pumpFlowCapacity {
-				pump.ratedFlowRate >= actuator.requiredFlow
-			}
-			
-			assert constraint pumpPressureCapacity {
-				pump.maxPressure >= actuator.requiredPressure
-			}
-			
-			requirement pumpingSystemRequirement {
-				doc /* The pumping subsystem shall provide adequate flow and pressure */
-				
-				require constraint deliverFlow {
-					pump.ratedFlowRate >= 40.0
-				}
-				
-				require constraint deliverPressure {
-					pump.maxPressure >= 18000.0
-				}
-				
-				require constraint efficiency {
-					pump.efficiency >= 0.85
-				}
-				
-				require constraint reservoirCapacity {
-					reservoir.capacity >= 80.0
-				}
-			}
-		}
-	}
+    private import ScalarValues::*;
+    private import ISQ::*;
+    
+    item def HydraulicFluid {
+        attribute pressure :> ISQ::pressure;
+        attribute flowRate :> ISQ::volumeFlowRate;
+        attribute temperature :> ISQ::temperature;
+        attribute volume :> ISQ::volume;
+        attribute density :> ISQ::density;
+    }
+    
+    port def FluidOutPort {
+        out item fluid : HydraulicFluid {
+            attribute pressure :> ISQ::pressure;
+            attribute flowRate :> ISQ::volumeFlowRate;
+        }
+    }
+    
+    port def FluidInPort {
+        in item fluid : HydraulicFluid {
+            attribute pressure :> ISQ::pressure;
+            attribute flowRate :> ISQ::volumeFlowRate;
+        }
+    }
+    
+    port def FluidTapPort {
+        in item fluid : HydraulicFluid;
+    }
+    
+    port def RotationalPort {
+        out attribute torque :> ISQ::torque;
+        out attribute angularVelocity :> ISQ::angularVelocity;
+    }
+    
+    port def PressureSignalPort {
+        out attribute pressureValue :> ISQ::pressure;
+    }
+    
+    port def FlowSignalPort {
+        out attribute flowValue :> ISQ::volumeFlowRate;
+    }
+    
+    port def MotorControlPort {
+        in attribute speedCommand :> ISQ::angularVelocity;
+    }
+    
+    action def AdjustMotorSpeed {
+        in commandedSpeed :> ISQ::angularVelocity;
+        out actualSpeed :> ISQ::angularVelocity;
+    }
+    
+    action def ConvertRotationalToPressure {
+        in inputTorque :> ISQ::torque;
+        in inputSpeed :> ISQ::angularVelocity;
+        in lowPressureFluid : HydraulicFluid;
+        out highPressureFluid : HydraulicFluid;
+    }
+    
+    action def MonitorPressureAndRelieve {
+        in systemPressure :> ISQ::pressure;
+        in thresholdPressure :> ISQ::pressure;
+        out valveState : Boolean;
+    }
+    
+    action def MeasurePressure {
+        in fluidSample : HydraulicFluid;
+        out pressureReading :> ISQ::pressure;
+    }
+    
+    action def MeasureFlow {
+        in fluidSample : HydraulicFluid;
+        out flowReading :> ISQ::volumeFlowRate;
+    }
+    
+    action def ConsumeFluidPower {
+        in supplyFluid : HydraulicFluid;
+        out exhaustFluid : HydraulicFluid;
+    }
+    
+    action def ControlPressureLoop {
+        in measuredPressure :> ISQ::pressure;
+        in setpointPressure :> ISQ::pressure;
+        in measuredFlow :> ISQ::volumeFlowRate;
+        out speedCommand :> ISQ::angularVelocity;
+    }
+    
+    state def PumpStates;
+    
+    attribute def PumpStartSignal;
+    attribute def PumpStopSignal;
+    attribute def PumpFaultSignal;
+    attribute def FaultClearSignal;
+    attribute def PressureNominal;
+    
+    part def Reservoir {
+        attribute capacity :> ISQ::volume;
+        attribute currentLevel :> ISQ::volume;
+        port fluidOutPort : FluidOutPort;
+        port fluidReturnPort : FluidInPort;
+    }
+    
+    part def ElectricMotor {
+        attribute speed :> ISQ::angularVelocity;
+        attribute targetSpeed :> ISQ::angularVelocity;
+        attribute power :> ISQ::power;
+        port shaftPort : RotationalPort;
+        port controlPort : ~MotorControlPort;
+        perform action adjustSpeed : AdjustMotorSpeed;
+    }
+    
+    part def HydraulicPump {
+        attribute flowRate :> ISQ::volumeFlowRate;
+        attribute efficiency : Real;
+        attribute displacementVolume :> ISQ::volume;
+        port fluidInPort : ~FluidOutPort;
+        port fluidOutPort : FluidOutPort;
+        port driveShaftPort : ~RotationalPort;
+        perform action convertPower : ConvertRotationalToPressure;
+        exhibit state pumpStates : PumpStates;
+    }
+    
+    part def PressureReliefValve {
+        attribute pressureThreshold :> ISQ::pressure;
+        attribute isOpen : Boolean;
+        port highPressurePort : FluidTapPort;
+        port reliefOutPort : FluidOutPort;
+        perform action monitorAndRelieve : MonitorPressureAndRelieve;
+    }
+    
+    part def PressureSensor {
+        attribute measuredPressure :> ISQ::pressure;
+        port sensingPort : FluidTapPort;
+        port signalOutPort : PressureSignalPort;
+        perform action measurePressure : MeasurePressure;
+    }
+    
+    part def FlowSensor {
+        attribute measuredFlowRate :> ISQ::volumeFlowRate;
+        port sensingPort : FluidTapPort;
+        port signalOutPort : FlowSignalPort;
+        perform action measureFlow : MeasureFlow;
+    }
+    
+    part def FluidConsumer {
+        attribute requiredPressure :> ISQ::pressure;
+        attribute consumptionRate :> ISQ::volumeFlowRate;
+        port fluidInPort : ~FluidOutPort;
+        port fluidOutPort : FluidOutPort;
+        perform action consumeFluid : ConsumeFluidPower;
+    }
+    
+    part def ControlSystem {
+        attribute targetPressure :> ISQ::pressure;
+        attribute pressureTolerance :> ISQ::pressure;
+        attribute kp : Real;
+        attribute ki : Real;
+        port pressureInputPort : ~PressureSignalPort;
+        port flowInputPort : ~FlowSignalPort;
+        port motorControlPort : MotorControlPort;
+        perform action controlPressure : ControlPressureLoop;
+    }
+    
+    part def HydraulicPowerUnit {
+        attribute operatingPressure :> ISQ::pressure;
+        attribute maxSafetyPressure :> ISQ::pressure;
+        attribute targetFlowRate :> ISQ::volumeFlowRate;
+        attribute fluidTemperature :> ISQ::temperature;
+    }
+    
+    requirement def MaintainOperatingPressure {
+        doc /* System must maintain target pressure within tolerance */
+    }
+    
+    requirement def PreventOverpressure {
+        doc /* Relief valve must open before damage occurs */
+    }
+    
+    requirement def DeliverRequiredFlow {
+        doc /* System must deliver adequate flow to consumer */
+    }
+    
+    requirement def RespondToDemand {
+        doc /* Control system must adjust to pressure variations */
+    }
+    
+    action adjustSpeed : AdjustMotorSpeed;
+    action convertPower : ConvertRotationalToPressure;
+    action monitorAndRelieve : MonitorPressureAndRelieve;
+    action measurePressure : MeasurePressure;
+    action measureFlow : MeasureFlow;
+    action consumeFluid : ConsumeFluidPower;
+    action controlPressure : ControlPressureLoop;
+    
+    part hydraulicPowerUnit : HydraulicPowerUnit {
+        attribute redefines operatingPressure = 20685000.0;
+        attribute redefines maxSafetyPressure = 24132000.0;
+        attribute redefines targetFlowRate = 0.000833;
+        attribute redefines fluidTemperature = 323.15;
+        
+        part reservoir : Reservoir {
+            attribute redefines capacity = 0.1;
+            attribute redefines currentLevel = 0.08;
+        }
+        
+        part motor : ElectricMotor {
+            attribute redefines power = 15000.0;
+            attribute redefines targetSpeed = 157.08;
+            
+            perform action redefines adjustSpeed {
+                in commandedSpeed = controlPort.speedCommand;
+                out actualSpeed = speed;
+            }
+        }
+        
+        connect motor.shaftPort to pump.driveShaftPort;
+        
+        part pump : HydraulicPump {
+            attribute redefines efficiency = 0.92;
+            attribute redefines displacementVolume = 0.000050;
+            
+            perform action redefines convertPower {
+                in inputTorque = driveShaftPort.torque;
+                in inputSpeed = driveShaftPort.angularVelocity;
+                in lowPressureFluid = fluidInPort.fluid;
+                out highPressureFluid = fluidOutPort.fluid;
+            }
+            
+            exhibit state redefines pumpStates : PumpStates {
+                entry; then idle;
+                
+                state idle;
+                accept PumpStartSignal
+                    then starting;
+                
+                state starting;
+                accept PressureNominal
+                    then running;
+                accept PumpFaultSignal
+                    then faulted;
+                
+                state running {
+                    do convertPower;
+                }
+                accept PumpStopSignal
+                    then idle;
+                accept PumpFaultSignal
+                    then faulted;
+                
+                state faulted;
+                accept FaultClearSignal
+                    then idle;
+            }
+        }
+        
+        flow of lowPressureSupply : HydraulicFluid
+            from reservoir.fluidOutPort.fluid to pump.fluidInPort.fluid;
+        
+        part pressureSensor : PressureSensor {
+            perform action redefines measurePressure {
+                in fluidSample = sensingPort.fluid;
+                out pressureReading = measuredPressure;
+            }
+        }
+        
+        part flowSensor : FlowSensor {
+            perform action redefines measureFlow {
+                in fluidSample = sensingPort.fluid;
+                out flowReading = measuredFlowRate;
+            }
+        }
+        
+        flow of pumpOutput : HydraulicFluid
+            from pump.fluidOutPort.fluid to pressureSensor.sensingPort.fluid;
+        
+        flow of monitoredSupply : HydraulicFluid
+            from pressureSensor.sensingPort.fluid to flowSensor.sensingPort.fluid;
+        
+        part reliefValve : PressureReliefValve {
+            attribute redefines pressureThreshold = hydraulicPowerUnit.maxSafetyPressure;
+            attribute redefines isOpen = false;
+            
+            perform action redefines monitorAndRelieve {
+                in systemPressure = highPressurePort.fluid.pressure;
+                in thresholdPressure = pressureThreshold;
+                out valveState = isOpen;
+            }
+        }
+        
+        flow of pressureMonitoring : HydraulicFluid
+            from flowSensor.sensingPort.fluid to reliefValve.highPressurePort.fluid;
+        
+        flow of workingFluid : HydraulicFluid
+            from reliefValve.highPressurePort.fluid to consumer.fluidInPort.fluid;
+        
+        flow of reliefPath : HydraulicFluid
+            from reliefValve.reliefOutPort.fluid to reservoir.fluidReturnPort.fluid;
+        
+        part consumer : FluidConsumer {
+            attribute redefines requiredPressure = hydraulicPowerUnit.operatingPressure;
+            attribute redefines consumptionRate = hydraulicPowerUnit.targetFlowRate;
+            
+            perform action redefines consumeFluid {
+                in supplyFluid = fluidInPort.fluid;
+                out exhaustFluid = fluidOutPort.fluid;
+            }
+        }
+        
+        flow of returnPath : HydraulicFluid
+            from consumer.fluidOutPort.fluid to reservoir.fluidReturnPort.fluid;
+        
+        part controller : ControlSystem {
+            attribute redefines targetPressure = hydraulicPowerUnit.operatingPressure;
+            attribute redefines pressureTolerance = 344750.0;
+            attribute redefines kp = 0.0001;
+            attribute redefines ki = 0.00001;
+            
+            perform action redefines controlPressure {
+                in measuredPressure = pressureInputPort.pressureValue;
+                in setpointPressure = targetPressure;
+                in measuredFlow = flowInputPort.flowValue;
+                out speedCommand = motorControlPort.speedCommand;
+            }
+        }
+        
+        connect pressureSensor.signalOutPort to controller.pressureInputPort;
+        connect flowSensor.signalOutPort to controller.flowInputPort;
+        connect controller.motorControlPort to motor.controlPort;
+        
+        requirement pressureReq : MaintainOperatingPressure {
+            doc /* Operating pressure must be maintained within tolerance band */
+            subject pumpAssembly = hydraulicPowerUnit.pump;
+            require constraint {
+                pressureSensor.measuredPressure >= 
+                    hydraulicPowerUnit.operatingPressure - controller.pressureTolerance and
+                pressureSensor.measuredPressure <= 
+                    hydraulicPowerUnit.operatingPressure + controller.pressureTolerance
+            }
+        }
+        
+        requirement safetyReq : PreventOverpressure {
+            doc /* Relief valve protects system from overpressure */
+            subject safetyValve = hydraulicPowerUnit.reliefValve;
+            require constraint {
+                pressureSensor.measuredPressure <= hydraulicPowerUnit.maxSafetyPressure
+            }
+        }
+        
+        requirement flowReq : DeliverRequiredFlow {
+            doc /* Flow rate must meet consumer demand */
+            subject pumpAssembly = hydraulicPowerUnit.pump;
+            require constraint {
+                flowSensor.measuredFlowRate >= consumer.consumptionRate * 0.95 and
+                flowSensor.measuredFlowRate <= consumer.consumptionRate * 1.05
+            }
+        }
+        
+        requirement responseReq : RespondToDemand {
+            doc /* Control system responds to pressure deviations */
+            subject controlLoop = hydraulicPowerUnit.controller;
+            require constraint {
+                controller.controlPressure.speedCommand == 
+                    motor.targetSpeed + 
+                    controller.kp * (controller.targetPressure - pressureSensor.measuredPressure) +
+                    controller.ki * (controller.targetPressure - pressureSensor.measuredPressure)
+            }
+        }
+    }
 }

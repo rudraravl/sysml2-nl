@@ -1,0 +1,13 @@
+This is a high-precision position control system designed to accurately measure the angle, speed, and direction of a rotating motor shaft. It is the type of system commonly used in robotics, CNC machinery, and automated industrial equipment where precise motion control is critical.
+
+The system is built around three main components: the motor shaft being measured, an optical incremental encoder that acts as the sensor, and a decoder controller that processes the sensor data.
+
+The core of the system is the **incremental encoder**, a device that physically attaches to the **motor shaft** and converts its mechanical rotation into digital electrical signals. Inside the encoder is a slotted **optical disk** that spins with the shaft. A light source and an array of **photodetectors** are positioned on either side of this disk. As the disk rotates, its slots allow light to pass through, generating a series of pulses detected by the sensors.
+
+The encoder produces three distinct output signals, known as channels A, B, and Z:
+*   **Channels A and B** are quadrature signals, meaning they produce pulses that are 90 degrees out of phase with each other. This specific timing relationship is crucial, as it allows a controller to determine not only how much the shaft has turned but also in which direction (clockwise or counter-clockwise).
+*   **Channel Z** is an index signal that produces a single pulse once per complete revolution, serving as a precise reference point for calibrating the position or resetting a counter.
+
+These raw pulse signals are then fed into the **decoder controller**. This electronic unit's job is to interpret the quadrature signals. By counting the pulses from channels A and B, it calculates the precise angular position of the shaft. By analyzing which channel's pulse comes first, it determines the direction of rotation. It also calculates the shaft's velocity based on the rate of these pulses over time. The decoder uses the Z-channel's index pulse to periodically reset its position count, ensuring long-term accuracy.
+
+In summary, the motor shaft's physical rotation is translated by the encoder into a language of digital pulses, and the decoder interprets this language to provide a clear, high-level understanding of the shaft's exact position, speed, and direction for a larger control system.

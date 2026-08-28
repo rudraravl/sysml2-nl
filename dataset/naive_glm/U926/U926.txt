@@ -1,0 +1,11 @@
+This is a triangulation-based positioning system designed to determine the precise location of an object. It works much like a local, small-scale GPS by using fixed reference points to calculate a position.
+
+The system is composed of several key components. First, there are at least three fixed **Beacons** placed at specific, known coordinates. Each beacon continuously transmits a unique signal that includes its own ID and location.
+
+A set of **Range Finders** acts as the receiver. Each range finder is responsible for detecting the signal from one of the beacons. Upon receiving a signal, it calculates the distance and angle from itself to that specific beacon.
+
+These individual distance and angle measurements are then passed to a **Data Validator** to ensure they are plausible and within acceptable error limits. If the measurements are deemed unreliable, the system can retry the process.
+
+Once the measurements are validated, they are sent to a central **Triangulation Processor**. This processor is the core of the system; it takes the distance data from all three beacons and, using geometric triangulation principles, computes the receiver's final 3D coordinates (x, y, z). The result is a position estimate that also includes an accuracy and confidence level.
+
+Finally, this calculated position is sent to a **Position Display** unit, which presents the location information to the user. The entire system operates in a continuous cycle, transitioning through states like "Acquiring Signals" and "Processing Data" to provide ongoing position updates. If it encounters invalid data, it enters an "Error" state before attempting to recover.

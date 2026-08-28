@@ -1,0 +1,10 @@
+This model represents an ultrasonic proximity sensing unit, a complete system designed to measure the distance to nearby objects. It operates by emitting a high-frequency ultrasonic pulse and calculating the distance based on the time it takes for the reflected echo to return.
+
+The system is composed of four main integrated components:
+
+1.  **Ultrasonic Transducer:** This is the core sensing element that both transmits the 40 kHz ultrasonic pulse and listens for its returning echo.
+2.  **Signal Processor:** Once an echo is detected by the transducer, this processing chip takes the raw signal, validates it, and performs the calculation to convert the echo's time-of-flight into a precise distance measurement.
+3.  **Control Unit:** This is the brain of the system, managing its operational states. It handles external commands to trigger a measurement and sequences the internal process of transmitting, listening, and processing.
+4.  **Power Supply:** A dedicated internal power unit that provides the correct voltage to the transducer, processor, and control unit.
+
+In operation, the unit remains in a low-power idle state until it receives a trigger command. It then transitions to a measuring state, where the transducer emits a pulse. After transmission, the unit enters a listening phase, waiting for a reflected echo. If an echo is detected, it is sent to the processor for distance calculation. The final measurement, including the distance and a confidence score, is then sent out through a data port. If no echo is received within a set time, the unit times out and returns to the idle state, ready for the next command. The entire measurement cycle is designed to be completed within 100 milliseconds.

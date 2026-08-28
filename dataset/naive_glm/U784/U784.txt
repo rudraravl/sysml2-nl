@@ -1,0 +1,13 @@
+This is a neutron detection system designed for the continuous safety monitoring of neutron radiation. Its primary purpose is to detect neutrons, measure the rate at which they are being detected, and alert operators when radiation levels exceed established safety thresholds.
+
+The system is built around several key components working together. At its core is a **Detector Tube**, a gas-filled proportional counter that serves as the primary sensor. When a neutron enters this tube, it interacts with the gas inside, producing a tiny electrical pulse.
+
+This raw pulse is sent to a **Signal Processor**. This unit's job is to clean up the signal, amplify it, and distinguish a genuine neutron event from background electronic noise. It effectively filters the raw data, passing on only confirmed neutron counts.
+
+The stream of valid counts then goes to the **Count Rate Monitor**. This component calculates the current rate of neutron detection (e.g., counts per second) and keeps track of the total number of neutrons detected over time.
+
+This crucial rate information is fed to two other parts: an **Alarm Controller** and a **Display Unit**. The Alarm Controller constantly compares the current count rate against three pre-set safety thresholds: caution, warning, and critical. If a threshold is crossed, it immediately raises an alarm. The Display Unit provides a real-time view for operators, showing the current neutron count rate, total counts, and the system's alarm status.
+
+The entire system is powered by a stable **Power Supply** that provides both the specialized high voltage required by the detector tube and the low voltage needed for the electronic components.
+
+Operationally, the system can be in different states, such as `idle` when powered on but not actively measuring, `monitoring` for normal operation, `alarming` when a safety threshold is breached, and `calibrating` for maintenance and setup.

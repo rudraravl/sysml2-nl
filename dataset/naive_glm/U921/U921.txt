@@ -1,0 +1,11 @@
+This is a capacitive touch switch system, designed to control the power to an electrical device like a lamp or appliance by sensing a human touch. Instead of a physical button, it uses a sensor that detects the electrical capacitance of a person's finger to toggle power on and off.
+
+The system's core component is a capacitive touch sensor that constantly monitors a baseline electrical field. When a user touches or approaches the sensor surface, their body's natural capacitance causes a change that the sensor detects. This raw signal is then sent to a signal conditioner which filters out electrical noise and amplifies the signal to make it clearer and more reliable.
+
+To prevent accidental triggers from brief or unstable contact, the filtered signal passes through a debounce circuit. This circuit ensures the touch is intentional by waiting for the signal to remain stable for a brief, predefined period (e.g., 50 milliseconds).
+
+Once a touch is validated, a central control processor receives the command. This processor acts as the brain, keeping track of whether the connected device is currently on or off. Upon receiving a valid touch command, it toggles the state—turning the power on if it was off, and off if it was on.
+
+The processor's decision is then sent to two places. First, it commands a high-power switch to either allow or block the flow of electricity to the connected appliance or load. This allows the low-voltage electronics to safely control a high-power device. Second, it updates a status indicator, typically an LED, to provide visual feedback to the user about the current on/off state.
+
+The entire system is powered by an internal power supply module that converts standard household voltage into the low, regulated voltage required by the sensitive sensor and processor circuits.

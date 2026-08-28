@@ -1,0 +1,14 @@
+This model describes a gas detector system designed for industrial safety. Its primary purpose is to continuously monitor the ambient air for hazardous gas concentrations and automatically activate alarms to warn personnel when safety thresholds are exceeded.
+
+The system is built from several key components working together. At its core is an electrochemical sensor that constantly measures gas levels, capable of detecting concentrations from 0 to 500 parts per million (ppm) and responding to changes within 30 seconds.
+
+The raw data from this sensor is sent to a signal processor. This processor validates the readings to ensure they are within a plausible range, filters out potential noise, and applies calibration adjustments to maintain accuracy. The clean, processed gas concentration value is then passed to an alarm unit.
+
+The alarm unit evaluates the gas level against three pre-defined thresholds:
+*   A **warning** is triggered at 50 ppm, activating a visual alert (like a flashing light).
+*   A **danger** alarm is triggered at 100 ppm, activating both audible and visual alerts.
+*   A **critical** alarm is triggered at 200 ppm, also using both audible and visual alerts.
+
+To support incident analysis and compliance, a data logger records up to 10,000 readings and alarm events at one-minute intervals. The entire system is powered by a dedicated power supply that converts a higher input voltage to the stable, lower voltage required by the electronics.
+
+Operationally, the system follows a clear lifecycle. When powered on, it first runs a self-test during an `initializing` state. It then enters its normal `monitoring` state. If gas concentration rises above the 50 ppm warning level, it transitions into an `alarming` state. It will remain in this state, with alarms active, until the concentration drops to a safe level (below 45 ppm), at which point it returns to monitoring. If an internal error is detected at any time, the system enters a `fault` state to indicate it needs maintenance.

@@ -1,0 +1,11 @@
+This model describes a Shock Data Logger, a compact, self-contained electronic device designed to monitor and record physical shocks, impacts, and vibrations. Its primary purpose is to be attached to equipment, shipping containers, or structures to provide a detailed history of any potentially damaging physical events they experience.
+
+The system is built around several key components working in concert. At its core is a triaxial accelerometer, which continuously measures acceleration along three perpendicular axes (X, Y, and Z) at a high frequency. This raw sensor data is constantly sent to an internal signal processor.
+
+The processor acts as the brain of the device. It analyzes the incoming stream of acceleration data in real-time, calculating the overall force or magnitude of any detected motion. Its main job is to compare this magnitude against a user-configurable shock threshold. If the acceleration exceeds this preset limit, the processor identifies it as a "shock event."
+
+When a shock event is triggered, the processor captures a high-resolution profile of the acceleration throughout the entire event. It then packages this data into a structured `ShockEventRecord`, which includes a unique ID, the peak acceleration measured, the duration of the event, a precise timestamp, and the complete acceleration-over-time data. This detailed record is then sent to the device's non-volatile memory for permanent storage, ensuring the data is safe even if power is lost. The memory is large enough to store thousands of these event records.
+
+The entire logger is powered by an internal battery unit, designed for long-term, unattended operation. The power system is managed to maximize its life, operating in different states from fully charged to low power modes as the battery depletes.
+
+Finally, a communication module provides an external data interface. This allows a user to connect to the device to download all the stored shock event records for later analysis. This interface can also be used to configure the device, such as updating the sensitivity of the shock detection threshold.

@@ -1,0 +1,9 @@
+This model describes a Machmeter system, a critical flight instrument for an aircraft. Its primary purpose is to continuously measure and display the aircraft's speed relative to the local speed of sound, which is known as the Mach number.
+
+The system consists of several integrated components. External sensors, including a Pitot-static probe and a temperature probe, gather real-world atmospheric data. The Pitot-static probe measures both the total and static air pressure around the aircraft, while the temperature probe measures the ambient air temperature.
+
+This sensor data is continuously sent to a central Mach computation unit. This unit is the brain of the system, responsible for processing the raw data. It first validates the pressure readings to ensure they are reliable. Using aerodynamic equations, it then calculates the Mach number from the valid pressure and temperature inputs. If the sensor data is determined to be invalid, the system is designed to flag this condition to prevent displaying a dangerously incorrect speed.
+
+The final, calculated Mach number is then transmitted to a display unit in the cockpit for the flight crew to see. This display is designed to update at a high rate (at least 10 times per second) to provide pilots with real-time information. The system is designed to be highly accurate across a wide range of flight conditions, including altitudes up to 60,000 feet.
+
+Operationally, the system has several states. It begins in an "off" state, moves to "initializing" upon receiving a power-on command, and then enters its main "operational" mode. Within this operational mode, the system can recognize and classify the aircraft's speed into different flight regimes such as subsonic, transonic, and supersonic.

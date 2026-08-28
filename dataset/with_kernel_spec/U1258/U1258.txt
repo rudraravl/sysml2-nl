@@ -1,0 +1,13 @@
+This model describes a Web of Things (WoT) system for smart home or building automation. It's designed to monitor and control various Internet of Things (IoT) devices using standardized web technologies, creating an interoperable ecosystem where different devices can be discovered, communicate, and work together seamlessly.
+
+The system is composed of several types of smart devices, which are categorized as either sensors or actuators. The sensors include **Temperature Sensors** and **Humidity Sensors** that gather real-time environmental data. The actuators are devices that can physically alter the environment, such as a **Smart Thermostat** which can be set to heating or cooling modes, and **Smart Lights** which can be turned on/off and have their brightness adjusted. Each of these devices is a "Thing" with a unique ID and a standard web-based interface for interaction.
+
+The core infrastructure consists of three main components:
+
+1.  **WoT Directory:** This acts as a central registry or "phonebook" for all the devices in the system. New devices can register themselves with the directory, and applications can query it to discover what devices are available and what their capabilities are. This allows the system to be easily expanded with new devices.
+
+2.  **WoT Gateway:** This serves as a single, secure entry point for all communication. It routes requests from the central application to the correct device and aggregates data coming back from them, simplifying the network architecture.
+
+3.  **Application Server:** This is the "brain" of the system. It contains the logic for automation. It receives and analyzes the combined data from all the sensors to get a complete picture of the environment.
+
+In operation, the system follows a continuous monitoring and control loop. The sensors periodically report their readings to the Application Server via the Gateway. The server analyzes this information to make decisions, such as determining if a room is too hot or cold. Based on this analysis, it sends commands back through the Gateway to the actuators—for example, instructing the thermostat to start cooling or telling a smart light to turn on. This creates an automated, responsive environment that can maintain optimal conditions without manual intervention.

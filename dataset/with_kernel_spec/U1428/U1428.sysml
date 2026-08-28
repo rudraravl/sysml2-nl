@@ -1,271 +1,323 @@
-package 'Horsepower Power Generation System' {
-	private import ScalarValues::*;
-	private import ISQ::*;
-	
-	attribute def StartCommand;
-	attribute def ShutdownCommand;
-	
-	attribute def HorsepowerValue :> PowerValue;
-	attribute def EfficiencyRatio :> Real;
-	attribute def RPMValue :> Real;
-	
-	item def FuelSupply {
-		attribute flowRate : MassFlowRateValue;
-		attribute energyContent : EnergyValue;
-	}
-	
-	item def MechanicalPower {
-		attribute horsepower : HorsepowerValue;
-		attribute torque : TorqueValue;
-		attribute rotationalSpeed : RPMValue;
-	}
-	
-	item def ElectricalPower {
-		attribute voltage : ElectricPotentialValue;
-		attribute current : ElectricCurrentValue;
-		attribute power : PowerValue;
-	}
-	
-	item def CoolantFlow {
-		attribute flowRate : VolumeFlowRateValue;
-		attribute temperature : ThermodynamicTemperatureValue;
-	}
-	
-	port def FuelPort {
-		in item fuel : FuelSupply;
-	}
-	
-	port def MechanicalShaftPort {
-		out item shaftPower : MechanicalPower;
-	}
-	
-	port def ElectricalOutputPort {
-		out item electricalOutput : ElectricalPower;
-	}
-	
-	port def CoolingPort {
-		inout item coolant : CoolantFlow;
-	}
-	
-	port def LoadConnectionPort {
-		in item powerDemand : ElectricalPower;
-	}
-	
-	part def PrimeEngine {
-		attribute ratedHorsepower : HorsepowerValue;
-		attribute currentOutput : HorsepowerValue;
-		attribute operatingRPM : RPMValue;
-		attribute fuelEfficiency : EfficiencyRatio;
-		
-		port fuelInput : FuelPort;
-		port mechanicalOutput : MechanicalShaftPort;
-		port cooling : CoolingPort;
-	}
-	
-	part def ElectricalGenerator {
-		attribute ratedCapacity : PowerValue;
-		attribute conversionEfficiency : EfficiencyRatio;
-		attribute outputVoltage : ElectricPotentialValue;
-		
-		port mechanicalInput : MechanicalShaftPort;
-		port electricalOutput : ElectricalOutputPort;
-	}
-	
-	part def ControlModule {
-		attribute targetOutput : PowerValue;
-		attribute currentLoad : PowerValue;
-		attribute ratedCapacity : PowerValue;
-		attribute currentOutput : PowerValue;
-	}
-	
-	state def ControlStates {
-		entry; then standby;
-		
-		state standby;
-		transition standby_to_startup first standby
-			accept StartCommand
-			then startup;
-		
-		state startup;
-		transition startup_to_running first startup
-			then running;
-		
-		state running;
-		transition running_to_shutdown first running
-			accept ShutdownCommand
-			then shutdown;
-		
-		state shutdown;
-		transition shutdown_to_standby first shutdown
-			then standby;
-	}
-	
-	part def CoolingSystem {
-		attribute coolantCapacity : VolumeValue;
-		attribute maxHeatRejection : PowerValue;
-		
-		port primaryCooling : CoolingPort;
-	}
-	
-	part def LoadBank {
-		attribute connectedLoad : PowerValue;
-		attribute powerFactor : Real;
-		
-		port powerInput : LoadConnectionPort;
-	}
-	
-	action def ConvertFuelToMechanical {
-		in fuel : FuelSupply;
-		in targetHorsepower : HorsepowerValue;
-		out mechanicalPower : MechanicalPower;
-		out wasteHeat : PowerValue;
-	}
-	
-	action def ConvertMechanicalToElectrical {
-		in mechanical : MechanicalPower;
-		out electrical : ElectricalPower;
-	}
-	
-	action def ManageCooling {
-		in wasteHeat : PowerValue;
-		inout coolant : CoolantFlow;
-	}
-	
-	action def GeneratePower {
-		in fuelSupply : FuelSupply;
-		in demandedPower : PowerValue;
-		in ratedHP : HorsepowerValue;
-		out deliveredPower : ElectricalPower;
-		
-		first start;
-		then action convertFuel : ConvertFuelToMechanical {
-			in fuel = fuelSupply;
-			in targetHorsepower = ratedHP;
-			out mechanicalPower;
-			out wasteHeat;
-		}
-		then fork powerAndHeat;
-		then action convertToElectrical : ConvertMechanicalToElectrical {
-			in mechanical = convertFuel.mechanicalPower;
-			out electrical;
-		}
-		then join completePowerPath;
-		action coolEngine : ManageCooling {
-			in wasteHeat = convertFuel.wasteHeat;
-			inout coolant;
-		}
-		then completePowerPath;
-		then assign deliveredPower := convertToElectrical.electrical;
-		then done;
-	}
-	
-	part def HorsepowerGenerationSystem {
-		doc /*
-		A power generation system that converts chemical fuel energy into electrical power.
-		The primary function is to produce controlled electrical output by first converting 
-		fuel into mechanical horsepower through combustion, then converting the rotating 
-		shaft power into electrical energy. The system manages fuel flow, mechanical-to-electrical 
-		conversion, thermal management, and load regulation to deliver stable electrical power.
-		*/
-		
-		attribute overallEfficiency : EfficiencyRatio;
-		
-		part engine : PrimeEngine;
-		part generator : ElectricalGenerator;
-		part controller : ControlModule;
-		part cooling : CoolingSystem;
-		part load : LoadBank;
-		
-		connection shaftCoupling
-			connect engine.mechanicalOutput to generator.mechanicalInput;
-		
-		connection powerOutput
-			connect generator.electricalOutput to load.powerInput;
-		
-		connection engineCooling
-			connect engine.cooling to cooling.primaryCooling;
-	}
-	
-	requirement def PowerGenerationRequirement {
-		doc /* The system shall convert fuel energy into electrical power through mechanical horsepower */
-		subject genset : HorsepowerGenerationSystem;
-		attribute minimumHorsepower : HorsepowerValue;
-		require constraint {
-			genset.engine.ratedHorsepower >= minimumHorsepower
-		}
-	}
-	
-	requirement def ConversionEfficiencyRequirement {
-		doc /* The system shall maintain minimum overall efficiency from fuel to electrical output */
-		subject genset : HorsepowerGenerationSystem;
-		attribute minimumEfficiency : EfficiencyRatio;
-		require constraint {
-			genset.overallEfficiency >= minimumEfficiency
-		}
-	}
-	
-	requirement def CoolingRequirement {
-		doc /* The cooling system shall reject sufficient heat to maintain safe operating temperatures */
-		subject genset : HorsepowerGenerationSystem;
-		attribute maxOperatingTemp : ThermodynamicTemperatureValue;
-		require constraint {
-			genset.cooling.primaryCooling.coolant.temperature <= maxOperatingTemp
-		}
-	}
-	
-	requirement powerReq : PowerGenerationRequirement;
-	requirement efficiencyReq : ConversionEfficiencyRequirement;
-	requirement thermalReq : CoolingRequirement;
-	
-	requirement systemRequirements {
-		doc /* Overall requirements for horsepower-based power generation */
-		require powerReq;
-		require efficiencyReq;
-		require thermalReq;
-	}
-	
-	part horsepowerGenset : HorsepowerGenerationSystem {
-		attribute :>> overallEfficiency = 0.33;
-		
-		part :>> engine {
-			attribute :>> ratedHorsepower = 500.0;
-			attribute :>> currentOutput = 0.0;
-			attribute :>> operatingRPM = 1800.0;
-			attribute :>> fuelEfficiency = 0.35;
-		}
-		
-		part :>> generator {
-			attribute :>> ratedCapacity = 350000.0;
-			attribute :>> conversionEfficiency = 0.94;
-			attribute :>> outputVoltage = 480.0;
-		}
-		
-		part :>> controller {
-			attribute :>> targetOutput = 0.0;
-			attribute :>> currentLoad = 0.0;
-			attribute :>> ratedCapacity = 350000.0;
-			attribute :>> currentOutput = 0.0;
-		}
-		
-		part :>> cooling {
-			attribute :>> coolantCapacity = 100.0;
-			attribute :>> maxHeatRejection = 250000.0;
-		}
-		
-		part :>> load {
-			attribute :>> connectedLoad = 300000.0;
-			attribute :>> powerFactor = 0.95;
-		}
-		
-		perform action powerGeneration : GeneratePower {
-			in fuelSupply;
-			in demandedPower = load.connectedLoad;
-			in ratedHP = engine.ratedHorsepower;
-			out deliveredPower;
-		}
-		
-		exhibit state controlBehavior : ControlStates;
-		
-		satisfy systemRequirements;
-	}
+package PowerGenerationSystem {
+    public import ISQ::*;
+    public import ScalarValues::*;
+    
+    package Definitions {
+        public import PartDefinitions::*;
+        public import PortDefinitions::*;
+        public import ItemDefinitions::*;
+        public import RequirementDefinitions::*;
+        
+        package ItemDefinitions {
+            private import ISQ::*;
+            
+            item def ThrottleCommand {
+                attribute throttlePosition: Real;
+                attribute timestamp: Real;
+            }
+            
+            item def PowerMeasurement {
+                attribute horsepowerOutput: ISQ::PowerValue;
+                attribute torqueOutput: ISQ::TorqueValue;
+                attribute rotationalSpeed: Real;
+                attribute timestamp: Real;
+            }
+            
+            item def PowerTarget {
+                attribute targetHorsepower: ISQ::PowerValue;
+            }
+            
+            item def MechanicalPower {
+                attribute horsepower: ISQ::PowerValue;
+                attribute torque: ISQ::TorqueValue;
+                attribute rpm: Real;
+            }
+        }
+        
+        package PortDefinitions {
+            port def ThrottleCommandPort {
+                in item throttleCmd: ThrottleCommand;
+            }
+            
+            port def PowerMonitorPort {
+                out item powerData: PowerMeasurement;
+            }
+            
+            port def PowerTargetPort {
+                in item target: PowerTarget;
+            }
+            
+            port def MechanicalOutputPort {
+                out item mechanicalPower: MechanicalPower;
+            }
+            
+            port def MechanicalInputPort {
+                in item mechanicalPower: MechanicalPower;
+            }
+        }
+        
+        package PartDefinitions {
+            private import ISQ::*;
+            
+            part def CombustionChamber {
+                attribute volume: ISQ::VolumeValue;
+                attribute temperature: ISQ::TemperatureValue;
+                attribute pressure: ISQ::PressureValue;
+                
+                perform action combustFuel {
+                    in fuelMass: ISQ::MassValue;
+                    out thermalEnergy: ISQ::EnergyValue;
+                }
+            }
+            
+            part def Crankshaft {
+                attribute angularVelocity: Real;
+                attribute outputTorque: ISQ::TorqueValue;
+                
+                perform action convertReciprocatingToRotary {
+                    in pistonForce: ISQ::ForceValue;
+                    out rotationalPower: ISQ::PowerValue;
+                }
+            }
+            
+            part def Piston {
+                attribute diameter: ISQ::LengthValue;
+                attribute stroke: ISQ::LengthValue;
+                attribute compressionRatio: Real;
+                
+                perform action compressAndExpand {
+                    in combustionPressure: ISQ::PressureValue;
+                    out linearForce: ISQ::ForceValue;
+                }
+            }
+            
+            part def FuelInjectionSystem {
+                attribute fuelFlowRate: Real;
+                attribute injectionPressure: ISQ::PressureValue;
+                attribute injectionTiming: Real;
+                
+                perform action injectFuel {
+                    in throttlePosition: Real;
+                    out fuelMass: ISQ::MassValue;
+                }
+            }
+            
+            part def PowerPlant {
+                attribute maxHorsepower: ISQ::PowerValue;
+                attribute numberOfPistons: Integer;
+                attribute currentPowerOutput: ISQ::PowerValue;
+                attribute currentTorque: ISQ::TorqueValue;
+                attribute engineSpeed: Real;
+                attribute throttlePosition: Real;
+                
+                port throttlePort: ThrottleCommandPort;
+                port monitorPort: PowerMonitorPort;
+                port outputPort: MechanicalOutputPort;
+                
+                part combustionChambers: CombustionChamber[8];
+                part crankshaft: Crankshaft[1];
+                part pistons: Piston[8];
+                part fuelInjection: FuelInjectionSystem[1];
+                
+                perform action generatePower {
+                    action receiveThrottle accept ThrottleCommand via throttlePort;
+                    then action injectFuelStep :> fuelInjection.injectFuel;
+                    then action combustStep :> combustionChambers[1].combustFuel;
+                    then action convertStep :> crankshaft.convertReciprocatingToRotary;
+                }
+                
+                perform action monitorOutput {
+                    action measurePower;
+                    then action sendMeasurement send new PowerMeasurement() via monitorPort;
+                }
+                
+                perform action deliverMechanicalPower {
+                    action assemblePower;
+                    then action transmitPower send new MechanicalPower() via outputPort;
+                }
+                
+                perform action operatingBehavior {
+                    action step1 :> generatePower;
+                    then action step2 :> monitorOutput;
+                    then action step3 :> deliverMechanicalPower;
+                }
+                
+                exhibit state engineStates {
+                    entry action initializeEngine;
+                    
+                    state shutdown {
+                        entry action stopFuelFlow;
+                    }
+                    
+                    state starting {
+                        entry action engageStarter;
+                        do action primeFuelSystem;
+                    }
+                    
+                    state idle {
+                        entry action setIdleThrottle;
+                        do generatePower;
+                    }
+                    
+                    state operating {
+                        entry action enableFullThrottle;
+                        do operatingBehavior;
+                        
+                        state low;
+                        state medium;
+                        state high;
+                        
+                        transition low_to_medium
+                            first low
+                            if currentPowerOutput >= 149140[W]
+                            then medium;
+                        
+                        transition medium_to_high
+                            first medium
+                            if currentPowerOutput >= 298280[W]
+                            then high;
+                        
+                        transition high_to_medium
+                            first high
+                            if currentPowerOutput < 298280[W]
+                            then medium;
+                        
+                        transition medium_to_low
+                            first medium
+                            if currentPowerOutput < 149140[W]
+                            then low;
+                    }
+                    
+                    transition then shutdown;
+                    
+                    transition shutdown_to_starting
+                        first shutdown
+                        if throttlePosition > 0
+                        then starting;
+                    
+                    transition starting_to_idle
+                        first starting
+                        if engineSpeed >= 500
+                        then idle;
+                    
+                    transition idle_to_operating
+                        first idle
+                        if currentPowerOutput >= 37285[W]
+                        then operating.low;
+                    
+                    transition operating_to_idle
+                        first operating
+                        if currentPowerOutput < 37285[W]
+                        then idle;
+                    
+                    transition idle_to_shutdown
+                        first idle
+                        if throttlePosition == 0
+                        then shutdown;
+                }
+            }
+            
+            part def PowerController {
+                attribute targetPower: ISQ::PowerValue;
+                attribute actualPower: ISQ::PowerValue;
+                attribute powerError: ISQ::PowerValue;
+                attribute controlGain: Real;
+                attribute computedThrottle: Real;
+                
+                port targetPort: PowerTargetPort;
+                port monitorPort: PowerMonitorPort;
+                port commandPort: ThrottleCommandPort;
+                
+                perform action controlPower {
+                    action receiveTarget accept PowerTarget via targetPort;
+                    then action monitorActual accept PowerMeasurement via monitorPort;
+                    then action calculateError;
+                    then action calculateThrottle;
+                    then action sendThrottleCommand send new ThrottleCommand() via commandPort;
+                }
+                
+                exhibit state controllerStates {
+                    state monitoring {
+                        do controlPower;
+                    }
+                }
+            }
+            
+            part def LoadDevice {
+                attribute receivedPower: ISQ::PowerValue;
+                attribute transferEfficiency: Real;
+                attribute effectivePower: ISQ::PowerValue;
+                
+                port inputPort: MechanicalInputPort;
+                
+                perform action acceptPower {
+                    action receiveMechanicalPower accept MechanicalPower via inputPort;
+                    then action calculateEffectivePower;
+                }
+                
+                exhibit state loadStates {
+                    state receiving {
+                        do acceptPower;
+                    }
+                }
+            }
+            
+            part def PowerGenerationSystemAssembly {
+                attribute systemEfficiency: Real;
+                attribute targetOutputPower: ISQ::PowerValue;
+                
+                part engine: PowerPlant {
+                    attribute :>> maxHorsepower = 372850[W];
+                    attribute :>> numberOfPistons = 8;
+                }
+                
+                part controller: PowerController {
+                    attribute :>> controlGain = 0.8;
+                }
+                
+                part load: LoadDevice {
+                    attribute :>> transferEfficiency = 0.92;
+                }
+                
+                connection controlToEngine 
+                    connect controller.commandPort to engine.throttlePort;
+                
+                connection engineToController
+                    connect engine.monitorPort to controller.monitorPort;
+                
+                connection engineToLoad
+                    connect engine.outputPort to load.inputPort;
+            }
+        }
+        
+        package RequirementDefinitions {
+            private import ISQ::*;
+            
+            requirement def PowerOutputRequirement {
+                attribute requiredPower: ISQ::PowerValue;
+            }
+            
+            requirement def PistonCountRequirement {
+                attribute requiredPistons: Integer;
+            }
+            
+            requirement def TransferEfficiencyRequirement {
+                attribute minimumEfficiency: Real;
+            }
+        }
+    }
+    
+    part powerSystem: Definitions::PartDefinitions::PowerGenerationSystemAssembly;
+    
+    requirement powerReq: Definitions::RequirementDefinitions::PowerOutputRequirement {
+        attribute :>> requiredPower = 372850[W];
+    }
+    
+    requirement pistonReq: Definitions::RequirementDefinitions::PistonCountRequirement {
+        attribute :>> requiredPistons = 8;
+    }
+    
+    requirement efficiencyReq: Definitions::RequirementDefinitions::TransferEfficiencyRequirement {
+        attribute :>> minimumEfficiency = 0.90;
+    }
 }

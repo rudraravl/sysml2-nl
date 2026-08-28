@@ -1,0 +1,13 @@
+This model represents a complete SQUID (Superconducting Quantum Interference Device) magnetometer system, an instrument designed for detecting and measuring extremely weak magnetic fields with unparalleled sensitivity. Its operation is based on the principles of quantum interference and superconductivity, allowing it to measure fields thousands of times weaker than the Earth's magnetic field.
+
+The core of the system is the SQUID sensor itself, which consists of a tiny `SuperconductingLoop` interrupted by two `JosephsonJunctions`. These junctions are extremely thin insulating barriers between superconductors that allow quantum tunneling of electron pairs. When a magnetic field passes through the loop, it induces a screening current that, in turn, affects the quantum tunneling across the junctions. This interaction creates a voltage that oscillates with extreme sensitivity to the magnetic flux in the loop, effectively converting a magnetic measurement into an electrical one.
+
+To function, the entire SQUID sensor must be kept at extremely low temperatures (around 4.2 Kelvin, the temperature of liquid helium). This is achieved by a `CryogenicSystem` (or cryostat) that cools the components and maintains a stable operating temperature, as superconductivity is a cryogenic phenomenon.
+
+Because the sensor is so sensitive, it can be easily overwhelmed by stray magnetic fields from the environment. To isolate it, the system is housed within a `MagneticShield`, typically made of multiple layers of high-permeability metal, which attenuates external magnetic noise.
+
+To measure an external magnetic field, a `FluxTransformer` is used. This component acts like an antenna, using a large superconducting "pickup coil" to gather the magnetic field from a sample and efficiently channel the resulting magnetic flux into the much smaller SQUID loop.
+
+The system's operation is managed by several electronic components. A `BiasCurrentSource` provides a very stable and precise electrical current to the Josephson junctions, which is necessary to put them in their most sensitive operating state. The raw, weak voltage signal produced by the SQUID is then sent to the `ReadoutElectronics`. This unit amplifies the signal, filters out unwanted noise, and digitizes it into final, usable magnetic field data.
+
+The system operates through a distinct sequence of states. It starts in an `Idle` state, then enters `Cooldown` as the cryogenic system brings it to operating temperature. After `Stabilizing`, it goes through a `Biasing` phase where the electronics are tuned. Only then does it enter the `Measuring` state to perform its primary function. If an issue occurs, it can enter a `Fault` state.

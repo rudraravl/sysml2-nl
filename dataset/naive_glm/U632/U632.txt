@@ -1,0 +1,9 @@
+This model describes a Ceilometer, a ground-based instrument used in meteorology and aviation to measure the height of a cloud's base and vertical visibility. It operates on a LIDAR (Light Detection and Ranging) principle, essentially acting as a laser-based rangefinder for the sky.
+
+The system is composed of three main hardware components working in sequence. A **Laser Transmitter** generates and emits short, powerful pulses of laser light vertically into the atmosphere. This light travels upward until it encounters particles like water droplets or ice crystals in a cloud, which scatter the light in all directions.
+
+An **Optical Receiver**, which is a highly sensitive light detector, is positioned to capture the small fraction of laser light that is scattered directly back towards the ground.
+
+Finally, a **Signal Processor** analyzes the returning signal. By precisely measuring the time it takes for the laser pulse to travel from the transmitter, up to the cloud, and back to the receiver (the "time of flight"), the processor can accurately calculate the cloud base height. It then outputs this data as a formal cloud measurement, which includes the height, a timestamp, and a confidence level.
+
+The Ceilometer operates through several states. It can be in a **standby** mode, waiting for a command to begin. When activated, it enters a **warmup** phase before transitioning to an **active** state where it continuously performs measurements. If an issue is detected, it enters a **fault** state to run diagnostics. The system is designed to provide cloud height measurements up to an altitude of 7,500 meters with an accuracy of ±10 meters and to update this information at least every 15 seconds.

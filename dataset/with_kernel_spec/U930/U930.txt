@@ -1,0 +1,12 @@
+This is an Ultra-Wideband (UWB) Real-Time Location System designed for high-precision, three-dimensional tracking of mobile objects. Its primary purpose is to determine the exact physical location of assets, personnel, or equipment in real-time within a defined area, achieving centimeter-level accuracy.
+
+The system is composed of several key physical components:
+*   **Mobile Tags:** These are small, powered electronic devices that are attached to the objects being tracked. Each tag contains a UWB radio transmitter and receiver.
+*   **Fixed Anchors:** This is a set of stationary UWB devices, typically four or more, that are installed at known, pre-calibrated positions throughout the environment (e.g., on walls or ceilings). They act as a fixed reference grid.
+*   **Positioning Engine:** This is a central processing unit that receives data from the anchors and performs the final location calculations.
+
+The system works by precisely measuring the travel time of radio signals between the tags and the anchors. In a typical operation, a tag sends out a very short, wide-spectrum radio pulse. Multiple anchors receive this pulse, and by timing its arrival with extreme precision, the system calculates the "time-of-flight." This time is then converted into a highly accurate distance measurement between the tag and each anchor.
+
+To pinpoint the tag's location, the Positioning Engine collects these distance measurements from at least three different anchors. It then uses a mathematical process called trilateration, combining the known locations of the anchors with the newly measured distances, to calculate the tag's exact 3D coordinates (x, y, z). This entire cycle of ranging and calculation happens continuously to provide a real-time stream of position updates.
+
+The system has several operational states, including an idle state, a calibration mode for initial setup, and active modes for either performing individual distance measurements or continuously calculating a tag's full 3D position.

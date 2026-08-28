@@ -1,364 +1,437 @@
-package SmartMeterSystem {
+package 'Smart Electrical Metering System' {
     private import ScalarValues::*;
-    private import ISQ::*;
     
-    attribute def MeterID;
-    attribute def TamperStatus;
-    attribute def TransmissionStatus;
-    attribute def TamperEvent;
-    attribute def TamperCleared;
-    attribute def CommFailure;
-    attribute def CommRestored;
-    attribute def Shutdown;
+    attribute def Voltage;
+    attribute def Current;
+    attribute def Power;
+    attribute def Energy;
+    attribute def TariffRate;
+    attribute def Cost;
+    attribute def PowerThreshold;
+    attribute def TimeStamp;
     
-    item def UsageRecord {
-        attribute timestamp : ISQ::TimeValue;
-        attribute energyConsumed : ISQ::EnergyValue;
-        attribute averagePower : ISQ::PowerValue;
-        attribute peakPower : ISQ::PowerValue;
+    item def ElectricalFlow {
+        attribute voltage : Voltage;
+        attribute current : Current;
     }
     
-    port def ElectricalServicePort {
-        in voltage : ISQ::ElectricPotentialValue;
-        in current : ISQ::ElectricCurrentValue;
+    item def MeasurementData {
+        attribute timestamp : TimeStamp;
+        attribute measuredVoltage : Voltage;
+        attribute measuredCurrent : Current;
+        attribute instantaneousPower : Power;
+        attribute cumulativeEnergy : Energy;
     }
     
-    port def CommunicationPort {
-        out usageData : UsageRecord;
-        out tamperAlert : TamperStatus;
-        in priceSignal : Real;
+    item def ProcessedUsageData {
+        attribute timestamp : TimeStamp;
+        attribute averagePower : Power;
+        attribute peakPower : Power;
+        attribute totalEnergy : Energy;
+        attribute anomalyDetected : Boolean;
     }
     
-    part def VoltageSensor {
-        port serviceIn : ElectricalServicePort;
-        attribute reading : ISQ::ElectricPotentialValue;
+    item def TariffUpdate {
+        attribute effectiveTime : TimeStamp;
+        attribute rate : TariffRate;
     }
     
-    part def CurrentSensor {
-        port serviceIn : ElectricalServicePort;
-        attribute reading : ISQ::ElectricCurrentValue;
+    item def BillingData {
+        attribute timestamp : TimeStamp;
+        attribute energyConsumed : Energy;
+        attribute appliedRate : TariffRate;
+        attribute runningCost : Cost;
     }
     
-    part def DataProcessor {
-        attribute instantaneousPower : ISQ::PowerValue;
-        attribute cumulativeEnergy : ISQ::EnergyValue;
-        attribute peakPower : ISQ::PowerValue;
+    item def PowerAlert {
+        attribute timestamp : TimeStamp;
+        attribute observedPower : Power;
+        attribute threshold : PowerThreshold;
+        attribute severity : String;
     }
     
-    part def CommunicationModule {
-        port network : CommunicationPort;
-        attribute status : TransmissionStatus;
+    item def RelayCommand {
+        attribute timestamp : TimeStamp;
+        attribute disconnect : Boolean;
     }
     
-    part def DataStorage {
-        part records : UsageRecord[*];
-        attribute capacity : Integer;
+    item def UsageReport {
+        attribute timestamp : TimeStamp;
+        item processedData : ProcessedUsageData;
+        item billingData : BillingData;
     }
     
-    part def DisplayUnit {
-        attribute displayPower : ISQ::PowerValue;
-        attribute displayEnergy : ISQ::EnergyValue;
+    port def GridSupplyPort {
+        out item suppliedPower : ElectricalFlow;
     }
     
-    part def TamperDetector {
-        attribute status : TamperStatus;
+    port def GridInputPort {
+        in item incomingPower : ElectricalFlow;
     }
     
-    action def MeasureVoltage {
-        out voltage : ISQ::ElectricPotentialValue;
+    port def LoadSupplyPort {
+        out item deliveredPower : ElectricalFlow;
     }
     
-    action def MeasureCurrent {
-        out current : ISQ::ElectricCurrentValue;
+    port def LoadInputPort {
+        in item deliveredPower : ElectricalFlow;
     }
     
-    action def CalculatePower {
-        in voltage : ISQ::ElectricPotentialValue;
-        in current : ISQ::ElectricCurrentValue;
-        out power : ISQ::PowerValue;
+    port def MeasurementPort {
+        out item measurement : MeasurementData;
     }
     
-    action def AccumulateEnergy {
-        in power : ISQ::PowerValue;
-        in deltaTime : ISQ::TimeValue;
-        in previousEnergy : ISQ::EnergyValue;
-        out totalEnergy : ISQ::EnergyValue;
+    port def ProcessorInputPort {
+        in item rawMeasurement : MeasurementData;
     }
     
-    action def UpdatePeakPower {
-        in currentPower : ISQ::PowerValue;
-        in previousPeak : ISQ::PowerValue;
-        out newPeak : ISQ::PowerValue;
+    port def ProcessorOutputPort {
+        out item processedUsage : ProcessedUsageData;
     }
     
-    action def CreateRecord {
-        in energy : ISQ::EnergyValue;
-        in power : ISQ::PowerValue;
-        in peak : ISQ::PowerValue;
-        out record : UsageRecord;
+    port def MonitorPort {
+        in item measurement : MeasurementData;
     }
     
-    action def StoreRecord {
-        in record : UsageRecord;
-        out stored : Boolean;
+    port def AlertPort {
+        out item alert : PowerAlert;
     }
     
-    action def TransmitData {
-        in record : UsageRecord;
-        out success : Boolean;
+    port def BillingInputPort {
+        in item measurement : MeasurementData;
+        in item tariff : TariffUpdate;
     }
     
-    action def UpdateDisplay {
-        in power : ISQ::PowerValue;
-        in energy : ISQ::EnergyValue;
+    port def BillingOutputPort {
+        out item billing : BillingData;
     }
     
-    action def DetectTamper {
-        in voltage : ISQ::ElectricPotentialValue;
-        in current : ISQ::ElectricCurrentValue;
-        out detected : Boolean;
+    port def CommunicationInPort {
+        in item usage : ProcessedUsageData;
+        in item billing : BillingData;
+        in item alert : PowerAlert;
     }
     
-    action def MonitorAndReport {
-        in samplingInterval : ISQ::TimeValue;
-        in reportingInterval : ISQ::TimeValue;
-        
-        private attribute cumulativeEnergy : ISQ::EnergyValue;
-        private attribute peakPower : ISQ::PowerValue;
-        private attribute sampleCount : Integer := 0;
-        private attribute samplesPerReport : Integer;
-        
-        first start;
-        then merge continueMonitoring;
-        
-        then action measureV : MeasureVoltage {
-            out voltage : ISQ::ElectricPotentialValue;
-        }
-        
-        then action measureC : MeasureCurrent {
-            out current : ISQ::ElectricCurrentValue;
-        }
-        
-        then action calculateP : CalculatePower {
-            in voltage = measureV.voltage;
-            in current = measureC.current;
-            out power : ISQ::PowerValue;
-        }
-        
-        then action accumulateE : AccumulateEnergy {
-            in power = calculateP.power;
-            in deltaTime = samplingInterval;
-            in previousEnergy = cumulativeEnergy;
-            out totalEnergy : ISQ::EnergyValue;
-        }
-        
-        then assign cumulativeEnergy := accumulateE.totalEnergy;
-        
-        then action updatePeak : UpdatePeakPower {
-            in currentPower = calculateP.power;
-            in previousPeak = peakPower;
-            out newPeak : ISQ::PowerValue;
-        }
-        
-        then assign peakPower := updatePeak.newPeak;
-        
-        then action tamperCheck : DetectTamper {
-            in voltage = measureV.voltage;
-            in current = measureC.current;
-            out detected : Boolean;
-        }
-        
-        then action updateDisp : UpdateDisplay {
-            in power = calculateP.power;
-            in energy = cumulativeEnergy;
-        }
-        
-        then assign sampleCount := sampleCount + 1;
-        
-        then decide;
-            if sampleCount >= samplesPerReport then reportUsage;
-            if sampleCount < samplesPerReport then continueMonitoring;
-        
-        action reportUsage {
-            action createRec : CreateRecord {
-                in energy = cumulativeEnergy;
-                in power = calculateP.power;
-                in peak = peakPower;
-                out record : UsageRecord;
-            }
-            
-            then action storeRec : StoreRecord {
-                in record = createRec.record;
-                out stored : Boolean;
-            }
-            
-            then action transmit : TransmitData {
-                in record = createRec.record;
-                out success : Boolean;
-            }
-            
-            then assign sampleCount := 0;
-            then continueMonitoring;
-        }
+    port def CommunicationBidirectionalPort {
+        out item usageReport : UsageReport;
+        in item tariffUpdate : TariffUpdate;
+        in item relayCommand : RelayCommand;
     }
     
-    state def MeterOperatingStates {
-        entry; then initializing;
-        
-        state initializing;
-        then operational;
-        
-        state operational {
-            entry;
-            
-            state normalOperation {
-                do action MonitorAndReport;
-            }
-            
-            state tamperDetected {
-                entry action DetectTamper;
-            }
-            
-            state communicationFailure;
-            
-            transition first normalOperation
-                accept TamperEvent
-                then tamperDetected;
-            
-            transition first tamperDetected
-                accept TamperCleared
-                then normalOperation;
-            
-            transition first normalOperation
-                accept CommFailure
-                then communicationFailure;
-            
-            transition first communicationFailure
-                accept CommRestored
-                then normalOperation;
-        }
-        
-        transition accept Shutdown
-            then shutdown;
-        
-        state shutdown;
+    port def RelayControlPort {
+        in item command : RelayCommand;
     }
     
-    part def SmartMeter {
-        attribute meterID : MeterID;
-        attribute samplingInterval : ISQ::TimeValue;
-        attribute reportingInterval : ISQ::TimeValue;
-        
-        port servicePort : ElectricalServicePort;
-        port commPort : CommunicationPort;
-        
-        part voltageSensor : VoltageSensor;
-        part currentSensor : CurrentSensor;
-        part dataProcessor : DataProcessor;
-        part communicator : CommunicationModule;
-        part dataStorage : DataStorage;
-        part displayUnit : DisplayUnit;
-        part tamperDetector : TamperDetector;
-        
-        perform action primaryOperation : MonitorAndReport {
-            in samplingInterval = samplingInterval;
-            in reportingInterval = reportingInterval;
-        }
-        
-        exhibit state operatingState : MeterOperatingStates;
-        
-        connection sensorToService 
-            connect voltageSensor.serviceIn to servicePort;
-        
-        connection commConnection 
-            connect communicator.network to commPort;
+    port def UtilityPort {
+        in item usageReport : UsageReport;
+        out item tariffUpdate : TariffUpdate;
+        out item relayCommand : RelayCommand;
     }
     
     part def UtilityGrid {
-        port powerOutput : ElectricalServicePort;
+        port gridServicePort : GridSupplyPort;
     }
     
     part def CustomerPremises {
-        port powerInput : ElectricalServicePort;
+        port premisesLoadPort : LoadInputPort;
     }
     
-    requirement def MeasurementAccuracyRequirement {
-        doc /* Measurement accuracy requirements for smart meter components. */
+    part def UtilityCentralSystem {
+        port utilityInterfacePort : UtilityPort;
+    }
+    
+    part def MeteringModule {
+        attribute samplingInterval : Real;
+        port meteringPort : MeasurementPort;
+    }
+    
+    part def DataProcessor {
+        port inputPort : ProcessorInputPort;
+        port outputPort : ProcessorOutputPort;
+    }
+    
+    part def AlertManager {
+        attribute safetyThreshold : PowerThreshold;
+        port monitorPort : MonitorPort;
+        port alertPort : AlertPort;
+    }
+    
+    part def BillingCalculator {
+        attribute currentCost : Cost;
+        port inputPort : BillingInputPort;
+        port outputPort : BillingOutputPort;
+    }
+    
+    part def CommunicationModule {
+        port internalPort : CommunicationInPort;
+        port externalPort : CommunicationBidirectionalPort;
+    }
+    
+    state def RelayControlStates {
+        entry; then connected;
         
+        state connected {
+            entry action enablePowerFlow;
+        }
+        
+        transition disconnectTransition
+            first connected
+            accept cmd : RelayCommand
+            then disconnected;
+        
+        state disconnected {
+            entry action cutPowerFlow;
+        }
+        
+        transition reconnectTransition
+            first disconnected
+            accept cmd : RelayCommand
+            then connected;
+    }
+    
+    part def Relay {
+        attribute connected : Boolean;
+        port gridSidePort : GridInputPort;
+        port premisesSidePort : LoadSupplyPort;
+        port controlPort : RelayControlPort;
+        
+        exhibit relayState : RelayControlStates;
+    }
+    
+    action def MeasureElectricity {
+        in electricalFlow : ElectricalFlow;
+        out measurement : MeasurementData;
+        
+        action sampleVoltage {
+            out voltage : Voltage;
+        }
+        then action sampleCurrent {
+            out current : Current;
+        }
+        then action calculatePower {
+            in voltage : Voltage;
+            in current : Current;
+            out power : Power;
+        }
+        then action accumulateEnergy {
+            in power : Power;
+            out energy : Energy;
+        }
+    }
+    
+    action def ProcessUsageData {
+        in rawMeasurement : MeasurementData;
+        out processedUsage : ProcessedUsageData;
+        
+        action analyzePatterns {
+            in measurement : MeasurementData;
+            out patterns : Real;
+        }
+        then action detectAnomalies {
+            in patterns : Real;
+            out anomalies : Boolean;
+        }
+        then action aggregateData {
+            in measurement : MeasurementData;
+            out aggregated : ProcessedUsageData;
+        }
+    }
+    
+    action def MonitorPowerConsumption {
+        in measurement : MeasurementData;
+        in threshold : PowerThreshold;
+        out alert : PowerAlert;
+        
+        loop action continuousMonitoring {
+            if measurement.instantaneousPower > threshold {
+                action generateAlert {
+                    out alert : PowerAlert;
+                }
+            }
+        }
+    }
+    
+    action def CalculateBilling {
+        in measurement : MeasurementData;
+        in tariff : TariffUpdate;
+        out billing : BillingData;
+        
+        action computeCost {
+            in energy : Energy;
+            in rate : TariffRate;
+            out cost : Cost;
+        }
+        then action prepareBillingData {
+            in cost : Cost;
+            out billing : BillingData;
+        }
+    }
+    
+    action def TransmitToUtility {
+        in usage : ProcessedUsageData;
+        in billing : BillingData;
+        in alert : PowerAlert;
+        out report : UsageReport;
+    }
+    
+    action def ReceiveFromUtility {
+        out tariff : TariffUpdate;
+        out command : RelayCommand;
+    }
+    
+    action def ControlRelay {
+        in command : RelayCommand;
+        
+        if command.disconnect {
+            action disconnectPower;
+        }
+        if not command.disconnect {
+            action reconnectPower;
+        }
+    }
+    
+    action def SmartMeterOperation {
+        in threshold : PowerThreshold;
+        
+        loop action operationCycle {
+            action measure : MeasureElectricity;
+            
+            then action processData : ProcessUsageData {
+                in rawMeasurement = measure.measurement;
+            }
+            
+            then action monitorPower : MonitorPowerConsumption {
+                in measurement = measure.measurement;
+                in threshold;
+            }
+            
+            then action receive : ReceiveFromUtility;
+            
+            then action calculateBilling : CalculateBilling {
+                in measurement = measure.measurement;
+                in tariff = receive.tariff;
+            }
+            
+            then action controlRelay : ControlRelay {
+                in command = receive.command;
+            }
+            
+            then action transmit : TransmitToUtility {
+                in usage = processData.processedUsage;
+                in billing = calculateBilling.billing;
+                in alert = monitorPower.alert;
+            }
+        }
+    }
+    
+    part def SmartMeter {
+        attribute meterIdentifier : String;
+        attribute overloadThreshold : PowerThreshold;
+        
+        part meteringModule : MeteringModule;
+        part dataProcessor : DataProcessor;
+        part alertManager : AlertManager;
+        part billingCalculator : BillingCalculator;
+        part communicationModule : CommunicationModule;
+        part relay : Relay;
+        
+        flow measurementToProcessorFlow of MeasurementData
+            from meteringModule.meteringPort.measurement
+            to dataProcessor.inputPort.rawMeasurement;
+        
+        flow measurementToAlertFlow of MeasurementData
+            from meteringModule.meteringPort.measurement
+            to alertManager.monitorPort.measurement;
+        
+        flow measurementToBillingFlow of MeasurementData
+            from meteringModule.meteringPort.measurement
+            to billingCalculator.inputPort.measurement;
+        
+        flow processedUsageFlow of ProcessedUsageData
+            from dataProcessor.outputPort.processedUsage
+            to communicationModule.internalPort.usage;
+        
+        flow alertFlow of PowerAlert
+            from alertManager.alertPort.alert
+            to communicationModule.internalPort.alert;
+        
+        flow billingFlow of BillingData
+            from billingCalculator.outputPort.billing
+            to communicationModule.internalPort.billing;
+        
+        flow tariffFlow of TariffUpdate
+            from communicationModule.externalPort.tariffUpdate
+            to billingCalculator.inputPort.tariff;
+        
+        flow relayCommandFlow of RelayCommand
+            from communicationModule.externalPort.relayCommand
+            to relay.controlPort.command;
+    }
+    
+    part meteringSystem {
+        part utilityGrid : UtilityGrid;
+        part smartMeter : SmartMeter;
+        part customerPremises : CustomerPremises;
+        part utilityCentral : UtilityCentralSystem;
+        
+        flow gridSupplyFlow of ElectricalFlow
+            from utilityGrid.gridServicePort.suppliedPower
+            to smartMeter.relay.gridSidePort.incomingPower;
+        
+        flow premisesSupplyFlow of ElectricalFlow
+            from smartMeter.relay.premisesSidePort.deliveredPower
+            to customerPremises.premisesLoadPort.deliveredPower;
+        
+        interface meterToUtilityInterface connect smartMeter.communicationModule.externalPort to utilityCentral.utilityInterfacePort {
+            flow usageReportUplink of UsageReport
+                from smartMeter.communicationModule.externalPort.usageReport
+                to utilityCentral.utilityInterfacePort.usageReport;
+            
+            flow tariffUpdateDownlink of TariffUpdate
+                from utilityCentral.utilityInterfacePort.tariffUpdate
+                to smartMeter.communicationModule.externalPort.tariffUpdate;
+            
+            flow relayCommandDownlink of RelayCommand
+                from utilityCentral.utilityInterfacePort.relayCommand
+                to smartMeter.communicationModule.externalPort.relayCommand;
+        }
+    }
+    
+    requirement def ContinuousMeasurementRequirement {
+        doc /* The metering module shall continuously measure voltage and current 
+             to calculate instantaneous power and cumulative energy consumption. */
         subject meter : SmartMeter;
-        
-        require constraint voltageAccuracy {
-            doc /* Voltage measurements shall have accuracy within ±0.5 percent. */
-        }
-        
-        require constraint currentAccuracy {
-            doc /* Current measurements shall have accuracy within ±1.0 percent. */
-        }
-        
-        require constraint energyAccuracy {
-            doc /* Energy measurements shall have accuracy within ±2.0 percent. */
-        }
+        require constraint { meter.meteringModule.samplingInterval <= 1.0 }
     }
     
-    requirement def CommunicationRequirement {
-        doc /* Data transmission and reporting requirements. */
-        
+    requirement def UsageDataProcessingRequirement {
+        doc /* The data processor shall analyze raw measurement data to identify
+             usage patterns and detect potential anomalies. */
         subject meter : SmartMeter;
-        
-        require constraint reportingFrequency {
-            doc /* Meter shall transmit usage data at intervals not exceeding one hour. */
-        }
-        
-        require constraint transmissionReliability {
-            doc /* Communication success rate shall exceed 99 percent. */
-        }
-        
-        require constraint dataRetention {
-            doc /* Meter shall store at least 90 days of usage records locally. */
-        }
     }
     
-    requirement def SecurityRequirement {
-        doc /* Security and tamper detection requirements. */
-        
+    requirement def BillingCalculationRequirement {
+        doc /* The billing calculator shall use measured energy consumption and
+             current tariff rates to calculate running electricity cost. */
         subject meter : SmartMeter;
-        
-        require constraint tamperDetection {
-            doc /* System shall detect physical tampering within 5 seconds. */
-        }
-        
-        require constraint dataEncryption {
-            doc /* All transmitted data shall use encryption. */
-        }
-        
-        require constraint accessControl {
-            doc /* Remote access shall require authenticated authorization. */
-        }
+        require constraint { meter.billingCalculator.currentCost >= 0.0 }
     }
     
-    requirement def PrimaryFunctionRequirement {
-        doc /* 
-            The primary function of the smart meter system is to continuously monitor 
-            electrical energy consumption at the customer service point by measuring 
-            voltage and current, calculating instantaneous power and cumulative energy, 
-            and transmitting usage records to the utility company at regular intervals 
-            for billing and grid management purposes.
-        */
-        
+    requirement def AlertGenerationRequirement {
+        doc /* The alert manager shall monitor power consumption and generate
+             alerts when consumption exceeds the safety threshold. */
         subject meter : SmartMeter;
-        
-        requirement measurementAccuracyReq : MeasurementAccuracyRequirement;
-        requirement communicationReq : CommunicationRequirement;
-        requirement securityReq : SecurityRequirement;
     }
     
-    part deployedMeter : SmartMeter {
-        :>> meterID = "SM-2026-001";
+    requirement def UtilityCommunicationRequirement {
+        doc /* The communication module shall transmit usage information to the
+             utility and receive tariff updates and relay commands. */
+        subject meter : SmartMeter;
     }
     
-    part grid : UtilityGrid;
-    part premises : CustomerPremises;
-    
-    connection gridToMeter 
-        connect grid.powerOutput to deployedMeter.servicePort;
+    requirement def RemoteControlRequirement {
+        doc /* The relay shall support remote disconnect and reconnect of power
+             supply based on commands from the utility. */
+        subject meter : SmartMeter;
+    }
 }

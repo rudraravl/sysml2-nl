@@ -1,0 +1,9 @@
+This model describes a complete Tactile Sensing Unit, a system designed to measure and record physical contact information like pressure, force, and temperature. It is likely intended for use in applications such as robotics, prosthetics, or advanced industrial machinery where a sense of "touch" is required.
+
+The core of the unit is a high-performance **Tactile Sensor** that uses a piezoelectric element as its primary transducer. When an external force is applied, this element generates a small electrical signal. This raw analog signal is immediately strengthened by an internal **Signal Amplifier** and then converted into a digital format by an **Analog-to-Digital Converter (ADC)**.
+
+The raw digital signal from the sensor is then passed to a dedicated **Signal Processor**. This component is responsible for applying calibration factors and filtering to transform the raw sensor readings into meaningful, real-world data, including calculated values for pressure, force, contact area, and temperature, all time-stamped for accurate logging.
+
+Finally, the processed information is sent to two destinations. It is made available to an external system via an output port, and it is also fed to an onboard **Data Logger** which stores the measurement history.
+
+The system operates through a clear set of states. It begins in an `idle` mode, can be put through a `calibrating` cycle, and then enters a `ready` state. When triggered, it performs a measurement by cycling through `acquiring`, `processing`, and `outputting` data before returning to the `ready` state for the next measurement. The system also includes an `error` state to handle malfunctions. Overall, this is a self-contained, high-reliability unit designed for precise and rapid tactile measurements.

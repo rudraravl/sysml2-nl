@@ -1,0 +1,9 @@
+This model describes a high-precision digital light sensing unit, designed to accurately measure the intensity of ambient light (illuminance) and provide a calibrated digital output.
+
+The unit is composed of several integrated electronic components that work in a sequence to process a light signal. At its core, a photodiode acts as the primary light detector, converting incoming light into a very small electrical current. This weak current is then passed to a transimpedance amplifier, which boosts the signal and converts it into a more usable voltage.
+
+To ensure a clean and stable reading, this analog voltage signal is then processed by a low-pass filter to remove any unwanted electronic noise. Following the filtering stage, an analog-to-digital converter (ADC) samples the clean voltage and transforms it into a raw digital value.
+
+A central processing unit, or microcontroller, is the brain of the system. It takes this raw digital value from the ADC and performs a series of calculations. Using pre-loaded calibration data stored in its memory, it applies correction factors (like offset and gain) to the raw value, converting it into a precise, standardized illuminance measurement. The processor also validates that the final reading is within an expected range before packaging it into a final data structure that includes the illuminance value, a timestamp, and the sensor's unique ID.
+
+The sensor can be controlled and monitored through a dedicated interface, allowing an external system to enable or reset the unit, upload new calibration data, and check its operational status, which includes its internal temperature. The unit operates through distinct states, including initialization on power-up, an idle state awaiting commands, an active measuring state, and a special calibration mode. It also features an error state to report and handle internal faults.

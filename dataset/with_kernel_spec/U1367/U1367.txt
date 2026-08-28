@@ -1,0 +1,14 @@
+This model describes a real-time instant messaging system based on the Extensible Messaging and Presence Protocol (XMPP), also known as Jabber. The system uses a centralized client-server architecture to allow users to exchange messages and share their online status.
+
+The core of the system is a central **XMPP Server** that acts as the main hub for all communication. This server is responsible for managing user connections, routing messages between clients, and handling user presence information. It includes several key components:
+*   A **Connection Manager** accepts or rejects incoming connection requests from clients based on its maximum capacity.
+*   A powerful **Routing Engine** inspects every message to determine the recipient and forwards it accordingly, whether to another user on the same server or to a user on a federated, remote server.
+*   An **Offline Storage** module saves messages for users who are not logged in, delivering them as soon as the user reconnects.
+*   A **Presence Aggregator** collects status updates (like 'available', 'away', or 'do not disturb') from all connected users and distributes this information to their contacts in real-time.
+
+On the other end are the **XMPP Clients**, which represent the user-facing chat applications running on devices like desktops, laptops, or mobile phones. Each client establishes and maintains a persistent connection with the server through a defined lifecycle, which includes states for connecting, authenticating, and becoming active. A client contains distinct modules for:
+*   Processing and validating incoming chat messages.
+*   Managing the user's own presence status and broadcasting updates to the network.
+*   Maintaining the user's contact list, known as a 'roster'.
+
+All communication within the network, whether it's a chat message, a status update, or a request for information, is encapsulated in structured data packets called "XML Stanzas." The entire system is designed to be a scalable and reliable messaging network capable of supporting thousands of concurrent users while ensuring low-latency, real-time message delivery.

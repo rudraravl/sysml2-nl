@@ -92,7 +92,7 @@ class BatchGenerationIntegrationTests(unittest.TestCase):
         self.assertNotIn("quality_report", record)
         gate.assert_not_called()
 
-    def test_cli_backend_keeps_same_experts_and_routes_by_provider(self):
+    def test_default_backend_routes_every_expert_through_openrouter(self):
         cli_calls = []
         openrouter_calls = []
         gemini_calls = []
@@ -103,24 +103,25 @@ class BatchGenerationIntegrationTests(unittest.TestCase):
 
         def fake_openrouter(model, system_msg, human_msg, key):
             openrouter_calls.append(model)
-            return "part def FromOpenRouter_llama;"
+            return f"part def FromOpenRouter_{model.split('/')[-1].replace('.', '_')};"
 
         def fake_gemini(system_msg, human_msg):
             gemini_calls.append("gemini")
             return "part def FromGeminiAPI;"
 
         expected_experts = [
-            "openai/gpt-5.5",
-            "anthropic/claude-sonnet-4.5",
-            "openai/gpt-5.4",
+            "qwen/qwen3.6-plus",
+            "z-ai/glm-5.2",
+            "deepseek/deepseek-v4-pro",
             "meta-llama/llama-4-maverick",
         ]
 
-        with patch.dict(os.environ, {
-                "LLM_BACKEND": "cli",
-                "SPEC_ALIGNMENT_ENABLED": "false",
-                "KERNEL_FEEDBACK_ENABLED": "false",
-            }, clear=False), \
+        # No LLM_BACKEND set: the default (api) must be used.
+        env = {
+            "SPEC_ALIGNMENT_ENABLED": "false",
+            "KERNEL_FEEDBACK_ENABLED": "false",
+        }
+        with patch.dict(os.environ, env, clear=False), \
                 patch.object(agent_rag_moe, "_load_env",
                              return_value=(None, "openrouter-key")), \
                 patch.object(agent_rag_moe, "_rag_context", return_value=""), \
@@ -131,40 +132,36 @@ class BatchGenerationIntegrationTests(unittest.TestCase):
                              side_effect=fake_gemini), \
                 patch.object(agent_rag_moe, "is_compiler_available",
                              return_value=False):
-            final, record = agent_rag_moe.generate_sysml_moe("A CLI-backed system.")
+            os.environ.pop("LLM_BACKEND", None)
+            final, record = agent_rag_moe.generate_sysml_moe("An OpenRouter-backed system.")
 
-        self.assertTrue(final.startswith("part def FromCLI_"))
-        self.assertEqual(record["llm_backend"], "cli")
+        self.assertTrue(final.startswith("part def FromOpenRouter_"))
+        self.assertEqual(record["llm_backend"], "api")
         self.assertEqual(record["expert_models"], expected_experts)
-        self.assertEqual(record["combiner_model"], "anthropic/claude-sonnet-4.5")
+        self.assertEqual(record["combiner_model"], "z-ai/glm-5.2")
         self.assertEqual(
-            cli_calls,
-            [
-                "openai/gpt-5.5",
-                "anthropic/claude-sonnet-4.5",
-                "openai/gpt-5.4",
-                "anthropic/claude-sonnet-4.5",  # combiner
-            ],
+            # Experts run concurrently, so their call order is not deterministic;
+            # only the combiner's position (last) is guaranteed.
+            sorted(openrouter_calls[:-1]),
+            sorted(expected_experts),
         )
-        self.assertEqual(openrouter_calls, ["meta-llama/llama-4-maverick"])
+        self.assertEqual(openrouter_calls[-1], "z-ai/glm-5.2")  # combiner
+        self.assertEqual(cli_calls, [])
         self.assertEqual(gemini_calls, [])
         self.assertEqual(record.get("expert_soft_fail_count"), 0)
 
-    def test_expert_soft_fail_continues_with_remaining_experts(self):
-        claude_calls = {"n": 0}
+    def test_cli_backend_falls_back_to_openrouter_for_non_cli_models(self):
+        """No model in the default set has a CLI route, so cli == api today."""
+        cli_calls = []
+        openrouter_calls = []
 
         def fake_cli(model, system_msg, human_msg, *, mode="sysml"):
-            if "claude" in model:
-                claude_calls["n"] += 1
-                # Soft-fail the Claude expert only; combiner (2nd call) succeeds.
-                if claude_calls["n"] == 1:
-                    raise RuntimeError(
-                        "claude CLI failed rc=1: appears to violate our Usage Policy"
-                    )
-            return f"part def FromCLI_{model.split('/')[-1].replace('.', '_')};"
+            cli_calls.append(model)
+            return "part def FromCLI;"
 
         def fake_openrouter(model, system_msg, human_msg, key):
-            return "part def FromOpenRouter_llama;"
+            openrouter_calls.append(model)
+            return "part def FromOpenRouter;"
 
         with patch.dict(os.environ, {
                 "LLM_BACKEND": "cli",
@@ -179,14 +176,48 @@ class BatchGenerationIntegrationTests(unittest.TestCase):
                              side_effect=fake_openrouter), \
                 patch.object(agent_rag_moe, "is_compiler_available",
                              return_value=False):
+            final, record = agent_rag_moe.generate_sysml_moe("A CLI-backed system.")
+
+        self.assertEqual(record["llm_backend"], "cli")
+        self.assertEqual(cli_calls, [])
+        self.assertEqual(
+            sorted(openrouter_calls[:-1]),
+            sorted(agent_rag_moe.EXPERT_MODELS),
+        )
+        self.assertEqual(openrouter_calls[-1], agent_rag_moe.COMBINER_MODEL)
+        self.assertEqual(final, "part def FromOpenRouter;")
+
+    def test_expert_soft_fail_continues_with_remaining_experts(self):
+        glm_calls = {"n": 0}
+
+        def fake_openrouter(model, system_msg, human_msg, key):
+            if model == "z-ai/glm-5.2":
+                glm_calls["n"] += 1
+                # Soft-fail the GLM expert only; combiner (2nd call) succeeds.
+                if glm_calls["n"] == 1:
+                    raise RuntimeError("OpenRouter error (z-ai/glm-5.2): rate limited")
+            return f"part def From_{model.split('/')[-1].replace('.', '_').replace('-', '_')};"
+
+        with patch.dict(os.environ, {
+                "SPEC_ALIGNMENT_ENABLED": "false",
+                "KERNEL_FEEDBACK_ENABLED": "false",
+            }, clear=False), \
+                patch.object(agent_rag_moe, "_load_env",
+                             return_value=(None, "openrouter-key")), \
+                patch.object(agent_rag_moe, "_rag_context", return_value=""), \
+                patch.object(agent_rag_moe, "_openrouter_invoke",
+                             side_effect=fake_openrouter), \
+                patch.object(agent_rag_moe, "is_compiler_available",
+                             return_value=False):
+            os.environ.pop("LLM_BACKEND", None)
             final, record = agent_rag_moe.generate_sysml_moe("Soft-fail expert test.")
 
-        self.assertTrue(final.startswith("part def FromCLI_"))
+        self.assertTrue(final.startswith("part def From_"))
         self.assertEqual(record["expert_soft_fail_count"], 1)
-        self.assertEqual(record["expert_soft_fails"][0]["model"], "anthropic/claude-sonnet-4.5")
-        self.assertIn("openai/gpt-5.5", record["expert_candidates"])
-        self.assertIn("openai/gpt-5.4", record["expert_candidates"])
-        self.assertNotIn("anthropic/claude-sonnet-4.5", record["expert_candidates"])
+        self.assertEqual(record["expert_soft_fails"][0]["model"], "z-ai/glm-5.2")
+        self.assertIn("qwen/qwen3.6-plus", record["expert_candidates"])
+        self.assertIn("deepseek/deepseek-v4-pro", record["expert_candidates"])
+        self.assertNotIn("z-ai/glm-5.2", record["expert_candidates"])
 
     def test_cli_provider_routing_table(self):
         from spec_aligner.llm import provider_for_model, resolve_cli_model

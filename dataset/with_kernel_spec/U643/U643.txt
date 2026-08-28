@@ -1,0 +1,9 @@
+This model describes a self-contained electronic Current Sensing Unit, a device designed to accurately measure the electrical current flowing through a circuit and report it as a digital value.
+
+The unit is built around a core `CurrentSensor` which is composed of several key electronic components working in sequence. The process begins with a `Shunt Resistor`, a special resistor with a very low, precise resistance value. As the main electrical current being measured passes through this shunt, it creates a very small voltage drop that is directly proportional to the current.
+
+Because this voltage signal is too small to be measured accurately, it is then fed into an `Amplifier`, which boosts the signal to a more usable level. This amplified, analog voltage is then sent to an `Analog-to-Digital Converter` (ADC). The ADC samples this voltage thousands of times per second and converts it into a high-resolution digital number.
+
+A `Microcontroller` acts as the brain of the sensor. It takes the raw digital data from the ADC, performs calculations to convert it into a final current measurement (in Amperes), attaches a timestamp, and validates the reading. This processed measurement is then sent out through a `Data Interface`, which uses a standard communication protocol like SPI to transmit the information to a larger system. The entire unit is powered by its own internal `Power Supply`.
+
+The sensor operates through a clear lifecycle. It starts in an 'offline' state. When powered on, it enters an 'initializing' state to run self-checks. If successful, it becomes 'ready' to take a measurement. When triggered, it enters the 'measuring' state, where it performs the complete cycle of sensing, processing, and validation. If any faults occur, it transitions to an 'error' state for diagnostics.

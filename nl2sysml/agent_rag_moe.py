@@ -4,10 +4,11 @@ LangChain + MoE synthesis
 Pipeline:
 - Build RAG context from dataset examples and spec chunks (local JSONL).
 - Compose System/Human messages (same template as agent_rag).
-- Query multiple experts (EXPERT_MODELS):
-  * openai/gpt-5.5 and openai/gpt-5.4 (Codex CLI under LLM_BACKEND=cli)
-  * anthropic/claude-sonnet-4.5 (Claude Code under LLM_BACKEND=cli)
-  * meta-llama/llama-4-maverick (OpenRouter)
+- Query multiple experts (EXPERT_MODELS), all via OpenRouter:
+  * z-ai/glm-5.2 (structural generation, also the combiner)
+  * deepseek/deepseek-v4-pro (structural generation)
+  * qwen/qwen3.8-max (third distinct family, former Gemini slot)
+  * meta-llama/llama-4-maverick
 - Ask the combiner to synthesize a single best SysML v2 model from candidates.
 - Post-synthesis gates (in order):
   1. Compiler syntax/semantic refine
@@ -18,10 +19,11 @@ Pipeline:
 - Output only SysML v2 code; no markdown fences.
 
 LLM backends:
-- api (default): Claude/GPT/Llama via OpenRouter
-- cli: Claude via Claude Code, GPT via Codex (subscription / ChatGPT sign-in,
-  not API billing); meta-llama/* still via OpenRouter.
-  CLI failures raise immediately.
+- api (default): all experts/combiner via OpenRouter HTTP.
+- cli: models with a local CLI route (anthropic/*, openai/*) use Claude Code /
+  Codex; everything else falls back to OpenRouter. No model in the current
+  expert set has a CLI route, so this is a no-op today. CLI failures raise
+  immediately.
 
 One-shot: pass requirement as CLI arg. Batch: no args → read nl2sysml/dataset.json and write results to nl2sysml/result_rag_moe.
 """
@@ -31,9 +33,13 @@ from __future__ import annotations
 from pathlib import Path
 import os
 import json
+import random
 import re
 import sys
+import threading
+import time
 from typing import Any, List, Tuple, Optional
+from urllib import error as _urlerror
 from urllib import request as _req
 
 from dotenv import load_dotenv
@@ -87,19 +93,27 @@ except ImportError:
         KERNEL_EXECUTION_AVAILABLE = False
 
 
-# Expert models (one per line)
+# Expert models (one per line). All served over OpenRouter.
 EXPERT_MODELS = [
-    "openai/gpt-5.5",  # Codex CLI under --llm-backend cli (was gemini)
-    "anthropic/claude-sonnet-4.5",
-    "openai/gpt-5.4",
+    "qwen/qwen3.6-plus",       # third distinct family (was the gemini slot)
+    "z-ai/glm-5.2",            # was anthropic/claude-sonnet-4.5
+    "deepseek/deepseek-v4-pro",  # was openai/gpt-5.x
     "meta-llama/llama-4-maverick",
 ]
 
-# Combiner model for the final synthesis step
-COMBINER_MODEL = "anthropic/claude-sonnet-4.5"
+# Combiner model for the final synthesis step (strongest structural generator)
+COMBINER_MODEL = "z-ai/glm-5.2"
+
+# Experts are queried concurrently; per-entry wall clock is the slowest expert
+# rather than the sum. Set to 1 to restore sequential querying.
+EXPERT_PARALLELISM = int(os.getenv("EXPERT_PARALLELISM", "4"))
 
 # Heuristic reliability rating per expert family (0–10)
 EXPERT_MODELS_RATING = {
+    "glm": 10,
+    "deepseek": 9,
+    "qwen": 7,
+    "gemma": 5,
     "gemini": 5,
     "gpt": 7,
     "claude": 10,
@@ -184,6 +198,14 @@ def _format_kernel_errors(result: ExecutionResult, harness_start_line: int) -> s
 
 def _model_group(model_name: str) -> str:
     lowered = model_name.lower()
+    if model_name.startswith("z-ai/") or "glm" in lowered:
+        return "glm"
+    if model_name.startswith("deepseek/") or "deepseek" in lowered:
+        return "deepseek"
+    if model_name.startswith("qwen/") or lowered.startswith("qwen"):
+        return "qwen"
+    if "gemma" in lowered:
+        return "gemma"
     if model_name == "gemini-2.5-pro" or lowered.startswith("gemini"):
         return "gemini"
     if model_name.startswith("openai/") or lowered.startswith("gpt"):
@@ -196,9 +218,10 @@ def _model_group(model_name: str) -> str:
 
 
 def _llm_backend() -> str:
-    """Return 'api' or 'cli'. Accepts LLM_BACKEND=cli|codex|codex-cli aliases."""
+    """Return 'api' or 'cli'. Default api (OpenRouter), which every model in the
+    current expert set uses. Accepts LLM_BACKEND=cli|codex|codex-cli aliases."""
     raw = (os.getenv("LLM_BACKEND") or "api").strip().lower()
-    if raw in ("cli", "codex", "codex-cli"):
+    if raw in ("cli", "codex", "codex-cli", "claude", "claude-cli"):
         return "cli"
     return "api"
 
@@ -235,13 +258,14 @@ def _load_env():
     combiner = _active_combiner_model()
 
     if _llm_backend() == "cli":
-        # Claude/GPT(/proxied Gemini) use local CLIs; Llama still needs OpenRouter.
+        # Models with a local CLI route use it; everything else (the current
+        # z-ai / deepseek / qwen / meta-llama set) needs OpenRouter.
         needs_openrouter = any(not _model_uses_cli(m) for m in experts + [combiner])
         if needs_openrouter and not openrouter_key:
             raise RuntimeError(
                 "OPENROUTER_API_KEY missing in environment/.env "
-                "(required for non-CLI experts such as meta-llama/* when "
-                "LLM_BACKEND=cli)"
+                "(required for non-CLI experts such as z-ai/*, deepseek/*, "
+                "qwen/* and meta-llama/* when LLM_BACKEND=cli)"
             )
         return gkey, openrouter_key
 
@@ -392,6 +416,26 @@ PROMPT_HUMAN_TEMPLATE = (
 )
 
 
+_SYSML_KEYWORDS = (
+    "package", "part def", "part ", "attribute", "action", "port",
+    "requirement", "item def", "connection", "state ", "interface",
+)
+
+
+def _is_degenerate(code: str) -> bool:
+    """True for non-answers that are non-blank and so slip past emptiness checks.
+
+    Some OpenRouter models (observed on qwen/qwen3-coder-*) intermittently reply
+    with the literal string "None"/"null" instead of a model. Such a candidate
+    must not reach the combiner as if it were SysML.
+    """
+    stripped = (code or "").strip()
+    if stripped.lower().strip(".\"'` ") in ("none", "null", "n/a", "nil", ""):
+        return True
+    lowered = stripped.lower()
+    return not any(keyword in lowered for keyword in _SYSML_KEYWORDS)
+
+
 def _postprocess(code: str) -> str:
     lines = []
     for ln in code.splitlines():
@@ -434,7 +478,109 @@ def _gemini_invoke(system_msg: str, human_msg: str) -> str:
     return str(text)
 
 
+# --- OpenRouter throttling -------------------------------------------------
+# Batch generation can run several samples at once, and each sample fans out to
+# every expert, so in-flight requests multiply fast. These guards keep a wide
+# batch from tripping OpenRouter rate limits: a global cap on concurrent HTTP
+# calls, optional pacing between calls, and retry-with-backoff on 429/5xx.
+_RETRYABLE_STATUS = {408, 409, 425, 429, 500, 502, 503, 504}
+_throttle_lock = threading.Lock()
+_openrouter_slots: threading.BoundedSemaphore | None = None
+_openrouter_last_call = 0.0
+
+
+def _openrouter_gate() -> threading.BoundedSemaphore:
+    """Lazily built so CLI flags / .env can set the cap before the first call."""
+    global _openrouter_slots
+    with _throttle_lock:
+        if _openrouter_slots is None:
+            cap = max(1, int(os.getenv("OPENROUTER_MAX_CONCURRENCY", "8")))
+            _openrouter_slots = threading.BoundedSemaphore(cap)
+        return _openrouter_slots
+
+
+def _openrouter_pace() -> None:
+    """Space consecutive requests by OPENROUTER_MIN_INTERVAL seconds (0 = off)."""
+    global _openrouter_last_call
+    try:
+        min_interval = float(os.getenv("OPENROUTER_MIN_INTERVAL", "0"))
+    except ValueError:
+        min_interval = 0.0
+    if min_interval <= 0:
+        return
+    while True:
+        with _throttle_lock:
+            wait = _openrouter_last_call + min_interval - time.monotonic()
+            if wait <= 0:
+                _openrouter_last_call = time.monotonic()
+                return
+        time.sleep(wait)
+
+
+def _retry_after_seconds(exc: BaseException, attempt: int) -> float:
+    """Honor Retry-After when present, else exponential backoff with jitter."""
+    header = None
+    headers = getattr(exc, "headers", None)
+    if headers is not None:
+        try:
+            header = headers.get("Retry-After")
+        except Exception:
+            header = None
+    if header:
+        try:
+            return max(1.0, min(120.0, float(str(header).strip())))
+        except ValueError:
+            pass
+    base = min(60.0, 2.0 ** attempt)
+    return base + random.uniform(0, base * 0.5)
+
+
+def _is_retryable_openrouter_error(exc: BaseException) -> bool:
+    if isinstance(exc, _urlerror.HTTPError):
+        return exc.code in _RETRYABLE_STATUS
+    if isinstance(exc, (_urlerror.URLError, TimeoutError, OSError)):
+        # Connection resets / read timeouts are transient under load.
+        return True
+    return False
+
+
 def _openrouter_invoke(model: str, system_msg: str, human_msg: str, key: str) -> str:
+    """Rate-limit-aware OpenRouter call: capped concurrency + retry on 429/5xx."""
+    max_retries = max(0, int(os.getenv("OPENROUTER_MAX_RETRIES", "5")))
+    attempt = 0
+    while True:
+        try:
+            return _openrouter_invoke_once(model, system_msg, human_msg, key)
+        except _RetryableOpenRouterError as exc:
+            if attempt >= max_retries:
+                raise RuntimeError(
+                    f"OpenRouter call failed ({model}) after {attempt + 1} attempts: "
+                    f"{exc.detail}"
+                ) from exc
+            delay = exc.retry_after if exc.retry_after is not None else _retry_after_seconds(
+                exc.cause or exc, attempt
+            )
+            print(
+                f"    ⏳ OpenRouter retry {attempt + 1}/{max_retries} for {model} "
+                f"in {delay:.1f}s ({exc.detail[:120]})",
+                flush=True,
+            )
+            time.sleep(delay)
+            attempt += 1
+
+
+class _RetryableOpenRouterError(Exception):
+    """Transient OpenRouter failure (rate limit / server error / timeout)."""
+
+    def __init__(self, detail: str, cause: BaseException | None = None,
+                 retry_after: float | None = None):
+        super().__init__(detail)
+        self.detail = detail
+        self.cause = cause
+        self.retry_after = retry_after
+
+
+def _openrouter_invoke_once(model: str, system_msg: str, human_msg: str, key: str) -> str:
     # Allowed under LLM_BACKEND=cli for non-CLI experts (e.g. meta-llama/*).
     if not key:
         raise RuntimeError(f"OPENROUTER_API_KEY missing for model {model}")
@@ -461,23 +607,43 @@ def _openrouter_invoke(model: str, system_msg: str, human_msg: str, key: str) ->
     }
     req = _req.Request(url, data=data, headers=headers)
     try:
-        with _req.urlopen(req, timeout=120) as resp:  # Increased timeout to 120s
-            raw = resp.read().decode("utf-8", errors="ignore")
-            obj = json.loads(raw)
+        with _openrouter_gate():
+            _openrouter_pace()
+            with _req.urlopen(req, timeout=120) as resp:  # Increased timeout to 120s
+                raw = resp.read().decode("utf-8", errors="ignore")
+                obj = json.loads(raw)
     except Exception as e:
         detail = str(e)
-        if os.getenv("OPENROUTER_DEBUG"):
+        # Read the error body first: HTTPError bodies carry the provider message,
+        # and OPENROUTER_DEBUG then persists it.
+        body_text = ""
+        try:
+            body = getattr(e, "read", lambda: b"")()
+            body_text = body.decode("utf-8", errors="ignore") if body else ""
+        except Exception:
+            body_text = ""
+        if body_text:
+            detail = body_text
+        if os.getenv("OPENROUTER_DEBUG") and body_text:
             try:
-                body = getattr(e, "read", lambda: b"")()
-                msg = body.decode("utf-8", errors="ignore") if body else str(e)
-                (Path(__file__).parent / "result_rag_moe" / "openrouter_error.log").write_text(msg)
-                detail = msg or detail
+                log_path = Path(__file__).parent / "result_rag_moe" / "openrouter_error.log"
+                log_path.parent.mkdir(parents=True, exist_ok=True)
+                log_path.write_text(body_text)
             except Exception:
                 pass
+        if _is_retryable_openrouter_error(e):
+            raise _RetryableOpenRouterError(
+                f"OpenRouter call failed ({model}): {detail}", cause=e
+            ) from e
         raise RuntimeError(f"OpenRouter call failed ({model}): {detail}") from e
 
     if isinstance(obj, dict) and obj.get("error"):
-        raise RuntimeError(f"OpenRouter error ({model}): {obj['error']}")
+        error = obj["error"]
+        code = error.get("code") if isinstance(error, dict) else None
+        # OpenRouter also reports upstream rate limits as HTTP 200 + error body.
+        if code in _RETRYABLE_STATUS:
+            raise _RetryableOpenRouterError(f"OpenRouter error ({model}): {error}")
+        raise RuntimeError(f"OpenRouter error ({model}): {error}")
     try:
         text = obj["choices"][0]["message"]["content"]
     except Exception as e:
@@ -553,7 +719,7 @@ def _alignment_ask(prompt: str, openrouter_key: str | None) -> str:
     )
     last_error = "empty response"
     for _ in range(3):
-        if _llm_backend() == "cli":
+        if _model_uses_cli(combiner):
             # JSON prefix is applied inside the Codex helper.
             out = _cli_invoke(combiner, system, prompt, mode="json")
         else:
@@ -651,27 +817,36 @@ def _invoke_with_retry(model: str, system_msg: str, human_msg: str, openrouter_k
     """
     Call a model and enforce code-only output via postprocess and a single stricter retry if needed.
 
-    Under LLM_BACKEND=cli: Claude/GPT (and proxied Gemini) go through local CLIs;
-    models without a CLI (e.g. meta-llama/*) stay on OpenRouter.
+    Under LLM_BACKEND=cli: models with a local CLI (anthropic/*, openai/*) go
+    through it; models without one (z-ai/*, deepseek/*, qwen/*, meta-llama/*)
+    stay on OpenRouter.
 
-    Any provider/CLI failure or blank response raises — callers must not continue.
+    Any provider/CLI failure, blank response, or degenerate non-answer (e.g. the
+    literal "None") raises — callers must not continue.
     """
     def _require(out: str, stage: str) -> str:
         if not out or not str(out).strip():
             raise RuntimeError(f"{stage}: empty response from {model}")
+        if _is_degenerate(out):
+            raise RuntimeError(
+                f"{stage}: {model} returned no SysML ({str(out).strip()[:80]!r})"
+            )
         return out
+
+    def _needs_retry(out: str) -> bool:
+        return (not out) or ("```" in out) or _is_degenerate(out)
 
     if _model_uses_cli(model):
         # Propagate CLI failures (missing binary, auth, empty output, etc.).
         out = _postprocess(_cli_invoke(model, system_msg, human_msg, mode="sysml"))
-        if (not out) or ("```" in out):
+        if _needs_retry(out):
             strong = system_msg + " No markdown, no fences, no prose. Output SysML v2 code only."
             out = _postprocess(_cli_invoke(model, strong, human_msg, mode="sysml"))
         return _require(out, "CLI invoke")
 
     if model == "gemini-2.5-pro" or model.lower().startswith("gemini"):
         out = _postprocess(_gemini_invoke(system_msg, human_msg))
-        if (not out) or ("```" in out):
+        if _needs_retry(out):
             strong = _default_system_prompt("No markdown, no fences, no prose. Output SysML v2 code only.")
             out = _postprocess(_gemini_invoke(strong, human_msg))
         return _require(out, "Gemini invoke")
@@ -681,7 +856,7 @@ def _invoke_with_retry(model: str, system_msg: str, human_msg: str, openrouter_k
             f"OPENROUTER_API_KEY missing for model {model}"
         )
     out = _postprocess(_openrouter_invoke(model, system_msg, human_msg, openrouter_key))
-    if (not out) or ("```" in out):
+    if _needs_retry(out):
         strong = system_msg + " No markdown, no fences, no prose. Output SysML v2 code only."
         out = _postprocess(_openrouter_invoke(model, strong, human_msg, openrouter_key))
     return _require(out, "OpenRouter invoke")
@@ -859,7 +1034,10 @@ def generate_sysml_moe(prompt_text: str) -> Tuple[str, dict]:
             else:
                 routing.append(f"{m}->openrouter")
         print(f"  Experts: {', '.join(routing)}", flush=True)
-        print(f"  Combiner: {combiner}->{provider_for_model(combiner)}", flush=True)
+        combiner_route = (
+            provider_for_model(combiner) if _model_uses_cli(combiner) else "openrouter"
+        )
+        print(f"  Combiner: {combiner}->{combiner_route}", flush=True)
 
     # Collect candidates (each receives RAG-context-augmented prompt).
     # Soft-fail individual experts (AUP / empty / transient); keep going.
@@ -871,20 +1049,46 @@ def generate_sysml_moe(prompt_text: str) -> Tuple[str, dict]:
 
     candidates: List[Tuple[str, str]] = []
     expert_soft_fails: List[dict] = []
+    _, ok = _load_env()
+
+    def _query_expert(model: str) -> str:
+        out = _invoke_with_retry(model, sys_msg, human_msg, ok)
+        if not out or not out.strip():
+            raise RuntimeError(f"Expert {model} returned empty SysML")
+        return out
+
+    # Experts are independent, so query them concurrently: per-entry wall clock
+    # becomes the slowest expert instead of the sum of all of them. Results are
+    # re-ordered to EXPERT_MODELS order so the combiner prompt stays stable.
+    print(f"  Querying {len(experts)} experts in parallel...", flush=True)
+    results: dict[str, Any] = {}
+    if EXPERT_PARALLELISM > 1 and len(experts) > 1:
+        from concurrent.futures import ThreadPoolExecutor
+
+        with ThreadPoolExecutor(max_workers=min(EXPERT_PARALLELISM, len(experts))) as pool:
+            futures = {pool.submit(_query_expert, m): m for m in experts}
+            for future, model in futures.items():
+                try:
+                    results[model] = future.result()
+                except Exception as exc:  # noqa: BLE001 - classified below
+                    results[model] = exc
+    else:
+        for m in experts:
+            try:
+                results[m] = _query_expert(m)
+            except Exception as exc:  # noqa: BLE001 - classified below
+                results[m] = exc
+
     for i, m in enumerate(experts, 1):
-        print(f"  [{i}/{len(experts)}] Querying {m}...", flush=True)
-        _, ok = _load_env()
-        try:
-            out = _invoke_with_retry(m, sys_msg, human_msg, ok)
-            if not out or not out.strip():
-                raise RuntimeError(f"Expert {m} returned empty SysML")
-            print(f"    ✓ Got response from {m}", flush=True)
-            candidates.append((m, out))
-        except CliUsageLimitError:
-            raise
-        except Exception as exc:
-            print(f"    ✗ Soft-fail expert {m}: {exc}", flush=True)
-            expert_soft_fails.append({"model": m, "error": str(exc)})
+        outcome = results.get(m)
+        if CliUsageLimitError and isinstance(outcome, CliUsageLimitError):
+            raise outcome
+        if isinstance(outcome, BaseException):
+            print(f"  [{i}/{len(experts)}] ✗ Soft-fail expert {m}: {outcome}", flush=True)
+            expert_soft_fails.append({"model": m, "error": str(outcome)})
+            continue
+        print(f"  [{i}/{len(experts)}] ✓ Got response from {m}", flush=True)
+        candidates.append((m, outcome))
 
     # Synthesis by combiner using candidates as extra context (or direct if none).
     _, ok = _load_env()
@@ -1019,12 +1223,11 @@ def generate_sysml_moe(prompt_text: str) -> Tuple[str, dict]:
         "expert_candidates": [name for name, _ in candidates],
         "expert_soft_fails": expert_soft_fails,
         "expert_soft_fail_count": len(expert_soft_fails),
-        "gemini_prompt": base_prompt_str,
-        "gpt_prompt": base_prompt_str,
-        "claude_prompt": base_prompt_str,
-        "llama_prompt": base_prompt_str,
         "combine_prompt": combine_prompt_str,
     }
+    # One record entry per expert family actually in play (qwen/glm/deepseek/llama).
+    for m in experts:
+        prompt_record[f"{_model_group(m)}_prompt"] = base_prompt_str
     
     # Add compiler validation info if available
     if is_compiler_available():
@@ -1100,7 +1303,7 @@ if __name__ == "__main__":
         "--llm-backend",
         choices=("api", "cli", "codex"),
         default=None,
-        help="Model transport: api (HTTP) or cli (Claude Code / Codex subscription; llama via OpenRouter)",
+        help="Model transport: api (default; OpenRouter HTTP) or cli (Claude Code / Codex)",
     )
     args = parser.parse_args()
     if args.llm_backend:

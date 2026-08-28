@@ -1,0 +1,13 @@
+This describes an OpenHAB home automation system, a central platform designed to integrate, manage, and automate various smart devices within a home. The system's core is a central controller that orchestrates all communication and logic, acting as the brain for the entire smart home environment.
+
+The architecture is event-driven, centered around a main communication hub or "event bus." When a device's status changes—for instance, a sensor takes a new reading—it sends an update to this hub. The hub then broadcasts this information to all other interested parts of the system.
+
+A key feature is its ability to communicate with devices using different technologies. It uses specialized software translators, known as "bindings," for common smart home protocols like Zigbee, Z-Wave, and MQTT. This allows devices from different manufacturers to work together seamlessly.
+
+The specific home setup includes several physical devices:
+*   **Sensors:** A temperature sensor and a motion sensor in the living room, plus an outdoor light sensor to measure ambient brightness.
+*   **Actuators:** Smart, dimmable lights in both the living room and bedroom, and a central smart thermostat that controls the home's heating and cooling.
+
+The intelligence of the system lies in its rules engine. This component listens to events from the sensors and executes user-defined automation logic. For example, a rule could be configured to automatically turn on the living room lights if the motion sensor is triggered and the outdoor light sensor indicates it is dark. The smart thermostat operates autonomously, comparing the actual temperature from the living room sensor to its target setting and activating the HVAC system accordingly.
+
+The system also includes a persistence service that logs the history of device states. This allows for tracking trends, like temperature over time, and can restore devices to their last known state after a power outage. A user interface provides a dashboard for monitoring all devices and allows for manual control, such as adjusting light brightness or changing the thermostat temperature.

@@ -1,0 +1,13 @@
+This model describes a thread management and execution system, which is the core component of a modern multitasking operating system. Its primary function is to enable a computer to run multiple programs or tasks concurrently, providing the illusion that they are all executing simultaneously on a single processor.
+
+The system is composed of several key parts that work together: a Thread Scheduler, an Execution Unit, a Memory Manager, and a set of Thread Control Blocks that manage individual tasks.
+
+Each task, or 'thread', is represented by a **Thread Control Block**. This structure holds all the essential information about the thread, such as its unique ID, its priority level (from low to high), and its current state (e.g., ready to run, actively running, blocked, or terminated). Crucially, it also stores the thread's 'execution context'—a snapshot of the processor's state, including the current instruction, register values, and memory pointers. This context is what allows a thread to be paused and resumed seamlessly.
+
+The **Thread Scheduler** acts as the system's traffic controller. It maintains a queue of all threads that are ready to run and uses a 'priority-based round-robin' policy to decide which thread gets to use the processor next. It gives higher-priority threads preference but also ensures that lower-priority threads eventually get a turn to run, preventing any single task from monopolizing the system.
+
+The **Execution Unit** is the component that actually processes the instructions of the running thread. It works closely with the **Memory Manager**, which is responsible for allocating and deallocating private memory spaces (called stacks) for each thread, ensuring that they don't interfere with each other's data.
+
+The entire process operates in a cycle. The scheduler selects a thread, restores its execution context into the Execution Unit, and lets it run for a specific duration called a 'time quantum.' When the time is up, or if the thread needs to wait for a resource, the scheduler preempts it, saves its current context back to its control block, and switches to the next thread in the queue. This rapid switching, known as context switching, is what creates the effect of parallel execution.
+
+Throughout its existence, a thread moves through a well-defined lifecycle: from being created and having its memory allocated, to being ready and waiting its turn, to running on the processor, potentially being blocked while waiting for data, and finally terminating, at which point its resources are released back to the system.

@@ -1,0 +1,15 @@
+This model describes a TriDAR (Triangulation and LIDAR) Navigation System, a sophisticated sensor suite designed for autonomous spacecraft operations like rendezvous, docking, and proximity maneuvers. Its primary function is to autonomously find, track, and determine the precise 3D position and orientation (known as a six-degree-of-freedom pose) of a target object in real-time.
+
+The system is built from four main components that work together to achieve this goal:
+
+1.  **LIDAR Scanner:** This component actively scans the environment by emitting laser pulses and measuring the time it takes for the light to return. This process allows it to build an extremely accurate 3D map of the target, known as a point cloud, providing precise distance measurements.
+
+2.  **Stereo Camera System:** Comprised of two cameras set a fixed distance apart, this system captures 3D visual information much like human eyes. It takes simultaneous images from both cameras to perceive depth and identify visual features on the target.
+
+3.  **Data Processing Unit:** This is the central brain of the system. It receives the raw point cloud data from the LIDAR and the image data from the stereo cameras. Its key task is to "fuse" these two different data sources, combining the LIDAR's range accuracy with the camera's visual detail. This fusion process produces a single, highly reliable, and accurate estimate of the target's pose.
+
+4.  **Power Management Unit:** This unit serves as the system's power supply, taking a main power input and distributing the correct, regulated voltage and current to the LIDAR, cameras, and processor, ensuring all components operate safely and efficiently.
+
+In operation, the LIDAR and stereo cameras continuously gather data in parallel. This synchronized information is fed into the Data Processing Unit, which processes and validates it to calculate the target's exact position and orientation. This final navigation solution is then outputted at a high rate (15 times per second) for use by the spacecraft's main guidance and control system, enabling it to perform precise and safe autonomous maneuvers.
+
+The entire system is designed for the demanding environment of space, with strict constraints on mass (under 8.5 kg) and power consumption (under 85 W). It's specified to operate at ranges up to 50 meters with exceptional accuracy, measuring distance to within 1 cm and the target's overall pose to within 2 cm.

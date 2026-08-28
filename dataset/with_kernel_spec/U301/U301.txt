@@ -1,0 +1,19 @@
+This model represents a complete medical ultrasound imaging system, the kind used in hospitals and clinics for real-time, non-invasive diagnostic imaging of internal organs, blood vessels, and soft tissues.
+
+The system's core function is to generate live, cross-sectional images of the body. It does this by transmitting focused, high-frequency sound waves into tissue and then creating an image from the echoes that reflect back. The system is comprised of several key components that work together in a sophisticated processing chain.
+
+At the front end is the handheld **Transducer Probe**, which contains an array of piezoelectric elements. This probe is the only part that makes contact with the patient. It acts as both a speaker and a microphone, converting electrical signals into ultrasound pulses and then converting the returning echoes back into electrical signals.
+
+A clinician operates the system through a **Control Console**, which serves as the user interface. Here, they can select the imaging mode (such as B-Mode for brightness, M-Mode for motion, or Doppler for blood flow), adjust the scanning frequency, and set the focal depth and other parameters for the examination.
+
+Based on the operator's settings, the **Transmit Beamformer** generates precisely timed electrical excitation signals. By controlling the phasing of these signals across the probe's elements, it can steer and focus the outgoing ultrasound beam to a specific point within the body.
+
+After the ultrasound pulse is transmitted and reflects off internal structures, the weak echoes are detected by the probe. The resulting electrical signals are then processed by the **Receive Beamformer**. This component applies calculated delays to the signals from each element and sums them, a process which dynamically focuses the received sound to form a single, coherent scan line with improved clarity.
+
+This raw signal then goes to the **Signal Processing Unit**, which filters out noise, compensates for signal attenuation at deeper depths (Time Gain Compensation), and compresses the signal's dynamic range to make it suitable for display.
+
+Because the scan lines are typically acquired in a fan-shaped pattern, a **Scan Converter** is used to transform this data into a standard rectangular (Cartesian) image format. It interpolates data to fill in the gaps between scan lines, creating a complete image grid.
+
+Before being displayed, the image is passed to an **Image Processor** for final enhancements. This unit can apply filters to reduce speckle noise and sharpen edges to improve diagnostic quality.
+
+Finally, the fully processed image frame is sent to the **Display Monitor**, where the clinician can view the live ultrasound video, make measurements, and perform a clinical assessment. This entire cycle—from transmission to display—repeats rapidly, typically over 30 times per second, to create smooth, real-time video. The system is designed to meet strict requirements for image quality, such as high resolution and penetration depth, as well as critical safety standards that limit the acoustic energy delivered to the patient.

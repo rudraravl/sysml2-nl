@@ -1,0 +1,11 @@
+This model describes an indoor positioning system designed for real-time location tracking of mobile devices within enclosed spaces where GPS signals are unavailable or unreliable, such as in warehouses, hospitals, or large office buildings.
+
+The system is composed of several key components working together. First, there are multiple **Fixed Beacons** installed at known, stationary locations throughout the building. These beacons continuously broadcast a unique identification signal at a regular interval, acting as reference points for the system.
+
+A **Mobile Device**, such as a smartphone or a tracking tag attached to an asset, is the object being tracked. This device is equipped to receive the signals broadcast by the nearby beacons. As it moves through the environment, it collects signals from multiple beacons and measures their received strength.
+
+The core logic resides in a **Localization Processor**. This processor takes the signal measurements from the mobile device and, using the known positions of the beacons, calculates the device's current 3D position. The process involves first calculating the distance to each beacon (typically based on signal strength) and then using a geometric method called trilateration to pinpoint the device's location. The processor also estimates the accuracy of this calculation.
+
+Finally, a **Central Coordinator** acts as the system's management hub. It receives the final location estimates from mobile devices, validates the data, and stores it. This central system maintains a register of all active beacons and tracked devices, enabling it to manage and distribute location information for applications like indoor navigation, asset tracking, or personnel monitoring.
+
+The system is designed to meet specific performance goals, including determining a device's position with an accuracy of at least 1.5 meters, providing coverage over a 500 square meter area, and delivering location updates at least once per second.

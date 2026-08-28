@@ -1,0 +1,11 @@
+This model describes a wireless Internet of Things (IoT) sensor network designed to connect low-power, battery-operated sensor devices to the standard internet using the 6LoWPAN protocol.
+
+The system is composed of three main components: multiple Sensor Nodes, a central Border Router, and a Cloud Server.
+
+The **Sensor Nodes** are small, battery-powered devices distributed in an environment to measure physical conditions like temperature and humidity. To conserve energy, these nodes operate in a cyclical pattern: they spend most of their time in a low-power sleep state, periodically waking up to take a sensor reading. Once a reading is taken, the node packages the data into a standard internet (IPv6) packet. Because the low-power wireless network they use can only handle very small data frames, the nodes use a special compression engine to shrink the large IPv6 packet header and a fragmentation engine to break the packet into smaller pieces for transmission.
+
+These small, wireless data fragments are sent through a mesh network to the **Border Router**. This device acts as a gateway between the low-power wireless network and the wider internet. Its primary function is to receive the incoming fragments from the various sensor nodes, reassemble them back into their original order, and decompress the headers to reconstruct the complete IPv6 packet.
+
+Once the packet is fully restored, the Border Router forwards it over a standard internet connection to the **Cloud Server**. This server acts as the central data repository, where it receives, stores, and analyzes the sensor data from the entire network, making the information available for monitoring and other applications.
+
+In essence, the system creates a bridge that allows tiny, energy-efficient IoT devices to communicate seamlessly with the global internet, overcoming the technical limitations of low-power wireless communication.

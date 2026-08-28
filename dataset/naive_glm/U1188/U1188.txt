@@ -1,0 +1,13 @@
+This model describes an autonomous robotic system designed to explore and map unknown environments without human intervention. Its core purpose is to navigate a space it has never seen before and create a detailed 2D digital map of it.
+
+The system functions using a technique known as Simultaneous Localization and Mapping (SLAM), where it builds the map while simultaneously tracking its own precise location within that map.
+
+To "see" its surroundings, the robot is equipped with a **Laser Range Finder** (LIDAR) that constantly scans the area, measuring distances to nearby walls and obstacles. To track its own movement, it uses **Wheel Encoders**, which measure the rotation of its wheels to provide a continuous estimate of its travel distance and turns. This initial movement estimate is known as odometry.
+
+The robot's onboard processing is handled by several key components:
+*   A **Localization Processor** takes the raw laser scans and the odometry data and compares them against the map being built. This allows it to correct for any drift or error in the wheel encoder measurements and calculate the robot's true position and orientation with high accuracy.
+*   A **Mapping Processor** uses the robot's now-verified position and the laser scans to update the master map, which is stored as an "occupancy grid." This grid represents the world as a collection of cells, each marked as occupied, free, or unknown.
+*   An **Exploration Planner** acts as the robot's brain for autonomous navigation. It analyzes the map to identify unexplored "frontiers," chooses the most efficient one to investigate next, and plots a safe, collision-free path to get there.
+*   A **Motion Executor** receives the navigation commands from the planner (such as "move forward at 0.5 m/s and turn left") and translates them into actual power for the robot's motors.
+
+The entire system operates in a continuous loop. It starts a mission with a blank map, captures sensor data, updates its position and map through the SLAM process, decides where to explore next, and then drives to that new location. This cycle repeats until a sufficient percentage of the environment has been mapped, at which point it finalizes the map and completes its mission. The system is designed for high accuracy, efficiency, and safety, ensuring it can operate in real-time while avoiding collisions.

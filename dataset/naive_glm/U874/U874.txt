@@ -1,0 +1,12 @@
+This model describes an industrial-grade environmental sensing unit designed for accurately measuring ambient temperature. It's a complete, self-contained system intended for reliable operation in harsh conditions, as indicated by its stainless steel, IP67-rated enclosure and wall-mountable design.
+
+The primary function of the unit is to sense the surrounding temperature, process that information, and provide a validated, high-confidence measurement to an external system. At its core is a sophisticated Sensor Node, which is the "brain" of the operation. This node is composed of several specialized parts:
+
+*   A **sensing element** that physically reacts to temperature changes, generating a raw electrical signal.
+*   A **signal processor** that takes this raw signal, amplifies it, filters out noise, and converts it into a precise digital temperature value. This processor also performs validation checks on the measurement.
+*   A **power management** circuit to regulate the internal 5V operating voltage.
+*   A small **data buffer** to temporarily store recent measurements.
+
+The complete Sensing Unit integrates this Sensor Node with all the necessary supporting hardware. This includes a dedicated **power supply** to provide stable power and a **data acquisition system** that formally receives the final, processed measurement from the sensor.
+
+The system operates through a defined lifecycle. It typically sits in an `idle` state, then transitions to `sensing` to take a reading, followed by `processing` to convert and validate the data. After making the measurement available in an `outputting` state, it returns to `idle`. The unit also has distinct states for `calibration`, allowing its accuracy to be adjusted against a known reference, and for handling `errors`. The system is designed to meet specific performance requirements, including a measurement accuracy of ±0.5°C, a response time of under one second, and an operational temperature range of -40°C to 100°C.

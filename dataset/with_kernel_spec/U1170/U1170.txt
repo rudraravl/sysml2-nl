@@ -1,0 +1,12 @@
+This model represents a Programmable Logic Controller (PLC) system, a specialized industrial computer designed for automating and controlling machinery and processes in environments like factory floors. It is a modular system built for reliability and deterministic, high-speed operation.
+
+The core of the system is a Central Processing Unit (CPU), which serves as the brain. It contains memory for storing a user-defined control program and the data it's currently working with. This CPU is supported by several key modules:
+
+*   **An Input Module:** This is the system's connection to the outside world, designed to read signals from sensors and switches. It can handle up to 16 digital (on/off) signals and 8 analog (variable-level) signals.
+*   **An Output Module:** This module sends control commands to external equipment. It provides 16 digital outputs for turning devices like motors or lights on and off, and 8 analog outputs for controlling devices that require a variable signal, such as a valve or a motor speed controller.
+*   **A Power Module:** This provides stable, low-voltage (24V) DC power to all the other components, converting it from a standard 120V input.
+*   **A Communication Interface:** This enables the PLC to connect to a wider network using standard Ethernet and serial ports, allowing it to be monitored by a central control system or communicate with other automated devices.
+
+The PLC operates in a continuous, high-speed loop called a "scan cycle," which is designed to complete in under 50 milliseconds. In each cycle, it first scans and reads the current state of all its inputs. Then, the CPU executes the user's control program, processing the input data to make logical decisions. Based on these decisions, it updates the signals sent from its Output Module to control the machinery. Finally, it handles any network communications before repeating the entire cycle.
+
+To ensure safe and reliable operation, the system functions in distinct states. It can be in a **Stopped** state, a **Running** state where it actively executes the scan cycle, or an **Error** state if a fault is detected. The PLC can transition between these states based on external commands (like start, stop, or reset) or internal fault detection, ensuring a predictable and safe response to any situation.

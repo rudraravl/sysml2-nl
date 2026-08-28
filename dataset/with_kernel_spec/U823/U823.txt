@@ -1,0 +1,13 @@
+This model represents a Pirani Gauge System, a device used for measuring pressure within a vacuum environment. Its core function is to provide a continuous, real-time pressure reading by measuring the thermal conductivity of the gas in the vacuum. The system works on the principle that a hot object will lose heat to the surrounding gas at a rate dependent on the gas's pressure and density.
+
+The central component of the system is a **Sensing Filament**, which is essentially a thin, heated wire exposed to the vacuum. A dedicated **Power Supply Unit** provides stable, regulated electrical power to heat this filament to a precise operating temperature.
+
+As gas molecules in the vacuum chamber collide with the hot filament, they carry away heat. At lower pressures (a higher vacuum), there are fewer gas molecules, so the filament loses heat slowly and maintains a higher temperature and electrical resistance. At higher pressures, more molecules cause greater heat loss, cooling the filament and lowering its resistance.
+
+This subtle change in the filament's resistance is detected by a **Bridge Circuit** (specifically, a Wheatstone bridge). This electronic circuit compares the filament's resistance to a stable reference resistance, converting the difference into a small output voltage signal.
+
+This raw voltage signal is then processed by a **Signal Conditioner**. This component amplifies the weak signal and applies calibration data to linearize it, correcting for non-linear effects and ensuring the output accurately corresponds to a specific pressure value.
+
+The physical connection to the system being measured is handled by a **Vacuum Chamber Interface**, which provides a standardized port (like a KF25 flange) to attach the gauge to a vacuum chamber. Finally, a **Display Controller** takes the processed pressure signal and presents it to the user on a digital display, updating at a regular rate.
+
+In operation, the gauge goes through several states. After being powered on, it enters a `warmup` state to allow the filament to heat up and stabilize. Once ready, it enters a continuous `measuring` state, constantly repeating the cycle of heating, sensing heat loss, and calculating pressure. The system also includes an `error` state to handle faults, such as a broken filament.

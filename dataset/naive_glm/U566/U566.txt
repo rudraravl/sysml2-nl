@@ -1,0 +1,14 @@
+This model describes an intelligent, automated centrifugal pump system designed to move fluids with maximum efficiency. Its core feature is the ability to continuously monitor its own performance and automatically adjust its operating speed to stay at the most energy-efficient point, even as system demands like flow rate or pressure change.
+
+The system is composed of several key components working together. At its heart is the physical pump, which consists of an **Impeller**—a rotating component with blades—encased within a snail-shaped **Volute** and a protective **Pump Housing**. When the impeller spins, it flings fluid outward, and the volute casing then collects this high-velocity fluid and converts its speed into pressure, pushing it out of the system.
+
+This pump is driven by a powerful **Electric Motor**. Instead of running at a fixed speed, the motor's speed is precisely managed by a **Variable Frequency Drive (VFD)**. The VFD acts as a sophisticated throttle, taking the standard electrical supply and modifying it to command the motor to speed up or slow down as needed.
+
+The "brains" of the system is the **Specific Speed Controller**. This controller's main goal is to maintain an optimal performance metric called "specific speed," which is a calculated value relating the pump's rotational speed, the fluid flow rate, and the pressure (head) it's generating. To do this, it relies on a suite of sensors:
+*   A **Flow Sensor** at the fluid inlet measures how much fluid is entering the pump.
+*   **Pressure Sensors** at both the inlet and outlet measure the pressure differential, which is used to calculate the head.
+*   A **Speed Sensor** on the motor shaft reports the exact rotational speed.
+
+The controller continuously gathers data from these sensors, calculates the current specific speed, and compares it to a pre-set ideal value. If there's a deviation, it sends a command to the Variable Frequency Drive to adjust the motor's speed, bringing the pump back to its peak efficiency point. This creates a closed-loop control system that ensures optimal performance under varying conditions.
+
+The system operates through distinct phases. It starts in a `stopped` state, then goes through a safe `initializing` and `accelerating` sequence to reach its target speed. During `normal operation`, it constantly runs its optimization logic. It can also gracefully `decelerate` to a stop or perform an immediate `emergency` shutdown for safety. This entire assembly functions as a self-regulating, high-efficiency fluid transport system suitable for applications where energy consumption and performance are critical.

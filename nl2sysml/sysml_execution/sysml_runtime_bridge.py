@@ -4,10 +4,25 @@ from __future__ import annotations
 
 import json
 import os
+import threading
 import time
 from typing import Any, Dict, List, Optional
 
 from .models import KernelExecutionOutput
+
+# Every call boots its own JVM-backed SysML kernel, so parallel batch workers
+# need a ceiling on how many run at once.
+_kernel_slots: Optional[threading.BoundedSemaphore] = None
+_kernel_slots_lock = threading.Lock()
+
+
+def _kernel_gate() -> threading.BoundedSemaphore:
+    global _kernel_slots
+    with _kernel_slots_lock:
+        if _kernel_slots is None:
+            cap = max(1, int(os.getenv("SYSML_KERNEL_MAX_CONCURRENCY", "3")))
+            _kernel_slots = threading.BoundedSemaphore(cap)
+        return _kernel_slots
 
 
 def _apply_jupyter_path_override(explicit: Optional[str] = None) -> None:
@@ -105,6 +120,8 @@ def execute_sysml_candidate(
     error_lines: List[str] = []
     trace_chunks: List[str] = []
 
+    gate = _kernel_gate()
+    gate.acquire()
     try:
         manager = KernelManager(kernel_name=kernel_name)
         manager.start_kernel()
@@ -198,3 +215,4 @@ def execute_sysml_candidate(
                 manager.shutdown_kernel(now=True)
             except Exception:
                 pass
+        gate.release()

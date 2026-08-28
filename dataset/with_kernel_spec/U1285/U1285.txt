@@ -1,0 +1,13 @@
+This model describes an industrial automation system, similar to a Programmable Logic Controller (PLC) or a Distributed Control System (DCS). Its primary purpose is to monitor and control physical processes in an industrial environment, such as a factory or processing plant, by executing a user-defined control program.
+
+The heart of the system is a modular Automation Controller. This controller is composed of a central Processor Module, which holds and executes the control program from its memory, and a set of specialized modules for interacting with the outside world. These include Input Modules, which read signals from sensors, and Output Modules, which send commands to actuators. It also features a Communication Module that allows it to connect to networks like Ethernet, serial, or industrial fieldbuses to exchange data with other controllers, operator panels, or central monitoring systems.
+
+The controller operates in a continuous, deterministic loop known as a scan cycle. During each cycle, which has a specific, fixed duration, the controller performs a sequence of tasks:
+1.  **Scan Inputs:** It reads the current values from all connected sensors, such as temperature or pressure transducers, through its analog and discrete input ports.
+2.  **Execute Program:** It runs the user's control logic, processing the input values and calculating the appropriate output commands.
+3.  **Update Outputs:** It sends the calculated commands to actuators, such as control valves or motor drives, through its analog and discrete output ports.
+4.  **Handle Communications & Diagnostics:** It manages network data exchange and performs self-diagnostics to ensure it is functioning correctly.
+
+The controller's behavior is managed by a state machine that dictates its operational status. It can be in an `idle` state, an `initializing` state upon startup, a `running` state where it executes the control loop, and can be `paused` or `stopped` by an operator. If a problem is detected, it enters a `faulted` state for safety.
+
+Overall, this represents a complete, configurable control system designed for the reliable and repetitive execution of automation tasks in a real-world industrial setting.

@@ -1,0 +1,11 @@
+This model describes an automated, air-driven pumping system designed to transfer a fluid from a storage reservoir to a receiving tank and maintain a specific target pressure within that receiver. The system uses compressed air as its power source to operate the main pump.
+
+The system's operation is a coordinated process involving several key components:
+
+*   **Air Supply:** An **Air Compressor** generates high-pressure air (700 kPa), which is then passed through a **Pressure Regulator** to step it down to a stable, controlled operating pressure (600 kPa). This regulated air acts as the energy source for the system.
+*   **Fluid Source and Destination:** The fluid to be moved is initially stored in a 100-liter **Fluid Reservoir**. The system's goal is to transfer this fluid into an 80-liter **Fluid Receiver** tank.
+*   **Pumping Action:** The central component is the **Air-Driven Pump**. It uses the regulated compressed air to draw fluid from the reservoir and discharge it at a higher pressure. This pump is designed to deliver a flow rate of up to 80 liters per minute and has a built-in safety limit to prevent exceeding a maximum discharge pressure. After use, the air is vented through an exhaust port.
+*   **Fluid Delivery and Safety:** As the fluid leaves the pump, it passes through a **Check Valve** which ensures the fluid can only flow in one direction, preventing backflow into the pump.
+*   **Automated Control Loop:** The entire system is managed by a **System Controller**. A **Pressure Sensor** constantly monitors the fluid pressure inside the receiving tank and feeds this information back to the controller. The controller's logic is designed to maintain a target pressure of 400 kPa. If the pressure drops too low (below 350 kPa), the controller automatically sends a 'start' command to the pump. Once the pressure rises above a set threshold (450 kPa), it sends a 'stop' command. This creates a self-regulating cycle that keeps the receiver's pressure within the desired range.
+
+The pump itself has its own internal logic for managing its operational state, moving between idle, priming, active pumping, and stopping. It also includes a fault state to shut down safely if it detects an over-pressure condition.

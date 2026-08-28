@@ -1,0 +1,11 @@
+This is a glass break detector system designed for security applications. Its primary purpose is to continuously listen for ambient sounds, identify the unique acoustic signature of shattering glass, and trigger a security alarm in response.
+
+The system is composed of several key modules that work in sequence. An **Acoustic Sensor** acts as the system's ear, capturing sounds within a wide frequency range. This raw audio is then passed to a **Signal Conditioner**, which filters out irrelevant background noise and amplifies the signal, focusing specifically on the frequency range characteristic of breaking glass (roughly 2.5 kHz to 8.5 kHz).
+
+The core of the system is the **Analysis Engine**, which acts as the brain. It examines the cleaned-up sound signal to determine if it matches the specific pattern of a glass break event. To prevent false alarms, it only confirms a break if the sound's frequency and amplitude meet a predefined threshold with a high level of confidence (e.g., over 80%). This engine can also attempt to classify the type of glass that was broken, such as plate, tempered, or laminated glass.
+
+If a break is confirmed, the Analysis Engine signals an **Alarm Module**. This module then activates an external security system, which can include sounding a loud siren (e.g., 105 dB) to alert occupants and deter intruders.
+
+A dedicated **Power Management** unit, complete with a backup battery, ensures the detector remains operational even during a primary power failure. The system can run on its 12V main power supply and will automatically switch to its backup battery if power is lost, allowing it to function for several hours.
+
+Operationally, the detector cycles through several states. It begins in an `idle` mode, then moves to a continuous `monitoring` state. Upon hearing a potential event, it switches to `analyzing`. If a glass break is verified, it enters the `alarming` state until it is manually reset, after which it returns to monitoring.

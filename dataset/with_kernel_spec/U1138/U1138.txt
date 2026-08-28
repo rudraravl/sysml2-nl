@@ -1,0 +1,15 @@
+This model describes a motion planning system for an autonomous vehicle or robot. Its core purpose is to navigate the vehicle from its current location to a designated goal, intelligently creating a safe and efficient path while actively avoiding obstacles. The system is designed for dynamic environments, allowing it to react to both stationary and moving objects.
+
+The system is composed of several specialized subsystems that work together in a continuous loop:
+
+1.  **Perception Subsystem:** This is the "eyes and ears" of the vehicle. It uses sensors to scan the surrounding area, building a real-time model of the environment. This model includes the location, size, and velocity of any obstacles, as well as the overall boundaries of the operational space.
+
+2.  **Localization Subsystem:** This component is responsible for knowing the vehicle's own state. It continuously estimates the vehicle's precise position, orientation (roll, pitch, yaw), and current speed, providing the critical "you are here" information for all planning decisions.
+
+3.  **Global Planner Subsystem:** This is the high-level strategist. Using the full environment map from the Perception subsystem and the vehicle's current location, it calculates the best overall route to the final destination. This is like a GPS app finding the main roads to take on a long journey.
+
+4.  **Local Planner Subsystem:** This is the tactical, short-term navigator. It takes the general path from the Global Planner and refines the immediate next steps of the journey. It looks at the very near environment, anticipates a few seconds into the future, and generates a smooth, detailed trajectory to follow that avoids imminent collisions. Before finalizing, it validates this trajectory to ensure it is safe and achievable given the vehicle's physical limitations.
+
+5.  **Controller Subsystem:** This is the "driver" that translates plans into action. It takes the detailed, validated trajectory from the Local Planner and computes the precise velocity and steering commands needed to follow that path. These commands are then sent to the vehicle's motors and actuators.
+
+In operation, this entire process repeats rapidly. The system continuously scans the environment, updates its own position, refines its short-term path, and issues new movement commands. This allows the vehicle to navigate smoothly and react in real-time to unforeseen events, such as a pedestrian stepping into its path. The system operates under a set of defined constraints, including a maximum speed (2.0 m/s), maximum acceleration, and a minimum turning radius, ensuring its movements are always physically possible and safe. A key safety feature is a mandatory margin (0.3 meters) that must be maintained around all obstacles.

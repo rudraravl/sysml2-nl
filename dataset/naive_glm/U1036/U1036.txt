@@ -1,0 +1,13 @@
+This model describes a Digital Object Identifier (DOI) resolution system. It is the kind of system used in academic and scientific publishing to provide a persistent link to a digital resource, such as a research paper, dataset, or report. The primary function of this system is to take a DOI as input and return the actual digital object or a direct link to it.
+
+The system is composed of three main parts that work together:
+
+1.  **DOI Resolver Engine:** This is the central processing unit of the system. It receives a DOI lookup request from a user. To speed up requests, it maintains a local cache of recently or frequently accessed metadata. It orchestrates the entire process of finding the resource associated with a DOI.
+
+2.  **DOI Registry:** This is the authoritative, central database. It holds the official record that permanently links each unique DOI to its corresponding metadata. This metadata includes essential information like the resource's title, creators, publication year, and most importantly, the target URL where the actual digital object is located.
+
+3.  **Content Provider:** This represents the various servers, repositories, or publisher websites where the actual digital files (the "digital objects") are stored. These providers are responsible for hosting the content and making it available for download.
+
+The system operates through a clear workflow. When a user submits a DOI, the Resolver Engine first validates its format. It then checks its internal cache. If the DOI's information is found in the cache, the system uses that cached URL to fetch the content directly from the Content Provider, which is very fast. If it's not in the cache, the Resolver Engine queries the main DOI Registry to get the official metadata. Once the registry provides the correct URL, the engine contacts the appropriate Content Provider to retrieve the digital object. After successfully fetching the object, it updates its cache for future requests and delivers the content to the user.
+
+The system is designed to be robust, handling errors such as invalid DOIs, unregistered DOIs, or unavailable content. It operates in different states, including being idle while waiting for requests, actively processing a lookup, or undergoing maintenance to clear caches and synchronize data. The entire system is built to be highly available, performant, and persistent, ensuring that a DOI remains a reliable and unique identifier for its associated digital object for many years.

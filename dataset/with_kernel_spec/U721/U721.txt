@@ -1,0 +1,9 @@
+This model represents a digital sensing unit designed to measure light intensity (illuminance) by capturing and analyzing images of a scene. It is a complete, self-contained system that takes in light from the environment and outputs a precise, calibrated measurement.
+
+The core of the system is a high-resolution Image Sensor, equipped with a 1920x1080 pixel array and a 12-bit analog-to-digital converter. This sensor acts as the system's "eye," capturing raw image data when prompted by a command. Its behavior is managed by a state machine that moves it from an idle state through capturing, processing, and measuring stages.
+
+Once the Image Sensor captures a raw image, the data is passed to an internal Signal Processor. This processor is responsible for cleaning up the image, performing tasks like noise reduction, and calculating initial metrics such as the image's average intensity. It also validates the data to ensure it's usable, for instance, by checking if the sensor was oversaturated with light.
+
+Following processing, the refined image data is sent to a Measurement Engine. Using a specific calibration factor, this engine converts the processed image information into a final, accurate illuminance measurement. The result includes not just the light value but also a timestamp and a confidence level for the measurement.
+
+A central controller orchestrates this entire workflow. It issues commands to the sensor to begin a capture, then manages the handoff of data from the sensor to the processor, and finally to the measurement engine, resulting in a complete measurement cycle.

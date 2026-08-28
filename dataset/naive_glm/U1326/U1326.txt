@@ -1,0 +1,21 @@
+This model represents an Asterisk-based Voice over IP (VoIP) PBX system, which is essentially a private, software-based telephone network for a business or organization. It is designed to manage and route all phone calls, replacing a traditional hardware phone switchboard. The system handles internal calls between employee extensions, as well as external calls to and from the public telephone network, all using an internet connection instead of traditional phone lines.
+
+The system is composed of several key parts that work together to provide comprehensive communication services:
+
+*   **PBX Core:** This is the central processing engine and the heart of the system. It orchestrates all activities, from registering phones to routing calls and managing media streams. It has a defined capacity for how many simultaneous calls it can handle.
+
+*   **SIP Endpoints:** These are the user devices connected to the system. In the real world, these would be physical VoIP desk phones, software-based phones on a computer, or mobile apps. Each endpoint has a unique extension number and a network IP address that the system uses to find it.
+
+*   **SIP Trunk:** This is the system's gateway to the outside world. It connects the internal phone network to an external telephone service provider, allowing users to make and receive calls to and from regular phone numbers on the public network.
+
+*   **Dial Plan Engine:** This is the "rule book" that governs call routing. When a user dials a number, this engine analyzes the pattern—for example, a 3-digit number for an internal call or a 10-digit number prefixed with a '9' for an external call—and determines exactly where to send the call.
+
+*   **Media Bridge (RTP Engine):** While other components set up the call, this is the part that actually connects the audio. It takes the real-time voice data packets from one caller and forwards them to the other, effectively "bridging" the two ends of the conversation so they can hear each other.
+
+*   **Codec Translator:** Different phones and providers might use different digital formats (codecs) to encode and compress voice audio. This component acts as a real-time interpreter, translating between different codecs if the two parties in a call are using incompatible formats, ensuring the audio is always clear.
+
+*   **Call Detail Record (CDR) Manager:** This is the system's accountant. For every call that passes through the PBX, it logs detailed information such as who called whom, when the call started, how long it lasted, and its final status (e.g., answered, busy). This data is essential for billing, reporting, and troubleshooting.
+
+*   **Registrar:** This component maintains an active directory of all connected phones. When a SIP endpoint is turned on, it "registers" with the system, telling the registrar its extension number and current IP address. This allows the PBX Core to know where to send a call when someone dials that extension.
+
+When a call is made, the system follows a clear process: an endpoint sends a request to the PBX Core, the Dial Plan Engine decides where it should go, a session is established with the destination, and the Media Bridge connects the audio. Throughout this process, the call transitions through states like idle, ringing, and answered. Once the call ends, the CDR Manager logs the details for the record.

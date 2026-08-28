@@ -1,306 +1,496 @@
-package AirIoniser_BaseArchitecture {
-    private import ScalarValues::*;
-    private import SI::*;
-    
-    attribute def VoltageValue :> Real;
-    attribute def CurrentValue :> Real;
-    attribute def PowerValue :> Real;
-    attribute def AirFlowRateValue :> Real;
-    attribute def ParticleConcentrationValue :> Real;
-    attribute def IonDensityValue :> Real;
-    
-    part def AirIoniser;
-    part def PowerSupply;
-    part def IonGenerator;
-    part def CollectionPlate;
-    part def Fan;
-    part def ControlUnit;
-    part def HousingEnclosure;
-}
+package IndoorAirIonizerSystem {
+    public import ScalarValues::*;
+    public import ISQ::*;
 
-package AirIoniser_StakeholderRequirements {
-    requirement <'REQ-100'> purifyAir {
-        doc /* The air ioniser shall reduce airborne particle 
-             * concentration to improve indoor air quality.
-             */
-        subject ioniser : AirIoniser_BaseArchitecture::AirIoniser;
-    }
-    
-    requirement <'REQ-101'> operateSafely {
-        doc /* The air ioniser shall operate at safe voltage levels
-             * and produce no harmful ozone concentrations.
-             */
-        subject ioniser : AirIoniser_BaseArchitecture::AirIoniser;
-    }
-    
-    requirement <'REQ-102'> energyEfficient {
-        doc /* The air ioniser shall operate with minimal power
-             * consumption for continuous use.
-             */
-        subject ioniser : AirIoniser_BaseArchitecture::AirIoniser;
-    }
-}
+    attribute def Voltage :> Real;
+    attribute def Current :> Real;
+    attribute def Power :> Real;
+    attribute def AirFlowRate :> Real;
+    attribute def ParticleConcentration :> Real;
+    attribute def IonConcentration :> Real;
+    attribute def OzoneConcentration :> Real;
+    attribute def FanSpeed :> Real;
+    attribute def IonizationIntensity :> Real;
+    attribute def Percentage :> Real;
 
-package AirIoniser_SystemArchitecture {
-    private import AirIoniser_BaseArchitecture::*;
-    private import ScalarValues::*;
-    
-    port def PowerPort {
-        attribute voltage : VoltageValue;
-        attribute current : CurrentValue;
+    enum def OperatingMode {
+        enum off;
+        enum standby;
+        enum low;
+        enum medium;
+        enum high;
+        enum auto;
     }
-    
-    port def AirPort {
-        attribute flowRate : AirFlowRateValue;
-        attribute particleConcentration : ParticleConcentrationValue;
-    }
-    
-    port def ControlSignalPort {
-        attribute enable : Boolean;
-        attribute outputLevel : Real;
-    }
-    
-    part ioniser : AirIoniser {
-        attribute totalPower : PowerValue = powerSupply.outputPower;
-        attribute ionOutputDensity : IonDensityValue = ionGen.ionDensity;
-        attribute particleReductionEfficiency : Real = 0.85;
-        
-        part powerSupply : PowerSupply {
-            attribute inputVoltage : VoltageValue = 120.0;
-            attribute outputVoltage : VoltageValue = 8000.0;
-            attribute outputCurrent : CurrentValue = 0.0005;
-            attribute outputPower : PowerValue = 4.0;
-            attribute efficiency : Real = 0.90;
-            
-            port powerIn : PowerPort {
-                :>> voltage = inputVoltage;
-            }
-            port powerOut : PowerPort {
-                :>> voltage = outputVoltage;
-                :>> current = outputCurrent;
-            }
-        }
-        
-        part ionGen : IonGenerator {
-            attribute operatingVoltage : VoltageValue;
-            attribute ionDensity : IonDensityValue = 2000000.0;
-            attribute numberOfEmitters : Integer = 6;
-            attribute emitterMaterial : String = "Carbon fiber";
-            
-            port hvInput : PowerPort {
-                :>> voltage = operatingVoltage;
-            }
-            port ionOutput {
-                attribute density : IonDensityValue = ionDensity;
-            }
-        }
-        
-        part collectionPlate : CollectionPlate {
-            attribute surfaceArea : Real = 0.15;
-            attribute collectionEfficiency : Real = 0.75;
-            attribute materialType : String = "Aluminum";
-            
-            port particleCollector {
-                attribute capacity : Real;
-            }
-        }
-        
-        part fan : Fan {
-            attribute intakeFlowRate : AirFlowRateValue = 0.00083;
-            
-            port airIn : AirPort {
-                :>> flowRate = intakeFlowRate;
-            }
-            port airOut : AirPort;
-        }
-        
-        part controlUnit : ControlUnit {
-            attribute operatingMode : String = "Auto";
-            attribute powerState : Boolean = true;
-            attribute fanSpeed : Real = 1.0;
-            
-            port controlOut : ControlSignalPort;
-        }
-        
-        part housing : HousingEnclosure {
-            attribute length : Real = 0.25;
-            attribute width : Real = 0.15;
-            attribute height : Real = 0.30;
-            attribute totalMass : Real = 1.2;
-        }
-        
-        connection hvPowerConnection connect powerSupply.powerOut to ionGen.hvInput;
-        connection controlConnection connect controlUnit.controlOut to ionGen.ionOutput;
-        connection airFlowConnection connect fan.airOut to collectionPlate.particleCollector;
-    }
-    
-    satisfy AirIoniser_StakeholderRequirements::purifyAir by ioniser;
-    satisfy AirIoniser_StakeholderRequirements::operateSafely by ioniser;
-    satisfy AirIoniser_StakeholderRequirements::energyEfficient by ioniser;
-}
 
-package AirIoniser_SystemRequirements {
-    private import AirIoniser_SystemArchitecture::*;
-    
-    requirement <'REQ-1001'> voltageLimit {
-        subject ps :>> ioniser.powerSupply;
-        assert constraint {
-            ps.outputVoltage <= 10000.0
-        }
+    item def RoomAir {
+        attribute particulateLevel : ParticleConcentration;
+        attribute pollenLevel : ParticleConcentration;
+        attribute dustLevel : ParticleConcentration;
+        attribute negativeIonLevel : IonConcentration;
+        attribute ozoneLevel : OzoneConcentration;
+        attribute flowRate : AirFlowRate;
     }
-    
-    requirement <'REQ-1002'> powerConsumption {
-        subject device :>> ioniser;
-        assert constraint {
-            device.totalPower <= 5.0
-        }
-    }
-    
-    requirement <'REQ-1003'> ionDensityRequirement {
-        subject generator :>> ioniser.ionGen;
-        assert constraint {
-            generator.ionDensity >= 1000000.0
-        }
-    }
-    
-    requirement <'REQ-1004'> particleReduction {
-        subject device :>> ioniser;
-        assert constraint {
-            device.particleReductionEfficiency >= 0.80
-        }
-    }
-    
-    requirement <'REQ-1005'> airFlowRate {
-        subject intake :>> ioniser.fan;
-        assert constraint {
-            intake.intakeFlowRate >= 0.0005
-        }
-    }
-}
 
-package AirIoniser_Behavior {
-    private import ScalarValues::*;
-    
-    occurrence def PowerOnEvent;
-    occurrence def AirQualityTargetEvent;
-    occurrence def PowerOffEvent;
-    
-    action def GenerateIons {
-        in highVoltage : Real;
-        out negativeIons : Real;
+    item def FilteredAir :> RoomAir {
+        attribute largeParticulateRemoved : Boolean;
     }
-    
-    action def AttractParticles {
-        in ionDensity : Real;
-        in particleCount : Real;
-        out chargedParticles : Real;
+
+    item def IonizedAir :> FilteredAir {
+        attribute chargedParticleLevel : ParticleConcentration;
     }
-    
-    action def CollectParticles {
-        in chargedParticles : Real;
-        out collectedMass : Real;
+
+    item def PurifiedAir :> IonizedAir {
+        attribute ozoneNeutralized : Boolean;
     }
-    
-    action def MonitorAirQuality {
-        in particleConcentration : Real;
-        out qualityLevel : Real;
+
+    item def ElectricalPower {
+        attribute voltage : Voltage;
+        attribute current : Current;
+        attribute power : Power;
     }
-    
-    action def ApplyPower {
-        doc /* Power supply converts AC to high voltage DC */
+
+    item def SensorReading {
+        attribute measuredParticulateLevel : ParticleConcentration;
+        attribute measuredIonLevel : IonConcentration;
+        attribute measuredOzoneLevel : OzoneConcentration;
+        attribute airQualityIndex : Integer;
     }
-    
-    action def IonisationCycle {
+
+    item def FanControlCommand {
+        attribute targetSpeed : FanSpeed;
+        attribute enabled : Boolean;
+    }
+
+    item def IonizationControlCommand {
+        attribute targetVoltage : Voltage;
+        attribute targetIntensity : IonizationIntensity;
+        attribute activeNeedleCount : Integer;
+        attribute enabled : Boolean;
+    }
+
+    item def UserModeSelection {
+        attribute selectedMode : OperatingMode;
+        attribute timestamp : Real;
+    }
+
+    port def AirInputPort {
+        in airIn : RoomAir;
+    }
+
+    port def AirOutputPort {
+        out airOut : PurifiedAir;
+    }
+
+    port def PowerInputPort {
+        in powerIn : ElectricalPower;
+    }
+
+    port def PowerOutputPort {
+        out powerOut : ElectricalPower;
+    }
+
+    port def SensorOutputPort {
+        out sensorData : SensorReading;
+    }
+
+    port def FanCommandPort {
+        in fanCommand : FanControlCommand;
+    }
+
+    port def IonizationCommandPort {
+        in ionizationCommand : IonizationControlCommand;
+    }
+
+    port def ModeSelectionPort {
+        out modeSelection : UserModeSelection;
+    }
+
+    part def CirculationFan {
+        port airInlet : AirInputPort;
+        port airOutlet {
+            out movedAir : RoomAir;
+        }
+        port powerPort : PowerInputPort;
+        port commandPort : FanCommandPort;
+
+        attribute currentSpeed : FanSpeed;
+        attribute maxSpeed : FanSpeed;
+        attribute airFlowCapacity : AirFlowRate;
+
+        action drawAndMoveAir {
+            in ambientAir : RoomAir;
+            in speedCommand : FanControlCommand;
+            out drawnAir : RoomAir;
+        }
+    }
+
+    part def PreFilter {
+        port airInlet {
+            in incomingAir : RoomAir;
+        }
+        port airOutlet {
+            out filteredAir : FilteredAir;
+        }
+
+        attribute filterType : String;
+        attribute hepaCompliant : Boolean;
+        attribute largeDustEfficiency : Percentage;
+        attribute pollenEfficiency : Percentage;
+
+        action trapLargeParticles {
+            in unfilteredAir : RoomAir;
+            out prefilteredAir : FilteredAir;
+        }
+    }
+
+    part def PowerSupply {
+        port mainPowerIn : PowerInputPort;
+        port lowVoltageOut : PowerOutputPort;
+
+        attribute inputVoltage : Voltage;
+        attribute outputVoltage : Voltage;
+        attribute ratedPower : Power;
+        attribute efficiency : Percentage;
+
+        action convertMainsPower {
+            in mainsInput : ElectricalPower;
+            out lowVoltageOutput : ElectricalPower;
+        }
+    }
+
+    part def HighVoltageGenerator {
+        port lowVoltageIn : PowerInputPort;
+        port highVoltageOut : PowerOutputPort;
+        port commandPort : IonizationCommandPort;
+
+        attribute inputVoltage : Voltage;
+        attribute outputVoltage : Voltage;
+        attribute nominalOutputVoltage : Voltage;
+        attribute conversionEfficiency : Percentage;
+
+        action generateHighVoltage {
+            in lowVoltagePower : ElectricalPower;
+            in controlCommand : IonizationControlCommand;
+            out highVoltagePower : ElectricalPower;
+        }
+    }
+
+    part def IonizationNeedle {
+        port highVoltageIn : PowerInputPort;
+        port airStream {
+            in airIn : FilteredAir;
+            out airOut : IonizedAir;
+        }
+
+        attribute needleVoltage : Voltage;
+        attribute ionEmissionRate : IonConcentration;
+        attribute enabled : Boolean;
+
+        action emitNegativeIons {
+            in filteredAir : FilteredAir;
+            in highVoltagePower : ElectricalPower;
+            out ionizedAir : IonizedAir;
+        }
+    }
+
+    part def IonizationChamber {
+        port airInlet {
+            in filteredAir : FilteredAir;
+        }
+        port airOutlet {
+            out ionizedAir : IonizedAir;
+        }
+        port highVoltageIn : PowerInputPort;
+
+        part needles : IonizationNeedle[6];
+
+        attribute chamberVoltage : Voltage;
+        attribute totalIonDensity : IonConcentration;
+        attribute activeNeedleCount : Integer;
+
+        flow needlePowerFlow1 of ElectricalPower
+            from highVoltageIn.powerIn to needles[1].highVoltageIn.powerIn;
+        flow needlePowerFlow2 of ElectricalPower
+            from highVoltageIn.powerIn to needles[2].highVoltageIn.powerIn;
+        flow needlePowerFlow3 of ElectricalPower
+            from highVoltageIn.powerIn to needles[3].highVoltageIn.powerIn;
+        flow needlePowerFlow4 of ElectricalPower
+            from highVoltageIn.powerIn to needles[4].highVoltageIn.powerIn;
+        flow needlePowerFlow5 of ElectricalPower
+            from highVoltageIn.powerIn to needles[5].highVoltageIn.powerIn;
+        flow needlePowerFlow6 of ElectricalPower
+            from highVoltageIn.powerIn to needles[6].highVoltageIn.powerIn;
+
+        action chargeParticles {
+            in prefilteredAir : FilteredAir;
+            in highVoltagePower : ElectricalPower;
+            out chargedAir : IonizedAir;
+        }
+    }
+
+    part def OzoneCatalyst {
+        port airInlet {
+            in ionizedAir : IonizedAir;
+        }
+        port airOutlet {
+            out purifiedAir : PurifiedAir;
+        }
+
+        attribute catalystType : String;
+        attribute ozoneReductionEfficiency : Percentage;
+        attribute outputOzoneLevel : OzoneConcentration;
+
+        action neutralizeOzone {
+            in contaminatedAir : IonizedAir;
+            out safeAir : PurifiedAir;
+        }
+    }
+
+    part def AirQualitySensor {
+        port airSample {
+            in sampledAir : RoomAir;
+        }
+        port measurementOut : SensorOutputPort;
+
+        attribute particulateSensitivity : ParticleConcentration;
+        attribute ionSensitivity : IonConcentration;
+        attribute ozoneSensitivity : OzoneConcentration;
+        attribute measurementInterval : Real;
+
+        action measureAirQuality {
+            in airSample : RoomAir;
+            out sensorReading : SensorReading;
+        }
+    }
+
+    part def UserInterface {
+        port modeSelectionOut : ModeSelectionPort;
+        port statusDisplay {
+            in systemStatus : OperatingMode;
+        }
+
+        attribute displayEnabled : Boolean;
+        attribute lastUserInput : Real;
+    }
+
+    part def ControlModule {
+        port sensorDataIn {
+            in sensorReading : SensorReading;
+        }
+        port userModeIn {
+            in modeSelection : UserModeSelection;
+        }
+        port fanCommandOut {
+            out fanCommand : FanControlCommand;
+        }
+        port ionizationCommandOut {
+            out ionizationCommand : IonizationControlCommand;
+        }
+
+        attribute currentMode : OperatingMode;
+        attribute targetParticulateLevel : ParticleConcentration;
+        attribute targetIonLevel : IonConcentration;
+        attribute autoModeEnabled : Boolean;
+        attribute commandedFanSpeed : FanSpeed;
+        attribute commandedIonIntensity : IonizationIntensity;
+
+        action computeControlCommands {
+            in selectedMode : UserModeSelection;
+            in airQualityData : SensorReading;
+            out fanControl : FanControlCommand;
+            out ionizationControl : IonizationControlCommand;
+        }
+
+        state controlStateMachine {
+            entry; then offState;
+
+            state offState;
+            
+            transition offToStandby
+                first offState
+                accept modeChange : UserModeSelection
+                if modeChange.selectedMode == OperatingMode::standby
+                then standbyState;
+
+            state standbyState;
+            
+            transition standbyToOff
+                first standbyState
+                accept modeChange : UserModeSelection
+                if modeChange.selectedMode == OperatingMode::off
+                then offState;
+            transition standbyToLow
+                first standbyState
+                accept modeChange : UserModeSelection
+                if modeChange.selectedMode == OperatingMode::low
+                then lowState;
+
+            state lowState;
+            
+            transition lowToMedium
+                first lowState
+                accept modeChange : UserModeSelection
+                if modeChange.selectedMode == OperatingMode::medium
+                then mediumState;
+            transition lowToStandby
+                first lowState
+                accept modeChange : UserModeSelection
+                if modeChange.selectedMode == OperatingMode::standby
+                then standbyState;
+
+            state mediumState;
+            
+            transition mediumToHigh
+                first mediumState
+                accept modeChange : UserModeSelection
+                if modeChange.selectedMode == OperatingMode::high
+                then highState;
+            transition mediumToLow
+                first mediumState
+                accept modeChange : UserModeSelection
+                if modeChange.selectedMode == OperatingMode::low
+                then lowState;
+
+            state highState;
+            
+            transition highToMedium
+                first highState
+                accept modeChange : UserModeSelection
+                if modeChange.selectedMode == OperatingMode::medium
+                then mediumState;
+            transition highToAuto
+                first highState
+                accept modeChange : UserModeSelection
+                if modeChange.selectedMode == OperatingMode::auto
+                then autoState;
+
+            state autoState;
+            
+            transition autoToStandby
+                first autoState
+                accept modeChange : UserModeSelection
+                if modeChange.selectedMode == OperatingMode::standby
+                then standbyState;
+        }
+    }
+
+    part def IndoorAirIonizer {
+        port roomAirIn : AirInputPort;
+        port purifiedAirOut : AirOutputPort;
+        port mainsPowerIn : PowerInputPort;
+        port userControl : ModeSelectionPort;
+
+        part powerSupply : PowerSupply;
+        part circulationFan : CirculationFan;
+        part preFilter : PreFilter {
+            attribute :>> filterType = "HEPA";
+            attribute :>> hepaCompliant = true;
+            attribute :>> largeDustEfficiency = 99.97;
+            attribute :>> pollenEfficiency = 99.5;
+        }
+        part highVoltageGenerator : HighVoltageGenerator {
+            attribute :>> nominalOutputVoltage = 7000.0;
+        }
+        part ionizationChamber : IonizationChamber {
+            attribute :>> activeNeedleCount = 6;
+        }
+        part ozoneCatalyst : OzoneCatalyst {
+            attribute :>> ozoneReductionEfficiency = 95.0;
+        }
+        part airQualitySensor : AirQualitySensor;
+        part controlModule : ControlModule;
+        part userInterface : UserInterface;
+
+        interface powerSupplyInterface connect mainsPowerIn to powerSupply.mainPowerIn {
+            flow mainsPowerFlow of ElectricalPower
+                from mainsPowerIn.powerIn to powerSupply.mainPowerIn.powerIn;
+        }
+
+        interface lowVoltageInterface connect powerSupply.lowVoltageOut to highVoltageGenerator.lowVoltageIn {
+            flow lowVoltagePowerFlow of ElectricalPower
+                from powerSupply.lowVoltageOut.powerOut to highVoltageGenerator.lowVoltageIn.powerIn;
+        }
+
+        interface highVoltageInterface connect highVoltageGenerator.highVoltageOut to ionizationChamber.highVoltageIn {
+            flow highVoltagePowerFlow of ElectricalPower
+                from highVoltageGenerator.highVoltageOut.powerOut to ionizationChamber.highVoltageIn.powerIn;
+        }
+
+        bind roomAirIn = circulationFan.airInlet;
+
+        flow fanToPreFilterAirFlow of RoomAir
+            from circulationFan.airOutlet.movedAir to preFilter.airInlet.incomingAir;
+
+        flow preFilterToChamberAirFlow of FilteredAir
+            from preFilter.airOutlet.filteredAir to ionizationChamber.airInlet.filteredAir;
+
+        flow chamberToCatalystAirFlow of IonizedAir
+            from ionizationChamber.airOutlet.ionizedAir to ozoneCatalyst.airInlet.ionizedAir;
+
+        flow catalystToRoomAirFlow of PurifiedAir
+            from ozoneCatalyst.airOutlet.purifiedAir to purifiedAirOut.airOut;
+
+        flow sensorSamplingFlow of RoomAir
+            from roomAirIn.airIn to airQualitySensor.airSample.sampledAir;
+
+        flow sensorDataFlow of SensorReading
+            from airQualitySensor.measurementOut.sensorData to controlModule.sensorDataIn.sensorReading;
+
+        flow userModeFlow of UserModeSelection
+            from userInterface.modeSelectionOut.modeSelection to controlModule.userModeIn.modeSelection;
+
+        flow fanCommandFlow of FanControlCommand
+            from controlModule.fanCommandOut.fanCommand to circulationFan.commandPort.fanCommand;
+
+        flow ionizationCommandFlow of IonizationControlCommand
+            from controlModule.ionizationCommandOut.ionizationCommand to highVoltageGenerator.commandPort.ionizationCommand;
+    }
+
+    action def PurifyIndoorAir {
+        in ambientRoomAir : RoomAir;
+        in userMode : UserModeSelection;
+        out cleanAir : PurifiedAir;
+
+        action measureAirQuality : AirQualitySensor::measureAirQuality {
+            in airSample = PurifyIndoorAir::ambientRoomAir;
+        }
+
+        action computeControls : ControlModule::computeControlCommands {
+            in selectedMode = PurifyIndoorAir::userMode;
+            in airQualityData = measureAirQuality.sensorReading;
+        }
+
+        action drawAir : CirculationFan::drawAndMoveAir {
+            in ambientAir = PurifyIndoorAir::ambientRoomAir;
+            in speedCommand = computeControls.fanControl;
+        }
+
+        action filterLargeParticles : PreFilter::trapLargeParticles {
+            in unfilteredAir = drawAir.drawnAir;
+        }
+
+        action generatePower : HighVoltageGenerator::generateHighVoltage {
+            in controlCommand = computeControls.ionizationControl;
+        }
+
+        action ionizeAir : IonizationChamber::chargeParticles {
+            in prefilteredAir = filterLargeParticles.prefilteredAir;
+            in highVoltagePower = generatePower.highVoltagePower;
+        }
+
+        action neutralizeByproduct : OzoneCatalyst::neutralizeOzone {
+            in contaminatedAir = ionizeAir.chargedAir;
+            out safeAir = PurifyIndoorAir::cleanAir;
+        }
+
         first start;
-        
-        then action applyPower : ApplyPower;
-        
-        then action generateIons : GenerateIons {
-            in highVoltage : Real = 8000.0;
-            out negativeIons : Real;
-        }
-        
-        then action attractParticles : AttractParticles {
-            in ionDensity = generateIons.negativeIons;
-            in particleCount : Real;
-            out chargedParticles : Real;
-        }
-        
-        then action collectParticles : CollectParticles {
-            in chargedParticles = attractParticles.chargedParticles;
-            out collectedMass : Real;
-        }
-        
-        then action monitorQuality : MonitorAirQuality {
-            in particleConcentration : Real;
-            out qualityLevel : Real;
-        }
-        
-        then decide;
-            if monitorQuality.qualityLevel < 0.90 then continueOperation;
-            if monitorQuality.qualityLevel >= 0.90 then reduceOutput;
-        
-        merge continueOperation;
-        then generateIons;
-        
-        action reduceOutput {
-            doc /* Reduce ion output when air quality is acceptable */
-        }
+        then measureAirQuality;
+        then computeControls;
+        then drawAir;
+        then filterLargeParticles;
+        then generatePower;
+        then ionizeAir;
+        then neutralizeByproduct;
         then done;
-    }
-    
-    state def IoniserOperationStates {
-        entry; then idle;
-        
-        state idle {
-            entry action {
-                doc /* System powered but not actively ionizing */
-            }
-        }
-        
-        transition idle_to_active
-            first idle
-            accept PowerOnEvent
-            then active;
-        
-        state active {
-            entry action {
-                doc /* High voltage applied, ions being generated */
-            }
-            
-            state generatingIons;
-            state collectingParticles;
-            
-            transition generating_to_collecting
-                first generatingIons
-                then collectingParticles;
-        }
-        
-        transition active_to_standby
-            first active
-            accept AirQualityTargetEvent
-            then standby;
-        
-        state standby {
-            entry action {
-                doc /* Reduced power mode, monitoring only */
-            }
-        }
-        
-        transition standby_to_idle
-            first standby
-            accept PowerOffEvent
-            then idle;
-    }
-}
-
-package AirIoniser_Integration {
-    private import AirIoniser_BaseArchitecture::*;
-    private import AirIoniser_SystemArchitecture::*;
-    private import AirIoniser_Behavior::*;
-    
-    part activeIoniser :> ioniser {
-        perform action operationCycle[*] ordered : IonisationCycle;
-        exhibit state operationStates : IoniserOperationStates;
     }
 }

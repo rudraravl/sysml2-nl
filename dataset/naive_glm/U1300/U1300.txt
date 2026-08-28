@@ -1,0 +1,15 @@
+This model represents the Marata Vision System, an advanced platform for real-time imaging and intelligent visual analysis. It is designed for high-performance applications such as automated surveillance, industrial quality inspection, or augmented reality, where understanding a visual scene in real-time is critical. The system's main purpose is to capture high-resolution video, analyze it to identify and track objects and motion, and then output this processed information for display, storage, or automated decision-making.
+
+The system is composed of five primary hardware components that work together in a continuous pipeline:
+
+1.  **Optical Sensor:** This is the system's eye, a high-quality camera capable of capturing 4K resolution (3840x2160) video at up to 120 frames per second. It has adjustable controls for camera settings like exposure, aperture, and focus, allowing it to adapt to various environmental and lighting conditions.
+
+2.  **Image Processing Unit (IPU):** This is the computational core of the system. It receives the raw video feed from the sensor and performs sophisticated, real-time analysis. Based on its configuration, the IPU can perform tasks like detecting edges, tracking multiple moving objects, calculating motion vectors between frames, and applying color correction to enhance the image.
+
+3.  **System Controller:** This acts as the central coordinator. It receives external commands to change the system's behavior, such as adjusting the target frame rate or switching between different processing modes (e.g., turning object tracking on or off). It also monitors the entire system and reports on its status, including its operational state, current performance load, and any errors.
+
+4.  **Display Controller:** This component takes the processed, analysis-rich video from the IPU and prepares it for output on a 4K display, ensuring a human operator can view the results of the system's analysis.
+
+5.  **Data Storage Unit:** This unit is responsible for archiving the processed video frames and all their associated analysis data (like detected objects and motion vectors). The system is designed to store at least 1000 processed frames for later review or analysis.
+
+The system operates through several distinct states, including standby, initializing, operational, paused, and shutdown. When operational, it runs in a continuous loop: the sensor captures a frame, which is immediately sent to the processor for analysis. The resulting processed frame is then simultaneously forwarded to the display controller to be shown and to the data storage unit to be archived, after which the cycle immediately repeats for the next frame to ensure real-time performance.

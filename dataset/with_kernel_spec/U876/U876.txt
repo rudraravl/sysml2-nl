@@ -1,0 +1,18 @@
+This model describes a Shack-Hartmann Wavefront Sensing System, a high-precision optical instrument designed to measure the shape and distortions of a light wavefront. Such systems are critical in fields like astronomy for adaptive optics, laser beam characterization, and quality control for manufacturing optical components like lenses and mirrors.
+
+The core function of this system is to take an incoming beam of light and produce a detailed map of its phase distortions, quantifying any imperfections. It achieves this through a specific sequence of operations and a set of key components working in concert.
+
+The main components of the sensor unit are:
+*   **Relay Optics:** An initial set of lenses that condition the incoming light, ensuring it has the correct size and focus to be analyzed by the rest of the system.
+*   **Lenslet Array:** This is the heart of the sensor. It is a small plate containing a precise grid of many tiny lenses (micro-lenses). Its job is to slice the incoming wavefront into a large number of smaller, separate beams.
+*   **CCD Detector:** A high-sensitivity digital camera sensor (like a CCD) is placed precisely at the focal point of the lenslet array. Each tiny lens in the array focuses its portion of the light beam into a spot on this detector, creating a grid-like pattern of light spots.
+*   **Wavefront Reconstruction Processor:** This is the computational engine of the system. It runs algorithms to analyze the image captured by the detector and reconstruct the wavefront's shape.
+
+The measurement process works as follows:
+1.  First, the system must be calibrated using a perfect, flat, or well-known reference wavefront. This creates a reference pattern of perfectly spaced spots on the CCD detector, which is stored in the processor.
+2.  During a measurement, an unknown wavefront enters the sensor. The lenslet array divides it up and focuses it onto the detector.
+3.  If the incoming wavefront is distorted, the spots on the detector will be shifted from their ideal reference positions. For example, a locally tilted part of the wavefront will shift its corresponding spot sideways.
+4.  The Wavefront Reconstruction Processor captures the image of the displaced spots and compares it to the stored reference pattern. By measuring the displacement of each spot, it calculates the local slope (or tilt) of the wavefront at that specific point.
+5.  Finally, by integrating all these local slope measurements across the entire beam, the processor mathematically reconstructs a high-resolution map of the original wavefront's shape. This map can identify and quantify various optical errors, such as defocus, astigmatism, and coma, often expressed in terms of Zernike polynomials.
+
+The system operates through a series of states. It starts by initializing, then enters a calibration mode. Once calibrated, it is in a "ready" state, waiting for a trigger. When a measurement is commanded, it cycles through acquiring an image, processing the data to reconstruct the wavefront, and outputting the final wavefront map before returning to the ready state for the next measurement. It also includes an error state to handle any operational faults.

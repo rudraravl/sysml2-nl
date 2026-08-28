@@ -291,8 +291,8 @@ def _require_binary(name: str) -> str:
     path = shutil.which(name)
     if not path:
         raise RuntimeError(
-            f"{name} CLI not found on PATH. Install/authenticate it, or unset "
-            f"LLM_BACKEND=cli to use the API backend."
+            f"{name} CLI not found on PATH. Install/authenticate it, or set "
+            f"LLM_BACKEND=api to use the OpenRouter HTTP backend."
         )
     return path
 

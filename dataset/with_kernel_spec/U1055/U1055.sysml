@@ -1,417 +1,411 @@
-package ExploratoryEngineeringSystem {
+package 'Exploratory Engineering Platform' {
     private import ScalarValues::*;
     private import ISQ::*;
     private import SI::*;
-
-    attribute def ConfidenceLevel :> Real;
-    attribute def ComplexityScore :> Real;
-    attribute def FeasibilityIndex :> Real;
-    attribute def UncertaintyMetric :> Real;
-
-    item def TechnologicalConcept {
-        attribute conceptName : String;
-        attribute domainArea : String;
-        attribute noveltyLevel : Real;
-        attribute technicalChallenge : ComplexityScore;
+    private import TradeStudies::*;
+    
+    attribute def EfficiencyValue :> Real;
+    attribute def ComplexityValue :> Real;
+    attribute def MaturityValue :> Real;
+    attribute def FeasibilityScore :> Real;
+    attribute def PerformanceScore :> Real;
+    attribute def RiskScore :> Real;
+    attribute def OptimizationScore :> Real;
+    attribute def CostValue :> Real;
+    
+    item def DesignConcept {
+        attribute conceptId : String;
+        attribute mass : MassValue;
+        attribute powerRequirement : PowerValue;
+        attribute efficiency : EfficiencyValue;
+        attribute complexity : ComplexityValue;
+        attribute technologicalMaturity : MaturityValue;
+        attribute estimatedCost : CostValue;
+        attribute feasibilityScore : FeasibilityScore;
+        attribute performanceScore : PerformanceScore;
+        attribute riskScore : RiskScore;
+        attribute overallScore : Real;
+        attribute isFeasible : Boolean;
+        attribute meetsRequirements : Boolean;
     }
-
-    item def TheoreticalModel {
-        attribute modelType : String;
-        attribute assumptions : String[*];
-        attribute governingEquations : String[*];
-        attribute validityRange : String;
-        attribute confidenceLevel : ConfidenceLevel;
+    
+    item def ConceptCollection {
+        item concepts : DesignConcept[0..*];
     }
-
-    item def DesignSpacePoint {
-        attribute designParameters : Real[*];
-        attribute performanceMetrics : Real[*];
-        attribute estimatedMass : MassValue;
-        attribute estimatedPower : PowerValue;
-        attribute estimatedCost : Real;
+    
+    item def SeedDesign :> DesignConcept;
+    item def OptimizedConcept :> DesignConcept;
+    item def ValidatedConcept :> DesignConcept;
+    
+    item def AnalysisResult {
+        item analyzedConcept : DesignConcept;
+        attribute feasible : Boolean;
+        attribute viabilityScore : FeasibilityScore;
     }
-
-    item def SimulationResult {
-        attribute simulationId : String;
-        attribute timesteps : Integer;
-        attribute convergenceAchieved : Boolean;
-        attribute predictedPerformance : Real[*];
-        attribute computationTime : TimeValue;
-        attribute numericalUncertainty : UncertaintyMetric;
+    
+    item def ValidationReport {
+        item validatedConcept : DesignConcept;
+        attribute massSatisfied : Boolean;
+        attribute powerSatisfied : Boolean;
+        attribute efficiencySatisfied : Boolean;
+        attribute maturitySatisfied : Boolean;
+        attribute allRequirementsSatisfied : Boolean;
     }
-
-    item def FeasibilityAssessment {
-        attribute overallFeasibility : FeasibilityIndex;
-        attribute technicalFeasibility : FeasibilityIndex;
-        attribute physicalConstraintsSatisfied : Boolean;
-        attribute criticalUncertainties : String[*];
-        attribute requiredBreakthroughs : String[*];
-        attribute confidenceInConclusion : ConfidenceLevel;
-        attribute recommendationCategory : String;
-    }
-
-    item def AnalysisReport {
-        attribute reportId : String;
-        attribute exploredDesigns : Integer;
-        attribute simulationsRun : Integer;
-        attribute keyFindings : String[*];
-        attribute sensitivityFactors : String[*];
-        attribute nextSteps : String[*];
-    }
-
-    port def ConceptInputPort {
-        in item concept : TechnologicalConcept;
-    }
-
-    port def ModelOutputPort {
-        out item model : TheoreticalModel;
-    }
-
-    port def DesignDataPort {
-        in item designPoint : DesignSpacePoint;
-        out item designPoint : DesignSpacePoint;
-    }
-
-    port def SimulationDataPort {
-        in item simResult : SimulationResult;
-        out item simResult : SimulationResult;
-    }
-
-    port def AssessmentPort {
-        out item assessment : FeasibilityAssessment;
-    }
-
-    port def ReportPort {
-        out item report : AnalysisReport;
-    }
-
-    interface def ConceptToModelingInterface {
-        end conceptIn : ConceptInputPort;
-        end modelOut : ModelOutputPort;
-    }
-
-    interface def ModelToDesignInterface {
-        end modelIn : ModelOutputPort;
-        end designOut : DesignDataPort;
-    }
-
-    interface def DesignToSimulationInterface {
-        end designIn : DesignDataPort;
-        end simOut : SimulationDataPort;
-    }
-
-    interface def SimulationToAssessmentInterface {
-        end simIn : SimulationDataPort;
-        end assessOut : AssessmentPort;
-    }
-
-    part def TheoreticalAnalysisEngine {
-        attribute modelingDepth : Integer;
-        attribute fidelityLevel : String;
-        port conceptPort : ConceptInputPort;
-        port modelPort : ModelOutputPort;
-        perform action buildTheoreticalModel : BuildTheoreticalModel;
-        perform action validateAssumptions : ValidateAssumptions;
-    }
-
-    part def DesignSpaceExplorer {
-        attribute explorationStrategy : String;
-        attribute designPointCount : Integer;
-        attribute dimensionality : Integer;
-        port modelPort : ModelOutputPort;
-        port designPort : DesignDataPort;
-        perform action generateDesignPoints : GenerateDesignPoints;
-        perform action optimizeDesign : OptimizeDesign;
-    }
-
-    part def PerformanceSimulator {
-        attribute solverType : String;
-        attribute meshResolution : LengthValue;
-        attribute timeStepSize : TimeValue;
-        attribute parallelProcessors : Integer;
-        port designPort : DesignDataPort;
-        port simPort : SimulationDataPort;
-        perform action runSimulation : RunSimulation;
-        perform action computeMetrics : ComputeMetrics;
-    }
-
-    part def FeasibilityAnalyzer {
-        attribute assessmentCriteria : String[*];
-        attribute uncertaintyThreshold : Real;
-        port simPort : SimulationDataPort;
-        port assessmentPort : AssessmentPort;
-        port reportPort : ReportPort;
-        perform action analyzeFeasibility : AnalyzeFeasibility;
-        perform action identifyUncertainties : IdentifyUncertainties;
-        perform action generateReport : GenerateReport;
-    }
-
-    action def BuildTheoreticalModel {
-        in concept : TechnologicalConcept;
-        out model : TheoreticalModel;
-    }
-
-    action def ValidateAssumptions {
-        in model : TheoreticalModel;
-        out validationPassed : Boolean;
-    }
-
-    action def GenerateDesignPoints {
-        in model : TheoreticalModel;
-        in explorationBounds : Real[*];
-        out designPoints : DesignSpacePoint[*];
-    }
-
-    action def OptimizeDesign {
-        in objectives : String[*];
-        in designPoints : DesignSpacePoint[*];
-        out optimalPoint : DesignSpacePoint;
-    }
-
-    action def RunSimulation {
-        in designPoint : DesignSpacePoint;
-        in simulationTime : TimeValue;
-        out result : SimulationResult;
-    }
-
-    action def ComputeMetrics {
-        in result : SimulationResult;
-        out performanceMetrics : Real[*];
-    }
-
-    action def AnalyzeFeasibility {
-        in simResults : SimulationResult[*];
-        out assessment : FeasibilityAssessment;
-    }
-
-    action def IdentifyUncertainties {
-        in simResults : SimulationResult[*];
-        in model : TheoreticalModel;
-        out criticalUncertainties : String[*];
-    }
-
-    action def GenerateReport {
-        in assessment : FeasibilityAssessment;
-        in explorationData : DesignSpacePoint[*];
-        out report : AnalysisReport;
-    }
-
-    action def ConductExploratoryEngineering {
-        in inputConcept : TechnologicalConcept;
-        out finalAssessment : FeasibilityAssessment;
-        out finalReport : AnalysisReport;
-
-        first start;
-        then action buildModel : BuildTheoreticalModel {
-            in concept = inputConcept;
-            out model : TheoreticalModel;
+    
+    requirement def PlatformRequirements {
+        requirement maxMassRequirement {
+            subject concept : DesignConcept;
+            require constraint { concept.mass <= 1000.0[kg] }
         }
-        then action validate : ValidateAssumptions {
-            in model = buildModel.model;
+        
+        requirement minEfficiencyRequirement {
+            subject concept : DesignConcept;
+            require constraint { concept.efficiency >= 0.75 }
+        }
+        
+        requirement minMaturityRequirement {
+            subject concept : DesignConcept;
+            require constraint { concept.technologicalMaturity >= 0.6 }
+        }
+        
+        requirement maxComplexityRequirement {
+            subject concept : DesignConcept;
+            require constraint { concept.complexity <= 0.85 }
+        }
+        
+        requirement iterativeRefinement;
+        requirement knowledgePersistence;
+    }
+    
+    calc def FeasibilityCalculation {
+        in concept : DesignConcept;
+        return score : FeasibilityScore = 
+            (concept.technologicalMaturity * 0.4) + 
+            ((1.0 - concept.complexity) * 0.3) + 
+            (concept.efficiency * 0.3);
+    }
+    
+    calc def PerformanceCalculation {
+        in concept : DesignConcept;
+        return score : PerformanceScore = 
+            (concept.efficiency * 0.5) + 
+            (concept.technologicalMaturity * 0.3) + 
+            ((1.0 - concept.complexity) * 0.2);
+    }
+    
+    calc def RiskCalculation {
+        in concept : DesignConcept;
+        return score : RiskScore = 
+            ((1.0 - concept.technologicalMaturity) * 0.4) + 
+            (concept.complexity * 0.4) + 
+            ((1.0 - concept.feasibilityScore) * 0.2);
+    }
+    
+    calc def MassRollup {
+        in concept : DesignConcept;
+        return mass : MassValue = concept.mass;
+    }
+    
+    calc def PowerRollup {
+        in concept : DesignConcept;
+        return power : PowerValue = concept.powerRequirement;
+    }
+    
+    calc def EfficiencyRollup {
+        in concept : DesignConcept;
+        return eff : EfficiencyValue = concept.efficiency;
+    }
+    
+    calc def ComplexityRollup {
+        in concept : DesignConcept;
+        return complexity : ComplexityValue = concept.complexity;
+    }
+    
+    calc def ConceptEvaluation {
+        in performance : PerformanceScore;
+        in risk : RiskScore;
+        in mass : MassValue;
+        in efficiency : EfficiencyValue;
+        in cost : CostValue;
+        return evaluation : Real = 
+            (performance * 0.35) - (risk * 0.25) + (efficiency * 0.20) - 
+            (mass.num / 2000.0 * 0.10) - (cost * 0.10);
+    }
+    
+    part def ConceptGenerator {
+        port inputPort {
+            in seedDesign : SeedDesign;
+            in variationCount : Integer;
+        }
+        
+        port outputPort {
+            out generatedConcepts : ConceptCollection;
+        }
+        
+        action generateVariations {
+            in seed : SeedDesign;
+            in count : Integer;
+            out concepts : ConceptCollection;
+        }
+        
+        attribute defaultVariationCount : Integer = 20;
+    }
+    
+    part def FeasibilityAnalyzer {
+        port inputPort {
+            in concepts : ConceptCollection;
+        }
+        
+        port outputPort {
+            out feasibleConcepts : ConceptCollection;
+            out analysisResults : AnalysisResult[0..*];
+        }
+        
+        action analyzeFeasibility {
+            in inputConcepts : ConceptCollection;
+            out viable : ConceptCollection;
+            out results : AnalysisResult[0..*];
+        }
+        
+        attribute feasibilityThreshold : FeasibilityScore = 0.5;
+    }
+    
+    part def TradeStudyEngine {
+        port inputPort {
+            in concepts : ConceptCollection;
+        }
+        
+        port outputPort {
+            out rankedConcepts : ConceptCollection;
+            out bestConcept : DesignConcept;
+        }
+        
+        analysis conceptTradeStudy : TradeStudy {
+            subject : DesignConcept[1..*];
+            objective : MaximizeObjective;
+            
+            calc :>> evaluationFunction {
+                in part aConcept :>> alternative : DesignConcept;
+                calc perfCalc : FeasibilityCalculation {
+                    in concept = aConcept;
+                    return performance;
+                }
+                calc riskCalc : RiskCalculation {
+                    in concept = aConcept;
+                    return risk;
+                }
+                calc massRollup : MassRollup {
+                    in concept = aConcept;
+                    return mass;
+                }
+                calc effRollup : EfficiencyRollup {
+                    in concept = aConcept;
+                    return eff;
+                }
+                return :>> result : Real = ConceptEvaluation(
+                    perfCalc.performance, riskCalc.risk, massRollup.mass, 
+                    effRollup.eff, aConcept.estimatedCost
+                );
+            }
+            
+            return part :>> selectedAlternative : DesignConcept;
+        }
+    }
+    
+    part def OptimizationEngine {
+        port inputPort {
+            in conceptToOptimize : DesignConcept;
+            in maxIterations : Integer;
+        }
+        
+        port outputPort {
+            out optimizedConcept : OptimizedConcept;
+            out optimizationScore : OptimizationScore;
+        }
+        
+        action optimizeDesign {
+            in baseline : DesignConcept;
+            in iterations : Integer;
+            out optimized : OptimizedConcept;
+        }
+        
+        attribute convergenceTolerance : Real = 0.001;
+        attribute learningRate : Real = 0.1;
+        attribute defaultMaxIterations : Integer = 50;
+    }
+    
+    part def PerformanceValidator {
+        port inputPort {
+            in conceptToValidate : OptimizedConcept;
+        }
+        
+        port outputPort {
+            out validatedConcept : ValidatedConcept;
+            out validationReport : ValidationReport;
             out validationPassed : Boolean;
         }
-        then decide;
-            if validate.validationPassed then exploreDesigns;
-            if not validate.validationPassed then refineModel;
         
-        action refineModel : BuildTheoreticalModel {
-            in concept = inputConcept;
-            out model : TheoreticalModel;
+        action validateRequirements {
+            in concept : OptimizedConcept;
+            out isValid : Boolean;
+            out report : ValidationReport;
         }
-        then exploreDesigns;
         
-        action exploreDesigns : GenerateDesignPoints {
-            in model = buildModel.model;
-            in explorationBounds : Real[*];
-            out designPoints : DesignSpacePoint[*];
-        }
-        then action simulate : RunSimulation {
-            in designPoint : DesignSpacePoint;
-            in simulationTime : TimeValue;
-            out result : SimulationResult;
-        }
-        then action metrics : ComputeMetrics {
-            in result = simulate.result;
-            out performanceMetrics : Real[*];
-        }
-        then action assess : AnalyzeFeasibility {
-            in simResults : SimulationResult[*];
-            out assessment : FeasibilityAssessment;
-        }
-        then action identifyGaps : IdentifyUncertainties {
-            in simResults : SimulationResult[*];
-            in model = buildModel.model;
-            out criticalUncertainties : String[*];
-        }
-        then action report : GenerateReport {
-            in assessment = assess.assessment;
-            in explorationData = exploreDesigns.designPoints;
-            out report : AnalysisReport;
-        }
-        then done;
+        ref requirement platformReqs : PlatformRequirements;
     }
-
+    
+    part def KnowledgeRepository {
+        port ingestPort {
+            in conceptToStore : DesignConcept;
+            in analysisResult : AnalysisResult;
+            in validationReport : ValidationReport;
+        }
+        
+        port queryPort {
+            in queryParams : String;
+            out retrievedConcepts : ConceptCollection;
+        }
+        
+        action storeConcept {
+            in concept : DesignConcept;
+        }
+        
+        action storeAnalysisResult {
+            in result : AnalysisResult;
+        }
+        
+        action storeValidationReport {
+            in report : ValidationReport;
+        }
+        
+        action queryConcepts {
+            in query : String;
+            out results : ConceptCollection;
+        }
+        
+        attribute storedConcepts : DesignConcept[0..*];
+        attribute storedAnalysisResults : AnalysisResult[0..*];
+        attribute storedValidationReports : ValidationReport[0..*];
+        attribute totalConceptsGenerated : Integer;
+        attribute totalIterations : Integer;
+    }
+    
+    action def ExplorationWorkflow {
+        in seedDesign : SeedDesign;
+        in maxIterations : Integer;
+        out finalConcept : ValidatedConcept;
+        
+        action generatePhase {
+            in seed : SeedDesign;
+            out variations : ConceptCollection;
+        }
+        then action analyzePhase {
+            in variations : ConceptCollection;
+            out feasible : ConceptCollection;
+        }
+        then action comparePhase {
+            in feasible : ConceptCollection;
+            out best : DesignConcept;
+        }
+        then action optimizePhase {
+            in best : DesignConcept;
+            out optimized : OptimizedConcept;
+        }
+        then action validatePhase {
+            in optimized : OptimizedConcept;
+            out validated : ValidatedConcept;
+            out isValid : Boolean;
+        }
+    }
+    
     state def ExplorationLifecycle {
-        entry; then conceptualization;
+        state idle;
+        state generating;
+        state analyzing;
+        state comparing;
+        state optimizing;
+        state validating;
+        state complete;
+        state failed;
         
-        state conceptualization;
-        transition first conceptualization then modeling;
+        transition t0 first then idle;
+        transition t1 idle accept seedReceived then generating;
+        transition t2 generating accept conceptsGenerated then analyzing;
+        transition t3 analyzing accept feasibilityComplete then comparing;
+        transition t4 comparing accept bestConceptSelected then optimizing;
+        transition t5 optimizing accept optimizationComplete then validating;
+        transition t6 validating accept validationComplete if validationPassed then complete;
+        transition t7 validating accept validationFailed if iterationsRemaining then optimizing;
+        transition t8 validating accept validationFailed if not iterationsRemaining then failed;
+    }
+    
+    part def ExploratoryEngineeringPlatform {
+        satisfy requirement platformRequirements : PlatformRequirements;
         
-        state modeling;
-        transition first modeling then exploration;
+        part generator : ConceptGenerator;
+        part feasibilityAnalyzer : FeasibilityAnalyzer;
+        part tradeStudyEngine : TradeStudyEngine;
+        part optimizationEngine : OptimizationEngine;
+        part performanceValidator : PerformanceValidator;
+        part knowledgeRepository : KnowledgeRepository;
         
-        state exploration;
-        transition first exploration then assessment;
+        interface generatorToAnalyzer connect generator.outputPort to feasibilityAnalyzer.inputPort {
+            flow conceptFlow of ConceptCollection
+                from generator.outputPort.generatedConcepts
+                to feasibilityAnalyzer.inputPort.concepts;
+        }
         
-        state assessment;
-        transition first assessment then completed;
+        interface analyzerToTradeStudy connect feasibilityAnalyzer.outputPort to tradeStudyEngine.inputPort {
+            flow feasibleConceptFlow of ConceptCollection
+                from feasibilityAnalyzer.outputPort.feasibleConcepts
+                to tradeStudyEngine.inputPort.concepts;
+        }
         
-        state completed;
-    }
-
-    part def ExploratoryEngineeringSystem {
-        attribute systemVersion : String;
-        attribute processingCapability : PowerValue;
-        attribute storageCapacity : Real;
-        attribute maximumDesignPoints : Integer;
-        attribute simulationAccuracy : Real;
-        attribute minimumConfidenceThreshold : ConfidenceLevel;
-
-        port systemInput : ConceptInputPort;
-        port systemOutput : AssessmentPort;
-        port reportOutput : ReportPort;
-
-        part theoreticalEngine : TheoreticalAnalysisEngine {
-            attribute :>> modelingDepth = 3;
-            attribute :>> fidelityLevel = "high";
+        interface tradeStudyToOptimizer connect tradeStudyEngine.outputPort to optimizationEngine.inputPort {
+            flow bestConceptFlow of DesignConcept
+                from tradeStudyEngine.outputPort.bestConcept
+                to optimizationEngine.inputPort.conceptToOptimize;
         }
-
-        part designExplorer : DesignSpaceExplorer {
-            attribute :>> explorationStrategy = "adaptive_sampling";
-            attribute :>> dimensionality = 8;
+        
+        interface optimizerToValidator connect optimizationEngine.outputPort to performanceValidator.inputPort {
+            flow optimizedConceptFlow of OptimizedConcept
+                from optimizationEngine.outputPort.optimizedConcept
+                to performanceValidator.inputPort.conceptToValidate;
         }
-
-        part simulator : PerformanceSimulator {
-            attribute :>> solverType = "finite_element";
-            attribute :>> meshResolution = 0.001 [m];
-            attribute :>> timeStepSize = 0.0001 [s];
-            attribute :>> parallelProcessors = 64;
-        }
-
-        part analyzer : FeasibilityAnalyzer {
-            attribute :>> uncertaintyThreshold = 0.15;
-        }
-
-        interface conceptToModel : ConceptToModelingInterface
-            connect theoreticalEngine.conceptPort to theoreticalEngine.modelPort;
-
-        interface modelToDesign : ModelToDesignInterface
-            connect theoreticalEngine.modelPort to designExplorer.modelPort;
-
-        interface designToSim : DesignToSimulationInterface
-            connect designExplorer.designPort to simulator.designPort;
-
-        interface simToAssess : SimulationToAssessmentInterface
-            connect simulator.simPort to analyzer.simPort;
-
-        perform action primaryFunction : ConductExploratoryEngineering;
-        exhibit state lifecycle : ExplorationLifecycle;
+        
+        interface generatorToRepository connect generator.outputPort to knowledgeRepository.ingestPort;
+        interface analyzerToRepository connect feasibilityAnalyzer.outputPort to knowledgeRepository.ingestPort;
+        interface validatorToRepository connect performanceValidator.outputPort to knowledgeRepository.ingestPort;
+        
+        action explorationWorkflow : ExplorationWorkflow;
+        state lifecycle : ExplorationLifecycle;
+        
+        attribute currentIteration : Integer = 0;
+        attribute maxIterations : Integer = 10;
+        attribute convergenceAchieved : Boolean = false;
     }
-
-    part exploratoryEngineeringSystem : ExploratoryEngineeringSystem {
-        attribute :>> systemVersion = "2.1.0";
-        attribute :>> processingCapability = 10000 [W];
-        attribute :>> storageCapacity = 5.0e13;
-        attribute :>> maximumDesignPoints = 10000;
-        attribute :>> simulationAccuracy = 0.98;
-        attribute :>> minimumConfidenceThreshold = 0.80;
+    
+    part exploratoryPlatform : ExploratoryEngineeringPlatform;
+    
+    part seedConcept : SeedDesign {
+        attribute conceptId = "SEED-001";
+        attribute mass = 800.0[kg];
+        attribute powerRequirement = 400.0[W];
+        attribute efficiency = 0.70;
+        attribute complexity = 0.60;
+        attribute technologicalMaturity = 0.75;
+        attribute estimatedCost = 100.0;
+        attribute feasibilityScore = 0.0;
+        attribute performanceScore = 0.0;
+        attribute riskScore = 0.0;
+        attribute overallScore = 0.0;
+        attribute isFeasible = false;
+        attribute meetsRequirements = false;
     }
-
-    requirement def <'EXP-REQ-1'> PrimaryFunctionRequirement {
-        doc /* The exploratory engineering system shall systematically analyze technological concepts through theoretical modeling, design space exploration, performance simulation, and feasibility assessment to determine viability and identify critical uncertainties. */
-        subject system : ExploratoryEngineeringSystem;
-        require constraint {
-            system.minimumConfidenceThreshold >= 0.75
-        }
-    }
-
-    requirement def <'EXP-REQ-2'> ModelingCapabilityRequirement {
-        doc /* The system shall construct theoretical models with sufficient fidelity to capture relevant physical phenomena and constraints. */
-        subject system : ExploratoryEngineeringSystem;
-        attribute modelFidelity : Integer = system.theoreticalEngine.modelingDepth;
-        require constraint {
-            modelFidelity >= 2
-        }
-    }
-
-    requirement def <'EXP-REQ-3'> DesignExplorationRequirement {
-        doc /* The system shall explore a design space of sufficient size to identify promising configurations and performance boundaries. */
-        subject system : ExploratoryEngineeringSystem;
-        attribute maxPoints : Integer = system.maximumDesignPoints;
-        require constraint {
-            maxPoints >= 1000
-        }
-    }
-
-    requirement def <'EXP-REQ-4'> SimulationAccuracyRequirement {
-        doc /* Performance simulations shall achieve accuracy sufficient to distinguish between feasible and infeasible designs. */
-        subject system : ExploratoryEngineeringSystem;
-        attribute accuracy : Real = system.simulationAccuracy;
-        require constraint {
-            accuracy >= 0.95
-        }
-    }
-
-    requirement def <'EXP-REQ-5'> UncertaintyIdentificationRequirement {
-        doc /* The system shall identify and quantify critical uncertainties that could affect feasibility conclusions. */
-        subject system : ExploratoryEngineeringSystem;
-        attribute uncertaintyThreshold : Real = system.analyzer.uncertaintyThreshold;
-        require constraint {
-            uncertaintyThreshold <= 0.20
-        }
-    }
-
-    requirement def <'EXP-REQ-6'> AssessmentConfidenceRequirement {
-        doc /* Feasibility assessments shall include confidence levels that meet or exceed the minimum threshold. */
-        subject system : ExploratoryEngineeringSystem;
-        attribute minConfidence : ConfidenceLevel = system.minimumConfidenceThreshold;
-        require constraint {
-            minConfidence >= 0.80
-        }
-    }
-
-    requirement <'EXP-1'> primaryFunction : PrimaryFunctionRequirement {
-        subject :>> system = exploratoryEngineeringSystem;
-    }
-
-    requirement <'EXP-2'> modelingCapability : ModelingCapabilityRequirement {
-        subject :>> system = exploratoryEngineeringSystem;
-    }
-
-    requirement <'EXP-3'> designExploration : DesignExplorationRequirement {
-        subject :>> system = exploratoryEngineeringSystem;
-    }
-
-    requirement <'EXP-4'> simulationAccuracy : SimulationAccuracyRequirement {
-        subject :>> system = exploratoryEngineeringSystem;
-    }
-
-    requirement <'EXP-5'> uncertaintyIdentification : UncertaintyIdentificationRequirement {
-        subject :>> system = exploratoryEngineeringSystem;
-    }
-
-    requirement <'EXP-6'> assessmentConfidence : AssessmentConfidenceRequirement {
-        subject :>> system = exploratoryEngineeringSystem;
-    }
-
-    requirement overallMission {
-        doc /* The exploratory engineering system shall fulfill all functional and quality requirements to enable rigorous analysis of future technological capabilities. */
-        subject system : ExploratoryEngineeringSystem = exploratoryEngineeringSystem;
-        require primaryFunction;
-        require modelingCapability;
-        require designExploration;
-        require simulationAccuracy;
-        require uncertaintyIdentification;
-        require assessmentConfidence;
+    
+    interface seedToPlatform connect seedConcept to exploratoryPlatform.generator.inputPort {
+        flow seedFlow of SeedDesign
+            from seedConcept
+            to exploratoryPlatform.generator.inputPort.seedDesign;
     }
 }

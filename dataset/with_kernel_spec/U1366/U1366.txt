@@ -1,0 +1,20 @@
+This model describes a Wake-on-LAN (WOL) system, which is designed to remotely power on a computer over a local network. The system allows a target computer to be kept in a low-power standby mode and then be brought to a fully operational state by a special network command.
+
+The system consists of three primary components: a target computer, an initiator device, and a network switch that connects them.
+
+The **Target Computer** is a standard computer equipped with a specialized Network Interface Card (NIC) and a Power Management Controller. It can exist in several power states: fully off, a low-power standby state, and fully awake. In the standby state, most components like the main processor are powered down to save energy (consuming less than 5 watts), but the NIC remains partially active, listening for network traffic.
+
+The **Wake-on-LAN Initiator** is another device on the same network, such as an administrator's workstation or a server. Its role is to create and transmit a specially formatted network message called a "Magic Packet." This packet is unique; it contains a specific synchronization header followed by 16 repetitions of the target computer's unique hardware (MAC) address.
+
+The **Network Switch** is standard networking hardware that physically connects the initiator and the target computer, directing traffic between them.
+
+The process works as follows:
+1.  The target computer is in its low-power standby mode.
+2.  To wake it up, the initiator device constructs the Magic Packet specifically addressed to the target computer's MAC address.
+3.  This packet is sent across the network through the switch, which broadcasts it to all connected devices.
+4.  The NIC in the sleeping target computer, which is actively scanning for incoming data, receives the Magic Packet.
+5.  The NIC's internal logic inspects the packet. If it has the correct format and contains the NIC's own MAC address, it's considered valid.
+6.  Upon successful validation, the NIC sends an internal electronic "wake signal" to the computer's Power Management Controller.
+7.  The Power Management Controller then restores full power to the system, causing the main processor to start its boot sequence and load the operating system.
+
+In essence, this system provides a mechanism for on-demand power-up of computers, enabling energy savings without sacrificing remote accessibility.

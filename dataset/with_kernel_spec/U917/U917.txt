@@ -1,0 +1,15 @@
+This model describes a complete Tilt Sensing Unit, an electronic device designed to accurately measure its own orientation in terms of pitch and roll angles. It's a self-contained system that you might find in vehicles, construction equipment, robotics, or any application where knowing the angle of tilt is critical.
+
+The unit is composed of two main internal components: a Tilt Sensor and a Signal Processor.
+
+The **Tilt Sensor** is the core sensing element. It directly converts the physical tilt into raw electrical voltage signals for both the pitch and roll axes. It also includes a temperature sensor, as temperature can affect the accuracy of the readings and needs to be accounted for. The sensor requires an external power supply to operate.
+
+The **Signal Processor** acts as the brain of the unit. It takes the raw, unrefined voltage data from the sensor and performs a series of steps to turn it into a precise and usable measurement. This process involves:
+1.  **Conversion:** Translating the raw voltage values into initial angle estimates.
+2.  **Calibration:** Applying correction factors (like slope and offset adjustments) to compensate for manufacturing imperfections in the sensor, ensuring high accuracy.
+3.  **Filtering:** Smoothing out the data to reduce noise or jitter, resulting in a more stable reading.
+4.  **Validation:** Checking the final data and packaging it into a complete `TiltMeasurement` report, which includes the final pitch and roll angles, a timestamp of when the measurement was taken, and a quality score.
+
+Functionally, the entire unit operates through a clear lifecycle. When powered on, it goes through a startup and initialization sequence, first readying the sensor and then the processor. Once initialized, it enters a standby mode, awaiting a command. When a request to measure is received, it executes its measurement sequence—acquiring raw data from the sensor and immediately processing it—before making the final, refined measurement available at its output port. After the measurement is complete, it returns to standby. The system also includes logic for handling shutdowns, system errors, and resets.
+
+The unit is designed to meet specific performance requirements, including high accuracy (e.g., within a half-degree of error), a wide measurement range (from -90 to +90 degrees), fast response time (providing a measurement in under a tenth of a second), and the ability to operate reliably across a broad range of industrial temperatures.

@@ -1,0 +1,13 @@
+This is a comprehensive robotic medical system designed for performing high-precision surgical procedures. It consists of several interconnected components that work together to assist a surgeon in the operating room.
+
+The core of the system is a sophisticated **Medical Robot** featuring a multi-jointed **Robotic Arm**. This arm, equipped with six actuators for a wide range of motion, terminates in an **End Effector** designed to grip and manipulate various surgical tools. The system is engineered to operate with extreme precision, aiming for an accuracy of less than half a millimeter, and includes a force controller to ensure that any pressure applied during the procedure remains within safe, predefined limits.
+
+For visual guidance, the robot relies on a **Vision System** composed of two cameras and a dedicated image processor. This provides detailed, real-time visual feedback, allowing the system to track movements and navigate accurately within the surgical site.
+
+The entire operation is managed by a central **Control Unit**, which acts as the robot's brain. It contains a **Procedure Controller** that manages the different phases of the surgery—from preparation and incision to the main procedure and closure. Critically, the control unit also includes a **Safety Monitor**. This component continuously analyzes data from force, position, and temperature sensors. If it detects any unsafe conditions, it can escalate the system's safety level from safe to warning, or in a critical situation, trigger an immediate emergency stop.
+
+A surgeon or technician interacts with the system through an **Operator Console**. From here, they send high-level commands, such as target positions and forces, and receive status updates and sensor data back from the robot.
+
+In parallel, a separate **Patient Monitoring System** continuously tracks the patient's vital signs, including heart rate, blood pressure, and oxygen levels, providing this crucial information throughout the operation. The entire system is powered by a dedicated, high-capacity **Power Supply**.
+
+The robot operates through a distinct lifecycle of states, starting from `idle`, moving through `initializing` and `calibration`, and becoming `ready` for a procedure. During surgery, it is in an `operating` state, after which it can return to `ready` or enter a `shutdown` state. An `error` state is triggered if safety limits are breached, ensuring patient safety is the top priority.

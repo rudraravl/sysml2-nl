@@ -1,0 +1,9 @@
+This model represents a motorized lift chair system, a piece of assistive furniture designed to help people with mobility challenges transition between a seated and a standing position.
+
+The system is built around a physical **Seat Frame** that is mechanically moved by a **Linear Actuator**. This actuator is the core of the lifting mechanism, providing the force needed to tilt and raise the entire seat. The whole system is powered by a dedicated **Power Supply** which converts standard household electricity into the low-voltage DC power the actuator needs to operate.
+
+A user controls the chair with a simple, handheld remote, the **Hand Control**, which features buttons to "raise", "lower", and "stop" the chair's movement. When a button is pressed, the control sends a corresponding command to the linear actuator to begin moving, stop, or reverse direction.
+
+The chair operates in several distinct states. It starts in a standard `seated` position. When the user commands it to `raise`, it enters a `lifting` state until it reaches its maximum angle, a `standing` position which makes it easy for the occupant to stand up. Similarly, it can transition through a `lowering` state to return to the seated position. The user can stop the motion at any point, putting the chair into a `stopped` state.
+
+A critical component is the **SafetyController**. It constantly monitors feedback from the actuator, specifically the physical load or force it is exerting. If the load suddenly spikes above a safety threshold—which could happen if a pet, object, or person's limb gets caught in the mechanism—the Safety Controller automatically overrides the user's command and stops all movement to prevent injury or damage. The system is designed to safely support a person weighing up to 136 kg and to complete a full lift cycle in under 10 seconds.

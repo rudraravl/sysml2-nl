@@ -1,0 +1,11 @@
+This is a C-Bus building automation system designed for the distributed, intelligent control of a building's lighting, climate, and security functions. The system's architecture is built around a peer-to-peer network where control is decentralized, meaning there is no single central computer managing operations.
+
+At its core is a shared two-wire electrical bus that serves as the network's backbone. This bus uniquely provides both low-voltage power and a data communication channel to all connected devices, simplifying wiring and installation. A dedicated Power Supply Unit energizes this network.
+
+Various specialized, autonomous controllers connect to this bus to manage different building functions. These components include:
+*   **Lighting Controllers:** Manage lighting circuits, controlling brightness levels and ramp rates.
+*   **Climate Controllers:** Regulate HVAC systems by monitoring temperatures, setting target temperatures, and controlling fan speeds.
+*   **Security Controllers:** Oversee security systems, managing armed states, monitoring zones, and activating alarms.
+*   **Occupancy Sensors:** Detect motion within a space to report whether an area is occupied.
+
+These devices work together by sending and receiving messages over the shared bus. For instance, an Occupancy Sensor can detect a person entering a room and send a message directly to the Lighting Controller for that area, which then turns on the lights. Communication is managed through a priority-based system that prevents message collisions and ensures critical alerts, like from a Security Controller, are transmitted with precedence over routine updates. Each device operates independently through various states, such as initializing, idling, listening for messages, processing commands, and transmitting its own data, creating a robust and scalable smart building ecosystem.

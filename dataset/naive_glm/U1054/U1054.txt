@@ -1,0 +1,13 @@
+This model describes a complete system for **autonomously designing and optimizing robot controllers using simulated evolution**, a process known as evolutionary robotics. The system's goal is to "breed" effective robot brains (neural networks) that can skillfully navigate a complex environment without being explicitly programmed by a human.
+
+At its core, the system works with a simulated, two-wheeled mobile robot. This robot is equipped with a suite of sensors, including an array of eight proximity sensors to detect nearby objects, four light sensors, and two ground sensors to read surface reflectance. It moves using two independently controlled DC motors. The robot's "brain" is a neural network controller that takes in data from the sensors and decides what commands to send to the motors.
+
+The evolutionary process unfolds within a virtual **Simulation Environment**, which is an arena containing obstacles and a specific target location. The system begins with an initial "population" of hundreds of randomly designed neural network controllers. Each controller is then put to the test:
+
+1.  **Simulation Trial:** A controller is loaded into the simulated robot, which is then placed in the virtual arena. The robot attempts to navigate to the target for a set amount of time, and its performance is meticulously tracked—how far it traveled, how close it got to the target, how many times it collided with obstacles, and its energy efficiency.
+
+2.  **Fitness Evaluation:** After each trial, a **Fitness Evaluation Module** analyzes these performance metrics and assigns a single "fitness score" to the controller. Controllers that are better at reaching the target quickly, avoiding collisions, and conserving energy receive higher scores.
+
+3.  **Selection and Breeding:** The system then creates a new generation of controllers. Using a **Genetic Operator Engine**, it mimics natural selection. The controllers with the highest fitness scores are selected as "parents." Their digital DNA—the data defining their neural network structure and connection weights—is combined (crossover) and randomly altered (mutation) to create a new generation of "offspring" controllers. A small number of the very best controllers (the "elites") are preserved unchanged to ensure their successful traits are not lost.
+
+This entire cycle of simulation, evaluation, and breeding is repeated for hundreds of generations. Over time, this process allows sophisticated and adaptive behaviors, such as efficient obstacle avoidance and target-seeking, to emerge naturally. The final output of the system is the most successful neural network controller discovered, which can then be deployed onto a real-world physical robot.

@@ -1,0 +1,11 @@
+This is a Yaw Rate Sensing Unit, an electronic device designed to measure the rotational speed of an object, such as a vehicle, around its vertical axis. This type of measurement is critical for systems like electronic stability control in cars or flight control systems in aircraft and drones.
+
+The unit is composed of two main integrated components: a physical Yaw Rate Sensor and a Data Processor.
+
+The sensor part contains a MEMS (Micro-Electro-Mechanical System) gyroscopic element that physically detects the rotational motion. The raw, weak analog signal from this gyroscope is then passed to a signal conditioner which amplifies and filters it. Finally, an Analog-to-Digital Converter (ADC) transforms this analog signal into a digital stream of data, which also includes a timestamp and the current temperature.
+
+The Data Processor receives this raw digital stream from the sensor. Its first job is to apply calibration parameters stored in its internal memory. These parameters correct the raw data for known inaccuracies, such as sensor offset when it's not moving, scaling errors, and the effects of temperature changes. After calibration, the data is passed through a digital filter to remove any remaining noise. The processor then validates the final result and packages it into a structured output.
+
+The unit operates through several distinct states. When powered on, it enters an initialization state where it runs a self-test and loads its calibration settings. It then waits in a standby mode. Once it receives a "start measurement" command, it becomes active, continuously acquiring sensor data, processing it, and outputting the final yaw rate. It can be returned to standby or reset if an error is detected.
+
+The final output from the unit is not just the yaw rate value, but also includes a quality score and a validity flag, providing a complete and reliable data stream for the larger system it's a part of. The unit interfaces with the outside world through a power supply port, a data output port for the processed information, and a calibration port that allows its correction parameters to be updated.

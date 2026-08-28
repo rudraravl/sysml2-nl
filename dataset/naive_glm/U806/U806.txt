@@ -1,0 +1,13 @@
+This is a digital processing system designed to reconstruct continuous phase data from measurements that are inherently cyclical or "wrapped." In many scientific and engineering fields, such as radar imaging (InSAR), medical diagnostics (MRI), and optical metrology, sensors measure a phase angle. However, they can only report values within a limited range (e.g., -180 to +180 degrees). When the true value exceeds this range, it "wraps around," creating artificial jumps in the data. This system's purpose is to intelligently remove these jumps to reveal the true, continuous underlying physical quantity, like surface topography, fluid velocity, or magnetic field strength.
+
+The system operates as a processing pipeline with several specialized modules:
+
+1.  **Phase Acquisition Module:** This is the input stage, responsible for receiving the initial "wrapped phase map." This map is essentially a 2D image where each pixel's value is a phase angle, complete with the artificial jumps.
+
+2.  **Quality Assessment Module:** Before attempting to unwrap the data, this module analyzes the incoming phase map to determine the reliability of each pixel. It generates a corresponding "quality map" that flags areas of high noise or low coherence, which are likely to cause errors.
+
+3.  **Unwrapping Processor Module:** This is the core of the system. It takes both the original wrapped data and the quality map. Using a quality-guided approach, it first identifies the most reliable pixels in the map to use as "seed points." Starting from these trusted areas, it propagates outwards across the entire map, correcting the phase jumps between adjacent pixels to build a smooth, continuous surface.
+
+4.  **Validation Module:** After the processor has generated a continuous, unwrapped phase map, this final module performs a quality control check. It compares the newly unwrapped data back against the original wrapped input to ensure the result is accurate and consistent. It calculates a final residual error to quantify the success of the unwrapping process.
+
+In essence, the system takes a noisy, ambiguous 2D data map and methodically reconstructs it into a clean, continuous representation of a physical phenomenon, guided by an internal assessment of the data's quality to ensure a robust and accurate result.

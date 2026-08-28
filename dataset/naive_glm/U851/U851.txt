@@ -1,0 +1,9 @@
+This model describes a complete Range Imaging System, commonly known as a LiDAR (Light Detection and Ranging) sensor. This type of system is designed to create detailed three-dimensional maps of its surroundings by measuring distances using laser light.
+
+The system functions by emitting rapid pulses of infrared laser light from a **Laser Emitter**. These pulses are directed by a **Scanning Mirror**, which sweeps the laser beam across a wide field of view—120 degrees horizontally and 30 degrees vertically—to cover a large area. When a laser pulse hits an object, it reflects back to the sensor and is detected by a **Photodetector Array**.
+
+The core of the system is the **Time-of-Flight Processor**. It precisely calculates the distance to the object by measuring the round-trip time of the laser pulse from emission to detection. This process is repeated hundreds of thousands of times per second to build a complete picture.
+
+The raw distance and intensity data for each point are then processed by two main components. A **Depth Map Generator** organizes this information into a 2D image where each pixel's value represents the distance to that point, creating a 640x480 resolution depth map. Concurrently, a **PointCloud Processor** converts this data into a 3D point cloud, which is a collection of hundreds of thousands of individual points (x, y, z coordinates) representing the surface of the scanned environment.
+
+The system operates through several states: it remains in an `idle` state until it receives a trigger to begin. It then moves into a `scanning` state to actively collect data, followed by `processing` and `outputting` states to generate and send the final depth map and point cloud. It is designed to be highly performant, capable of capturing this 3D data at 10 frames per second with an effective range of up to 200 meters, all while operating within a 100-watt power budget.

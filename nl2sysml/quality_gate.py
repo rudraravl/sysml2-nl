@@ -66,12 +66,13 @@ def run_quality_gate(nl: str, sysml: str, ask: Callable[[str], str], *,
             and (len(attempts) - 1) < max_repairs
         ):
             best_attempt = attempts[best_idx]
-            if (
-                best_attempt["validation_status"] == "unavailable"
-                or best_attempt["execution_status"] == "unavailable"
-            ):
-                # Infrastructure absence is reported but is not something a model repair can fix.
-                if not needs_repair(best_attempt["alignment"], threshold):
+            if not needs_repair(best_attempt["alignment"], threshold):
+                # Similarity already clears threshold — repair is unlikely to help
+                # when the failure is compiler errors or missing infrastructure.
+                if (
+                    best_attempt["validation_status"] in ("unavailable", "failed")
+                    or best_attempt["execution_status"] in ("unavailable", "failed")
+                ):
                     break
 
             feedback = _stage_feedback(
@@ -188,13 +189,24 @@ def _worsens_executability(baseline: dict, candidate: dict) -> bool:
     )
 
 
+def _error_count(attempt: dict) -> int:
+    """Extract compiler error count from validation result."""
+    v = attempt.get("validation") or {}
+    return v.get("error_count", 0)
+
+
 def _should_keep_repair(baseline: dict, candidate: dict) -> tuple[bool, str | None]:
-    """Keep only if alignment improves and executability does not regress."""
+    """Keep if alignment improves, or errors decrease at ~equal similarity."""
     if _worsens_executability(baseline, candidate):
         return False, "executability_worsened"
-    if _similarity_value(candidate) <= _similarity_value(baseline):
-        return False, "no_alignment_improvement"
-    return True, None
+    sim_b = _similarity_value(baseline)
+    sim_c = _similarity_value(candidate)
+    if sim_c > sim_b:
+        return True, None
+    # Accept if similarity is roughly equal (±0.03) and compiler errors decreased
+    if abs(sim_c - sim_b) <= 0.03 and _error_count(candidate) < _error_count(baseline):
+        return True, None
+    return False, "no_alignment_improvement"
 
 
 def _call_stage(callback, candidate):

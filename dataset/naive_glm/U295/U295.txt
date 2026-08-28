@@ -1,0 +1,16 @@
+This model describes a Medical Calculator System designed for healthcare professionals to perform a variety of essential clinical calculations and support patient care decisions.
+
+The system takes in a comprehensive set of patient data, including a unique patient ID, demographic information (age, gender), physical measurements (weight, height), lab results (serum creatinine, cholesterol levels), vital signs (blood pressure), and relevant medical history (smoker, diabetic status).
+
+Its core function is to process this information through a central Computation Engine that can execute several distinct calculations:
+
+*   **Body Mass Index (BMI):** Calculates BMI based on a patient's weight and height.
+*   **Glomerular Filtration Rate (GFR):** Estimates kidney function using factors like age, serum creatinine, gender, and weight. The system uses different formulas for male and female patients.
+*   **Cardiac Risk:** Assesses the patient's cardiovascular risk (e.g., using a Framingham-style score) based on age, gender, blood pressure, cholesterol levels, and lifestyle factors.
+*   **Medication Dosage:** Calculates an adjusted medication dose, taking into account the patient's weight and kidney function (GFR) to ensure safety and efficacy.
+
+The system is composed of several key components that work together in a specific sequence. An Input Module first captures the patient data. This data is then sent to a Validation Module, which acts as a critical safety check to ensure the input values are complete and clinically plausible (e.g., checking for reasonable age and weight).
+
+Once validated, the data is passed to the Computation Engine, which performs the requested calculation. The final result is not just a number; it's a detailed record containing the calculation type, the resulting value with its units, a timestamp, a clinical interpretation of the result, and a flag indicating if the value is abnormal.
+
+This complete result is then sent to two places simultaneously: a Display Module, which presents it to the healthcare professional in a clear and understandable format, and a Storage Module, which maintains a history of all calculations performed. The system's operational flow is managed through distinct states, moving from idle, to validating, computing, presenting, and storing the result, with a dedicated error state to handle invalid data inputs gracefully.

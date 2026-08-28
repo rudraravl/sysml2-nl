@@ -1,0 +1,11 @@
+This is an automated ISBN Book Identification System, designed to recognize, validate, and retrieve detailed bibliographic information for published works using their 13-digit International Standard Book Number (ISBN). The system is intended for use in environments like libraries, bookstores, or warehouses for cataloging, inventory management, and sales transactions.
+
+The system is composed of several key components that work in a coordinated sequence. It begins with an **ISBN Scanner**, which can be an optical barcode reader or a manual input device used to capture the ISBN from a physical book.
+
+Once an ISBN is captured, it is passed to an **ISBN Validator**. This component checks the number's format and uses a specific mathematical algorithm (modulo 10) to verify the check digit, ensuring the ISBN is structurally valid and not the result of a scanning or entry error.
+
+If the ISBN is valid, the system queries a **Central Database**, which is a local repository of book records. If the book is found in this internal database, its complete record—including title, author, publisher, publication year, and edition—is retrieved.
+
+If the book is not found locally, a **Network Gateway** is used to query external, authoritative sources like official ISBN agency databases or major library networks. When a record is successfully retrieved from an external source, it is used to update the local Central Database for faster access in the future.
+
+Finally, the retrieved book information is sent to a **User Interface**, where it is presented to the user in a clear and structured format. The system operates through a logical sequence of states: moving from idle to scanning, then validating the code, querying the database (internally and then externally if needed), and finally displaying the results before returning to an idle state, ready for the next lookup.

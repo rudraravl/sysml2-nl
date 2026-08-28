@@ -1,0 +1,13 @@
+This model describes a hydraulically-powered flap system for an aircraft wing. Its purpose is to control a movable aerodynamic surface (the flap) to modify the aircraft's lift and drag characteristics, which is critical during takeoff, landing, and other low-speed flight phases.
+
+The system is a closed-loop control system composed of four main components:
+
+1.  **Flap Surface:** This is the physical, movable panel on the aircraft's wing. It has a surface area of 8.5 square meters and can be deflected from a fully retracted position (0 degrees) to a maximum extended position (40 degrees).
+
+2.  **Hydraulic Actuator:** This is the muscle of the system, responsible for physically moving the heavy flap surface against significant aerodynamic forces. It uses high-pressure hydraulic fluid to generate the necessary force and can operate at speeds up to 15 degrees per second for both extension and retraction.
+
+3.  **Flap Controller:** This is the electronic brain of the system. It receives commands from the pilot or flight computer to extend, retract, or hold the flap at a specific position. It continuously compares the commanded position with the actual position to ensure accuracy.
+
+4.  **Position Sensor:** This component provides the crucial feedback for the system. It precisely measures the actual angle of the flap surface with an accuracy of half a degree and sends this information back to the controller 50 times per second.
+
+In operation, the controller receives a command, for instance, to extend the flaps. It then commands the hydraulic actuator to begin moving the flap surface. The position sensor constantly monitors the flap's angle and reports it back to the controller. The controller uses this feedback to adjust the actuator's movement until the desired position is reached, at which point it commands the actuator to hold the position steady. The system operates in clear states: it can be `retracted`, `extending`, fully `extended`, `retracting`, or `holding` an intermediate position based on commands and its physical state.
