@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import asdict
 from pathlib import Path
+import re
 import tempfile
 
 from .corpus import ExampleCorpus
@@ -20,7 +21,11 @@ parameters, initial conditions, and observable state variables. Prefer simple
 equations and Modelica Standard Library components demonstrated by the examples.
 The top-level model must compile in OpenModelica. Standalone plant requests must
 be directly simulatable. Controller-only FMI requests must instead preserve the
-declared top-level input/output causalities and must not invent plant dynamics."""
+declared top-level input/output causalities and must not invent plant dynamics.
+Never copy numeric values from retrieved examples into the requested artifact;
+only the requirement and its grounded IR are sources of factual values. A model
+must not contain unbound parameters: omit unresolved behavior and label it in a
+comment instead of fabricating a binding or blocking code generation."""
 
 
 class ModelicaPipeline:
@@ -256,6 +261,16 @@ def clean_code(response: str) -> str:
         text = text[start:]
     if not text:
         raise ValueError("generator returned no Modelica code")
+    # Single-shot models occasionally omit only the mandatory final semicolon.
+    # Completing that token is a deterministic syntax normalization and does not
+    # alter equations, parameters, interfaces, or evidence-bearing values.
+    model_match = re.match(r"\s*model\s+([A-Za-z][A-Za-z0-9_]*)\b", text)
+    if model_match:
+        closing = re.compile(
+            rf"(end\s+{re.escape(model_match.group(1))})\s*$"
+        )
+        if closing.search(text):
+            text = closing.sub(r"\1;", text)
     return text
 
 

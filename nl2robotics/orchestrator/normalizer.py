@@ -347,8 +347,30 @@ Required root shape:
 }}
 
 Omit optional fields not stated, including the entire clock when timing is not
-stated. Do not include multiple interface target IDs on one record. Return raw
-JSON only.
+stated. Do not include multiple interface target IDs on one record.
+
+Cross-record consistency is mandatory:
+- Every interface requires a non-empty semantic `state_id`, `quantity`,
+  `direction`, and `source_unit`.
+- Every usd_to_fmu interface state_id must appear verbatim in the `states` list
+  of a grounded `dynamics` record. Use owner `usd_physics` for simulator/body,
+  contact, and simulator-hosted sensor state; use `fmu_plant` only when the
+  source explicitly makes the FMU the physical-state owner. A dynamics record
+  may reuse the exact evidence of the interface fact it declares.
+- Every interface targets at most one joint_id, entity_id, or sensor_id.
+- Every property targets exactly one interface_id, state_id, or entity_id.
+- A property that targets state_id must have a matching interface carrying that
+  exact state_id so the property is observable in generated artifacts. Prefer
+  interface_id for signal-bound properties.
+- If a signal is explicitly requested but its unit is omitted, preserve the
+  signal with source_unit `unspecified` and record the missing unit in
+  `unknowns`; do not guess a physical unit.
+- Encode an explicit no-collision/no-contact requirement as a grounded contact
+  interface with source_unit `dimensionless` and an `always` property whose
+  upper bound is 0. Do not create this encoding unless the prohibition is
+  explicit in SOURCE_TEXT.
+
+Return raw JSON only.
 
 SOURCE_TEXT:
 {source_text}
@@ -362,9 +384,19 @@ def _repair_prompt(source_text: str, task_id: str, execution_mode: str,
         f"- [{item.code}] {item.path}: {item.message}" for item in issues
     )
     return f"""Correct the JSON extraction using only SOURCE_TEXT. Do not add a
-fact to resolve an error. Delete unsupported facts or put omissions in unknowns.
-Evidence must remain exact substrings. Use task_id {task_id!r} and execution_mode
-{execution_mode!r}.
+fact to resolve an error. Preserve supported facts whenever the schema can
+represent them; delete only unsupported facts and put genuine omissions in
+unknowns. Evidence must remain exact substrings. Use task_id {task_id!r} and
+execution_mode {execution_mode!r}.
+
+Repair cross-record references, not just the field named by the diagnostic. In
+particular, every usd_to_fmu interface `state_id` must be declared verbatim by a
+grounded `dynamics.states` entry. Every interface requires `source_unit`; use
+`unspecified` plus an unknown when the request states the signal but omits its
+unit. Every property targeting `state_id` also requires a matching observable
+interface with the exact same state_id. An explicit no-collision/no-contact
+requirement may be represented by a dimensionless contact interface and an
+always-property with upper bound 0.
 
 VALIDATION_ERRORS:
 {diagnostics}

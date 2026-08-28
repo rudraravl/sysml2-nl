@@ -75,6 +75,57 @@ class NormalizerTests(unittest.TestCase):
         self.assertTrue(result.success, result.to_dict())
         self.assertEqual("isaac_closed_loop", result.ir["execution_mode"])
 
+    def test_capability_repair_explains_interface_state_ownership(self):
+        source = "Report left wheel speed in rad/s and require it below 8 rad/s."
+        evidence = [source]
+        candidate = {
+            "schema_version": "1.0",
+            "task_id": "RCB-STATE",
+            "source_text": source,
+            "execution_mode": "capability_tiered",
+            "interfaces": [{
+                "id": "left_wheel_speed_feedback",
+                "state_id": "left_wheel_speed",
+                "quantity": "angular_velocity",
+                "direction": "usd_to_fmu",
+                "source_unit": "rad/s",
+                "evidence": evidence,
+            }],
+            "properties": [{
+                "id": "left_wheel_speed_bound",
+                "kind": "always",
+                "interface_id": "left_wheel_speed_feedback",
+                "upper": 8.0,
+                "evidence": evidence,
+            }],
+        }
+        repaired = deepcopy(candidate)
+        repaired["dynamics"] = [{
+            "id": "wheel_dynamics",
+            "owner": "usd_physics",
+            "states": ["left_wheel_speed"],
+            "evidence": evidence,
+        }]
+        prompts = []
+
+        def answer(prompt: str) -> str:
+            prompts.append(prompt)
+            return json.dumps(candidate if len(prompts) == 1 else repaired)
+
+        result = RequirementNormalizer().normalize(
+            source, answer, task_id="RCB-STATE",
+            execution_mode="capability_tiered", max_repairs=1,
+        )
+        self.assertTrue(result.success, result.to_dict())
+        self.assertIn(
+            "Every usd_to_fmu interface state_id must appear verbatim",
+            prompts[0],
+        )
+        self.assertIn(
+            "every usd_to_fmu interface `state_id` must be declared verbatim",
+            prompts[1],
+        )
+
 
 class PlannerTests(unittest.TestCase):
     def test_plan_derives_exact_cross_profile_identifiers(self):

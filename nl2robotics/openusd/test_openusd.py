@@ -11,7 +11,11 @@ from nl2robotics.openusd.audit_corpus import audit
 from nl2robotics.openusd.build_core_corpus import _effort_revolute_scene
 from nl2robotics.openusd import moe
 from nl2robotics.openusd.pipeline import OpenUSDPipeline, clean_usda
-from nl2robotics.openusd.validator import OpenUSDValidation, OpenUSDValidator
+from nl2robotics.openusd.validator import (
+    OpenUSDValidation,
+    OpenUSDValidator,
+    load_semantic_report,
+)
 
 
 class OpenUSDCorpusTests(unittest.TestCase):
@@ -57,6 +61,18 @@ class OpenUSDCorpusTests(unittest.TestCase):
 
 
 class OpenUSDValidatorTests(unittest.TestCase):
+    def test_nonfinite_inspector_sentinel_becomes_json_null(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            report = Path(tmp) / "semantic.json"
+            report.write_text(
+                '{"gravity_magnitude": -Infinity}', encoding="utf-8"
+            )
+            loaded = load_semantic_report(report)
+            self.assertIsNone(loaded["gravity_magnitude"])
+            self.assertEqual(
+                '{"gravity_magnitude": null}', json.dumps(loaded)
+            )
+
     @patch("nl2robotics.openusd.validator.shutil.which", return_value="/usr/bin/tool")
     @patch("nl2robotics.openusd.validator.subprocess.run")
     def test_available_accepts_fully_qualified_local_image(

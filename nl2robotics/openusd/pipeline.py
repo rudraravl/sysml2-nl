@@ -15,9 +15,13 @@ for a robotics requirement. Return USDA only, without markdown or prose. Use
 portable OpenUSD and UsdPhysics core schemas. Explicitly author defaultPrim,
 metersPerUnit = 1, kilogramsPerUnit = 1, upAxis = Z, and timeCodesPerSecond.
 Use primitive geometry or provided asset references, valid prim relationships,
-positive masses, collision geometry on dynamic links, and an articulation root
-for jointed robots. Do not use Isaac-, PhysX-, or simulator-specific schemas
-unless the requirement explicitly requests the named extension profile."""
+grounded positive masses, grounded collision geometry on dynamic links, and an
+articulation root for jointed robots. Never copy numeric values from retrieved
+examples; only the requirement and grounded IR are factual sources. Preserve a
+component with missing required physical values as an explicitly unresolved
+semantic placeholder instead of fabricating dimensions, mass, pose, or physics.
+Do not use Isaac-, PhysX-, or simulator-specific schemas unless the requirement
+explicitly requests the named extension profile."""
 
 
 class OpenUSDPipeline:

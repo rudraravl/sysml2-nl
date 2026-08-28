@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
 import time
 
-from .validator import OpenUSDIssue, OpenUSDValidation, _issues
+from .validator import (
+    OpenUSDIssue,
+    OpenUSDValidation,
+    _issues,
+    load_semantic_report,
+)
 
 
 class LocalOpenUSDValidator:
@@ -79,8 +83,8 @@ class LocalOpenUSDValidator:
                 )],
             )
         try:
-            report = json.loads(report_path.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError) as exc:
+            report = load_semantic_report(report_path)
+        except (ValueError, OSError) as exc:
             return OpenUSDValidation(
                 True, stage_path, duration_seconds=time.monotonic() - started,
                 issues=[OpenUSDIssue(

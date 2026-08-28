@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -9,6 +10,7 @@ from nl2robotics.contracts.capabilities import TIER_NAMES
 
 
 MANIFEST = Path(__file__).with_name("capability_manifest.json")
+LAUNCH = Path(__file__).with_name("capability_launch.json")
 ROBOTICS_ROOT = Path(__file__).resolve().parents[1]
 MODELICA_MANIFEST = ROBOTICS_ROOT / "modelica" / "examples" / "manifest.json"
 OPENUSD_MANIFEST = ROBOTICS_ROOT / "openusd" / "examples" / "manifest.json"
@@ -118,6 +120,8 @@ def audit_manifest(path: Path = MANIFEST) -> dict:
         str(tier): sum(case.get("target_tier") == tier for case in cases)
         for tier in TIER_NAMES
     }
+    launch = _audit_launch(LAUNCH, path, ids)
+    issues.extend(launch["issues"])
     return {
         "stage": "capability_breadth_audit", "schema_version": "1.0",
         "success": not issues, "case_count": len(cases),
@@ -131,6 +135,60 @@ def audit_manifest(path: Path = MANIFEST) -> dict:
             "modelica_categories": sorted(corpus_categories["modelica"]),
             "openusd_categories": sorted(corpus_categories["openusd"]),
         },
+        "launch": launch,
+        "issues": issues,
+    }
+
+
+def _audit_launch(path: Path, manifest_path: Path,
+                  case_ids: set[str]) -> dict:
+    issues: list[dict] = []
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return {"success": False, "issues": [{
+            "code": "invalid_launch_config", "path": str(path),
+            "message": str(exc),
+        }]}
+    manifest_hash = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+    if data.get("capability_manifest_sha256") != manifest_hash:
+        issues.append({"code": "launch_manifest_hash_mismatch",
+                       "path": "$.capability_manifest_sha256"})
+    if set(data.get("case_ids", [])) != case_ids:
+        issues.append({"code": "launch_case_mismatch", "path": "$.case_ids"})
+    generation = data.get("generation", {})
+    for key in ("modelica_subset", "openusd_subset"):
+        if generation.get(key) != "full1500":
+            issues.append({"code": "launch_requires_full1500", "path": f"$.generation.{key}"})
+    if generation.get("freeze_validated_ir_before_artifact_repetitions") is not True:
+        issues.append({"code": "launch_requires_frozen_ir",
+                       "path": "$.generation.freeze_validated_ir_before_artifact_repetitions"})
+    phases = data.get("phases", [])
+    if not isinstance(phases, list) or {row.get("id") for row in phases} != {
+        "breadth_smoke", "paper_ablation",
+    }:
+        issues.append({"code": "launch_phase_mismatch", "path": "$.phases"})
+    for index, phase in enumerate(phases if isinstance(phases, list) else []):
+        if set(phase.get("case_ids", [])) != case_ids:
+            issues.append({"code": "launch_phase_case_mismatch",
+                           "path": f"$.phases[{index}].case_ids"})
+        if phase.get("target_tier") != 2 or phase.get("deltaai_gpu_count") != 0:
+            issues.append({"code": "launch_phase_overclaim",
+                           "path": f"$.phases[{index}]"})
+    policy = data.get("claim_policy", {})
+    if any(policy.get(key) is not False for key in (
+        "capability_runs_may_claim_tier_above_2",
+        "capability_runs_may_set_claim_eligible_h2",
+        "capability_runs_may_set_claim_eligible_deltaai_h2",
+    )):
+        issues.append({"code": "launch_claim_policy_weakened",
+                       "path": "$.claim_policy"})
+    return {
+        "success": not issues,
+        "path": str(path),
+        "manifest_sha256": manifest_hash,
+        "case_count": len(case_ids),
+        "phase_count": len(phases) if isinstance(phases, list) else 0,
         "issues": issues,
     }
 

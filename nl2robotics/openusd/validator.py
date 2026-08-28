@@ -11,6 +11,18 @@ import tempfile
 import time
 
 
+def load_semantic_report(path: Path) -> dict:
+    """Load inspector JSON while mapping non-standard numeric sentinels to null.
+
+    OpenUSD uses infinities to represent some unauthored fallback attributes.
+    They are absence markers, not portable JSON evidence values.
+    """
+    return json.loads(
+        path.read_text(encoding="utf-8"),
+        parse_constant=lambda _value: None,
+    )
+
+
 @dataclass(frozen=True)
 class OpenUSDIssue:
     stage: str
@@ -172,7 +184,7 @@ class OpenUSDValidator:
         report = {}
         if report_path.is_file():
             try:
-                report = json.loads(report_path.read_text(encoding="utf-8"))
+                report = load_semantic_report(report_path)
             except (json.JSONDecodeError, OSError) as exc:
                 issues.append(OpenUSDIssue(
                     "semantic", "error", "invalid_semantic_report", str(exc)

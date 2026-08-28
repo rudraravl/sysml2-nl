@@ -107,6 +107,9 @@ class PipelineTests(unittest.TestCase):
     def test_clean_code_removes_fence(self):
         self.assertEqual("model A\nend A;", clean_code("```modelica\nmodel A\nend A;\n```"))
 
+    def test_clean_code_completes_only_missing_final_semicolon(self):
+        self.assertEqual("model A\nend A;", clean_code("model A\nend A"))
+
     def test_guarded_repair_keeps_better_candidate(self):
         pipeline = ModelicaPipeline()
         good = Layer1CandidateResult(

@@ -100,6 +100,12 @@ class CapabilityPlanningTests(unittest.TestCase):
         self.assertEqual(2, len(plan.contract["mappings"]))
         self.assertIn("floating base", plan.openusd_requirement)
         self.assertIn("controller state", plan.modelica_requirement)
+        self.assertIn("retrieved examples only as syntax", plan.modelica_requirement)
+        self.assertIn("robotics:placeholder", plan.openusd_requirement)
+        self.assertEqual(
+            "requires_cross_artifact_validation",
+            plan.contract["grounding"]["artifact_grounding_status"],
+        )
         profiles = {row.profile_id: row for row in assess_profiles(ir)}
         self.assertTrue(profiles["mobile_floating_base"].applicable)
         self.assertFalse(profiles["articulated_joint_space_h2"].applicable)
@@ -130,6 +136,25 @@ class CapabilityPlanningTests(unittest.TestCase):
         strict["execution_mode"] = "newton_closed_loop"
         codes = {row.code for row in validate_requirement_ir(strict).issues}
         self.assertIn("invalid_field_value", codes)
+
+    def test_state_property_requires_an_observable_interface(self):
+        ir = broad_ir()
+        ir["dynamics"][0]["states"].append("chassis.pitch")
+        ir["properties"][0].pop("interface_id")
+        ir["properties"][0]["state_id"] = "chassis.pitch"
+        validation = validate_requirement_ir(ir)
+        self.assertIn(
+            "unobservable_property_state",
+            {row.code for row in validation.issues},
+        )
+
+        ir["interfaces"].append({
+            "id": "chassis_pitch", "entity_id": "chassis",
+            "state_id": "chassis.pitch", "quantity": "pitch",
+            "direction": "usd_to_fmu", "source_unit": "rad",
+            "evidence": [ir["source_text"]],
+        })
+        self.assertTrue(validate_requirement_ir(ir).success)
 
     def test_strict_h2_profile_remains_strict(self):
         ir = json.loads(
@@ -188,6 +213,10 @@ class CapabilityOrchestratorTests(unittest.TestCase):
         self.assertEqual("artifacts_validated", result["execution_status"])
         self.assertEqual(2, report["verification"]["highest_reached_tier"])
         self.assertFalse(report["claim_eligible_deltaai_h2"])
+        self.assertEqual(
+            "requires_cross_artifact_validation",
+            report["grounding"]["artifact_grounding_status"],
+        )
 
     def test_artifact_profiles_are_both_evaluated_on_partial_failure(self):
         ir = broad_ir()

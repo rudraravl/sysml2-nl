@@ -316,6 +316,12 @@ def capability_report(ir: dict, *, modelica_passed: bool | None = None,
         "stage": "robotics_capability_assessment",
         "task_id": ir.get("task_id"),
         "requested_features": list(requested_features(ir)),
+        "grounding": {
+            "policy": "grounded_or_explicitly_unresolved",
+            "declared_assumptions": list(ir.get("assumptions", [])),
+            "declared_unknowns": list(ir.get("unknowns", [])),
+            "artifact_grounding_status": "requires_cross_artifact_validation",
+        },
         "profiles": [row.to_dict() for row in assess_profiles(ir)],
         "verification": {
             "highest_reached_tier": reached,

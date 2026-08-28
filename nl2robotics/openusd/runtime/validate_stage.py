@@ -203,7 +203,7 @@ def _physics_scene_detail(prim: Usd.Prim) -> dict:
     return {
         "path": str(prim.GetPath()),
         "gravity_direction": [float(value) for value in direction],
-        "gravity_magnitude": float(magnitude),
+        "gravity_magnitude": _finite_or_none(magnitude),
     }
 
 
@@ -402,7 +402,9 @@ def main() -> int:
             "error_count": 1,
             "warning_count": 0,
         }
-    args.report.write_text(json.dumps(report, indent=2), encoding="utf-8")
+    args.report.write_text(
+        json.dumps(report, indent=2, allow_nan=False), encoding="utf-8"
+    )
     return 0 if report["success"] else 1
 
 

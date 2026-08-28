@@ -101,7 +101,16 @@ class OpenModelicaRunner:
             and not _has_error(build)
         )
         if not compiled and not diagnostics:
-            message = build.strip() or proc.stdout.strip() or "OpenModelica build failed"
+            if checked and not executable.is_file():
+                message = (
+                    "OpenModelica checked the equations but produced no executable; "
+                    "remove unbound parameters or other non-buildable declarations"
+                )
+            else:
+                message = (
+                    build.strip() or proc.stdout.strip()
+                    or "OpenModelica build failed"
+                )
             diagnostics.append(Diagnostic("compiler", "error", message))
         return ModelicaBuild(
             True,

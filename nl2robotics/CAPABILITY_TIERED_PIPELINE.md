@@ -28,6 +28,13 @@ grounded in exact source excerpts. Missing values remain unknown; the broad IR
 does not invent masses, gains, transforms, meshes, or clocks to make a request
 look executable.
 
+Every capability contract also carries a grounding ledger. Retrieved examples
+are modeling-pattern references, never factual sources. An omitted physical
+value must remain absent or be represented by an explicitly marked unresolved
+placeholder; it is not promoted to a validated requirement fact. Direct state
+properties require matching observable interfaces so generators cannot silently
+replace an unmapped property with a constant monitor.
+
 ## Verification ladder
 
 | Tier | Meaning |
@@ -73,6 +80,19 @@ The bundle contains the grounded IR, capability contract, profile-specific
 generation requirements, Modelica and OpenUSD artifacts, validator reports,
 `capability-report.json`, and `result.json`. Claim flags remain false unless a
 separate strict executable profile produces the required runtime evidence.
+
+For reproducible artifact ablations, freeze a validated normalization and rerun
+without another normalization model call:
+
+```bash
+python3 -m nl2robotics.orchestrator.cli \
+  --normalized-ir outputs/broad-robotics-run/normalized_requirement_ir.json \
+  --output-dir outputs/broad-robotics-frozen-ir-rerun \
+  --mode single --model gpt-5.4 --provider codex --subset full1500
+```
+
+The frozen IR's task ID, source text, execution mode, mappings, and declared
+unknowns remain authoritative. The CLI rejects a conflicting task ID.
 
 ## Paper use
 

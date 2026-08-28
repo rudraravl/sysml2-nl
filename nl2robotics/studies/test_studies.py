@@ -33,6 +33,8 @@ class CapabilityBreadthStudyTests(unittest.TestCase):
         self.assertEqual(13, report["rag"]["routed_family_count"])
         self.assertEqual(1500, report["rag"]["modelica_example_count"])
         self.assertEqual(1500, report["rag"]["openusd_example_count"])
+        self.assertTrue(report["launch"]["success"], report["launch"])
+        self.assertEqual(2, report["launch"]["phase_count"])
 
 
 if __name__ == "__main__":

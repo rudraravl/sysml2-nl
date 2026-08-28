@@ -110,6 +110,12 @@ def build_capability_plan(requirement_ir: dict) -> CapabilityPlan:
         "clock": deepcopy(ir.get("clock")),
         "mappings": mappings,
         "capabilities": assessment,
+        "grounding": {
+            "policy": "grounded_or_explicitly_unresolved",
+            "declared_assumptions": deepcopy(ir["assumptions"]),
+            "declared_unknowns": deepcopy(ir["unknowns"]),
+            "artifact_grounding_status": "requires_cross_artifact_validation",
+        },
         "verification_ceiling": "artifacts_validated",
         "claim_eligible_h2": False,
     }
@@ -161,7 +167,23 @@ CAPABILITY-TIERED MODELICA/FMI OBLIGATIONS
 - Return one self-contained top-level model named {model_name}.
 - Implement the dynamic, control, actuator, sensing/estimation, trajectory, and
   hybrid behavior explicitly grounded in the IR. Do not invent omitted numeric
-  parameters; expose genuinely required unknown values as parameters.
+  parameters; leave omitted behavior explicitly unresolved when it cannot be
+  implemented without them.
+- Treat retrieved examples only as syntax and modeling-pattern references; they
+  are never evidence for a numeric value, component, transform, or behavior.
+- Do not mirror USD-owned geometry, mass, environment, pose, contact, or sensor
+  implementation into Modelica unless an equation or declared FMU interface
+  requires it. In particular, omit ungrounded obstacle dimensions, wheel mass,
+  gravity, and absolute initial pose from the Modelica controller artifact.
+- Never assign an arbitrary numeric default to an unknown physical value. If an
+  unknown is indispensable, identify the omitted behavior with an
+  `UNRESOLVED_ASSUMPTION` comment containing the exact unknown text. Do not
+  declare an unbound parameter merely to make the omission look implemented;
+  the top-level model must remain directly buildable and FMU-exportable.
+- For an interface whose unit is `unspecified`, preserve the exact Real input
+  and interface name but do not invent a scale, conversion factor, offset, or
+  physical unit. Do not use that signal in unit-dependent arithmetic unless a
+  separate compatible grounded interface supplies the needed quantity.
 - Use Modelica Standard Library components when suitable and keep the model
   directly checkable by OpenModelica. Exportability as a Co-Simulation FMU is
   preferred when the requested semantics permit it.
@@ -204,6 +226,20 @@ CAPABILITY-TIERED OPENUSD/USD PHYSICS OBLIGATIONS
   and UsdPhysics schemas wherever the requested feature has a standard schema.
 - Preserve topology, transforms, geometry, collision, mass/inertia, materials,
   environments, joints, drives, sensors, and semantic paths grounded in the IR.
+- Treat retrieved examples only as syntax and schema-pattern references; they
+  are never evidence for a numeric value, component, transform, or behavior.
+- Never author an unstated numeric physical value, including a default mass,
+  inertia, dimension, transform, joint limit, gravity, friction, restitution,
+  drive gain, or sensor rate. Omit the corresponding physical attribute/API
+  when portable USD permits omission.
+- When a requested object cannot have concrete geometry or physics without an
+  omitted value, preserve it as a semantic Xform placeholder instead of making
+  up dimensions. Mark it with `custom bool robotics:placeholder = true` and a
+  `custom string[] robotics:unresolved` containing the exact matching unknowns.
+  A placeholder must not claim collision, rigid-body, mass, or runtime support.
+- Relative placement may choose the robot's initial reference as the world
+  origin only as a coordinate-frame convention. If used, declare the convention
+  in `custom string robotics:frameConvention`; do not present it as source fact.
 - Use fixed, revolute, prismatic, spherical, distance, or configurable D6 joint
   schemas as appropriate. Represent a floating base explicitly rather than
   silently anchoring it. Preserve arbitrary joint frames through local rotations.
@@ -212,6 +248,9 @@ CAPABILITY-TIERED OPENUSD/USD PHYSICS OBLIGATIONS
   metadata without claiming simulator-native sensor execution.
 - Do not author fabricated trajectories or physics results. Artifact validation
   is distinct from closed-loop execution and accelerator evidence.
+
+DECLARED UNRESOLVED FACTS
+{json.dumps(ir['unknowns'], indent=2, sort_keys=True)}
 
 DECLARED CROSS-PROFILE MAPPINGS
 {json.dumps(contract['mappings'], indent=2, sort_keys=True)}

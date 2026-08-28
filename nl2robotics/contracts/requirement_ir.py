@@ -143,6 +143,12 @@ def validate_requirement_ir(data: dict) -> RequirementIRValidation:
                     f"joint {key} references unknown entity {reference!r}",
                     f"$.joints[{index}].{key}",
                 ))
+    declared_states = {
+        state
+        for dynamics in records["dynamics"]
+        for state in dynamics.get("states", [])
+        if isinstance(state, str)
+    }
     for index, interface in enumerate(records["interfaces"]):
         joint_id = interface.get("joint_id")
         if joint_id is not None and joint_id not in joint_ids:
@@ -166,12 +172,6 @@ def validate_requirement_ir(data: dict) -> RequirementIRValidation:
                 f"$.interfaces[{index}].sensor_id",
             ))
         state_id = interface.get("state_id")
-        declared_states = {
-            state
-            for dynamics in records["dynamics"]
-            for state in dynamics.get("states", [])
-            if isinstance(state, str)
-        }
         if state_id is not None and state_id not in declared_states:
             direction = interface.get("direction")
             if direction != "fmu_to_usd":
@@ -213,6 +213,10 @@ def validate_requirement_ir(data: dict) -> RequirementIRValidation:
         _validate_articulation_topology(records, issues)
 
     interface_ids = {item.get("id") for item in records["interfaces"]}
+    interface_state_ids = {
+        item.get("state_id") for item in records["interfaces"]
+        if isinstance(item.get("state_id"), str)
+    }
     for index, prop in enumerate(records["properties"]):
         interface_id = prop.get("interface_id")
         if interface_id is not None and interface_id not in interface_ids:
@@ -227,6 +231,20 @@ def validate_requirement_ir(data: dict) -> RequirementIRValidation:
                 "unknown_entity_reference",
                 f"property references unknown entity {entity_id!r}",
                 f"$.properties[{index}].entity_id",
+            ))
+        state_id = prop.get("state_id")
+        if state_id is not None and state_id not in declared_states:
+            issues.append(IRIssue(
+                "unknown_state_reference",
+                f"property references undeclared state {state_id!r}",
+                f"$.properties[{index}].state_id",
+            ))
+        if (data.get("execution_mode") == "capability_tiered"
+                and state_id is not None and state_id not in interface_state_ids):
+            issues.append(IRIssue(
+                "unobservable_property_state",
+                f"property state {state_id!r} requires a matching interface",
+                f"$.properties[{index}].state_id",
             ))
 
     clock = data.get("clock")

@@ -21,6 +21,11 @@ def main() -> None:
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--request", type=Path)
     source.add_argument("--text")
+    source.add_argument(
+        "--normalized-ir",
+        type=Path,
+        help="rerun generation from a frozen, previously normalized IR",
+    )
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--task-id")
     parser.add_argument(
@@ -53,9 +58,25 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    requirement = (
-        args.request.read_text(encoding="utf-8") if args.request else args.text
-    )
+    frozen_ir = None
+    if args.normalized_ir:
+        frozen_ir = json.loads(args.normalized_ir.read_text(encoding="utf-8"))
+        if not isinstance(frozen_ir, dict):
+            parser.error("--normalized-ir must contain one JSON object")
+        requirement = frozen_ir.get("source_text")
+        if not isinstance(requirement, str) or not requirement.strip():
+            parser.error("--normalized-ir requires non-empty source_text")
+        frozen_task_id = frozen_ir.get("task_id")
+        if args.task_id is not None and args.task_id != frozen_task_id:
+            parser.error("--task-id conflicts with frozen IR task_id")
+        task_id = frozen_task_id
+        execution_mode = frozen_ir.get("execution_mode")
+    else:
+        requirement = (
+            args.request.read_text(encoding="utf-8") if args.request else args.text
+        )
+        task_id = args.task_id
+        execution_mode = args.execution_mode
     modelica_runner = OpenModelicaRunner(backend=args.backend)
     modelica_pipeline = ModelicaPipeline(
         corpus=ExampleCorpus(subset=args.subset), runner=modelica_runner
@@ -109,16 +130,20 @@ def main() -> None:
         max_profile_repairs=args.max_profile_repairs,
         **kwargs,
     )
-    ir_ask = lambda prompt: ask_completion(  # noqa: E731
-        prompt, model=args.model, provider=args.provider, prefix=JSON_PREFIX
+    ir_ask = (
+        (lambda _prompt: json.dumps(frozen_ir, allow_nan=False))
+        if frozen_ir is not None
+        else (lambda prompt: ask_completion(
+            prompt, model=args.model, provider=args.provider, prefix=JSON_PREFIX
+        ))
     )
     report = orchestrator.run(
         requirement,
         ir_ask,
         output_dir=args.output_dir,
-        task_id=args.task_id,
-        execution_mode=args.execution_mode,
-        max_ir_repairs=args.max_ir_repairs,
+        task_id=task_id,
+        execution_mode=execution_mode,
+        max_ir_repairs=0 if frozen_ir is not None else args.max_ir_repairs,
         alignment_ask=ir_ask if args.alignment_mode == "hybrid" else None,
         semantic_repair_ask=text_ask if args.max_semantic_repairs else None,
         max_semantic_repairs=args.max_semantic_repairs,

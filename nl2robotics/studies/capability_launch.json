@@ -1,0 +1,69 @@
+{
+  "schema_version": "1.0",
+  "study_id": "robotics-capability-breadth-v1",
+  "capability_manifest": "capability_manifest.json",
+  "capability_manifest_sha256": "f867fa7c303f99fd96457691d209404f062f994aee11674c7faa99e928a43bb2",
+  "case_ids": [
+    "RCB001", "RCB002", "RCB003", "RCB004", "RCB005", "RCB006", "RCB007",
+    "RCB008", "RCB009", "RCB010", "RCB011", "RCB012", "RCB013"
+  ],
+  "generation": {
+    "execution_mode": "capability_tiered",
+    "mode": "single",
+    "model": "gpt-5.4",
+    "provider": "codex",
+    "modelica_backend": "auto",
+    "modelica_subset": "full1500",
+    "openusd_subset": "full1500",
+    "retrieval_k": 5,
+    "max_ir_repairs": 1,
+    "max_profile_repairs": 2,
+    "max_semantic_repairs": 0,
+    "alignment_mode": "deterministic",
+    "freeze_validated_ir_before_artifact_repetitions": true
+  },
+  "phases": [
+    {
+      "id": "breadth_smoke",
+      "case_ids": [
+        "RCB001", "RCB002", "RCB003", "RCB004", "RCB005", "RCB006", "RCB007",
+        "RCB008", "RCB009", "RCB010", "RCB011", "RCB012", "RCB013"
+      ],
+      "normalization_repetitions": 1,
+      "artifact_repetitions_per_frozen_ir": 1,
+      "target_tier": 2,
+      "deltaai_gpu_count": 0,
+      "stop_on_usage_limit": true,
+      "resume": true
+    },
+    {
+      "id": "paper_ablation",
+      "case_ids": [
+        "RCB001", "RCB002", "RCB003", "RCB004", "RCB005", "RCB006", "RCB007",
+        "RCB008", "RCB009", "RCB010", "RCB011", "RCB012", "RCB013"
+      ],
+      "conditions": ["B0", "B1", "B2", "B3", "FULL"],
+      "repetitions": 3,
+      "target_tier": 2,
+      "deltaai_gpu_count": 0,
+      "start_after_breadth_smoke_passes": true,
+      "resume": true
+    }
+  ],
+  "required_metrics": [
+    "normalization_valid",
+    "ir_valid",
+    "modelica_valid",
+    "openusd_valid",
+    "artifact_pair_valid",
+    "verification_tier",
+    "repairs",
+    "latency_seconds"
+  ],
+  "claim_policy": {
+    "capability_runs_may_claim_tier_above_2": false,
+    "capability_runs_may_set_claim_eligible_h2": false,
+    "capability_runs_may_set_claim_eligible_deltaai_h2": false,
+    "tier_5_requires_strict_profile_runtime_and_genuine_accelerator_provenance": true
+  }
+}
