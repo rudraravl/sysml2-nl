@@ -253,7 +253,12 @@ def validate_requirement_ir(data: dict) -> RequirementIRValidation:
             issues.append(IRIssue("invalid_clock", "clock must be an object", "$.clock"))
         else:
             _validate_evidence(clock, source, "$.clock", issues)
-            for key in ("start_time", "stop_time", "frequency_hz"):
+            capability_clock = data.get("execution_mode") == "capability_tiered"
+            required_clock_fields = (
+                ("frequency_hz",) if capability_clock
+                else ("start_time", "stop_time", "frequency_hz")
+            )
+            for key in required_clock_fields:
                 value = clock.get(key)
                 if not _is_finite_number(value):
                     issues.append(IRIssue(
@@ -264,7 +269,33 @@ def validate_requirement_ir(data: dict) -> RequirementIRValidation:
             start = clock.get("start_time")
             stop = clock.get("stop_time")
             frequency = clock.get("frequency_hz")
-            if _is_finite_number(start) and _is_finite_number(stop) and stop <= start:
+            duration = clock.get("duration")
+            if capability_clock:
+                absolute_fields = "start_time" in clock or "stop_time" in clock
+                duration_field = "duration" in clock
+                if absolute_fields and duration_field:
+                    issues.append(IRIssue(
+                        "ambiguous_clock_range",
+                        "capability clock must use start/stop or duration, not both",
+                        "$.clock",
+                    ))
+                elif duration_field:
+                    if not _is_finite_number(duration) or duration <= 0:
+                        issues.append(IRIssue(
+                            "invalid_clock_duration",
+                            "clock duration must be a positive finite number",
+                            "$.clock.duration",
+                        ))
+                else:
+                    for key, value in (("start_time", start), ("stop_time", stop)):
+                        if not _is_finite_number(value):
+                            issues.append(IRIssue(
+                                "invalid_clock_value",
+                                f"clock {key} must be a finite number",
+                                f"$.clock.{key}",
+                            ))
+            if (_is_finite_number(start) and _is_finite_number(stop)
+                    and stop <= start):
                 issues.append(IRIssue(
                     "invalid_clock_range", "clock stop_time must exceed start_time",
                     "$.clock.stop_time",

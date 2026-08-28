@@ -28,6 +28,12 @@ grounded in exact source excerpts. Missing values remain unknown; the broad IR
 does not invent masses, gains, transforms, meshes, or clocks to make a request
 look executable.
 
+Timing may be grounded as either absolute start/stop endpoints or as a duration.
+This lets ordinary requests such as "run at 100 Hz for 5 seconds" retain their
+stated horizon without inventing a zero-valued start time. Strict executable
+profiles still require explicit absolute endpoints and keep their existing
+runtime clock gate.
+
 Every capability contract also carries a grounding ledger. Retrieved examples
 are modeling-pattern references, never factual sources. An omitted physical
 value must remain absent or be represented by an explicitly marked unresolved

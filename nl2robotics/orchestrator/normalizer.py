@@ -291,7 +291,7 @@ Required root shape:
     "evidence": ["..."]
   }}],
   "clock": {{
-    "start_time": 0.0, "stop_time": 1.0, "frequency_hz": 100.0,
+    "duration": 1.0, "frequency_hz": 100.0,
     "physics_substeps": 2, "evidence": ["exact excerpt"]
   }},
   "entities": [{{
@@ -347,7 +347,14 @@ Required root shape:
 }}
 
 Omit optional fields not stated, including the entire clock when timing is not
-stated. Do not include multiple interface target IDs on one record.
+stated. A capability clock is all-or-nothing and uses exactly one grounded time
+form: use `start_time` plus `stop_time` only when both absolute endpoints are
+stated, or use `duration` when SOURCE_TEXT instead says "for N seconds". Never
+infer a zero start time or put a duration into `stop_time`. Include
+`frequency_hz` only from a stated controller, coordination, or system clock;
+when several component sensor rates are stated but no system rate is named,
+omit the clock and preserve those rates as sensor facts. Do not include multiple
+interface target IDs on one record.
 
 Cross-record consistency is mandatory:
 - Every interface requires a non-empty semantic `state_id`, `quantity`,
@@ -397,6 +404,12 @@ unit. Every property targeting `state_id` also requires a matching observable
 interface with the exact same state_id. An explicit no-collision/no-contact
 requirement may be represented by a dimensionless contact interface and an
 always-property with upper bound 0.
+
+For capability_tiered mode, repair an incomplete clock without inventing a
+start time: use `duration` plus a stated system `frequency_hz` when SOURCE_TEXT
+says "for N seconds"; use `start_time`, `stop_time`, and `frequency_hz` only
+when those values are stated; otherwise omit the entire clock. Never return a
+partial clock.
 
 VALIDATION_ERRORS:
 {diagnostics}

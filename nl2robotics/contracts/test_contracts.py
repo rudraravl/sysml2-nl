@@ -89,6 +89,33 @@ class RequirementIRTests(unittest.TestCase):
         self.assertIn("invalid_clock_value", codes)
         self.assertIn("invalid_numeric_value", codes)
 
+    def test_capability_clock_accepts_grounded_duration_without_invented_start(self):
+        ir = load("requirement_ir.json")
+        ir["execution_mode"] = "capability_tiered"
+        ir["clock"] = {
+            "duration": 3.0,
+            "frequency_hz": 50.0,
+            "evidence": ir["clock"]["evidence"],
+        }
+        self.assertTrue(validate_requirement_ir(ir).success)
+
+        ir["execution_mode"] = "portable_fmu_kinematic"
+        codes = {item.code for item in validate_requirement_ir(ir).issues}
+        self.assertIn("invalid_clock_value", codes)
+
+    def test_capability_clock_rejects_ambiguous_or_nonpositive_duration(self):
+        ir = load("requirement_ir.json")
+        ir["execution_mode"] = "capability_tiered"
+        evidence = ir["clock"]["evidence"]
+        ir["clock"] = {
+            "duration": 0.0, "frequency_hz": 50.0, "evidence": evidence,
+        }
+        codes = {item.code for item in validate_requirement_ir(ir).issues}
+        self.assertIn("invalid_clock_duration", codes)
+        ir["clock"].update({"duration": 3.0, "start_time": 0.0, "stop_time": 3.0})
+        codes = {item.code for item in validate_requirement_ir(ir).issues}
+        self.assertIn("ambiguous_clock_range", codes)
+
     def test_incomplete_records_are_rejected_before_planning(self):
         ir = load("requirement_ir.json")
         del ir["joints"][0]["axis"]
