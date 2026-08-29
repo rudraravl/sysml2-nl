@@ -48,7 +48,9 @@ class DiverseBM25:
 
     def rank(self, query: str, *, k: int,
              max_per_semantic_case: int = 1,
-             max_per_lineage: int = 1) -> list[tuple[int, float]]:
+             max_per_lineage: int = 1,
+             allowed_categories: frozenset[str] | None = None,
+             ) -> list[tuple[int, float]]:
         if k < 1:
             raise ValueError("k must be positive")
         if max_per_semantic_case < 1:
@@ -67,6 +69,9 @@ class DiverseBM25:
         seen_lineage: Counter[str] = Counter()
         for index, score in scored:
             document = self.documents[index]
+            if (allowed_categories is not None
+                    and document.category not in allowed_categories):
+                continue
             if seen_semantic[document.semantic_case_id] >= max_per_semantic_case:
                 continue
             if seen_lineage[document.lineage_id] >= max_per_lineage:
@@ -74,7 +79,11 @@ class DiverseBM25:
             selected.append((index, score))
             seen_semantic[document.semantic_case_id] += 1
             seen_lineage[document.lineage_id] += 1
-            if len(selected) == min(k, len({d.lineage_id for d in self.documents})):
+            eligible_lineages = {
+                item.lineage_id for item in self.documents
+                if allowed_categories is None or item.category in allowed_categories
+            }
+            if len(selected) == min(k, len(eligible_lineages)):
                 break
         return selected
 

@@ -175,6 +175,13 @@ def _audit_launch(path: Path, manifest_path: Path,
         if phase.get("target_tier") != 2 or phase.get("deltaai_gpu_count") != 0:
             issues.append({"code": "launch_phase_overclaim",
                            "path": f"$.phases[{index}]"})
+        expected_retrieval = {
+            "breadth_smoke": "unrestricted_semantic_full1500",
+            "paper_ablation": "family_preferred_4_of_5_with_global_fallback",
+        }.get(phase.get("id"))
+        if phase.get("retrieval_policy") != expected_retrieval:
+            issues.append({"code": "launch_retrieval_policy_mismatch",
+                           "path": f"$.phases[{index}].retrieval_policy"})
     policy = data.get("claim_policy", {})
     if any(policy.get(key) is not False for key in (
         "capability_runs_may_claim_tier_above_2",

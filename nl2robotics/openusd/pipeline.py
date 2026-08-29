@@ -30,8 +30,12 @@ class OpenUSDPipeline:
         self.corpus = corpus or OpenUSDExampleCorpus()
         self.validator = validator or OpenUSDValidator()
 
-    def build_messages(self, requirement: str, *, k: int = 5) -> tuple[str, str, list]:
-        hits = self.corpus.retrieve(requirement, k=k)
+    def build_messages(self, requirement: str, *, k: int = 5,
+                       preferred_categories: tuple[str, ...] = (),
+                       ) -> tuple[str, str, list]:
+        hits = self.corpus.retrieve(
+            requirement, k=k, preferred_categories=preferred_categories
+        )
         human = (
             f"Retrieved examples:\n{self.corpus.format_context(hits)}\n\n"
             "Generate one complete USDA stage for this requirement:\n"
@@ -47,15 +51,20 @@ class OpenUSDPipeline:
 
     def generate(self, requirement: str, ask: Callable[[str], str], *,
                  k: int = 5, max_repairs: int = 2,
-                 output_dir: Path | None = None) -> dict:
+                 output_dir: Path | None = None,
+                 preferred_categories: tuple[str, ...] = ()) -> dict:
         if not requirement.strip():
             raise ValueError("requirement must be non-empty")
-        _, human, hits = self.build_messages(requirement, k=k)
+        _, human, hits = self.build_messages(
+            requirement, k=k, preferred_categories=preferred_categories
+        )
         candidate = clean_usda(ask(f"{SYSTEM_PROMPT}\n\n{human}"))
-        return self.refine(
+        report = self.refine(
             requirement, candidate, ask, hits=hits,
             max_repairs=max_repairs, output_dir=output_dir,
         )
+        report["retrieval_route"] = list(preferred_categories)
+        return report
 
     def refine(self, requirement: str, candidate: str,
                repair: Callable[[str], str], *, hits: list[tuple] | None = None,

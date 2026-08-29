@@ -119,13 +119,23 @@ class PipelineExperimentExecutor:
 
     def _run_hybrid(self, task: BenchmarkTask, condition: AblationCondition,
                     prompt: str, output_dir: Path) -> dict:
+        route = task.oracle.get("rag_route", {})
+        modelica_categories = tuple(route.get("modelica", ()))
+        openusd_categories = tuple(route.get("openusd", ()))
+
         def modelica_generator(profile_requirement: str, generation_dir: Path):
             requirement = prompt if condition.id == "B0" else profile_requirement
-            return self._generate_modelica(requirement, condition, generation_dir)
+            return self._generate_modelica(
+                requirement, condition, generation_dir,
+                preferred_categories=modelica_categories,
+            )
 
         def openusd_generator(profile_requirement: str, generation_dir: Path):
             requirement = prompt if condition.id == "B0" else profile_requirement
-            return self._generate_openusd(requirement, condition, generation_dir)
+            return self._generate_openusd(
+                requirement, condition, generation_dir,
+                preferred_categories=openusd_categories,
+            )
 
         orchestrator = RoboticsOrchestrator(
             modelica_pipeline=self.modelica,
@@ -209,7 +219,9 @@ class PipelineExperimentExecutor:
         return result
 
     def _generate_modelica(self, requirement: str, condition: AblationCondition,
-                            output_dir: Path) -> tuple[str, dict]:
+                            output_dir: Path, *,
+                            preferred_categories: tuple[str, ...] = (),
+                            ) -> tuple[str, dict]:
         strategy = generation_strategy(condition)
         if strategy == "direct":
             system, human = self.modelica.build_baseline_messages(requirement)
@@ -224,6 +236,7 @@ class PipelineExperimentExecutor:
             report = self.modelica.generate(
                 requirement, self.text_ask, k=self.k, max_repairs=0,
                 output_dir=output_dir,
+                preferred_categories=preferred_categories,
             )
             report["generation_mode"] = "rag_single"
             return report["final_modelica"], report
@@ -233,10 +246,13 @@ class PipelineExperimentExecutor:
             k=self.k,
             max_repairs=self.max_tool_repairs if condition.tool_repair else 0,
             output_dir=output_dir,
+            preferred_categories=preferred_categories,
         )
 
     def _generate_openusd(self, requirement: str, condition: AblationCondition,
-                          output_dir: Path) -> tuple[str, dict]:
+                          output_dir: Path, *,
+                          preferred_categories: tuple[str, ...] = (),
+                          ) -> tuple[str, dict]:
         strategy = generation_strategy(condition)
         if strategy == "direct":
             system, human = self.openusd.build_baseline_messages(requirement)
@@ -251,6 +267,7 @@ class PipelineExperimentExecutor:
             report = self.openusd.generate(
                 requirement, self.text_ask, k=self.k, max_repairs=0,
                 output_dir=output_dir,
+                preferred_categories=preferred_categories,
             )
             report["generation_mode"] = "rag_single"
             return report["final_openusd"], report
@@ -260,6 +277,7 @@ class PipelineExperimentExecutor:
             k=self.k,
             max_repairs=self.max_tool_repairs if condition.tool_repair else 0,
             output_dir=output_dir,
+            preferred_categories=preferred_categories,
         )
 
 

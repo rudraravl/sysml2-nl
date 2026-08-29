@@ -65,6 +65,33 @@ retains the raw process log, complete orchestrator bundle, and a strict-JSON
 case record; `summary.json` is rewritten after every completed case. A provider
 usage limit stops the batch cleanly so the same command can resume later.
 
-Only the already executed articulated profile has a tier-5 target. The other
-families target validated complementary artifacts until dedicated runtime
-adapters produce stronger evidence.
+Audit every JSON document and accepted artifact, recompute hashes, revalidate
+the normalized IRs, and build one fail-closed aggregate with:
+
+```bash
+python3 -m nl2robotics.studies.audit_capability_smoke \
+  --run-dir outputs/capability-breadth-smoke \
+  --output outputs/capability-breadth-smoke/evidence-audit.json
+```
+
+The breadth smoke intentionally uses unrestricted semantic retrieval over both
+full-1500 corpora. The paper ablation uses each family's three-category route
+for four of five hits and reserves one global hit for cross-domain transfer.
+The smoke runner can exercise that policy explicitly with
+`--rag-routing family-preferred`; the option changes its checkpoint fingerprint.
+
+Audit and preview the exact 195-cell paper grid without making model calls:
+
+```bash
+python3 -m nl2robotics.experiments.run_cli \
+  --benchmark-manifest nl2robotics/studies/capability_manifest.json \
+  --profile capability --variant rich \
+  --condition B0 --condition B1 --condition B2 --condition B3 --condition FULL \
+  --repetitions 3 --model gpt-5.4 --provider codex \
+  --modelica-backend auto --modelica-subset full1500 \
+  --output-dir outputs/capability-paper-v1 --dry-run
+```
+
+Capability cells remain capped at tier 2. Dedicated profile runtimes, closed-loop
+execution, and genuine accelerator provenance are required before any higher
+tier or H2 claim; broad artifacts are never relabeled as runtime evidence.

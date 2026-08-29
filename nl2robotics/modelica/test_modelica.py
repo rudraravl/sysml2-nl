@@ -71,6 +71,19 @@ class CorpusTests(unittest.TestCase):
             len(hits), len({item.semantic_case_id for item, _ in hits})
         )
 
+    def test_family_route_prefers_four_hits_and_keeps_global_fallback(self):
+        preferred = ("multibody_kinematics", "trajectory_generation", "hybrid_safety")
+        hits = ExampleCorpus().retrieve(
+            "A quadruped with contact and joint feedback",
+            k=5,
+            preferred_categories=preferred,
+        )
+        self.assertEqual(5, len(hits))
+        self.assertGreaterEqual(
+            sum(item.category in preferred for item, _ in hits), 4
+        )
+        self.assertEqual(5, len({item.lineage_id for item, _ in hits}))
+
     def test_evaluation_ids_are_not_retrievable(self):
         corpus = ExampleCorpus()
         task_file = corpus.root / "evaluation_tasks.json"

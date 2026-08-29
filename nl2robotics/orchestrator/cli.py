@@ -49,6 +49,8 @@ def main() -> None:
         default="full1500",
     )
     parser.add_argument("-k", type=int, default=5)
+    parser.add_argument("--modelica-rag-category", action="append", default=[])
+    parser.add_argument("--openusd-rag-category", action="append", default=[])
     parser.add_argument("--max-ir-repairs", type=int, default=1)
     parser.add_argument("--max-profile-repairs", type=int, default=2)
     parser.add_argument("--max-semantic-repairs", type=int, default=1)
@@ -94,6 +96,7 @@ def main() -> None:
                 k=args.k,
                 max_repairs=args.max_profile_repairs,
                 output_dir=output_dir,
+                preferred_categories=tuple(args.modelica_rag_category),
             )
             report.update({
                 "generation_mode": "single",
@@ -109,6 +112,7 @@ def main() -> None:
                 k=args.k,
                 max_repairs=args.max_profile_repairs,
                 output_dir=output_dir,
+                preferred_categories=tuple(args.openusd_rag_category),
             )
             report.update({
                 "generation_mode": "single",
@@ -128,6 +132,8 @@ def main() -> None:
         portable_pipeline=PortableHybridPipeline(modelica_runner=modelica_runner),
         k=args.k,
         max_profile_repairs=args.max_profile_repairs,
+        modelica_preferred_categories=tuple(args.modelica_rag_category),
+        openusd_preferred_categories=tuple(args.openusd_rag_category),
         **kwargs,
     )
     ir_ask = (

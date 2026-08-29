@@ -13,9 +13,17 @@ from nl2robotics.experiments.metrics import (
     summarize_records,
 )
 from nl2robotics.experiments.runner import AblationRunner
+from nl2robotics.experiments.run_cli import _load_suite
+from nl2robotics.studies.capability_matrix import MANIFEST as CAPABILITY_MANIFEST
 
 
 class ExperimentTests(unittest.TestCase):
+    def test_capability_manifest_is_selected_by_experiment_cli(self):
+        suite = _load_suite(CAPABILITY_MANIFEST)
+        selected = suite.select(profile="capability", variant="rich")
+        self.assertEqual(13, len(selected))
+        self.assertEqual("RCB001", selected[0][0].id)
+
     def test_frozen_conditions_map_to_distinct_generation_strategies(self):
         self.assertEqual("direct", generation_strategy(CONDITIONS["B0"]))
         self.assertEqual("rag_single", generation_strategy(CONDITIONS["B1"]))

@@ -60,3 +60,18 @@ python3 -m nl2robotics.experiments.cli outputs/robotics-ablations \
 
 Do not launch the full 15 x 5 x 3 grid first. Start with one rich-prompt repeat,
 inspect failures, then repeat a representative subset and add prompt variants.
+
+The frozen broad capability study is exposed directly to this runner without
+copying its manifest or fabricating extra prompt variants. Its paper grid is 13
+families x 5 conditions x 3 repetitions and remains capped at capability tier 2:
+
+```bash
+python3 -m nl2robotics.experiments.run_cli \
+  --benchmark-manifest nl2robotics/studies/capability_manifest.json \
+  --profile capability --variant rich \
+  --condition B0 --condition B1 --condition B2 --condition B3 --condition FULL \
+  --repetitions 3 --output-dir outputs/capability-paper-v1 --dry-run
+```
+
+Remove `--dry-run` only after inspecting a small selected slice. B1 through FULL
+use the frozen family-preferred RAG routes; B0 remains direct generation.

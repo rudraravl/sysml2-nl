@@ -14,6 +14,7 @@ from nl2robotics.modelica.corpus import ExampleCorpus
 from nl2robotics.modelica.openmodelica import OpenModelicaRunner
 from nl2robotics.modelica.pipeline import ModelicaPipeline
 from nl2robotics.openusd.pipeline import OpenUSDPipeline
+from nl2robotics.studies.capability_benchmark import CapabilityBenchmarkSuite
 from spec_aligner.llm import JSON_PREFIX, TEXT_PREFIX, ask_completion
 
 from .conditions import select_conditions
@@ -30,7 +31,9 @@ def main() -> None:
         "--benchmark-manifest", type=Path,
         help="use a study-specific benchmark manifest instead of the frozen development set",
     )
-    parser.add_argument("--profile", choices=("modelica", "openusd", "hybrid"))
+    parser.add_argument(
+        "--profile", choices=("modelica", "openusd", "hybrid", "capability")
+    )
     parser.add_argument("--task-id", action="append", default=[])
     parser.add_argument("--condition", action="append", default=[])
     parser.add_argument("--variant", choices=("rich", "concise", "underspecified"),
@@ -74,13 +77,20 @@ def main() -> None:
     parser.add_argument("--newton-repeatability-tolerance", type=float,
                         default=1e-6)
     parser.add_argument("--no-resume", action="store_true")
+    parser.add_argument(
+        "--dry-run", action="store_true",
+        help="audit and print the exact experiment grid without model calls",
+    )
     args = parser.parse_args()
 
-    suite = BenchmarkSuite(manifest_path=args.benchmark_manifest)
+    suite = _load_suite(args.benchmark_manifest)
     audit = suite.audit()
     if audit["success"] is not True:
         parser.error(f"benchmark manifest failed audit: {audit['issues']}")
-    selected = suite.select(profile=args.profile, variant=args.variant)
+    try:
+        selected = suite.select(profile=args.profile, variant=args.variant)
+    except ValueError as exc:
+        parser.error(str(exc))
     if args.task_id:
         wanted = set(args.task_id)
         selected = [item for item in selected if item[0].id in wanted]
@@ -158,6 +168,11 @@ def main() -> None:
         "modelica_subset": args.modelica_subset,
         "k": args.k,
         "max_tool_repairs": args.max_tool_repairs,
+        "rag_routing": (
+            "family_preferred_4_of_5_with_global_fallback"
+            if any(task.oracle.get("rag_route") for task, _ in selected)
+            else "unrestricted_semantic"
+        ),
         "benchmark_manifest": audit["manifest"],
         "benchmark_manifest_sha256": audit["manifest_sha256"],
         "isaac_handoff_configured": args.isaac_python is not None,
@@ -177,6 +192,16 @@ def main() -> None:
     size = experiment_size(len(selected), len(conditions), 1, args.repetitions)
     print(json.dumps({"experiment_size": size, "configuration": configuration},
                      indent=2))
+    if args.dry_run:
+        print(json.dumps({
+            "stage": "ablation_dry_run",
+            "task_ids": [task.id for task, _ in selected],
+            "condition_ids": [condition.id for condition in conditions],
+            "variant": args.variant,
+            "repetitions": args.repetitions,
+            "cell_count": size["run_cells"],
+        }, indent=2))
+        return
     records = AblationRunner(
         args.output_dir, configuration=configuration
     ).run(
@@ -188,6 +213,12 @@ def main() -> None:
     summary = summarize_records(records)
     write_json(args.output_dir / "summary.json", summary)
     print(json.dumps(summary, indent=2, allow_nan=False))
+
+
+def _load_suite(manifest_path: Path | None):
+    if manifest_path is not None and CapabilityBenchmarkSuite.supports(manifest_path):
+        return CapabilityBenchmarkSuite(manifest_path)
+    return BenchmarkSuite(manifest_path=manifest_path)
 
 
 if __name__ == "__main__":

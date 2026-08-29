@@ -68,12 +68,18 @@ class OpenUSDExampleCorpus:
             variant_type=row.get("variant_type", "executable_case"),
         )
 
-    def retrieve(self, requirement: str, *,
-                 k: int = 5) -> list[tuple[OpenUSDExample, float]]:
+    def retrieve(self, requirement: str, *, k: int = 5,
+                 preferred_categories: tuple[str, ...] = (),
+                 ) -> list[tuple[OpenUSDExample, float]]:
         if k < 1:
             raise ValueError("k must be positive")
-        ranked = self._index.rank(
-            requirement, k=k, max_per_semantic_case=1, max_per_lineage=1
+        unknown = set(preferred_categories) - {
+            item.category for item in self.examples
+        }
+        if unknown:
+            raise ValueError(f"unknown OpenUSD retrieval categories: {sorted(unknown)}")
+        ranked = _preferred_rank(
+            self._index, self.examples, requirement, k, preferred_categories,
         )
         return [(self.examples[index], score) for index, score in ranked]
 
@@ -85,3 +91,34 @@ class OpenUSDExampleCorpus:
                 f"Requirement: {example.requirement}\nOpenUSD USDA:\n{example.code}"
             )
         return "\n\n---\n\n".join(blocks)
+
+
+def _preferred_rank(index: DiverseBM25, examples: list[OpenUSDExample],
+                    query: str, k: int,
+                    categories: tuple[str, ...]) -> list[tuple[int, float]]:
+    if not categories:
+        return index.rank(
+            query, k=k, max_per_semantic_case=1, max_per_lineage=1,
+        )
+    preferred_count = min(k, max(1, (4 * k + 4) // 5))
+    routed = index.rank(
+        query, k=preferred_count, max_per_semantic_case=1, max_per_lineage=1,
+        allowed_categories=frozenset(categories),
+    )
+    global_ranked = index.rank(
+        query, k=k + preferred_count,
+        max_per_semantic_case=1, max_per_lineage=1,
+    )
+    selected = list(routed)
+    semantic = {examples[i].semantic_case_id for i, _ in selected}
+    lineage = {examples[i].lineage_id for i, _ in selected}
+    for candidate in global_ranked:
+        item = examples[candidate[0]]
+        if item.semantic_case_id in semantic or item.lineage_id in lineage:
+            continue
+        selected.append(candidate)
+        semantic.add(item.semantic_case_id)
+        lineage.add(item.lineage_id)
+        if len(selected) == k:
+            break
+    return selected

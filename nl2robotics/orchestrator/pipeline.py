@@ -44,6 +44,8 @@ class RoboticsOrchestrator:
         newton_preparer: H2Preparer | None = None,
         k: int = 5,
         max_profile_repairs: int = 2,
+        modelica_preferred_categories: tuple[str, ...] = (),
+        openusd_preferred_categories: tuple[str, ...] = (),
     ):
         self.normalizer = normalizer or RequirementNormalizer()
         self.modelica_pipeline = modelica_pipeline or ModelicaPipeline()
@@ -56,6 +58,8 @@ class RoboticsOrchestrator:
         self.newton_preparer = newton_preparer or prepare_newton_bundle
         self.k = k
         self.max_profile_repairs = max_profile_repairs
+        self.modelica_preferred_categories = modelica_preferred_categories
+        self.openusd_preferred_categories = openusd_preferred_categories
 
     def run(
         self,
@@ -389,6 +393,7 @@ class RoboticsOrchestrator:
             k=self.k,
             max_repairs=self.max_profile_repairs,
             output_dir=output_dir,
+            preferred_categories=self.modelica_preferred_categories,
         )
 
     def _generate_openusd(self, requirement: str,
@@ -401,6 +406,7 @@ class RoboticsOrchestrator:
             k=self.k,
             max_repairs=self.max_profile_repairs,
             output_dir=output_dir,
+            preferred_categories=self.openusd_preferred_categories,
         )
 
     def _prepare_h2(self, *, output_dir: Path, result: dict, plan: H2Plan,

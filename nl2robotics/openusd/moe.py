@@ -25,6 +25,7 @@ def generate_openusd_moe(
     k: int = 5,
     max_repairs: int = 2,
     output_dir: Path | None = None,
+    preferred_categories: tuple[str, ...] = (),
     invoke: Invoke | None = None,
     openrouter_key: str | None = None,
 ) -> tuple[str, dict]:
@@ -36,7 +37,9 @@ def generate_openusd_moe(
         _, openrouter_key = shared_moe.sysml_moe._load_env()
         invoke = shared_moe._invoke
 
-    system, human, hits = pipeline.build_messages(requirement, k=k)
+    system, human, hits = pipeline.build_messages(
+        requirement, k=k, preferred_categories=preferred_categories
+    )
     candidates = []
     soft_fails = []
     for model in EXPERT_MODELS:
@@ -77,6 +80,7 @@ def generate_openusd_moe(
     return report["final_openusd"], {
         **report,
         "generation_mode": "moe",
+        "retrieval_route": list(preferred_categories),
         "llm_backend": backend,
         "expert_models": list(EXPERT_MODELS),
         "expert_ratings": {

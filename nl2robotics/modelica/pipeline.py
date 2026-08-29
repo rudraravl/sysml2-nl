@@ -36,11 +36,18 @@ class ModelicaPipeline:
         self.runner = runner or OpenModelicaRunner()
         self.fmi_runner = fmi_runner or FMIContainerRunner()
 
-    def build_prompt(self, requirement: str, *, k: int = 5) -> str:
-        return self._prompt(requirement, self.corpus.retrieve(requirement, k=k))
+    def build_prompt(self, requirement: str, *, k: int = 5,
+                     preferred_categories: tuple[str, ...] = ()) -> str:
+        return self._prompt(requirement, self.corpus.retrieve(
+            requirement, k=k, preferred_categories=preferred_categories
+        ))
 
-    def build_messages(self, requirement: str, *, k: int = 5) -> tuple[str, str, list]:
-        hits = self.corpus.retrieve(requirement, k=k)
+    def build_messages(self, requirement: str, *, k: int = 5,
+                       preferred_categories: tuple[str, ...] = (),
+                       ) -> tuple[str, str, list]:
+        hits = self.corpus.retrieve(
+            requirement, k=k, preferred_categories=preferred_categories
+        )
         context = self.corpus.format_context(hits)
         human = (
             f"Retrieved examples:\n{context}\n\n"
@@ -127,13 +134,16 @@ class ModelicaPipeline:
 
     def generate(self, requirement: str, ask: Callable[[str], str], *,
                  k: int = 5, max_repairs: int = 2,
-                 output_dir: Path | None = None) -> dict:
+                 output_dir: Path | None = None,
+                 preferred_categories: tuple[str, ...] = ()) -> dict:
         """Layer 1 single-model path: RAG, generation, build, and repair."""
         if not requirement.strip():
             raise ValueError("requirement must be non-empty")
-        hits = self.corpus.retrieve(requirement, k=k)
+        hits = self.corpus.retrieve(
+            requirement, k=k, preferred_categories=preferred_categories
+        )
         candidate = clean_code(ask(self._prompt(requirement, hits)))
-        return self.refine_layer1(
+        report = self.refine_layer1(
             requirement,
             candidate,
             ask,
@@ -141,6 +151,8 @@ class ModelicaPipeline:
             max_repairs=max_repairs,
             output_dir=output_dir,
         )
+        report["retrieval_route"] = list(preferred_categories)
+        return report
 
     def refine_layer1(self, requirement: str, candidate: str,
                       repair: Callable[[str], str], *,
@@ -191,11 +203,14 @@ class ModelicaPipeline:
                              properties: list[dict] | None = None, k: int = 5,
                              max_repairs: int = 1,
                              output_dir: Path | None = None,
+                             preferred_categories: tuple[str, ...] = (),
                              **simulation) -> dict:
         """Legacy combined path retained for later Layer 2 work."""
         if not requirement.strip():
             raise ValueError("requirement must be non-empty")
-        hits = self.corpus.retrieve(requirement, k=k)
+        hits = self.corpus.retrieve(
+            requirement, k=k, preferred_categories=preferred_categories
+        )
         candidate = clean_code(ask(self._prompt(requirement, hits)))
         return self.refine(
             requirement,

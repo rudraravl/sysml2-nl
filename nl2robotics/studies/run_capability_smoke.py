@@ -149,6 +149,11 @@ def main() -> None:
         default="full1500",
     )
     parser.add_argument("-k", type=int, default=5)
+    parser.add_argument(
+        "--rag-routing",
+        choices=("unrestricted", "family-preferred"),
+        default="unrestricted",
+    )
     parser.add_argument("--max-ir-repairs", type=int, default=1)
     parser.add_argument("--max-profile-repairs", type=int, default=2)
     parser.add_argument("--no-resume", action="store_true")
@@ -180,6 +185,10 @@ def main() -> None:
         "max_semantic_repairs": 0,
         "alignment_mode": "deterministic",
     }
+    if args.rag_routing != "unrestricted":
+        configuration["rag_routing"] = (
+            "family_preferred_4_of_5_with_global_fallback"
+        )
     args.output_dir.mkdir(parents=True, exist_ok=True)
     selected_ids = [str(row["id"]) for row in selected]
 
@@ -213,6 +222,12 @@ def main() -> None:
             "--max-semantic-repairs", "0",
             "--alignment-mode", "deterministic",
         ]
+        if args.rag_routing == "family-preferred":
+            route = manifest["rag_family_routes"][case["family"]]
+            for category in route["modelica"]:
+                command.extend(("--modelica-rag-category", str(category)))
+            for category in route["openusd"]:
+                command.extend(("--openusd-rag-category", str(category)))
         print(
             f"[{index}/{len(selected)}] {case_id} {case['family']} starting",
             flush=True,

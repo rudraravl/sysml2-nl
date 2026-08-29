@@ -7,6 +7,7 @@ import unittest
 
 from .articulated import audit_articulated_suite
 from .capability_matrix import audit_manifest as audit_capabilities
+from .capability_benchmark import CapabilityBenchmarkSuite
 from .run_capability_smoke import (
     case_fingerprint,
     load_cases,
@@ -33,6 +34,17 @@ class ArticulatedStudyTests(unittest.TestCase):
 
 
 class CapabilityBreadthStudyTests(unittest.TestCase):
+    def test_capability_manifest_adapts_to_rich_ablation_tasks(self):
+        suite = CapabilityBenchmarkSuite()
+        audit = suite.audit()
+        self.assertTrue(audit["success"], audit)
+        selected = suite.select(profile="capability", variant="rich")
+        self.assertEqual(13, len(selected))
+        self.assertEqual("capability_tier2", selected[0][0].target_level)
+        self.assertEqual(3, len(selected[0][0].oracle["rag_route"]["modelica"]))
+        with self.assertRaises(ValueError):
+            suite.select(profile="capability", variant="concise")
+
     def test_study_covers_broad_profile_matrix_without_overclaiming(self):
         report = audit_capabilities()
         self.assertTrue(report["success"], report)

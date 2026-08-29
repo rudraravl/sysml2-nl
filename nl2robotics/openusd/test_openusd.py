@@ -59,6 +59,19 @@ class OpenUSDCorpusTests(unittest.TestCase):
             len(hits), len({item.semantic_case_id for item, _ in hits})
         )
 
+    def test_family_route_prefers_four_hits_and_keeps_global_fallback(self):
+        preferred = ("mass_inertia", "environments", "sensor_placement")
+        hits = OpenUSDExampleCorpus().retrieve(
+            "An aerial vehicle with an IMU and a world scene",
+            k=5,
+            preferred_categories=preferred,
+        )
+        self.assertEqual(5, len(hits))
+        self.assertGreaterEqual(
+            sum(item.category in preferred for item, _ in hits), 4
+        )
+        self.assertEqual(5, len({item.lineage_id for item, _ in hits}))
+
 
 class OpenUSDValidatorTests(unittest.TestCase):
     def test_nonfinite_inspector_sentinel_becomes_json_null(self):
