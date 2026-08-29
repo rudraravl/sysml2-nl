@@ -1,0 +1,130 @@
+{
+  "verification": "PASS",
+  "evidence_root": "/Users/adheesh_ramanath/Documents/Codex/2026-08-23/deltaai-h100-execution/work/frozen-evidence-3046960/outputs/deltaai-rhy201-3046960",
+  "manifest_files_verified": 35,
+  "frozen_commit": "35049bf24efe29801e124c3abd51624fc04523af",
+  "slurm": {
+    "JobID": "3046960",
+    "JobName": "nl2robotics-rhy201",
+    "Account": "bhit-dtai-gh",
+    "Partition": "ghx4",
+    "State": "COMPLETED",
+    "ExitCode": "0:0",
+    "Elapsed": "00:01:01",
+    "AllocTRES": "billing=1000,cpu=8,gres/gpu=1,mem=64G,node=1",
+    "NodeList": "gh055",
+    "Submit": "2026-08-29T16:29:25",
+    "Start": "2026-08-29T16:29:50",
+    "End": "2026-08-29T16:30:51"
+  },
+  "cuda": {
+    "device": "cuda:0",
+    "name": "NVIDIA GH200 120GB",
+    "architecture": "SM90",
+    "toolkit": "12.9",
+    "driver_reported_by_warp": "13.2",
+    "driver_reported_by_nvidia_smi": "595.71.05"
+  },
+  "artifacts": {
+    "contract": "4edb661df82f3d6471ea1624841eeceacb89bf1d20e04f27dc5d5c9076e2e51c",
+    "fmu": "5c14ac3841561f0c1c6896fe1cf1502ddc6f1133143c494876fa955fd6a910e2",
+    "modelica": "8a1e96c684d404e4865ae49f5d753a7167b573d033d8b051dfcff4ef0ebb8fe8",
+    "openusd": "180533526a042dc920e75348e98b82625f2200b88c5e2e0740a6459b136a0deb",
+    "request": "320aed0b46199c70dcb1bd9815640ed56262cf6da8928e1c27f2db2238626075",
+    "requirement_ir": "11f449898368b3624fb9879b1437588ea3d7cf0a55990149e218df9838d7e94e"
+  },
+  "openusd": {
+    "semantic_validation": "PASS",
+    "counts": {
+      "physics_scenes": 1,
+      "rigid_bodies": 2,
+      "collisions": 2,
+      "joints": 2,
+      "articulations": 1,
+      "sensors": 0,
+      "materials": 0
+    }
+  },
+  "fmu": {
+    "sha256": "5c14ac3841561f0c1c6896fe1cf1502ddc6f1133143c494876fa955fd6a910e2",
+    "fmi_version": "2.0",
+    "interface_type": "co_simulation",
+    "binary_entries": [
+      "binaries/linux64/candidate.so"
+    ],
+    "behavioral_probes": "7/7",
+    "max_probe_absolute_error": 0.0
+  },
+  "traces": {
+    "trace_count": 3,
+    "sample_count_per_trace": 300,
+    "column_count": 11,
+    "byte_identical": true,
+    "sha256": "b8dcd22178c58a29434017722a26801dd1574081b21061c1ca115b32c1ed0ce9",
+    "max_absolute_effort_Nm": 5.0,
+    "final_angle_rad": 0.5235997438430786,
+    "final_velocity_rad_s": -1.3137106179783586e-05
+  },
+  "properties": [
+    {
+      "detail": "always robustness=0.994782",
+      "formula": "G[0, T](-1.5707963267948966 <= sim_post:map_shoulder_angle[rad] and sim_post:map_shoulder_angle[rad] <= 1.5707963267948966)",
+      "passed": true,
+      "property_id": "within_joint_limits",
+      "robustness": 0.9947816292431693
+    },
+    {
+      "detail": "final robustness=0.0523589",
+      "formula": "final[0, T](0.47123889803846897 <= sim_post:map_shoulder_angle[rad] and sim_post:map_shoulder_angle[rad] <= 0.5759586531581288)",
+      "passed": true,
+      "property_id": "reaches_target",
+      "robustness": 0.05235890931505016
+    }
+  ],
+  "semantic_alignment": {
+    "blocking_violations": 0,
+    "counts": {
+      "not_applicable": 0,
+      "satisfied": 23,
+      "unknown": 0,
+      "violated": 0
+    },
+    "deterministic_violations": 0,
+    "evidence_coverage": 1.0,
+    "per_family": {
+      "actuator": 1.0,
+      "controller_kind": 1.0,
+      "controller_presence": 1.0,
+      "dynamics": 1.0,
+      "entity_geometry": 1.0,
+      "entity_mass": 1.0,
+      "entity_presence": 1.0,
+      "environment": 1.0,
+      "execution_backend": 1.0,
+      "interface": 1.0,
+      "joint_axis": 1.0,
+      "joint_limits": 1.0,
+      "joint_topology": 1.0,
+      "parameter": 1.0,
+      "property": 1.0,
+      "timing": 1.0
+    },
+    "question_count": 23,
+    "weighted_semantic_score": 1.0
+  },
+  "compatibility_delta": {
+    "tracked_files": [
+      "nl2robotics/hybrid/deltaai/Apptainer.def",
+      "nl2robotics/hybrid/deltaai/preflight.py",
+      "nl2robotics/hybrid/deltaai/run_rhy201.sbatch",
+      "nl2robotics/hybrid/deltaai/setup_deltaai.sh"
+    ],
+    "runtime_solver_sha256": "1ebe7e711d5e97020e654a2d3a96dd67aa58875bf61bc7042e354b1390f6f650"
+  },
+  "claims": {
+    "claim_eligible_h2": true,
+    "claim_eligible_newton_h2": true,
+    "claim_eligible_deltaai_h2": true,
+    "claim_eligible_isaac_h2": false
+  }
+}

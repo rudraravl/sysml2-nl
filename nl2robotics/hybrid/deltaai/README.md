@@ -65,3 +65,14 @@ Each job writes a unique `outputs/deltaai-ORACLE-JOB_ID` directory containing
 preflight evidence, the hashed execution bundle, three traces, STL property
 results, repeatability comparison, post-execution alignment, and the final
 Newton claim gate.
+
+## Recorded frozen checkpoint
+
+The original frozen RHY201 commit `35049bf24efe29801e124c3abd51624fc04523af`
+completed as DeltaAI Slurm job `3046960` on a real NVIDIA GH200 120GB CUDA
+device. All three repetitions, both temporal properties, 23/23 grounded
+alignment questions, repeatability, and the fail-closed DeltaAI claim gate
+passed. The report, untouched evidence archive, checksum, and independent
+verification summary are retained in
+[`DELTA_AI_JOB_3046960.md`](DELTA_AI_JOB_3046960.md) and
+[`evidence/job-3046960/`](evidence/job-3046960/).
