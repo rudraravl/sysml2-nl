@@ -125,6 +125,14 @@ class NormalizerTests(unittest.TestCase):
             "every usd_to_fmu interface `state_id` must be declared verbatim",
             prompts[1],
         )
+        self.assertIn(
+            "`dynamics.states` must remain a flat list of state-id strings",
+            prompts[1],
+        )
+        self.assertIn(
+            "omit the dangling joint",
+            prompts[1],
+        )
 
 
 class PlannerTests(unittest.TestCase):

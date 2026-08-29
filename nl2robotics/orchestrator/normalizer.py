@@ -363,7 +363,14 @@ Cross-record consistency is mandatory:
   of a grounded `dynamics` record. Use owner `usd_physics` for simulator/body,
   contact, and simulator-hosted sensor state; use `fmu_plant` only when the
   source explicitly makes the FMU the physical-state owner. A dynamics record
-  may reuse the exact evidence of the interface fact it declares.
+  may reuse the exact evidence of the interface fact it declares. The `states`
+  value is always a flat JSON list of strings; never replace a state string
+  with an object carrying its own id or evidence.
+- A joint record requires two grounded entity endpoints. If SOURCE_TEXT states
+  a joint or actuator but omits its parent or child entity, do not invent an
+  endpoint or emit a dangling joint. Preserve the stated entities, actuator,
+  controller, sensor, and signal facts that remain representable, omit that
+  joint record, and describe the missing endpoint in `unknowns`.
 - Every interface targets at most one joint_id, entity_id, or sensor_id.
 - Every property targets exactly one interface_id, state_id, or entity_id.
 - A property that targets state_id must have a matching interface carrying that
@@ -404,6 +411,11 @@ unit. Every property targeting `state_id` also requires a matching observable
 interface with the exact same state_id. An explicit no-collision/no-contact
 requirement may be represented by a dimensionless contact interface and an
 always-property with upper bound 0.
+
+`dynamics.states` must remain a flat list of state-id strings, never a list of
+objects. Each joint requires grounded existing parent and child entities; if an
+endpoint is unstated, omit the dangling joint and record the missing topology in
+unknowns instead of inventing an entity.
 
 For capability_tiered mode, repair an incomplete clock without inventing a
 start time: use `duration` plus a stated system `frequency_hz` when SOURCE_TEXT
