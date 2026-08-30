@@ -35,6 +35,12 @@ def main() -> None:
         "--profile", choices=("modelica", "openusd", "hybrid", "capability")
     )
     parser.add_argument("--task-id", action="append", default=[])
+    parser.add_argument("--family", action="append", default=[],
+                        help="select one or more capability families")
+    parser.add_argument("--semantic-case-id", action="append", default=[],
+                        help="select one or more corpus semantic lineages")
+    parser.add_argument("--configuration-variant", action="append", default=[],
+                        help="select one or more controlled corpus configurations")
     parser.add_argument(
         "--benchmark-split", choices=("auto", "primary", "reserve", "all"),
         default="auto",
@@ -110,13 +116,28 @@ def main() -> None:
         } - {None}
         selected_split = args.benchmark_split
         if selected_split == "auto":
-            selected_split = "primary" if available_splits else "all"
+            selected_split = "primary" if "primary" in available_splits else "all"
         effective_benchmark_split = selected_split
         if selected_split != "all":
             selected = [
                 item for item in selected
                 if item[0].oracle.get("benchmark_split") == selected_split
             ]
+    filters = (
+        ("family", set(args.family), lambda task: task.category),
+        ("semantic case", set(args.semantic_case_id),
+         lambda task: task.oracle.get("semantic_case_id")),
+        ("configuration variant", set(args.configuration_variant),
+         lambda task: task.oracle.get("configuration_variant")),
+    )
+    for label, wanted, value in filters:
+        if not wanted:
+            continue
+        available = {value(task) for task, _ in selected}
+        missing = wanted - available
+        if missing:
+            parser.error(f"unknown or selection-excluded {label} values: {sorted(missing)}")
+        selected = [item for item in selected if value(item[0]) in wanted]
     conditions = select_conditions(args.condition or None)
     if not selected:
         parser.error("no benchmark tasks selected")
@@ -196,6 +217,9 @@ def main() -> None:
         "benchmark_manifest": audit["manifest"],
         "benchmark_manifest_sha256": audit["manifest_sha256"],
         "benchmark_split": effective_benchmark_split,
+        "family_filter": sorted(set(args.family)),
+        "semantic_case_filter": sorted(set(args.semantic_case_id)),
+        "configuration_variant_filter": sorted(set(args.configuration_variant)),
         "isaac_handoff_configured": args.isaac_python is not None,
         "h2_controller_backend": args.h2_controller_backend,
         "h2_device": args.h2_device,

@@ -9,6 +9,7 @@ from pathlib import Path
 from nl2robotics.benchmark.suite import BenchmarkTask
 
 from .capability_matrix import MANIFEST, audit_manifest as audit_capability_manifest
+from nl2robotics.corpus.pipeline_prompts import audit_manifest as audit_prompt_corpus
 from .paper_evaluation import audit_manifest as audit_paper_manifest
 
 
@@ -52,6 +53,10 @@ class CapabilityBenchmarkSuite:
                 "source_target_tier": case["target_tier"],
                 "benchmark_split": case.get("split"),
                 "runtime_candidate": case.get("runtime_candidate") is True,
+                "semantic_case_id": case.get("semantic_case_id"),
+                "lineage_id": case.get("lineage_id"),
+                "configuration_variant": case.get("configuration_variant"),
+                "provenance": case.get("provenance"),
                 "rag_route": dict(routes[family]),
             },
             prompt_variants={"rich": str(case["request"])},
@@ -70,11 +75,13 @@ class CapabilityBenchmarkSuite:
 
     def audit(self) -> dict:
         data = json.loads(self.manifest_path.read_text(encoding="utf-8"))
-        source = (
-            audit_paper_manifest(self.manifest_path)
-            if data.get("benchmark_id") == "robotics-paper-evaluation-candidate-v1"
-            else audit_capability_manifest(self.manifest_path)
-        )
+        benchmark_id = data.get("benchmark_id")
+        if benchmark_id == "robotics-paper-evaluation-candidate-v1":
+            source = audit_paper_manifest(self.manifest_path)
+        elif benchmark_id == "robotics-pipeline-prompt-corpus-v1":
+            source = audit_prompt_corpus(self.manifest_path)
+        else:
+            source = audit_capability_manifest(self.manifest_path)
         return {
             "stage": "capability_benchmark_static_audit",
             "schema_version": "1.0",

@@ -78,6 +78,12 @@ This produces 312 planned cells. Use `--benchmark-split reserve` only for a
 prespecified replacement; `--benchmark-split all` is descriptive, not the
 default confirmatory design.
 
+The larger natural-language input catalog used to generate a robotics artifact
+corpus lives in `nl2robotics/corpus/pipeline_prompt_manifest.json`. It contains
+1,560 prompts across 260 semantic lineages, balanced over all 13 families. It
+is deliberately separate from the 65 held-out evaluation prompts; see
+`nl2robotics/corpus/README.md` for generation, audit, and filtered-run commands.
+
 Each case is a numerical, source-grounded system specification rather than a
 one-line category label. Execute the economical tier-2 breadth smoke locally
 with the frozen full-1500 retrieval corpora and checkpoint after every family:
