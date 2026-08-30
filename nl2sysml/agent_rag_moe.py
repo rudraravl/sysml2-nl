@@ -5,9 +5,10 @@ Pipeline:
 - Build RAG context from dataset examples and spec chunks (local JSONL).
 - Compose System/Human messages (same template as agent_rag).
 - Query multiple experts (EXPERT_MODELS):
-  * openai/gpt-5.5 and openai/gpt-5.4 (Codex CLI under LLM_BACKEND=cli)
-  * anthropic/claude-sonnet-4.5 (Claude Code under LLM_BACKEND=cli)
-  * meta-llama/llama-4-maverick (OpenRouter)
+  * qwen/qwen3.6-plus
+  * z-ai/glm-5.2
+  * deepseek/deepseek-v4-pro
+  * meta-llama/llama-4-maverick
 - Ask the combiner to synthesize a single best SysML v2 model from candidates.
 - Post-synthesis gates (in order):
   1. Compiler syntax/semantic refine
@@ -16,9 +17,9 @@ Pipeline:
 - Output only SysML v2 code; no markdown fences.
 
 LLM backends:
-- api (default): Claude/GPT/Llama via OpenRouter
-- cli: Claude via Claude Code, GPT via Codex (subscription / ChatGPT sign-in,
-  not API billing); meta-llama/* still via OpenRouter.
+- api (default): all experts and the combiner via OpenRouter
+- cli: the current open-source lineup still uses OpenRouter because those model
+  IDs have no Claude Code or Codex CLI route.
   CLI failures raise immediately.
 
 One-shot: pass requirement as CLI arg. Batch: no args → read nl2sysml/dataset.json and write results to nl2sysml/result_rag_moe.
@@ -85,19 +86,23 @@ except ImportError:
         KERNEL_EXECUTION_AVAILABLE = False
 
 
-# Expert models (one per line)
+# Expert models (one per line). Keep synchronized with the current SysML study.
 EXPERT_MODELS = [
-    "openai/gpt-5.5",  # Codex CLI under --llm-backend cli (was gemini)
-    "anthropic/claude-sonnet-4.5",
-    "openai/gpt-5.4",
+    "qwen/qwen3.6-plus",
+    "z-ai/glm-5.2",
+    "deepseek/deepseek-v4-pro",
     "meta-llama/llama-4-maverick",
 ]
 
-# Combiner model for the final synthesis step
-COMBINER_MODEL = "anthropic/claude-sonnet-4.5"
+# Combiner model for the final synthesis step.
+COMBINER_MODEL = "z-ai/glm-5.2"
 
 # Heuristic reliability rating per expert family (0–10)
 EXPERT_MODELS_RATING = {
+    "glm": 10,
+    "deepseek": 9,
+    "qwen": 7,
+    "gemma": 5,
     "gemini": 5,
     "gpt": 7,
     "claude": 10,
@@ -182,6 +187,14 @@ def _format_kernel_errors(result: ExecutionResult, harness_start_line: int) -> s
 
 def _model_group(model_name: str) -> str:
     lowered = model_name.lower()
+    if model_name.startswith("z-ai/") or "glm" in lowered:
+        return "glm"
+    if model_name.startswith("deepseek/") or "deepseek" in lowered:
+        return "deepseek"
+    if model_name.startswith("qwen/") or lowered.startswith("qwen"):
+        return "qwen"
+    if "gemma" in lowered:
+        return "gemma"
     if model_name == "gemini-2.5-pro" or lowered.startswith("gemini"):
         return "gemini"
     if model_name.startswith("openai/") or lowered.startswith("gpt"):
@@ -853,7 +866,12 @@ def generate_sysml_moe(prompt_text: str) -> Tuple[str, dict]:
             else:
                 routing.append(f"{m}->openrouter")
         print(f"  Experts: {', '.join(routing)}", flush=True)
-        print(f"  Combiner: {combiner}->{provider_for_model(combiner)}", flush=True)
+        combiner_route = (
+            provider_for_model(combiner)
+            if _model_uses_cli(combiner)
+            else "openrouter"
+        )
+        print(f"  Combiner: {combiner}->{combiner_route}", flush=True)
 
     # Collect candidates (each receives RAG-context-augmented prompt).
     # Soft-fail individual experts (AUP / empty / transient); keep going.

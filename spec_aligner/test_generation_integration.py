@@ -92,7 +92,7 @@ class BatchGenerationIntegrationTests(unittest.TestCase):
         self.assertNotIn("quality_report", record)
         gate.assert_not_called()
 
-    def test_cli_backend_keeps_same_experts_and_routes_by_provider(self):
+    def test_cli_backend_keeps_open_source_experts_on_openrouter(self):
         cli_calls = []
         openrouter_calls = []
         gemini_calls = []
@@ -110,9 +110,9 @@ class BatchGenerationIntegrationTests(unittest.TestCase):
             return "part def FromGeminiAPI;"
 
         expected_experts = [
-            "openai/gpt-5.5",
-            "anthropic/claude-sonnet-4.5",
-            "openai/gpt-5.4",
+            "qwen/qwen3.6-plus",
+            "z-ai/glm-5.2",
+            "deepseek/deepseek-v4-pro",
             "meta-llama/llama-4-maverick",
         ]
 
@@ -133,37 +133,27 @@ class BatchGenerationIntegrationTests(unittest.TestCase):
                              return_value=False):
             final, record = agent_rag_moe.generate_sysml_moe("A CLI-backed system.")
 
-        self.assertTrue(final.startswith("part def FromCLI_"))
+        self.assertTrue(final.startswith("part def FromOpenRouter_"))
         self.assertEqual(record["llm_backend"], "cli")
         self.assertEqual(record["expert_models"], expected_experts)
-        self.assertEqual(record["combiner_model"], "anthropic/claude-sonnet-4.5")
-        self.assertEqual(
-            cli_calls,
-            [
-                "openai/gpt-5.5",
-                "anthropic/claude-sonnet-4.5",
-                "openai/gpt-5.4",
-                "anthropic/claude-sonnet-4.5",  # combiner
-            ],
-        )
-        self.assertEqual(openrouter_calls, ["meta-llama/llama-4-maverick"])
+        self.assertEqual(record["combiner_model"], "z-ai/glm-5.2")
+        self.assertEqual(cli_calls, [])
+        self.assertEqual(openrouter_calls, [*expected_experts, "z-ai/glm-5.2"])
         self.assertEqual(gemini_calls, [])
         self.assertEqual(record.get("expert_soft_fail_count"), 0)
 
     def test_expert_soft_fail_continues_with_remaining_experts(self):
-        claude_calls = {"n": 0}
+        glm_calls = {"n": 0}
 
         def fake_cli(model, system_msg, human_msg, *, mode="sysml"):
-            if "claude" in model:
-                claude_calls["n"] += 1
-                # Soft-fail the Claude expert only; combiner (2nd call) succeeds.
-                if claude_calls["n"] == 1:
-                    raise RuntimeError(
-                        "claude CLI failed rc=1: appears to violate our Usage Policy"
-                    )
             return f"part def FromCLI_{model.split('/')[-1].replace('.', '_')};"
 
         def fake_openrouter(model, system_msg, human_msg, key):
+            if model == "z-ai/glm-5.2":
+                glm_calls["n"] += 1
+                # Soft-fail the GLM expert only; its combiner call succeeds.
+                if glm_calls["n"] == 1:
+                    raise RuntimeError("transient OpenRouter expert failure")
             return "part def FromOpenRouter_llama;"
 
         with patch.dict(os.environ, {
@@ -181,12 +171,12 @@ class BatchGenerationIntegrationTests(unittest.TestCase):
                              return_value=False):
             final, record = agent_rag_moe.generate_sysml_moe("Soft-fail expert test.")
 
-        self.assertTrue(final.startswith("part def FromCLI_"))
+        self.assertTrue(final.startswith("part def FromOpenRouter_"))
         self.assertEqual(record["expert_soft_fail_count"], 1)
-        self.assertEqual(record["expert_soft_fails"][0]["model"], "anthropic/claude-sonnet-4.5")
-        self.assertIn("openai/gpt-5.5", record["expert_candidates"])
-        self.assertIn("openai/gpt-5.4", record["expert_candidates"])
-        self.assertNotIn("anthropic/claude-sonnet-4.5", record["expert_candidates"])
+        self.assertEqual(record["expert_soft_fails"][0]["model"], "z-ai/glm-5.2")
+        self.assertIn("qwen/qwen3.6-plus", record["expert_candidates"])
+        self.assertIn("deepseek/deepseek-v4-pro", record["expert_candidates"])
+        self.assertNotIn("z-ai/glm-5.2", record["expert_candidates"])
 
     def test_cli_provider_routing_table(self):
         from spec_aligner.llm import provider_for_model, resolve_cli_model

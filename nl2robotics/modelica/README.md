@@ -12,7 +12,7 @@ The active research pipeline currently ends at a buildable artifact:
 1. Retrieve relevant, executable NL-to-Modelica examples.
 2. Ask the same four experts used by the SysML pipeline for independent
    self-contained candidates.
-3. Give the rated candidates to the same Claude combiner for one synthesis.
+3. Give the rated candidates to the same GLM combiner for one synthesis.
 4. Run OpenModelica `checkModel` and `buildModel`; do not execute the artifact.
 5. Repair with the combiner from grounded compiler diagnostics, up to two times.
 6. Keep a repair only when build status, check status, or error count improves.
@@ -23,11 +23,11 @@ failure stops the sample and never triggers an LLM repair. Simulation, CSV
 traces, and temporal properties belong to Layer 2 and do not affect Layer 1
 acceptance. See `LAYER1_DESIGN.md` for the frozen contract and experiment.
 
-The default `moe` mode deliberately copies the SysML generation design while
-changing only the domain prompt, RAG corpus, and compiler backend. Its experts
-are `openai/gpt-5.5`,
-`anthropic/claude-sonnet-4.5`, `openai/gpt-5.4`, and
-`meta-llama/llama-4-maverick`; `anthropic/claude-sonnet-4.5` is the combiner.
+The default `moe` mode deliberately copies the current SysML generation design
+while changing only the domain prompt, RAG corpus, and compiler backend. Its
+open-source experts are `qwen/qwen3.6-plus`, `z-ai/glm-5.2`,
+`deepseek/deepseek-v4-pro`, and `meta-llama/llama-4-maverick`;
+`z-ai/glm-5.2` is the combiner. All are served through OpenRouter.
 Individual expert failures are recorded and tolerated, while a combiner
 failure stops the sample. The complete prompts, retrieved IDs, candidates,
 ratings, diagnostics, and repair attempts are written to `report.json`.
