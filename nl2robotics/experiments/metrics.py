@@ -9,6 +9,8 @@ import random
 
 BINARY_METRICS = (
     "normalization_valid", "ir_valid", "artifact_pair_valid",
+    "modelica_build_attempt_0", "usd_semantic_valid_attempt_0",
+    "artifact_pair_valid_attempt_0", "condition_fidelity",
     "modelica_build", "fmu_export", "fmu_execution",
     "usd_semantic_valid", "named_simulator_load", "stable_simulation",
     "contract_valid", "end_to_end", "all_properties_pass",
@@ -40,6 +42,8 @@ def extract_metrics(profile: str, result: dict, *,
     properties = hybrid.get("properties", result.get("properties", []))
     alignment = result.get("alignment", {})
     capabilities = result.get("capabilities", {})
+    one_shot = result.get("one_shot", {})
+    study_validity = result.get("study_validity", {})
 
     modelica_pass = _truth(modelica.get("passed"))
     usd_pass = _truth(openusd.get("passed"))
@@ -85,6 +89,18 @@ def extract_metrics(profile: str, result: dict, *,
         "normalization_valid": normalization_valid,
         "ir_valid": ir_valid,
         "artifact_pair_valid": artifact_pair_valid,
+        "modelica_build_attempt_0": _truth(
+            one_shot.get("modelica_valid_attempt_0")
+        ),
+        "usd_semantic_valid_attempt_0": _truth(
+            one_shot.get("openusd_valid_attempt_0")
+        ),
+        "artifact_pair_valid_attempt_0": _truth(
+            one_shot.get("artifact_pair_valid_attempt_0")
+        ),
+        "condition_fidelity": _truth(
+            study_validity.get("condition_fidelity_passed")
+        ),
         "modelica_build": modelica_pass,
         "fmu_export": fmu_export,
         "fmu_execution": fmu_execution,

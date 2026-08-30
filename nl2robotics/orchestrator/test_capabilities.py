@@ -211,6 +211,8 @@ class CapabilityOrchestratorTests(unittest.TestCase):
 
         self.assertTrue(result["passed"], result)
         self.assertEqual("artifacts_validated", result["execution_status"])
+        self.assertTrue(result["alignment"]["enabled"])
+        self.assertTrue(result["alignment"]["passed"])
         self.assertEqual(2, report["verification"]["highest_reached_tier"])
         self.assertFalse(report["claim_eligible_deltaai_h2"])
         self.assertEqual(

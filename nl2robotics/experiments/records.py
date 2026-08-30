@@ -25,7 +25,7 @@ def load_records(root: Path) -> list[dict]:
     records = []
     for path in sorted(root.glob("**/run.json")):
         data = json.loads(path.read_text(encoding="utf-8"))
-        if isinstance(data, dict) and data.get("schema_version") == "1.0":
+        if isinstance(data, dict) and data.get("schema_version") in {"1.0", "1.1"}:
             records.append(data)
     return records
 

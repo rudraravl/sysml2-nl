@@ -18,7 +18,7 @@ from nl2robotics.modelica.pipeline import ModelicaPipeline
 from nl2robotics.openusd.moe import generate_openusd_moe
 from nl2robotics.openusd.pipeline import OpenUSDPipeline
 
-from .normalizer import Ask, RequirementNormalizer
+from .normalizer import Ask, NormalizationResult, RequirementNormalizer
 from .planner import H2Plan, PlanningError, build_plan
 from .profiled_planner import CapabilityPlan
 
@@ -74,6 +74,7 @@ class RoboticsOrchestrator:
         semantic_repair_ask: Ask | None = None,
         max_semantic_repairs: int = 1,
         enable_alignment: bool = True,
+        precomputed_normalization: NormalizationResult | None = None,
     ) -> dict:
         output_dir.mkdir(parents=True, exist_ok=True)
         (output_dir / "request.txt").write_text(
@@ -90,13 +91,27 @@ class RoboticsOrchestrator:
         }
 
         try:
-            normalized = self.normalizer.normalize(
-                source_text,
-                ask_ir,
-                task_id=task_id,
-                execution_mode=execution_mode,
-                max_repairs=max_ir_repairs,
-            )
+            if precomputed_normalization is None:
+                normalized = self.normalizer.normalize(
+                    source_text,
+                    ask_ir,
+                    task_id=task_id,
+                    execution_mode=execution_mode,
+                    max_repairs=max_ir_repairs,
+                )
+            else:
+                normalized = precomputed_normalization
+                if normalized.ir is not None:
+                    frozen_source = normalized.ir.get("source_text")
+                    frozen_mode = normalized.ir.get("execution_mode")
+                    if frozen_source != source_text.strip():
+                        raise ValueError(
+                            "precomputed normalization source does not match request"
+                        )
+                    if frozen_mode != execution_mode:
+                        raise ValueError(
+                            "precomputed normalization execution mode does not match run"
+                        )
         except Exception as exc:
             result["error"] = str(exc)
             return self._finish(output_dir, result)
@@ -106,6 +121,7 @@ class RoboticsOrchestrator:
             "success": normalized.success,
             "attempt_count": len(normalized.attempts),
             "report": "normalization.json",
+            "precomputed": precomputed_normalization is not None,
         }
         if not normalized.success or normalized.ir is None:
             result["issues"] = normalized.to_dict()["issues"]
@@ -197,19 +213,45 @@ class RoboticsOrchestrator:
                 modelica_report.get("passed") is True
                 and openusd_report.get("passed") is True
             )
+            if enable_alignment and pair_passed:
+                alignment = self.alignment_evaluator.evaluate(
+                    plan.requirement_ir,
+                    modelica=modelica,
+                    openusd=openusd,
+                    contract=plan.contract,
+                    hybrid_report={
+                        "contract": {},
+                        "properties": [],
+                        "capabilities": report,
+                    },
+                    ask=alignment_ask,
+                )
+            else:
+                alignment = _skipped_alignment(plan.task_id)
+            _write_json(output_dir / "alignment.json", alignment)
+            result["alignment"] = {
+                "enabled": enable_alignment,
+                "passed": alignment["passed"],
+                "claim_ready": alignment.get("claim_ready", False),
+                "report": "alignment.json",
+                **alignment["summary"],
+            }
+            aligned = not enable_alignment or alignment["passed"] is True
             result["execution_status"] = (
-                "artifacts_validated" if pair_passed
+                "artifacts_validated" if pair_passed and aligned
                 else "artifact_validation_failed"
             )
             result["claim_eligible_h2"] = False
             result["claim_eligible_deltaai_h2"] = False
-            result["passed"] = pair_passed
-            if pair_passed:
+            result["passed"] = pair_passed and aligned
+            if pair_passed and aligned:
                 result["failure_stage"] = None
             elif modelica_report.get("passed") is not True:
                 result["failure_stage"] = "modelica_validation"
-            else:
+            elif openusd_report.get("passed") is not True:
                 result["failure_stage"] = "openusd_validation"
+            else:
+                result["failure_stage"] = "semantic_alignment"
             return self._finish(output_dir, result)
 
         if isinstance(plan, H2Plan):
@@ -606,9 +648,27 @@ def _profile_summary(report: dict, artifact: str, report_path: str) -> dict:
         "passed": report.get("passed") is True,
         "repairs": report.get("repairs"),
         "generation_mode": report.get("generation_mode"),
+        "retrieved_examples": list(report.get("retrieved_examples", [])),
+        "attempt_0_valid": _profile_attempt_zero_valid(report),
+        "expert_models": list(report.get("expert_models", [])),
+        "expert_candidates": list(report.get("expert_candidates", [])),
+        "combiner_model": report.get("combiner_model"),
+        "expert_soft_fail_count": report.get("expert_soft_fail_count", 0),
+        "study_controls": dict(report.get("study_controls", {})),
         "artifact": artifact,
         "report": report_path,
     }
+
+
+def _profile_attempt_zero_valid(report: dict) -> bool | None:
+    attempts = report.get("attempts")
+    if not isinstance(attempts, list) or not attempts:
+        return None
+    first = attempts[0]
+    if isinstance(first.get("passed"), bool):
+        return first["passed"]
+    value = first.get("validation", {}).get("success")
+    return value if isinstance(value, bool) else None
 
 
 def _h1_summary(report: dict) -> dict:

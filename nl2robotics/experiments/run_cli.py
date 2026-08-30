@@ -20,6 +20,7 @@ from spec_aligner.llm import JSON_PREFIX, TEXT_PREFIX, ask_completion
 from .conditions import select_conditions
 from .executor import PipelineExperimentExecutor
 from .metrics import summarize_records
+from .protocol import freeze_protocol
 from .records import write_json
 from .runner import AblationRunner, experiment_size
 
@@ -51,6 +52,7 @@ def main() -> None:
     parser.add_argument("--variant", choices=("rich", "concise", "underspecified"),
                         default="rich")
     parser.add_argument("--repetitions", type=int, default=1)
+    parser.add_argument("--randomization-seed", type=int, default=20260830)
     parser.add_argument("--model", default="gpt-5.4")
     parser.add_argument("--provider", choices=("codex", "claude"))
     parser.add_argument("--modelica-backend", choices=("auto", "local", "docker"),
@@ -233,7 +235,18 @@ def main() -> None:
         "newton_version": args.newton_version,
         "newton_repetitions": args.newton_repetitions,
         "newton_repeatability_tolerance": args.newton_repeatability_tolerance,
+        "require_complete_moe": True,
     }
+    protocol, configuration = freeze_protocol(
+        repository=Path(__file__).resolve().parents[2],
+        output_dir=args.output_dir,
+        tasks=selected,
+        conditions=conditions,
+        variant=args.variant,
+        repetitions=args.repetitions,
+        configuration=configuration,
+        randomization_seed=args.randomization_seed,
+    )
     size = experiment_size(len(selected), len(conditions), 1, args.repetitions)
     print(json.dumps({"experiment_size": size, "configuration": configuration},
                      indent=2))
@@ -245,17 +258,24 @@ def main() -> None:
             "variant": args.variant,
             "repetitions": args.repetitions,
             "cell_count": size["run_cells"],
+            "randomization_seed": args.randomization_seed,
+            "protocol_core_sha256": protocol["protocol_core_sha256"],
+            "planned_cells": protocol["planned_cells"],
         }, indent=2))
         return
-    records = AblationRunner(
-        args.output_dir, configuration=configuration
-    ).run(
+    runner = AblationRunner(
+        args.output_dir, configuration=configuration,
+        randomization_seed=args.randomization_seed,
+    )
+    records = runner.run(
         selected, conditions, executor,
         variant=args.variant,
         repetitions=args.repetitions,
         resume=not args.no_resume,
     )
     summary = summarize_records(records)
+    summary["run_control"] = runner.last_run_control
+    summary["protocol_core_sha256"] = protocol["protocol_core_sha256"]
     write_json(args.output_dir / "summary.json", summary)
     print(json.dumps(summary, indent=2, allow_nan=False))
 

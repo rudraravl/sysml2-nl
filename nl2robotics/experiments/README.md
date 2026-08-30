@@ -10,10 +10,18 @@ The five frozen stagewise conditions are:
 | B3 | Tool-grounded | yes | yes | yes | no | yes |
 | FULL | Complete pipeline | yes | yes | yes | yes | yes |
 
-`AblationRunner` executes a supplied generation adapter in deterministic task,
-condition, and repetition order. Every cell has a configuration fingerprint and
-an independent `run.json`, so interrupted experiments resume without mixing
-model settings or prompts.
+`AblationRunner` blocks by task and repetition, then randomizes condition order
+within each block using the recorded `--randomization-seed`. One normalized and
+validated requirement IR is persisted per block and reused by every paired
+condition. Every eligible cell has a configuration fingerprint and independent
+`run.json`; interrupted experiments resume without mixing model settings,
+prompts, normalization, or run order.
+
+Before either a dry run or a real run, `study-protocol.json` freezes the Git
+state, prompt and manifest hashes, full Modelica/OpenUSD corpus tree hashes,
+condition definitions, model roster, runtime/validator provenance, exclusion
+rules, randomized order, and exact cell fingerprints. Reusing that output
+directory with different frozen inputs fails closed.
 
 The concrete executor maps each condition to the real Modelica, OpenUSD, H1,
 or H2 preparation path. Run a small frozen slice with:
@@ -50,7 +58,13 @@ depends on genuine Linux ARM64 H100 CUDA provenance from each executed run.
 The metric layer separates infrastructure failures from generated-artifact
 failures, reports binary rates with seeded bootstrap confidence intervals,
 continuous summaries, failure-stage distributions, and exact paired McNemar
-tests. Summarize archived runs with:
+tests. Attempt-zero artifact validity is retained separately from repaired final
+validity. Every run also contains a condition-fidelity audit proving which RAG,
+MoE, tool-repair, contract, and alignment controls were active. A missing frozen
+MoE expert makes the cell infrastructure-ineligible and forces an identical
+rerun; it is never compared as a smaller accidental ensemble. Provider usage
+limits stop the batch without writing a false failed cell. Summarize archived
+runs with:
 
 ```bash
 python3 -m nl2robotics.experiments.cli outputs/robotics-ablations \
@@ -75,3 +89,5 @@ python3 -m nl2robotics.experiments.run_cli \
 
 Remove `--dry-run` only after inspecting a small selected slice. B1 through FULL
 use the frozen family-preferred RAG routes; B0 remains direct generation.
+Capability `FULL` also executes the artifact-alignment stage; B3 and FULL are
+therefore behaviorally distinct rather than label-only variants.

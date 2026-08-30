@@ -109,6 +109,11 @@ def build_capability_plan(requirement_ir: dict) -> CapabilityPlan:
         "execution_mode": "capability_tiered",
         "clock": deepcopy(ir.get("clock")),
         "mappings": mappings,
+        "state_ownership": [
+            {"state_id": state_id, "owner": row["owner"]}
+            for row in ir["dynamics"]
+            for state_id in row.get("states", [])
+        ],
         "capabilities": assessment,
         "grounding": {
             "policy": "grounded_or_explicitly_unresolved",
