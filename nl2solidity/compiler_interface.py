@@ -7,22 +7,20 @@ surface (CompilerError, CompilerResult, check_code, is_compiler_available)
 matches nl2sysml/compiler_interface.py exactly, so the generation engine is
 language-agnostic.
 
-============================== DANGLING STUB ==============================
-The real implementation should shell out to `solc` (or forge build) and parse
-its JSON diagnostics into CompilerError objects. Until that is wired up,
-is_compiler_available() returns False and check_code() reports the compiler as
-unavailable, which makes the compiler-refine loop in agent_rag_moe.py no-op
-cleanly (same behavior as running nl2sysml with no SysML JAR present).
+Backed by `solc` through nl2solidity/check_solidity.py, which drives
+`solc --standard-json` and returns structured diagnostics. Compilation only -
+runtime execution belongs to nl2solidity/solidity_execution.
 
-To implement:
-  1. Locate solc (env SOLC_BIN or PATH), pick an EVM/pragma version.
-  2. Run: solc --standard-json  (feed {language:"Solidity", sources:{...},
-     settings:{outputSelection:{}}}) OR `forge build --json`.
-  3. Map each diagnostic to CompilerError(severity, line, column, message,
-     code, file). Set is_valid = (no severity=="error").
-  4. Flip is_compiler_available() to probe `solc --version`.
-Everything downstream already consumes CompilerResult, so no other file changes.
-===========================================================================
+Environment knobs (all optional):
+  SOLC_COMPILER_ENABLED         "false" disables the compiler entirely
+  SOLC_BIN                      pin one solc binary (skips pragma selection)
+  SOLC_EVM_VERSION              settings.evmVersion, e.g. "paris", "cancun"
+  SOLC_DEFAULT_VERSION          version for sources with no pragma (0.8.26)
+  SOLC_AUTO_INSTALL             "false" forbids downloading a missing version
+  SOLC_INCLUDE_WARNINGS         "true" reports warnings as well as errors
+  SOLC_CODEGEN                  "true" also runs codegen (catches stack-too-deep)
+  SOLC_TIMEOUT_SEC              per-invocation timeout (default 60)
+  SOLC_COMPILER_MAX_CONCURRENCY parallel solc processes (default 4)
 """
 
 import os
@@ -86,7 +84,9 @@ class CompilerResult:
 
         lines = [f"Found {len(self.errors)} error(s):"]
         for i, error in enumerate(self.errors, 1):
-            lines.append(f"{i}. Line {error.line}, Column {error.column}: {error.message}")
+            kind = f"{error.code}: " if error.code else ""
+            lines.append(
+                f"{i}. Line {error.line}, Column {error.column}: {kind}{error.message}")
         return "\n".join(lines)
 
 
@@ -110,6 +110,7 @@ def _compiler_gate() -> threading.BoundedSemaphore:
 
 
 _compiler_init_done = False
+_compiler_probe_ok: Optional[bool] = None
 
 
 def _get_compiler():
@@ -135,8 +136,9 @@ def _get_compiler():
 def _init_compiler():
     """Build the checker instance. Callers must hold _compiler_init_lock.
 
-    DANGLING: returns None today. A real build would locate solc and construct
-    a SolidityChecker wrapper analogous to nl2sysml's SysMLChecker.
+    Returns None (compiler unavailable) when solc is disabled or cannot be
+    located, which makes the compiler-refine loop in agent_rag_moe.py skip
+    cleanly - the same behavior as nl2sysml with no SysML JAR present.
     """
     global _compiler_instance
 
@@ -144,46 +146,83 @@ def _init_compiler():
     if enabled == "false":
         return None
 
-    # ---- BEGIN dangling solc wiring -----------------------------------
-    # solc_bin = os.getenv("SOLC_BIN") or shutil.which("solc")
-    # if not solc_bin:
-    #     return None
-    # _compiler_instance = SolidityChecker(solc_bin=solc_bin,
-    #                                      evm_version=os.getenv("SOLC_EVM_VERSION"))
-    # return _compiler_instance
-    # ---- END dangling solc wiring -------------------------------------
+    try:
+        import sys
+        repo_root = Path(__file__).resolve().parents[1]
+        if str(repo_root) not in sys.path:
+            sys.path.insert(0, str(repo_root))
 
-    return None
+        try:
+            from nl2solidity.check_solidity import SolidityChecker
+        except ImportError:
+            from check_solidity import SolidityChecker  # type: ignore
+
+        _compiler_instance = SolidityChecker(
+            solc_binary=os.getenv("SOLC_BIN"),
+            evm_version=os.getenv("SOLC_EVM_VERSION"),
+            default_version=os.getenv("SOLC_DEFAULT_VERSION", "0.8.26"),
+            auto_install=os.getenv("SOLC_AUTO_INSTALL", "true").lower() != "false",
+            include_warnings=os.getenv("SOLC_INCLUDE_WARNINGS", "false").lower() == "true",
+            codegen=os.getenv("SOLC_CODEGEN", "false").lower() == "true",
+            timeout=float(os.getenv("SOLC_TIMEOUT_SEC", "60")),
+        )
+        return _compiler_instance
+
+    except Exception as exc:
+        # No solc binary, no py-solc-x, or a broken install: stay unavailable,
+        # but say so once rather than failing silently forever.
+        if os.getenv("SOLC_DEBUG", "false").lower() == "true":
+            print(f"[nl2solidity] solc unavailable: {exc}", flush=True)
+        return None
 
 
 def is_compiler_available() -> bool:
-    """Check if the compiler is available and ready to use.
-
-    DANGLING: always False until _init_compiler wires up solc. This keeps the
-    compiler-refine stage in agent_rag_moe.py disabled (it silently skips when
-    no compiler is present), exactly as nl2sysml behaves without its JAR.
-    """
+    """Check if the compiler is available and ready to use."""
     compiler = _get_compiler()
     if compiler is None:
         return False
 
-    # Smoke-test the wired compiler once it exists.
-    try:
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.sol', delete=False) as f:
-            f.write("// SPDX-License-Identifier: MIT\npragma solidity ^0.8.0;\ncontract T {}")
-            test_file = f.name
+    global _compiler_probe_ok
+    if _compiler_probe_ok is not None:
+        return _compiler_probe_ok
+
+    with _compiler_init_lock:
+        if _compiler_probe_ok is not None:
+            return _compiler_probe_ok
+        # Smoke-test once: a trivial contract must come back with no errors.
         try:
-            compiler.check_file(test_file, syntax_only=False)
-            return True
-        except Exception:
-            return False
-        finally:
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.sol', delete=False,
+                                             encoding='utf-8') as f:
+                f.write("// SPDX-License-Identifier: MIT\n"
+                        "pragma solidity ^0.8.0;\n"
+                        "contract T {}\n")
+                test_file = f.name
             try:
-                os.unlink(test_file)
+                with _compiler_gate():
+                    errors = compiler.check_file(test_file, syntax_only=False)
+                _compiler_probe_ok = not any(
+                    getattr(e, "severity", "error") == "error" for e in errors)
             except Exception:
-                pass
+                _compiler_probe_ok = False
+            finally:
+                try:
+                    os.unlink(test_file)
+                except Exception:
+                    pass
+        except Exception:
+            _compiler_probe_ok = False
+        return _compiler_probe_ok
+
+
+def compiler_version() -> Optional[str]:
+    """Version string of the solc in use, or None when unavailable."""
+    compiler = _get_compiler()
+    if compiler is None:
+        return None
+    try:
+        return compiler.version()
     except Exception:
-        return False
+        return None
 
 
 def check_code(code: str, syntax_only: bool = False) -> CompilerResult:
@@ -195,9 +234,11 @@ def check_code(code: str, syntax_only: bool = False) -> CompilerResult:
         syntax_only: If True, only parse (no type/semantic checks)
 
     Returns:
-        CompilerResult with errors and validation status
+        CompilerResult with errors and validation status. is_valid is True when
+        no diagnostic has severity "error"; warnings (only present when
+        SOLC_INCLUDE_WARNINGS=true) never invalidate a candidate.
 
-    DANGLING: with no compiler wired, returns is_valid=False and a single
+    When no compiler is wired, returns is_valid=False with a single
     "Compiler not available" error. The generation loop treats an unavailable
     compiler as "skip refine", so this does not block generation.
     """
@@ -209,28 +250,42 @@ def check_code(code: str, syntax_only: bool = False) -> CompilerResult:
             is_valid=False
         )
 
-    # Write code to temporary file
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.sol', delete=False, encoding='utf-8') as f:
-        f.write(code)
-        temp_file = f.name
-
+    temp_file = None
     try:
-        # Check the file (bounded: one solc process per in-flight check)
-        with _compiler_gate():
-            solc_errors = compiler.check_file(temp_file, syntax_only=syntax_only)
+        # Bounded: one solc process per in-flight check.
+        check_source = getattr(compiler, "check_source", None)
+        if check_source is not None:
+            # Preferred path: solc reads the source over stdin, so diagnostics
+            # are anchored to "Candidate.sol" instead of a random temp name.
+            with _compiler_gate():
+                solc_errors = check_source(code, syntax_only=syntax_only)
+        else:
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.sol', delete=False,
+                                             encoding='utf-8') as f:
+                f.write(code)
+                temp_file = f.name
+            with _compiler_gate():
+                solc_errors = compiler.check_file(temp_file, syntax_only=syntax_only)
 
         errors = []
         for err in solc_errors:
+            # solc messages are frequently location-only ("Undeclared
+            # identifier."); fold in the offending source line so the refine
+            # prompt says which code is wrong, not just where.
+            message = err.message
+            snippet = getattr(err, "snippet", None)
+            if snippet and snippet not in message:
+                message = f"{message} (near: {snippet})"
             errors.append(CompilerError(
                 severity=err.severity,
                 line=err.line,
                 column=err.column,
-                message=err.message,
+                message=message,
                 code=err.code,
                 file=err.file
             ))
 
-        is_valid = len(errors) == 0
+        is_valid = not any(e.severity == "error" for e in errors)
         return CompilerResult(errors=errors, is_valid=is_valid)
 
     except Exception as exc:
@@ -239,7 +294,8 @@ def check_code(code: str, syntax_only: bool = False) -> CompilerResult:
             is_valid=False
         )
     finally:
-        try:
-            os.unlink(temp_file)
-        except Exception:
-            pass
+        if temp_file:
+            try:
+                os.unlink(temp_file)
+            except Exception:
+                pass

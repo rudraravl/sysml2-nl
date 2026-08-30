@@ -1,7 +1,7 @@
 # Batch Generation Guide (Solidity)
 
 Retargeted from `nl2sysml/BATCH_GENERATION.md`. This script generates
-NL-Solidity pairs using the MoE pipeline, compiler feedback (dangling solc),
+NL-Solidity pairs using the MoE pipeline, compiler feedback (solc), dynamic execution (Foundry fuzzing + properties), security analysis (Slither),
 execution feedback (dangling runner), and the post-generation spec-mismatch
 quality gate.
 

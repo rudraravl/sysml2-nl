@@ -118,11 +118,7 @@ def resolve_entry_prompt(
 
 
 def _kernel_status() -> str:
-    """Report whether the Solidity runner can actually execute in this env.
-
-    Import success is not enough: the runner needs a Foundry/Hardhat bridge,
-    which is a dangling stub today (solidity_execution reports unavailable).
-    """
+    """Report whether the Foundry runner can actually execute in this env."""
     try:
         from nl2solidity import agent_rag_moe as moe
     except ModuleNotFoundError:
@@ -132,18 +128,32 @@ def _kernel_status() -> str:
         return "DISABLED (KERNEL_FEEDBACK_ENABLED=false)"
     if not moe.KERNEL_EXECUTION_AVAILABLE:
         return "UNAVAILABLE (nl2solidity.solidity_execution did not import)"
-    # The runner bridge itself is a dangling stub; probe it directly.
+
     try:
-        from nl2solidity.solidity_execution import ExecutionRequest, run_solidity_execution
+        from nl2solidity.solidity_execution import forge_version, is_runner_available
     except ImportError as exc:
         return f"UNAVAILABLE (solidity_execution import failed: {exc})"
-    probe = run_solidity_execution(ExecutionRequest(candidate_solidity="// probe"))
-    if not probe.kernel_available:
-        return (
-            f"UNAVAILABLE ({probe.bridge_error or 'runner not implemented'}) "
-            "— execution refine WILL BE SKIPPED"
-        )
-    return "available"
+
+    if not is_runner_available():
+        return ("UNAVAILABLE (forge not found or forge-std missing) "
+                "— execution refine WILL BE SKIPPED")
+    version = forge_version() or "forge"
+    return f"available ({version}, fuzz_runs={moe.FUZZ_RUNS})"
+
+
+def _security_status() -> str:
+    """Report whether the static-analysis stage can run."""
+    if os.getenv("SECURITY_ANALYSIS_ENABLED", "true").strip().lower() in (
+            "0", "false", "no", "off"):
+        return "DISABLED (SECURITY_ANALYSIS_ENABLED=false)"
+    try:
+        from nl2solidity.security_analysis import analyzer_version, is_analysis_available
+    except ImportError as exc:
+        return f"UNAVAILABLE (security_analysis import failed: {exc})"
+    if not is_analysis_available():
+        return ("UNAVAILABLE (pip install slither-analyzer) "
+                "— security refine WILL BE SKIPPED")
+    return f"available ({analyzer_version()})"
 
 
 def print_preflight() -> None:
@@ -175,11 +185,23 @@ def print_preflight() -> None:
     print(f"  OPENROUTER_API_KEY:{'set' if os.getenv('OPENROUTER_API_KEY') else 'MISSING'}")
 
     try:
-        from nl2solidity.compiler_interface import is_compiler_available
+        from nl2solidity.compiler_interface import compiler_version, is_compiler_available
     except ModuleNotFoundError:
-        from compiler_interface import is_compiler_available  # type: ignore[no-redef]
-    print(f"  Compiler (solc):   {'available' if is_compiler_available() else 'UNAVAILABLE — compiler refine WILL BE SKIPPED'}")
-    print(f"  Solidity runner:   {_kernel_status()}")
+        from compiler_interface import (  # type: ignore[no-redef]
+            compiler_version, is_compiler_available)
+    if is_compiler_available():
+        version = compiler_version()
+        compiler_state = f"available (solc {version})" if version else "available"
+    else:
+        compiler_state = "UNAVAILABLE — compiler refine WILL BE SKIPPED"
+    print(f"  Compiler (solc):   {compiler_state}")
+    print(f"  Execution (forge): {_kernel_status()}")
+    try:
+        from nl2solidity.agent_rag_moe import PROPERTY_TESTS_ENABLED
+    except ModuleNotFoundError:
+        PROPERTY_TESTS_ENABLED = True  # type: ignore[assignment]
+    print(f"  Property tests:    {'enabled' if PROPERTY_TESTS_ENABLED else 'disabled'} (Tier B)")
+    print(f"  Security analysis: {_security_status()}")
 
     alignment_on = os.getenv("SPEC_ALIGNMENT_ENABLED", "true").strip().lower() not in (
         "0", "false", "no", "off"
@@ -194,6 +216,10 @@ def create_meta_json(entry: Dict[str, Any], solidity_code: str, prompt_record: D
     quality_report = prompt_record.get("quality_report") or {}
     validation_ok = prompt_record.get("final_valid", False)
     alignment_ok = not alignment_enabled or quality_report.get("accepted", False)
+    execution_stats = prompt_record.get("execution_tests") or {}
+    execution_ok = not execution_stats or not execution_stats.get("contract_defects")
+    security_stats = prompt_record.get("security_analysis") or {}
+    security_ok = not security_stats.get("n_actionable")
 
     entry_id = entry.get("id", "UNKNOWN")
     source_path = entry.get("nl_source_path") or f"sol_seed.jsonl:{entry_id}"
@@ -202,7 +228,10 @@ def create_meta_json(entry: Dict[str, Any], solidity_code: str, prompt_record: D
         "id": entry_id,
         "source_path": source_path,
         "split": "generated",
-        "quality": "A" if validation_ok and alignment_ok else "B",
+        # A requires every wired stage to be clean: compiles, no contract-level
+        # execution defect, no actionable finding, and semantically aligned.
+        "quality": "A" if (validation_ok and alignment_ok and execution_ok
+                           and security_ok) else "B",
         "category": entry.get("domain", "unknown"),
         "created": datetime.now().isoformat(),
         "nl_prompt_source": entry.get("nl_prompt_source", "sol_seed"),
@@ -220,6 +249,28 @@ def create_meta_json(entry: Dict[str, Any], solidity_code: str, prompt_record: D
         meta["validation"] = {
             "is_valid": validation_ok,
             "error_count": prompt_record.get("final_errors", 0),
+        }
+
+    if prompt_record.get("execution_tests") is not None:
+        meta["execution"] = {
+            "tier_status": prompt_record.get("execution_tier_status", {}),
+            **(prompt_record.get("execution_tests") or {}),
+            "compiled": prompt_record.get("kernel_compiled"),
+            "property_tests": (prompt_record.get("property_tests") or {}).get(
+                "n_functions", 0),
+        }
+        notes = prompt_record.get("execution_harness_notes")
+        if notes:
+            meta["execution"]["harness_notes"] = notes
+
+    security = prompt_record.get("security_analysis")
+    if security:
+        meta["security"] = {
+            "tool": security.get("tool"),
+            "n_findings": security.get("n_findings"),
+            "n_actionable": security.get("n_actionable"),
+            "by_impact": security.get("by_impact"),
+            "actionable": security.get("actionable", [])[:10],
         }
     if alignment_enabled:
         attempts = quality_report.get("attempts", [])

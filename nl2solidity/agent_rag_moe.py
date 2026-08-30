@@ -14,7 +14,7 @@ Pipeline:
   * meta-llama/llama-4-maverick
 - Ask the combiner to synthesize a single best Solidity contract from candidates.
 - Post-synthesis gates (in order):
-  1. solc syntax/semantic refine        (DANGLING compiler: no-op today)
+  1. solc syntax/semantic refine        (solc --standard-json)
   2. Execution refine (Foundry/Hardhat) (DANGLING runner: no-op today)
   3. Spec-mismatch semantic alignment (combiner repair on failures; each repair
      is re-validated with compiler + runner and kept only if alignment improves
@@ -126,11 +126,44 @@ COMPILER_SYNTAX_ONLY = os.getenv("COMPILER_SYNTAX_ONLY", "false").lower() == "tr
 MAX_KERNEL_REFINEMENT_ITERATIONS = int(os.getenv("MAX_KERNEL_REFINEMENT_ITERATIONS", "2"))
 HARNESS_HEADER = "// --- Test harness (auto-generated) ---"
 
+# Tier A: programmatic fuzzing. Cost is linear in runs x fuzzable functions x
+# candidates, so a batch wants far fewer runs than an interactive audit.
+FUZZ_RUNS = int(os.getenv("FUZZ_RUNS", "256"))
+FUZZ_NUMERIC_BOUND = os.getenv("FUZZ_NUMERIC_BOUND", "1e30")
+INVARIANT_RUNS = int(os.getenv("INVARIANT_RUNS", "64"))
+INVARIANT_DEPTH = int(os.getenv("INVARIANT_DEPTH", "32"))
+
+# Tier B: requirement-derived properties, authored once from the NL prompt and
+# then held fixed, so a repair cannot pass by weakening its own tests.
+PROPERTY_TESTS_ENABLED = os.getenv("PROPERTY_TESTS_ENABLED", "true").lower() not in (
+    "0", "false", "no", "off")
+MAX_PROPERTY_REPAIR_ITERATIONS = int(os.getenv("MAX_PROPERTY_REPAIR_ITERATIONS", "1"))
+"""Property tests are compile-checked before they cost a fuzz campaign; a single
+syntax slip in otherwise sound properties would waste the whole tier."""
+
+# Static analysis (stage 3), run before the expensive spec-alignment evaluator.
+SECURITY_ANALYSIS_ENABLED = os.getenv("SECURITY_ANALYSIS_ENABLED", "true").lower() not in (
+    "0", "false", "no", "off")
+MAX_SECURITY_REFINEMENT_ITERATIONS = int(
+    os.getenv("MAX_SECURITY_REFINEMENT_ITERATIONS", "1"))
+
 # Spec-mismatch / semantic alignment configuration
 SPEC_ALIGNMENT_THRESHOLD = float(os.getenv("SPEC_ALIGNMENT_THRESHOLD", "0.8"))
 SPEC_ALIGNMENT_MAX_REPAIRS = int(os.getenv("SPEC_ALIGNMENT_MAX_REPAIRS", "1"))
 SPEC_ALIGNMENT_PROFILE = os.getenv("SPEC_ALIGNMENT_PROFILE", "runtime")
 SPEC_ALIGNMENT_SHARDS = int(os.getenv("SPEC_ALIGNMENT_SHARDS", "3"))
+
+
+def _execution_request(code: str, property_tests: str | None = None):
+    """One place that decides how a candidate is executed."""
+    return ExecutionRequest(
+        candidate_solidity=code,
+        fuzz_runs=FUZZ_RUNS,
+        numeric_bound=FUZZ_NUMERIC_BOUND,
+        invariant_runs=INVARIANT_RUNS,
+        invariant_depth=INVARIANT_DEPTH,
+        property_tests=property_tests,
+    )
 
 
 def _split_consolidated_at_harness(consolidated: str) -> Tuple[str, str]:
@@ -149,36 +182,49 @@ def _number_source_lines(code: str) -> str:
     )
 
 
-def _format_kernel_errors(result: ExecutionResult, harness_start_line: int) -> str:
-    """Format a bounded set of execution errors for the refinement model."""
+def _format_kernel_errors(result: ExecutionResult, harness_start_line: int = 0) -> str:
+    """Format execution failures for the refinement model.
+
+    Two Solidity-specific rules on top of the SysML version:
+
+    * Only records marked ``contract_defect`` are shown. A compile error inside
+      the generated harness, or a property file the model itself wrote badly, is
+      a harness defect - asking the model to "fix the contract" for it sends the
+      repair loop after the wrong file.
+    * Fuzz counterexamples are kept verbatim. "Panic(17) with args=468" tells the
+      model which input broke the contract; "a test failed" does not.
+    """
     formatted: List[str] = []
     diagnostics = result.diagnostics or {}
     diagnostic_errors = diagnostics.get("errors", [])
+    harness_only: List[str] = []
 
     if isinstance(diagnostic_errors, list):
         for error in diagnostic_errors:
             if not isinstance(error, dict):
                 continue
             message = str(error.get("message", "")).strip()
-            line = error.get("line")
-            column = error.get("column")
             if not message:
                 continue
 
+            if not error.get("contract_defect", True):
+                harness_only.append(message)
+                continue
+
             location = ""
-            if isinstance(line, int):
+            line = error.get("line")
+            if isinstance(line, int) and line > 0:
                 location = f"line {line}"
+                column = error.get("column")
                 if isinstance(column, int):
                     location += f", column {column}"
                 location += ": "
 
-            harness_note = ""
-            if isinstance(line, int) and line >= harness_start_line:
-                harness_note = (
-                    " (in auto-generated test harness — do not edit the harness; "
-                    "fix the contract so the harness can bind to it)"
-                )
-            formatted.append(f"- {location}{message}{harness_note}")
+            detail = f"- {location}{message}"
+            failure_class = error.get("failure_class")
+            if failure_class:
+                detail += f" [{failure_class}]"
+            formatted.append(detail)
 
     if not formatted:
         seen = set()
@@ -190,8 +236,13 @@ def _format_kernel_errors(result: ExecutionResult, harness_start_line: int) -> s
                 seen.add(line)
                 formatted.append(f"- {line}")
 
+    if not formatted and harness_only:
+        # Nothing wrong with the contract; say so rather than inventing a defect.
+        return ("- No contract defect found. The only failures were in the "
+                "auto-generated test harness, which is regenerated each run.")
+
     if not formatted:
-        return "- Execution failed without a structured ERROR diagnostic."
+        return "- Execution failed without a structured diagnostic."
     return "\n".join(formatted[:30])
 
 
@@ -770,17 +821,20 @@ def _alignment_validate(code: str) -> dict:
 
 
 def _run_post_generation_quality(prompt_text: str, candidate: str,
-                                 openrouter_key: str | None) -> dict | None:
+                                 openrouter_key: str | None,
+                                 property_tests: str | None = None) -> dict | None:
     """Semantic spec-mismatch gate with post-repair compiler + execution revalidation."""
     if not _env_flag("SPEC_ALIGNMENT_ENABLED", True):
         return None
 
-    from nl2solidity.quality_gate import layer2_executor, run_quality_gate
+    from nl2solidity.quality_gate import make_layer2_executor, run_quality_gate
 
     validate = _alignment_validate if is_compiler_available() else None
     execute = None
     if _env_flag("KERNEL_FEEDBACK_ENABLED", True) and KERNEL_EXECUTION_AVAILABLE:
-        execute = layer2_executor
+        # Same Tier B properties as during refinement, so a semantic repair is
+        # re-checked against the requirement it was supposed to satisfy.
+        execute = make_layer2_executor(property_tests)
 
     def repair(repair_prompt: str) -> str:
         system = _default_system_prompt(
@@ -856,6 +910,252 @@ def _invoke_with_retry(model: str, system_msg: str, human_msg: str, openrouter_k
     return _require(out, "OpenRouter invoke")
 
 
+PROPERTY_TEST_SYSTEM = (
+    "You write Foundry property tests for a Solidity contract. "
+    "Output ONLY Solidity function declarations: no pragma, no imports, no "
+    "contract wrapper, no markdown fences, no prose."
+)
+
+PROPERTY_TEST_TEMPLATE = """\
+Write Foundry test functions that check whether the contract below satisfies the
+REQUIREMENT. Judge the requirement, not the implementation: if the contract does
+not do what the requirement asks, your tests must fail.
+
+## Requirement
+{requirement}
+
+## Contract ABI
+{abi}
+
+## Contract source (for reference only - test the requirement, not this code)
+```solidity
+{code}
+```
+
+## Harness contract you are writing inside
+Your functions are pasted into a `contract CandidatePropsTest is Test` that
+already declares and deploys the contract:
+
+```solidity
+{contract_type} internal target;   // already deployed in setUp()
+receive() external payable {{}}     // this contract can receive ether
+```
+
+## Rules
+- Emit 3 to 6 functions, each named `test_<Property>` (or `invariant_<Property>`
+  for a stateful invariant that must hold after any sequence of calls).
+- Use `target` for the contract under test. Do NOT redeclare it, and do NOT
+  write a `setUp` function.
+- Cover the business rules the requirement states, for example:
+  * accounting: `assertEq(target.totalSupply(), expected)`
+  * access control: `vm.prank(stranger); vm.expectRevert(); target.adminOnly();`
+  * state transitions: call a function, then assert the resulting state.
+- Use forge-std assertions (assertEq/assertGe/assertTrue) and cheatcodes
+  (vm.prank, vm.expectRevert, vm.deal, vm.warp).
+- The tests must compile against the ABI above: only call functions that exist,
+  with the exact parameter types listed.
+- Where a type is shown as `uint8 (enum X.Y)`, the getter returns the enum, not a
+  number: compare with `X.Y.Member`, or cast both sides
+  (`assertEq(uint8(actual), uint8(X.Y.Member))`).
+- Where a type is shown as `tuple (struct X.Y)`, a public getter returns the
+  members as separate values: destructure them
+  (`(address a, uint256 b, ) = target.deals(id);`).
+- Use only valid hex in address literals (`address(0xBEEF)` is fine,
+  `address(0xAB1T3R)` is not a number).
+- Assert on requirement-level behavior, never on internal implementation detail.
+"""
+
+
+def _generate_property_tests(prompt_text: str, code: str, model: str,
+                             openrouter_key: str | None) -> Tuple[str, dict]:
+    """Tier B: author requirement-derived property tests for a candidate.
+
+    Generated once per sample and then reused unchanged for every later
+    execution of that sample (refinement iterations and post-alignment
+    revalidation). Regenerating them against a repaired contract would let the
+    model relax a property instead of fixing the contract, so the properties are
+    fixed the moment they are written.
+
+    A failing property is evidence, not proof: the same model wrote the contract
+    and the property, so it can encode the same misreading of the requirement
+    twice. Asking for tests derived from the requirement (with the source marked
+    "for reference only") is what keeps the two at arm's length.
+    """
+    record: dict = {"requested": True, "generated": False}
+    if not PROPERTY_TESTS_ENABLED:
+        record["requested"] = False
+        return "", record
+
+    try:
+        from nl2solidity.solidity_execution import extract_topology, summarize_topology
+        topology = extract_topology(code)
+        if not topology.compiled or topology.primary() is None:
+            record["error"] = "candidate did not compile; no ABI for property tests"
+            return "", record
+        abi = summarize_topology(topology)
+        contract_type = topology.primary().name
+    except Exception as exc:  # noqa: BLE001 - property tests are best-effort
+        record["error"] = f"ABI extraction failed: {exc}"
+        return "", record
+
+    human = PROPERTY_TEST_TEMPLATE.format(
+        requirement=prompt_text.strip(),
+        abi=json.dumps(abi, indent=1),
+        code=code.strip(),
+        contract_type=contract_type,
+    )
+
+    try:
+        raw = _invoke_with_retry(model, PROPERTY_TEST_SYSTEM, human, openrouter_key)
+    except Exception as exc:  # noqa: BLE001 - never fail generation over Tier B
+        record["error"] = f"property generation failed: {exc}"
+        return "", record
+
+    body = (raw or "").strip()
+    if not body:
+        record["error"] = "property model returned nothing"
+        return "", record
+
+    body, compile_record = _repair_property_tests(code, body, model, human, openrouter_key)
+    record.update(compile_record)
+    if not body:
+        return "", record
+
+    record.update({
+        "generated": True,
+        "model": model,
+        "contract": contract_type,
+        "source": body,
+        "n_functions": body.count("function "),
+    })
+    return body, record
+
+
+def _repair_property_tests(code: str, body: str, model: str, original_prompt: str,
+                           openrouter_key: str | None) -> Tuple[str, dict]:
+    """Compile-check the property tests and give the model one chance to fix them.
+
+    A `forge build` is far cheaper than a fuzz campaign, so validating here keeps
+    a single bad literal from silently costing the whole tier. Only the *tests*
+    are repaired - the contract is not touched, or a property could be "fixed"
+    into agreement with a contract that is wrong.
+    """
+    record: dict = {"compile_checked": False}
+    try:
+        from nl2solidity.solidity_execution import validate_property_tests
+    except ImportError:
+        return body, record
+
+    record["compile_checked"] = True
+    for attempt in range(MAX_PROPERTY_REPAIR_ITERATIONS + 1):
+        try:
+            ok, errors = validate_property_tests(code, body)
+        except Exception as exc:  # noqa: BLE001 - Tier B is best-effort
+            record["compile_error"] = f"validation failed: {exc}"
+            return body, record
+
+        if ok:
+            record["compile_ok"] = True
+            record["compile_repairs"] = attempt
+            return body, record
+        if attempt >= MAX_PROPERTY_REPAIR_ITERATIONS:
+            break
+
+        feedback = "\n".join(
+            f"- {e.get('type') or 'error'}: {e.get('message', '')}"
+            for e in errors[:10])
+        repaired = _invoke_with_retry(
+            model,
+            PROPERTY_TEST_SYSTEM + "\n\nYour previous test functions did not compile. "
+            "Return the corrected functions, keeping the same properties.",
+            f"{original_prompt}\n\n## Your previous test functions\n{body}\n\n"
+            f"## Compiler errors in those tests\n{feedback}\n\n"
+            "Return only the corrected function declarations.",
+            openrouter_key)
+        if not repaired or not repaired.strip() or repaired.strip() == body:
+            break
+        body = repaired.strip()
+
+    record["compile_ok"] = False
+    record["compile_errors"] = [e.get("message", "") for e in errors[:5]]
+    # Uncompilable properties are dropped rather than shipped: the runner would
+    # report them as a harness defect on every single execution.
+    return "", record
+
+
+def _refine_with_security(
+    code: str,
+    model: str,
+    system_msg: str,
+    human_msg: str,
+    openrouter_key: str | None,
+    max_iterations: int = MAX_SECURITY_REFINEMENT_ITERATIONS,
+):
+    """Stage 3: static-analysis pre-filter, before the spec-alignment evaluator.
+
+    Only high/medium findings drive a repair (see security_analysis for why),
+    and a repair is kept only if it actually reduces them - a static analyzer
+    has false positives, and a model told to "fix" one can otherwise churn or
+    make the contract worse.
+    """
+    try:
+        from nl2solidity.security_analysis import (
+            actionable_findings, analyze_solidity, format_findings, is_analysis_available,
+            summarize,
+        )
+    except ImportError:
+        return code, None
+
+    if not SECURITY_ANALYSIS_ENABLED or not is_analysis_available():
+        return code, None
+
+    current_code = code
+    result = analyze_solidity(current_code)
+    if not result.available or result.tool_error:
+        return current_code, result
+
+    for _iteration in range(max_iterations):
+        findings = actionable_findings(result)
+        if not findings:
+            return current_code, result
+
+        feedback = format_findings(findings)
+        hint = (
+            "A static analyzer flagged high/medium severity issues in the previous "
+            "contract. Fix them while preserving the required behavior.\n\n"
+            f"{feedback}\n\n"
+            "Guidance:\n"
+            "- Reentrancy: apply checks-effects-interactions (update state before "
+            "external calls) or add a reentrancy guard.\n"
+            "- Unchecked low-level calls: check the returned success flag.\n"
+            "- Do not silence a finding by deleting the feature it protects.\n"
+            "- Emit corrected contract Solidity only: no markdown, no prose."
+        )
+        refined = _invoke_with_retry(
+            model, system_msg + "\n\n" + hint,
+            f"{human_msg}\n\nPrevious contract:\n```solidity\n{current_code}\n```\n\n"
+            f"Security findings to fix:\n{feedback}\n\n"
+            "Generate the corrected contract only.",
+            openrouter_key)
+        if not refined or refined == current_code:
+            break
+
+        candidate_result = analyze_solidity(refined)
+        if not candidate_result.available or candidate_result.tool_error:
+            break
+        # Keep the repair only when it strictly reduces actionable findings and
+        # still compiles; otherwise the original stands.
+        if len(actionable_findings(candidate_result)) >= len(findings):
+            break
+        if is_compiler_available() and not check_code(refined).is_valid:
+            break
+
+        current_code = refined
+        result = candidate_result
+
+    return current_code, result
+
+
 def _refine_with_compiler(
     code: str,
     model: str,
@@ -867,8 +1167,8 @@ def _refine_with_compiler(
     """
     Refine code iteratively using compiler feedback.
 
-    DANGLING compiler: with no solc wired, is_compiler_available() is False and
-    this returns the input unchanged.
+    When no solc binary is reachable, is_compiler_available() is False and this
+    returns the input unchanged.
     """
     if not is_compiler_available():
         return code, CompilerResult(errors=[], is_valid=False)
@@ -917,11 +1217,16 @@ def _refine_with_kernel(
     human_msg: str,
     openrouter_key: str | None,
     max_iterations: int = MAX_KERNEL_REFINEMENT_ITERATIONS,
+    property_tests: str | None = None,
 ) -> Tuple[str, Optional[ExecutionResult]]:
-    """Refine the combined contract using feedback from the Solidity runner.
+    """Refine the combined contract using feedback from the Foundry runner.
 
-    DANGLING runner: with no Foundry/Hardhat bridge wired, run_solidity_execution
-    reports kernel_available=False and this returns the input unchanged.
+    ``property_tests`` (Tier B) are passed through unchanged on every iteration:
+    the properties are written once, against the requirement, and must not move
+    while the contract is being repaired against them.
+
+    When Foundry is not installed the runner reports kernel_available=False and
+    this returns the input unchanged.
     """
     if not KERNEL_EXECUTION_AVAILABLE or ExecutionRequest is None or run_solidity_execution is None:
         return code, None
@@ -930,7 +1235,7 @@ def _refine_with_kernel(
     iteration = 0
 
     while iteration < max_iterations:
-        result = run_solidity_execution(ExecutionRequest(candidate_solidity=current_code))
+        result = run_solidity_execution(_execution_request(current_code, property_tests))
 
         if not result.kernel_available or result.bridge_error:
             return current_code, result
@@ -946,18 +1251,21 @@ def _refine_with_kernel(
         error_feedback = _format_kernel_errors(result, harness_start_line)
 
         refinement_hint = (
-            "The previous Solidity contract failed test-harness execution. "
-            "Fix the contract using the errors below.\n\n"
-            "Important context:\n"
-            "- Before execution, the pipeline tacks on an auto-generated test harness "
-            f"starting at `{HARNESS_HEADER}`.\n"
-            "- That harness is NOT shown below and must NOT appear in your output. "
-            "It will be regenerated automatically.\n"
-            "- Some errors cite line numbers inside the harness. Those can still be "
-            "relevant, such as unresolved names imported from your contract. Fix the "
-            "contract so the harness can bind; do not invent harness code.\n"
-            "- Line numbers for the shown code refer to the pre-harness payload "
-            "(contract + optional mocks).\n"
+            "The previous Solidity contract failed dynamic execution under Foundry. "
+            "Fix the contract using the failures below.\n\n"
+            "How to read them:\n"
+            "- `panic_*` means a compiler-inserted check fired (0x11 over/underflow, "
+            "0x12 divide-by-zero, 0x01 assert, 0x32 array bounds) on an input inside "
+            "the plausible range. Add the missing validation or fix the arithmetic; do "
+            "not wrap the code in `unchecked`.\n"
+            "- A `[counterexample: ...]` is the exact argument that broke the contract.\n"
+            "- `expected_revert_not_raised` means a requirement-derived property "
+            "expected the call to revert (usually missing access control) and it did not.\n"
+            "- Reverting with `require`/`revert` on invalid input is correct and is "
+            "never reported here.\n\n"
+            "Rules:\n"
+            f"- A test harness is generated automatically after `{HARNESS_HEADER}`; it is "
+            "NOT shown and must NOT appear in your output.\n"
             "- Emit corrected contract Solidity only: no markdown, no fences, no prose, "
             "no test harness."
         )
@@ -982,7 +1290,7 @@ def _refine_with_kernel(
         current_code = refined
         iteration += 1
 
-    final_result = run_solidity_execution(ExecutionRequest(candidate_solidity=current_code))
+    final_result = run_solidity_execution(_execution_request(current_code, property_tests))
     return current_code, final_result
 
 
@@ -990,7 +1298,8 @@ def generate_solidity_moe(prompt_text: str) -> Tuple[str, dict]:
     """
     Returns (final_solidity, prompt_record_json)
 
-    Data flow: RAG/MoE → combiner → compiler refine → execution refine → semantic align.
+    Data flow: RAG/MoE → combiner → compiler refine → execution refine
+    (Tier A fuzz + Tier B properties) → security analysis → semantic align.
     Semantic failures repair via the active combiner model (COMBINER_MODEL / CLI combiner).
     Repaired contracts are kept only when alignment improves without worsening executability.
     """
@@ -1117,13 +1426,26 @@ def generate_solidity_moe(prompt_text: str) -> Tuple[str, dict]:
         status = "✓ Valid" if final_result.is_valid else f"✗ {final_result.error_count} errors"
         print(f"  {status} after refinement", flush=True)
 
-    # Execution and refinement after compiler refinement (combined contract only).
+    # Tier B: author requirement-derived properties once, against the candidate
+    # that is about to be executed, and freeze them for the rest of the run.
+    property_tests = ""
+    property_record: dict = {"requested": False, "generated": False}
     kernel_enabled = _env_flag("KERNEL_FEEDBACK_ENABLED", True)
+    if kernel_enabled and KERNEL_EXECUTION_AVAILABLE and final and PROPERTY_TESTS_ENABLED:
+        print("  Generating requirement-derived property tests (Tier B)...", flush=True)
+        property_tests, property_record = _generate_property_tests(
+            prompt_text, final, combiner, ok)
+        if property_record.get("generated"):
+            print(f"  ✓ {property_record['n_functions']} property test(s)", flush=True)
+        else:
+            print(f"  ⚠ No property tests: {property_record.get('error')}", flush=True)
+
+    # Execution and refinement after compiler refinement (combined contract only).
     kernel_result: Optional[ExecutionResult] = None
     if kernel_enabled and KERNEL_EXECUTION_AVAILABLE and final:
         print(
-            f"  Executing and refining final output with the Solidity runner "
-            f"(up to {MAX_KERNEL_REFINEMENT_ITERATIONS} iterations)...",
+            f"  Executing and refining final output with Foundry "
+            f"(fuzz_runs={FUZZ_RUNS}, up to {MAX_KERNEL_REFINEMENT_ITERATIONS} iterations)...",
             flush=True,
         )
         final, kernel_result = _refine_with_kernel(
@@ -1133,6 +1455,7 @@ def generate_solidity_moe(prompt_text: str) -> Tuple[str, dict]:
             synth_human_msg,
             ok,
             MAX_KERNEL_REFINEMENT_ITERATIONS,
+            property_tests=property_tests or None,
         )
         if kernel_result is None:
             print("  ✗ Execution unavailable", flush=True)
@@ -1150,15 +1473,42 @@ def generate_solidity_moe(prompt_text: str) -> Tuple[str, dict]:
             status = (
                 "✓ Execution passed"
                 if kernel_result.success
-                else f"✗ {kernel_error_count} execution errors"
+                else f"✗ {kernel_error_count} execution failures"
             )
-            print(f"  {status} after refinement", flush=True)
+            tiers = ", ".join(f"{tier}={state}"
+                              for tier, state in sorted(kernel_result.tier_status.items()))
+            print(f"  {status} after refinement ({tiers})", flush=True)
+            for note in kernel_result.harness_notes[:3]:
+                print(f"    · harness note: {note}", flush=True)
+
+    # Stage 3: static-analysis pre-filter, ahead of the expensive evaluator.
+    security_result = None
+    if final and final.strip() and SECURITY_ANALYSIS_ENABLED:
+        from nl2solidity.security_analysis import (
+            actionable_findings, is_analysis_available)
+
+        if is_analysis_available():
+            print("  Running static security analysis...", flush=True)
+            final, security_result = _refine_with_security(
+                final, combiner, synth_sys_msg, synth_human_msg, ok,
+                MAX_SECURITY_REFINEMENT_ITERATIONS)
+            if security_result is None or not security_result.available:
+                print("  ✗ Static analysis unavailable", flush=True)
+            elif security_result.tool_error:
+                print(f"  ⚠ {security_result.tool}: {security_result.tool_error}",
+                      flush=True)
+            else:
+                remaining = actionable_findings(security_result)
+                mark = "✓" if not remaining else "✗"
+                print(f"  {mark} {security_result.tool}: {len(remaining)} actionable "
+                      f"finding(s) of {len(security_result.findings)}", flush=True)
 
     # Semantic spec-mismatch gate last; combiner repairs go back through the combiner model.
     quality_report = None
     if final and final.strip() and _env_flag("SPEC_ALIGNMENT_ENABLED", True):
         print("  Running post-generation spec alignment...", flush=True)
-        quality_report = _run_post_generation_quality(prompt_text, final, ok)
+        quality_report = _run_post_generation_quality(
+            prompt_text, final, ok, property_tests or None)
         if not quality_report:
             raise RuntimeError("Spec alignment returned no quality report")
         final = quality_report.get("final_solidity") or quality_report.get("final_sysml")
@@ -1248,6 +1598,29 @@ def generate_solidity_moe(prompt_text: str) -> Tuple[str, dict]:
                 for error in diagnostic_errors[:30]
                 if isinstance(error, dict)
             ]
+
+    if kernel_result is not None:
+        prompt_record["execution_tier_status"] = kernel_result.tier_status
+        prompt_record["execution_harness_notes"] = kernel_result.harness_notes
+        diagnostics = kernel_result.diagnostics or {}
+        prompt_record["execution_tests"] = {
+            "n_tests": diagnostics.get("n_tests"),
+            "n_passed": diagnostics.get("n_passed"),
+            "n_failed": diagnostics.get("n_failed"),
+            "failure_classes": diagnostics.get("failure_classes"),
+            "contract_defects": diagnostics.get("contract_defects"),
+            "harness_defects": diagnostics.get("harness_defects"),
+            "fuzz_runs": FUZZ_RUNS,
+        }
+
+    prompt_record["property_tests"] = property_record
+    prompt_record["property_tests_enabled"] = PROPERTY_TESTS_ENABLED
+
+    if security_result is not None:
+        from nl2solidity.security_analysis import summarize as _summarize_security
+
+        prompt_record["security_analysis"] = _summarize_security(security_result)
+    prompt_record["security_analysis_enabled"] = SECURITY_ANALYSIS_ENABLED
 
     prompt_record["kernel_feedback_enabled"] = kernel_enabled
     prompt_record["spec_alignment_enabled"] = _env_flag("SPEC_ALIGNMENT_ENABLED", True)

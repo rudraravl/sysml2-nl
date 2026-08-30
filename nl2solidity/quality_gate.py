@@ -22,6 +22,7 @@ validation should apply to repaired candidates.
 
 from __future__ import annotations
 
+import os
 import hashlib
 import tempfile
 from dataclasses import asdict, is_dataclass
@@ -131,12 +132,32 @@ def run_quality_gate(nl: str, solidity: str, ask: Callable[[str], str], *,
     }
 
 
-def layer2_executor(candidate: str) -> dict:
-    """Adapter for the Solidity execution harness (dangling runner)."""
-    from nl2solidity.solidity_execution import ExecutionRequest, run_solidity_execution
+def make_layer2_executor(property_tests: str | None = None):
+    """Build an execution callback bound to one sample's Tier B properties.
 
-    result = run_solidity_execution(ExecutionRequest(candidate_solidity=candidate))
-    return result.to_dict()
+    The gate calls ``execute(candidate)`` with nothing but the code, so the
+    requirement-derived property tests have to be captured here. They stay fixed
+    across every repair: re-authoring them against a repaired contract would let
+    a repair pass by rewriting its own test.
+    """
+
+    def execute(candidate: str) -> dict:
+        from nl2solidity.solidity_execution import (
+            ExecutionRequest, run_solidity_execution)
+
+        result = run_solidity_execution(ExecutionRequest(
+            candidate_solidity=candidate,
+            property_tests=property_tests,
+            fuzz_runs=int(os.getenv("FUZZ_RUNS", "256")),
+        ))
+        return result.to_dict()
+
+    return execute
+
+
+def layer2_executor(candidate: str) -> dict:
+    """Adapter for the Solidity execution harness (Tier A only)."""
+    return make_layer2_executor(None)(candidate)
 
 
 def _evaluate_candidate(
