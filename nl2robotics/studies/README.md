@@ -49,6 +49,35 @@ requests. Audit its profile and evidence-tier coverage with:
 python3 -m nl2robotics.studies.capability_matrix
 ```
 
+The retrieval corpus and the held-out evaluation benchmark are deliberately
+different objects. Retrieval has 1,500 Modelica prompts and 1,500 OpenUSD
+prompts, each backed by 500 semantic cases. The candidate paper benchmark adds
+65 independent, code-free requests: four primary cases and one reserve in each
+of the 13 families. The original `RCB001`--`RCB013` cases are development-only
+and excluded from confirmatory inference. Audit balance, grounding, profile
+coverage, and exact/near leakage against all 3,000 retrieval prompts with:
+
+```bash
+python3 -m nl2robotics.studies.paper_evaluation
+```
+
+Its status remains `candidate_pending_mentor_approval`; after protocol review,
+freeze the manifest and its reported SHA-256 before any confirmatory model call.
+The experiment CLI defaults to the 52 primary cases for a split-aware manifest;
+reserves are only selected explicitly. Preview the primary `B0` versus `FULL`
+grid without making model calls:
+
+```bash
+python3 -m nl2robotics.experiments.run_cli \
+  --benchmark-manifest nl2robotics/studies/paper_evaluation_manifest.json \
+  --profile capability --condition B0 --condition FULL --repetitions 3 \
+  --output-dir outputs/paper-evaluation-v1 --dry-run
+```
+
+This produces 312 planned cells. Use `--benchmark-split reserve` only for a
+prespecified replacement; `--benchmark-split all` is descriptive, not the
+default confirmatory design.
+
 Each case is a numerical, source-grounded system specification rather than a
 one-line category label. Execute the economical tier-2 breadth smoke locally
 with the frozen full-1500 retrieval corpora and checkpoint after every family:

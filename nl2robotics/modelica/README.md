@@ -41,10 +41,10 @@ progress without allowing a later regression to replace the best candidate.
 
 ## Example Methodology
 
-The retrieval corpus contains 300 NL/Modelica pairs balanced across ten
+The retrieval corpus contains 1,500 NL/Modelica pairs balanced across ten
 capability families. They are transparently backed by 500 unique executable
-semantic cases with three distinct requirement formulations per case, for
-1,500 retrieval pairs. The original 24 form a frozen core tier; 76 expanded
+semantic cases with three distinct requirement formulations per case. The
+original 24 form a frozen core tier; 76 expanded
 semantic cases broaden the domain and difficulty, and 400 controlled operating
 variants cover parameterized configurations without changing the mechanism:
 

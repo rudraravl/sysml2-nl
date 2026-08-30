@@ -1,0 +1,759 @@
+{
+  "schema_version": "1.0",
+  "benchmark_id": "robotics-paper-evaluation-candidate-v1",
+  "status": "candidate_pending_mentor_approval",
+  "execution_mode": "capability_tiered",
+  "design": {
+    "family_count": 13,
+    "primary_cases_per_family": 4,
+    "reserve_cases_per_family": 1,
+    "primary_case_count": 52,
+    "reserve_case_count": 13,
+    "prompt_policy": "Each request grounds embodiment, dynamics or actuation, sensing or control, timing, environment where applicable, and observable properties. Missing facts must remain unknown.",
+    "development_exclusions": ["RCB001", "RCB002", "RCB003", "RCB004", "RCB005", "RCB006", "RCB007", "RCB008", "RCB009", "RCB010", "RCB011", "RCB012", "RCB013"]
+  },
+  "rag_family_routes": {
+    "articulated_manipulation": {"modelica": ["joint_mechanics", "feedback_control", "multibody_kinematics"], "openusd": ["articulations", "joint_topology", "joint_drives"]},
+    "mobile_robotics": {"modelica": ["mobile_aerial", "feedback_control", "sensing_estimation"], "openusd": ["articulations", "environments", "sensor_placement"]},
+    "aerial_robotics": {"modelica": ["mobile_aerial", "feedback_control", "sensing_estimation"], "openusd": ["mass_inertia", "environments", "sensor_placement"]},
+    "legged_robotics": {"modelica": ["multibody_kinematics", "trajectory_generation", "hybrid_safety"], "openusd": ["articulations", "materials_contact", "sensor_placement"]},
+    "marine_robotics": {"modelica": ["mobile_aerial", "feedback_control", "sensing_estimation"], "openusd": ["mass_inertia", "environments", "sensor_placement"]},
+    "contact_manipulation": {"modelica": ["feedback_control", "hybrid_safety", "multibody_kinematics"], "openusd": ["materials_contact", "rigid_body_collision", "sensor_placement"]},
+    "trajectory_control": {"modelica": ["trajectory_generation", "feedback_control", "hybrid_safety"], "openusd": ["joint_drives", "articulations", "stage_metadata"]},
+    "closed_chain_mechanisms": {"modelica": ["multibody_kinematics", "coupled_transmissions", "joint_mechanics"], "openusd": ["joint_topology", "articulations", "geometry_transforms"]},
+    "sensor_estimation": {"modelica": ["sensing_estimation", "feedback_control", "hybrid_safety"], "openusd": ["sensor_placement", "geometry_transforms", "stage_metadata"]},
+    "fluid_power": {"modelica": ["fluid_power", "feedback_control", "hybrid_safety"], "openusd": ["joint_drives", "mass_inertia", "rigid_body_collision"]},
+    "electromechanical_actuation": {"modelica": ["electric_actuation", "coupled_transmissions", "feedback_control"], "openusd": ["joint_drives", "mass_inertia", "articulations"]},
+    "soft_robotics": {"modelica": ["multibody_kinematics", "fluid_power", "feedback_control"], "openusd": ["geometry_transforms", "materials_contact", "sensor_placement"]},
+    "multi_robot_systems": {"modelica": ["mobile_aerial", "sensing_estimation", "trajectory_generation"], "openusd": ["environments", "articulations", "sensor_placement"]}
+  },
+  "cases": [
+    {
+      "id": "RBE001",
+      "family": "articulated_manipulation",
+      "split": "primary",
+      "difficulty": "foundational",
+      "expected_profiles": ["general_modelica_openusd", "articulated_joint_space_h2"],
+      "target_tier": 5,
+      "runtime_candidate": true,
+      "feature_tags": ["fixed_base", "single_joint", "revolute", "pd_effort", "encoder"],
+      "request": "Generate a fixed-base rotary inspection arm named BeaconArm. A fixed 16 kg box pedestal supports a 0.65 m long, 4.5 kg capsule link through a revolute joint about Y limited from -1.40 rad to 1.40 rad. Joint position and velocity are measured by an encoder. Use saturated PD effort control with proportional gain 48 N.m/rad, derivative gain 6 N.m.s/rad, target angle 0.70 rad, and torque bound -60 N.m to 60 N.m. Represent gravity as 9.81 m/s2 and give the link collision geometry matching its capsule shape. Run the controller at 100 Hz from 0 s through 4 s. Require the joint to remain inside its authored limits, the commanded torque to remain within its bound, and the final angle to be between 0.65 rad and 0.75 rad."
+    },
+    {
+      "id": "RBE002",
+      "family": "articulated_manipulation",
+      "split": "primary",
+      "difficulty": "intermediate",
+      "expected_profiles": ["general_modelica_openusd", "articulated_joint_space_h2"],
+      "target_tier": 5,
+      "runtime_candidate": true,
+      "feature_tags": ["fixed_base", "serial", "revolute", "prismatic", "multi_axis", "pd_effort"],
+      "request": "Generate a fixed-base serial pick-and-place mechanism named RailArm. A fixed 22 kg cylindrical base supports a 0.55 m, 5 kg box boom through a revolute Z joint limited from -1.20 rad to 1.20 rad. The boom carries a 2.5 kg box carriage through a prismatic X joint limited from 0 m to 0.38 m. Encoders report position and velocity for both joints. Control the revolute joint with PD gains 55 N.m/rad and 7 N.m.s/rad, target 0.45 rad, and torque limit 70 N.m. Control the prismatic joint with gains 720 N/m and 52 N.s/m, target 0.26 m, and force limit 850 N. Run at 125 Hz from 0 s through 5 s. Require both states and commands to remain within bounds and both joints to finish within 0.04 rad or 0.012 m of their targets."
+    },
+    {
+      "id": "RBE003",
+      "family": "articulated_manipulation",
+      "split": "primary",
+      "difficulty": "intermediate",
+      "expected_profiles": ["general_modelica_openusd", "articulated_joint_space_h2"],
+      "target_tier": 5,
+      "runtime_candidate": true,
+      "feature_tags": ["fixed_base", "branching", "three_joint", "revolute", "prismatic", "pd_effort"],
+      "request": "Generate a fixed-base branching service robot named ForkArm. A fixed 28 kg box base supports a 0.80 m, 7 kg cylindrical mast through a revolute Z joint limited to plus or minus 1.30 rad. The mast branches to a 0.50 m, 3 kg capsule camera boom on a revolute X joint limited to plus or minus 0.90 rad and a 2 kg tool carriage on a prismatic Y joint traveling from 0 m to 0.24 m. Use independent saturated PD effort controllers with targets 0.50 rad, -0.35 rad, and 0.16 m; proportional gains 65, 30, and 650; derivative gains 8, 4, and 45; and effort limits 85 N.m, 40 N.m, and 700 N. Encoders provide every joint position and velocity. Run at 100 Hz for 6 s. Require all limits, command bounds, and final target tolerances of 0.05 rad and 0.01 m to hold."
+    },
+    {
+      "id": "RBE004",
+      "family": "articulated_manipulation",
+      "split": "primary",
+      "difficulty": "advanced",
+      "expected_profiles": ["general_modelica_openusd", "articulated_joint_space_h2"],
+      "target_tier": 5,
+      "runtime_candidate": true,
+      "feature_tags": ["fixed_base", "serial", "four_joint", "mixed_geometry", "pd_effort", "multi_axis"],
+      "request": "Generate a fixed-base four-axis assembly robot named CedarSCARA. A fixed 30 kg cylindrical base supports two serial revolute Z links: a 0.48 m, 6 kg box upper arm limited from -2.2 rad to 2.2 rad and a 0.36 m, 4 kg capsule forearm limited from -2.4 rad to 2.4 rad. The forearm carries a 2 kg vertical carriage on a prismatic Z joint from -0.30 m to 0 m, followed by a 0.8 kg cylindrical tool on a revolute X wrist limited to plus or minus 1.5 rad. Use encoder feedback and independent saturated PD effort control. Targets are 0.75 rad, -0.55 rad, -0.18 m, and 0.40 rad; proportional gains are 80, 60, 900, and 24; derivative gains are 10, 8, 65, and 3; effort limits are 110 N.m, 80 N.m, 1000 N, and 30 N.m. Run at 200 Hz for 6 s. Require all joint, effort, and final-error bounds to pass."
+    },
+    {
+      "id": "RBE005",
+      "family": "articulated_manipulation",
+      "split": "reserve",
+      "difficulty": "advanced",
+      "expected_profiles": ["general_modelica_openusd", "articulated_joint_space_h2"],
+      "target_tier": 5,
+      "runtime_candidate": true,
+      "feature_tags": ["fixed_base", "serial", "pan_tilt_lift", "three_joint", "pd_effort"],
+      "request": "Generate a fixed-base pan-tilt-lift sensor mount named HorizonHead. A fixed 12 kg box base supports a 3 kg cylindrical pan stage on a revolute Z joint limited to plus or minus 2.6 rad. A 2 kg box tilt frame is attached through a revolute Y joint limited from -1.0 rad to 0.8 rad, and a 1.2 kg sensor pod moves on a prismatic X joint from 0 m to 0.20 m. Use encoder position and velocity feedback with saturated PD effort control. Targets are 1.10 rad, -0.30 rad, and 0.12 m; proportional gains are 35, 28, and 500; derivative gains are 4.5, 3.5, and 32; command limits are 45 N.m, 35 N.m, and 550 N. Run at 120 Hz for 5 s. Require every state and command to remain within bounds and final errors below 0.04 rad or 0.008 m."
+    },
+
+    {
+      "id": "RBE006",
+      "family": "mobile_robotics",
+      "split": "primary",
+      "difficulty": "foundational",
+      "expected_profiles": ["general_modelica_openusd", "mobile_floating_base", "sensor_estimation", "contact_environment"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["differential_drive", "floating_base", "wheel_control", "imu", "ground_contact"],
+      "request": "Generate a floating differential-drive delivery robot named ParcelBot. Its 20 kg box chassis measures 0.70 m by 0.46 m by 0.22 m. Two cylindrical wheels have radius 0.11 m, width 0.045 m, a 0.50 m track width, and continuous revolute joints about Y. Each wheel motor supplies torque between -14 N.m and 14 N.m. Use encoder velocity feedback and PI wheel-speed control with proportional gain 2.2 N.m.s/rad and integral gain 0.45 N.m/rad to track 3.5 rad/s. Mount an IMU at the chassis center. Place the robot on a rigid plane with friction coefficient 0.82 and a fixed box obstacle 4 m ahead. Run at 100 Hz for 8 s. Require wheel speeds within plus or minus 7 rad/s, motor torques within bounds, chassis roll and pitch below 0.30 rad, and no obstacle collision."
+    },
+    {
+      "id": "RBE007",
+      "family": "mobile_robotics",
+      "split": "primary",
+      "difficulty": "intermediate",
+      "expected_profiles": ["general_modelica_openusd", "mobile_floating_base", "sensor_estimation", "contact_environment", "trajectory_coupled_control"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["ackermann", "steering", "trajectory", "odometry", "lidar"],
+      "request": "Generate a floating Ackermann-steered inspection rover named RowRover. The 32 kg box chassis is 1.0 m long, 0.62 m wide, and 0.28 m high, with wheelbase 0.72 m. Four wheels have radius 0.14 m; rear wheels are driven and front wheels steer through revolute Z joints limited to plus or minus 0.52 rad. Rear-wheel torque is limited to 24 N.m and steering torque to 16 N.m. Follow a planar path containing waypoints [0 m, 0 m], [4 m, 0 m], and [7 m, 2 m] using a 2.0 m/s speed target and bounded steering controller. Wheel encoders provide odometry, an IMU reports angular velocity, and a planar lidar has 15 m range. Use rigid ground with friction 0.75 and place fixed box obstacles centered at [3 m, -1.2 m] and [6 m, 3.0 m]. Run at 100 Hz for 12 s. Require steering and torque bounds, speed below 2.5 m/s, cross-track error below 0.25 m after 3 s, rover-to-obstacle clearance above 0.20 m, and no collision."
+    },
+    {
+      "id": "RBE008",
+      "family": "mobile_robotics",
+      "split": "primary",
+      "difficulty": "intermediate",
+      "expected_profiles": ["general_modelica_openusd", "mobile_floating_base", "sensor_estimation", "contact_environment"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["mecanum", "holonomic", "four_wheel", "pose_control", "odometry"],
+      "request": "Generate a holonomic mecanum platform named OmniCart. A floating 24 kg box chassis measures 0.68 m by 0.54 m by 0.20 m. Four mecanum wheels have radius 0.09 m, width 0.05 m, roller angle 45 degrees, continuous Y-axis wheel joints, and individual motor torque limits of 11 N.m. Wheel encoders report angular velocity and planar odometry reports chassis pose. Use body-frame velocity control to track 0.8 m/s forward, 0.35 m/s left, and 0.25 rad/s yaw with PI gains 1.7 N.m.s/rad and 0.30 N.m/rad per wheel. Place it on a rigid warehouse floor with friction coefficient 0.85 and four fixed shelf obstacles. Run at 120 Hz for 10 s. Require wheel speeds within plus or minus 12 rad/s, torques within bounds, planar velocity errors below 0.12 m/s after 3 s, yaw-rate error below 0.05 rad/s, and no collision."
+    },
+    {
+      "id": "RBE009",
+      "family": "mobile_robotics",
+      "split": "primary",
+      "difficulty": "advanced",
+      "expected_profiles": ["general_modelica_openusd", "mobile_floating_base", "sensor_estimation", "contact_environment", "trajectory_coupled_control"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["tracked_vehicle", "skid_steer", "terrain", "slip", "path_tracking"],
+      "request": "Generate a floating skid-steer tracked robot named RidgeCrawler. Its 48 kg capsule hull is 1.05 m long and 0.55 m wide. Model left and right continuous tracks with effective sprocket radius 0.13 m, track separation 0.48 m, speed sensing, and drive torque limited to 38 N.m per side. Use a slip-aware controller to track 1.2 m/s forward velocity and follow a 6 m radius arc, with proportional track-speed gain 3.0 N.m.s/rad, integral gain 0.55 N.m/rad, and yaw correction gain 18 N.m/rad. Mount an IMU and planar lidar. Place the robot on a rigid height-field containing a 12 degree ramp, friction coefficient 0.68, and two rock obstacles. Run at 100 Hz for 15 s. Require track commands within limits, body roll below 0.40 rad, longitudinal slip ratio below 0.35 after 2 s, path error below 0.35 m, and no rollover or obstacle collision."
+    },
+    {
+      "id": "RBE010",
+      "family": "mobile_robotics",
+      "split": "reserve",
+      "difficulty": "advanced",
+      "expected_profiles": ["general_modelica_openusd", "mobile_floating_base", "sensor_estimation", "contact_environment"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["tricycle_drive", "payload", "braking", "camera", "slope"],
+      "request": "Generate a floating three-wheel logistics tug named DockTug. The 36 kg box chassis measures 0.90 m by 0.55 m by 0.26 m and carries a fixed 25 kg payload. One front wheel of radius 0.15 m both steers about Z within plus or minus 0.60 rad and drives about Y with torque limited to 32 N.m; two passive rear wheels have radius 0.14 m. Use encoder and IMU feedback to track 1.5 m/s and hold zero yaw, with emergency braking when a forward depth camera detects an obstacle closer than 1.2 m. Place the tug on a rigid 8 degree loading ramp with friction coefficient 0.78 and a fixed barrier 6 m ahead. Run control at 100 Hz for 12 s and the camera at 30 Hz. Require speed below 2.0 m/s, steering and torque bounds, stopping at least 0.3 m before the barrier, and roll and pitch below 0.35 rad."
+    },
+
+    {
+      "id": "RBE011",
+      "family": "aerial_robotics",
+      "split": "primary",
+      "difficulty": "foundational",
+      "expected_profiles": ["general_modelica_openusd", "aerial_multibody", "sensor_estimation"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["quadrotor", "floating_base", "altitude_control", "imu", "thrust"],
+      "request": "Generate a free-base quadrotor named HoverCam. Its rigid box fuselage measures 0.32 m by 0.32 m by 0.10 m and has mass 1.6 kg. Four rotors are positioned 0.21 m from the center and each produces 0 N to 10 N along body Z with yaw-moment coefficient 0.014 m. Model gravity 9.81 m/s2 and translational drag 0.15 N.s/m. An IMU measures angular velocity and acceleration, and an altimeter measures height. Use cascaded altitude and attitude control to target 1.8 m height with level roll and pitch and zero yaw. Use altitude PID gains 4.5, 1.0, and 2.2 and attitude PD gains 0.75 N.m/rad and 0.10 N.m.s/rad. Run at 200 Hz for 7 s. Require thrust limits, altitude within 0.15 m after 4.5 s, and roll and pitch magnitudes below 0.35 rad."
+    },
+    {
+      "id": "RBE012",
+      "family": "aerial_robotics",
+      "split": "primary",
+      "difficulty": "intermediate",
+      "expected_profiles": ["general_modelica_openusd", "aerial_multibody", "sensor_estimation", "trajectory_coupled_control"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["hexacopter", "waypoints", "gps", "imu", "camera"],
+      "request": "Generate a free-base hexacopter named OrchardScout. A 3.4 kg cylindrical fuselage has radius 0.28 m and height 0.12 m. Six evenly spaced rotors at radius 0.36 m each provide 0 N to 11 N vertical thrust and bounded yaw torque. Model gravity and quadratic drag coefficient 0.22 N.s2/m2. Fuse IMU, GPS at 10 Hz, and altimeter data into pose and velocity estimates; mount a downward camera at 30 Hz. Track waypoints [0,0,1.5] m by 4 s, [4,0,2.5] m by 10 s, and [4,3,2.5] m by 16 s with a position controller limited to 4 m/s and 3 m/s2. Place three cylindrical tree obstacles outside the nominal path in a Z-up environment. Run control at 250 Hz for 18 s. Require all thrust commands within bounds, waypoint error below 0.35 m at each stated deadline, roll and pitch magnitude below 0.45 rad, and no obstacle collision."
+    },
+    {
+      "id": "RBE013",
+      "family": "aerial_robotics",
+      "split": "primary",
+      "difficulty": "intermediate",
+      "expected_profiles": ["general_modelica_openusd", "aerial_multibody", "sensor_estimation"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["quadrotor", "payload", "disturbance", "force_sensor", "position_control"],
+      "request": "Generate a free-base cargo quadrotor named LiftBee carrying a suspended payload. The 2.2 kg box airframe has four rotors at 0.24 m arm length, each producing 0 N to 15 N. A 1.0 kg spherical payload hangs from a massless 0.75 m cable attached below the fuselage by a spherical joint. Measure airframe pose with IMU and GPS and cable tension with a force sensor. Use position control to rise to [0 m, 0 m, 2.5 m] and then translate to [3 m, 0 m, 2.5 m], limiting horizontal acceleration to 1.5 m/s2. Apply a 3 N lateral wind disturbance from 4 s through 7 s. Run at 250 Hz for 14 s. Require rotor thrust and cable tension below 80 N, payload swing angle below 0.45 rad after 5 s, final position error below 0.30 m, and altitude above 0.5 m after takeoff."
+    },
+    {
+      "id": "RBE014",
+      "family": "aerial_robotics",
+      "split": "primary",
+      "difficulty": "advanced",
+      "expected_profiles": ["general_modelica_openusd", "aerial_multibody", "sensor_estimation", "trajectory_coupled_control"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["tiltrotor", "transition", "aerodynamics", "airspeed", "hybrid_control"],
+      "request": "Generate a free-base twin-tiltrotor aircraft named TransitionOne. A 6.5 kg capsule fuselage is 1.4 m long with two 0.30 m rotors mounted 0.60 m left and right of center. Each rotor produces 0 N to 55 N and tilts from 0 rad for vertical lift to 1.57 rad for forward flight through a controlled Y-axis joint limited to 1.2 rad/s. Model a 1.8 m span, 0.32 m2 wing with lift coefficient 4.8 times angle of attack up to 0.35 rad and drag coefficient 0.06 plus 0.08 times lift coefficient squared, using air density 1.225 kg/m3 and gravity. Use IMU, GPS, altimeter, and airspeed sensing. Hover at 3 m, transition from 5 s through 10 s, and track 12 m/s forward speed by 14 s. Run at 300 Hz for 18 s. Require thrust and tilt bounds, altitude above 2.2 m, pitch below 0.50 rad, and airspeed within 1.0 m/s of target after 14 s."
+    },
+    {
+      "id": "RBE015",
+      "family": "aerial_robotics",
+      "split": "reserve",
+      "difficulty": "advanced",
+      "expected_profiles": ["general_modelica_openusd", "aerial_multibody", "sensor_estimation", "contact_environment"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["ducted_fan", "inspection", "contact", "lidar", "force_control"],
+      "request": "Generate a free-base ducted-fan inspection drone named WallEye. The 2.8 kg cylindrical body has radius 0.22 m and four protected thrust units, each producing 0 N to 18 N. A compliant inspection probe extends 0.18 m along body X and measures normal contact force. Fuse IMU, lidar, and optical-flow measurements to estimate pose. Approach a vertical wall at 0.25 m/s, hold a 0.20 m stand-off, then establish 8 N probe contact using impedance control with stiffness 120 N/m and damping 18 N.s/m. Represent the wall as a fixed collidable box with friction coefficient 0.55. Run at 250 Hz for 12 s. Require thrust bounds, attitude magnitude below 0.40 rad, approach speed below 0.35 m/s, contact force between 5 N and 12 N from 8 s onward, and no collision by the protected rotors."
+    },
+
+    {
+      "id": "RBE016",
+      "family": "legged_robotics",
+      "split": "primary",
+      "difficulty": "foundational",
+      "expected_profiles": ["general_modelica_openusd", "legged_locomotion", "sensor_estimation", "contact_environment", "trajectory_coupled_control"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["quadruped", "revolute_knees", "foot_contact", "gait", "terrain"],
+      "request": "Generate a floating-base quadruped named MeadowDog. Its 19 kg box torso measures 0.62 m by 0.30 m by 0.17 m. Each identical leg has a revolute Y hip limited to plus or minus 0.9 rad, a 0.28 m and 1.8 kg capsule thigh, a revolute Y knee from 0.25 rad to 2.2 rad, and a 0.27 m and 1.2 kg capsule shank ending in a spherical foot of radius 0.05 m. Track a 1.2 s walking gait with joint PD control and 38 N.m torque limits. Each foot reports contact state and normal force; an IMU measures torso orientation. Use rigid ground with friction 0.85 and run at 250 Hz for 8 s. Require joint and torque limits, at least two supporting feet after 1 s, torso roll and pitch below 0.45 rad, and forward speed between 0.25 m/s and 0.65 m/s after 3 s."
+    },
+    {
+      "id": "RBE017",
+      "family": "legged_robotics",
+      "split": "primary",
+      "difficulty": "intermediate",
+      "expected_profiles": ["general_modelica_openusd", "legged_locomotion", "sensor_estimation", "contact_environment", "trajectory_coupled_control"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["biped", "ankle", "force_sensor", "balance", "push_recovery"],
+      "request": "Generate a floating-base biped named BalanceTwo. A 34 kg box pelvis supports two identical legs, each containing a spherical hip, a 0.40 m and 5 kg capsule thigh, a revolute Y knee from 0 rad to 2.3 rad, a 0.38 m and 3.5 kg capsule shank, and a two-axis ankle connecting a 0.24 m by 0.10 m foot. Six-axis force sensors report foot wrenches and an IMU reports pelvis orientation. Use whole-body balance control to keep the center of pressure inside the support foot while stepping in place every 1.0 s. Apply a 60 N lateral push to the pelvis for 0.15 s at 4 s. Use ground friction 0.9 and control at 500 Hz for 9 s. Require joint and 120 N.m torque bounds, no foot slip above 0.03 m, pelvis height above 0.72 m, and recovery to roll below 0.15 rad within 2 s of the push."
+    },
+    {
+      "id": "RBE018",
+      "family": "legged_robotics",
+      "split": "primary",
+      "difficulty": "intermediate",
+      "expected_profiles": ["general_modelica_openusd", "legged_locomotion", "sensor_estimation", "contact_environment", "trajectory_coupled_control"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["hexapod", "tripod_gait", "rough_terrain", "contact", "body_height"],
+      "request": "Generate a floating-base hexapod named RockWalker. Its 14 kg capsule body is 0.65 m long. Each of six legs has a revolute Z coxa joint, a revolute Y femur joint, and a revolute Y tibia joint with link lengths 0.12 m, 0.22 m, and 0.26 m. Joint limits are plus or minus 0.8 rad at the coxa and -1.4 rad to 1.4 rad at the other joints; torque is limited to 18 N.m. Execute an alternating tripod gait with period 0.9 s and commanded body speed 0.35 m/s. Foot contact sensors and an IMU provide feedback. Place the robot on a height-field with 0.08 m rocks and friction 0.75. Run at 300 Hz for 10 s. Require all joint and torque bounds, at least three feet in contact during stance, body height between 0.22 m and 0.38 m, roll and pitch below 0.40 rad, and forward progress above 2.5 m."
+    },
+    {
+      "id": "RBE019",
+      "family": "legged_robotics",
+      "split": "primary",
+      "difficulty": "advanced",
+      "expected_profiles": ["general_modelica_openusd", "legged_locomotion", "sensor_estimation", "contact_environment", "trajectory_coupled_control"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["monopod", "compliant_leg", "hybrid_control", "contact_force", "hopping"],
+      "request": "Generate a floating-base one-legged hopping robot named SpringHop. A 9 kg cylindrical body moves vertically above a telescoping leg consisting of a 0.45 m prismatic joint with travel from 0.28 m to 0.58 m, a 16 kN/m spring, 180 N.s/m damper, and a spherical foot of radius 0.07 m. A linear actuator applies plus or minus 900 N. Measure leg length, body vertical velocity, and foot contact force. Use a hybrid controller with flight, compression, and thrust phases to target a 0.18 m apex above the nominal body height every 0.8 s. Place it on rigid ground with restitution 0.05 and friction 0.8. Run at 1 kHz for 8 s. Require actuator and travel bounds, peak contact force below 2.8 kN, at least seven completed hops, apex error below 0.03 m after the third hop, and no body-ground collision."
+    },
+    {
+      "id": "RBE020",
+      "family": "legged_robotics",
+      "split": "reserve",
+      "difficulty": "advanced",
+      "expected_profiles": ["general_modelica_openusd", "legged_locomotion", "sensor_estimation", "contact_environment", "trajectory_coupled_control"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["quadruped", "stairs", "foothold_planning", "depth_camera", "contact_force"],
+      "request": "Generate a floating-base quadruped named StepHound climbing four stairs, each 0.16 m high and 0.30 m deep. The 26 kg box torso has four three-joint legs with 0.34 m capsule thighs, 0.33 m shanks, revolute hip and knee joints, and 55 N.m effort limits. A forward depth camera measures stair geometry at 30 Hz, an IMU measures body orientation, and each foot measures contact force. Use foothold planning and joint-space impedance control to climb at 0.20 m/s while maintaining a 0.42 m body height. Run control at 400 Hz for 16 s with contact friction 0.85. Require all joint and effort limits, swing-foot clearance above 0.03 m, at least three supporting contacts during pauses, torso roll and pitch below 0.40 rad, no stair-edge collision by the torso, and all four stairs completed by 15 s."
+    },
+
+    {
+      "id": "RBE021",
+      "family": "marine_robotics",
+      "split": "primary",
+      "difficulty": "foundational",
+      "expected_profiles": ["general_modelica_openusd", "marine_robotics", "sensor_estimation"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["auv", "buoyancy", "drag", "depth_control", "imu"],
+      "request": "Generate a free-base autonomous underwater vehicle named BlueFin. Its 82 kg capsule hull is 1.45 m long with radius 0.17 m and displaces 0.081 m3 in water of density 1025 kg/m3. Model gravity, buoyancy through the hull center, surge drag coefficient 30 N.s2/m2, and heave drag coefficient 58 N.s2/m2. Two surge and two heave thrusters each supply force from -100 N to 100 N. A pressure sensor measures depth and an IMU measures attitude and angular velocity. Use depth PID control with gains 150 N/m, 22 N/(m.s), and 75 N.s/m to target 6 m, plus heading PD control targeting zero yaw. Run at 50 Hz for 28 s. Require thruster bounds, depth within 0.45 m after 18 s, and absolute roll and pitch below 0.30 rad."
+    },
+    {
+      "id": "RBE022",
+      "family": "marine_robotics",
+      "split": "primary",
+      "difficulty": "intermediate",
+      "expected_profiles": ["general_modelica_openusd", "marine_robotics", "sensor_estimation", "trajectory_coupled_control"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["surface_vessel", "catamaran", "waypoints", "gps", "wind"],
+      "request": "Generate a free-base catamaran surface vessel named HarborCat. Two 45 kg capsule hulls are separated by 1.1 m and connected by a rigid 18 kg deck. Port and starboard propellers each produce 0 N to 420 N surge force. Model water drag, buoyancy, a steady 35 N crosswind, and small roll restoring stiffness. GPS reports position at 10 Hz, an IMU reports attitude at 100 Hz, and a compass reports heading. Track planar waypoints [0,0], [20,0], and [30,12] m at 2.5 m/s using differential thrust with heading PID gains 160 N/rad, 12 N/(rad.s), and 85 N.s/rad. Run control at 50 Hz for 35 s. Require thrust bounds, cross-track error below 1.0 m after 8 s, heading error below 0.18 rad near each segment, roll below 0.22 rad, and final position within 1.5 m."
+    },
+    {
+      "id": "RBE023",
+      "family": "marine_robotics",
+      "split": "primary",
+      "difficulty": "intermediate",
+      "expected_profiles": ["general_modelica_openusd", "marine_robotics", "sensor_estimation", "contact_environment"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["rov", "six_dof", "tether", "sonar", "station_keeping"],
+      "request": "Generate a tethered remotely operated vehicle named PipeROV. A 110 kg box frame measures 1.1 m by 0.75 m by 0.55 m and is slightly positively buoyant by 35 N. Six thrusters provide body surge, sway, heave, roll, pitch, and yaw wrench components with individual force bounds of plus or minus 160 N. Model quadratic hydrodynamic drag and a tether attached to the rear with 18 N baseline tension and maximum 220 N. Fuse pressure depth, IMU, Doppler velocity, and forward sonar measurements. Hold pose [2 m, -1 m, 12 m] and zero attitude beside a fixed cylindrical pipe using bounded wrench control. Run at 100 Hz for 25 s. Require all thruster and tether bounds, position error below 0.35 m after 12 s, attitude error below 0.20 rad, and at least 0.40 m clearance from the pipe."
+    },
+    {
+      "id": "RBE024",
+      "family": "marine_robotics",
+      "split": "primary",
+      "difficulty": "advanced",
+      "expected_profiles": ["general_modelica_openusd", "marine_robotics", "sensor_estimation", "trajectory_coupled_control"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["underwater_glider", "variable_buoyancy", "pitch_mass", "sawtooth", "energy"],
+      "request": "Generate a free-base underwater glider named LongRange. Its streamlined 58 kg capsule hull is 1.8 m long, displaces 0.057 m3, and has two fixed wings with total area 0.42 m2. A variable-buoyancy unit changes displaced volume by plus or minus 0.0012 m3, and an internal 6 kg mass translates plus or minus 0.18 m along body X to control pitch. Model lift, drag, gravity, and seawater density 1025 kg/m3. Pressure, pitch, and forward-speed sensors provide feedback. Execute a sawtooth trajectory between 5 m and 25 m depth with pitch targets plus or minus 0.35 rad and forward speed between 0.35 m/s and 0.75 m/s. Run control at 20 Hz for 180 s. Require actuator travel and buoyancy bounds, depth bounds, pitch below 0.50 rad, and actuator energy below 18 kJ."
+    },
+    {
+      "id": "RBE025",
+      "family": "marine_robotics",
+      "split": "reserve",
+      "difficulty": "advanced",
+      "expected_profiles": ["general_modelica_openusd", "marine_robotics", "sensor_estimation", "contact_environment"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["docking", "auv", "sonar", "current", "contact"],
+      "request": "Generate a free-base autonomous underwater docking vehicle named DockRay. A 72 kg capsule body has four vectorable thrusters, each limited to plus or minus 110 N, a forward sonar, pressure sensor, IMU, and short-range optical pose sensor. Model buoyancy equal to weight, quadratic drag, and a 0.25 m/s lateral water current. Approach a fixed funnel-shaped docking station from 8 m away, reduce speed below 0.15 m/s inside 1 m, and align position and yaw using a cascaded pose controller. Represent the station with rigid collision geometry and a compliant capture ring of stiffness 18 kN/m and damping 900 N.s/m. Run at 100 Hz for 35 s. Require thruster bounds, approach speed below 0.6 m/s, lateral alignment error below 0.08 m at contact, yaw error below 0.10 rad, contact force below 450 N, and successful capture by 32 s."
+    },
+
+    {
+      "id": "RBE026",
+      "family": "contact_manipulation",
+      "split": "primary",
+      "difficulty": "foundational",
+      "expected_profiles": ["general_modelica_openusd", "contact_environment", "sensor_estimation"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["parallel_gripper", "contact_force", "friction", "impedance", "grasp"],
+      "request": "Generate a parallel-jaw gripper named SoftPinch grasping a rigid 0.9 kg box measuring 0.07 m by 0.07 m by 0.10 m. A fixed 5 kg palm supports two 0.45 kg box fingers on opposing prismatic X joints, each traveling from 0 m to 0.045 m. Enable collision and use friction coefficient 0.85 and restitution 0.03 for finger pads and object. Position encoders and normal-force sensors measure each finger. Use impedance control with stiffness 700 N/m and damping 28 N.s/m to close to 0.030 m, then regulate total grasp force to 24 N with each finger limited to 22 N. Place the object on a rigid table between the open fingers. Run at 500 Hz for 4 s. Require travel and force bounds, total force above 18 N by 2 s, total force below 44 N, and object displacement below 0.015 m after grasp closure."
+    },
+    {
+      "id": "RBE027",
+      "family": "contact_manipulation",
+      "split": "primary",
+      "difficulty": "intermediate",
+      "expected_profiles": ["general_modelica_openusd", "contact_environment", "sensor_estimation", "trajectory_coupled_control"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["peg_in_hole", "force_torque", "compliance", "friction", "insertion"],
+      "request": "Generate a fixed-base three-axis Cartesian insertion robot named PegMate. Orthogonal prismatic X, Y, and Z joints move a 2 kg tool carriage over ranges plus or minus 0.08 m, plus or minus 0.08 m, and 0 m to 0.25 m. A cylindrical peg of radius 0.0095 m and length 0.08 m is attached to the carriage above a fixed hole of radius 0.0105 m. Enable collision with friction coefficient 0.35 and mount a six-axis force-torque sensor at the tool. Use Cartesian impedance control with lateral stiffness 1200 N/m, vertical stiffness 1800 N/m, damping 55 N.s/m, and insertion speed 0.012 m/s. Run at 1 kHz for 8 s. Require joint travel bounds, lateral force below 18 N, axial force below 45 N, peg tilt below 0.06 rad, and insertion depth at least 0.065 m by 7 s without jamming."
+    },
+    {
+      "id": "RBE028",
+      "family": "contact_manipulation",
+      "split": "primary",
+      "difficulty": "intermediate",
+      "expected_profiles": ["general_modelica_openusd", "contact_environment", "sensor_estimation", "trajectory_coupled_control"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["planar_pushing", "force_control", "friction", "object_pose", "trajectory"],
+      "request": "Generate a planar pushing task named SlideBox. A fixed-base two-revolute-joint arm with 0.45 m and 0.35 m capsule links pushes a 1.6 kg box measuring 0.16 m by 0.12 m by 0.08 m across a rigid table. Joint torque is limited to 45 N.m and 28 N.m. Give the box-table interface friction coefficient 0.42 and the rounded pusher-box interface friction 0.65. Measure joint position and velocity, pusher contact force, and box planar pose. Follow a straight object trajectory from [0.4 m, 0.0 m] to [0.9 m, 0.25 m] using hybrid position-force control with 12 N normal-force target. Run at 500 Hz for 7 s. Require joint and torque limits, contact force between 5 N and 20 N during pushing, box yaw below 0.20 rad, final position error below 0.04 m, and no loss of table contact."
+    },
+    {
+      "id": "RBE029",
+      "family": "contact_manipulation",
+      "split": "primary",
+      "difficulty": "advanced",
+      "expected_profiles": ["general_modelica_openusd", "contact_environment", "sensor_estimation", "trajectory_coupled_control"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["suction_grasp", "seal", "vacuum", "contact_patch", "lift"],
+      "request": "Generate a suction-cup pick task named VacuumLift. A fixed vertical prismatic Z actuator carries a 0.7 kg compliant suction cup with travel from 0 m to 0.55 m and force limit 300 N. The target is a 4 kg rigid box on a table. Model a circular cup of radius 0.035 m, vacuum pressure command from 0 kPa to -65 kPa gauge, seal compliance 1.5e-6 m3/Pa, leakage proportional to seal gap, and breakaway when tensile force exceeds pressure times sealed area. Measure Z position, vacuum pressure, seal state, and axial force. Descend at 0.04 m/s, establish at least -50 kPa, then lift the object 0.30 m. Run at 500 Hz for 9 s. Require travel and force bounds, contact force below 120 N during sealing, pressure within bounds, seal maintained during lift, and final object height at least 0.28 m above the table."
+    },
+    {
+      "id": "RBE030",
+      "family": "contact_manipulation",
+      "split": "reserve",
+      "difficulty": "advanced",
+      "expected_profiles": ["general_modelica_openusd", "contact_environment", "sensor_estimation", "trajectory_coupled_control"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["door_opening", "frictional_contact", "force_torque", "admittance", "hinge"],
+      "request": "Generate a door-opening manipulation task named HandleTurn. A fixed-base six-joint arm grasps a cylindrical lever handle on a 22 kg rigid door connected to a fixed frame by a revolute Z hinge limited from 0 rad to 1.7 rad. The handle rotates about X from 0 rad to 0.75 rad against a 3.5 N.m return spring. Use friction coefficient 0.75 at the gripper-handle contact and measure wrist wrench, joint states, handle angle, and door angle. Apply admittance control: turn the handle to 0.60 rad, limit wrist force to 55 N, then pull the door to 1.20 rad while maintaining grasp. Run at 500 Hz for 12 s. Require robot joint and effort bounds, handle torque below 8 N.m, wrist force below 55 N, no grasp loss, and final door angle between 1.15 rad and 1.30 rad."
+    },
+
+    {
+      "id": "RBE031",
+      "family": "trajectory_control",
+      "split": "primary",
+      "difficulty": "foundational",
+      "expected_profiles": ["general_modelica_openusd", "trajectory_coupled_control"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["two_joint_arm", "cubic_trajectory", "feedforward", "encoders", "settling"],
+      "request": "Generate a fixed-base two-joint serial arm named SmoothReach. Two capsule links have lengths 0.52 m and 0.38 m, masses 5 kg and 3 kg, and revolute Y joints limited to plus or minus 1.7 rad and from -1.2 rad to 2.0 rad. Follow a cubic joint trajectory from [0 rad, 0 rad] at 0 s to [0.9 rad, -0.6 rad] at 3 s and hold until 5 s. Use PID plus velocity feedforward with proportional gains [60, 42] N.m/rad, integral gains [3, 2] N.m/(rad.s), derivative gains [8, 5] N.m.s/rad, and torque limits [75, 50] N.m. Encoders report position and velocity at 200 Hz. Require joint and torque bounds, position tracking error below 0.08 rad after 1 s, overshoot below 12 percent, and final errors below 0.03 rad."
+    },
+    {
+      "id": "RBE032",
+      "family": "trajectory_control",
+      "split": "primary",
+      "difficulty": "intermediate",
+      "expected_profiles": ["general_modelica_openusd", "trajectory_coupled_control"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["gantry", "trapezoidal_profile", "three_axis", "synchronization", "limits"],
+      "request": "Generate a fixed-base three-axis Cartesian gantry named SortGantry. Orthogonal prismatic X, Y, and Z carriages have moving masses 18 kg, 12 kg, and 7 kg and travels 0 m to 1.8 m, 0 m to 1.2 m, and 0 m to 0.55 m. Force limits are 900 N, 650 N, and 500 N. Execute synchronized trapezoidal trajectories through positions [0.2,0.2,0.45] m at 0 s, [1.4,0.8,0.20] m at 3 s, and [0.6,1.0,0.35] m at 6 s, with velocity limits [0.8,0.6,0.35] m/s and acceleration limits [1.6,1.2,0.8] m/s2. Use encoder feedback and computed feedforward plus PD correction at 250 Hz for 8 s. Require travel, force, velocity, and acceleration bounds, axis synchronization error below 0.04 s, and final position errors below 0.008 m."
+    },
+    {
+      "id": "RBE033",
+      "family": "trajectory_control",
+      "split": "primary",
+      "difficulty": "intermediate",
+      "expected_profiles": ["general_modelica_openusd", "trajectory_coupled_control", "sensor_estimation"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["camera_gimbal", "quintic_trajectory", "disturbance", "rate_sensor", "tracking"],
+      "request": "Generate a fixed-base three-axis camera gimbal named CinemaHead. Revolute yaw, pitch, and roll joints use axes Z, Y, and X with limits plus or minus 2.8 rad, -1.2 rad to 1.0 rad, and plus or minus 0.8 rad. The camera payload is 4 kg and joint torques are limited to 18 N.m, 14 N.m, and 10 N.m. Track a quintic orientation trajectory from [0,0,0] rad at 0 s to [1.4,-0.5,0.25] rad at 4 s and [-0.8,0.35,-0.20] rad at 8 s. Use encoder and gyroscope feedback with state-feedback control and velocity feedforward. Apply a 3 N.m yaw disturbance from 5.0 s to 5.3 s. Run at 400 Hz for 10 s. Require joint and torque bounds, orientation error below 0.04 rad outside the disturbance interval, peak disturbance error below 0.18 rad, and recovery below 0.05 rad within 1.2 s."
+    },
+    {
+      "id": "RBE034",
+      "family": "trajectory_control",
+      "split": "primary",
+      "difficulty": "advanced",
+      "expected_profiles": ["general_modelica_openusd", "trajectory_coupled_control", "sensor_estimation", "contact_environment"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["seven_dof", "operational_space", "obstacle", "joint_limit_avoidance", "force"],
+      "request": "Generate a fixed-base seven-revolute-joint manipulator named ArcSeven. Use alternating Z and Y joint axes, capsule links with lengths [0.34,0.33,0.28,0.24,0.20,0.16,0.12] m, masses [6,5,4,3,2,1.5,0.8] kg, joint limits plus or minus [2.8,1.9,2.6,2.0,2.7,2.1,3.0] rad, and effort bounds [110,95,80,65,45,30,18] N.m. Follow a Cartesian end-effector spline through positions [0.55,0.00,0.45] m at 0 s, [0.48,0.28,0.52] m at 3 s, [0.38,-0.22,0.62] m at 7 s, and [0.58,0.05,0.48] m at 10 s while holding tool Z downward, using operational-space control, null-space joint-limit avoidance, and encoder feedback. Place a fixed cylinder of radius 0.15 m centered at [0.42,0.02,0.35] m and measure wrist wrench. Run at 500 Hz for 12 s. Require all joint and effort bounds, position error below 0.025 m, orientation error below 0.06 rad, obstacle clearance above 0.06 m, and wrist force below 35 N."
+    },
+    {
+      "id": "RBE035",
+      "family": "trajectory_control",
+      "split": "reserve",
+      "difficulty": "advanced",
+      "expected_profiles": ["general_modelica_openusd", "trajectory_coupled_control"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["mobile_manipulator", "coordinated_trajectory", "base_arm", "timing", "tracking"],
+      "request": "Generate a coordinated mobile manipulator named CarryMate. A floating differential-drive base with 0.10 m wheels and 0.46 m track carries a fixed-base three-revolute-joint arm with link lengths 0.45 m, 0.35 m, and 0.22 m. The base follows planar waypoints [0,0], [3,0], and [5,1] m while the arm moves from joint state [0,0,0] rad to [0.6,-0.8,0.5] rad between 3 s and 7 s to keep a tray level. Use wheel PI control, arm computed-torque control, wheel and joint encoders, and an IMU on the tray. Base speed is limited to 1.2 m/s and arm torques to [65,45,25] N.m. Run at 200 Hz for 12 s. Require all command and joint bounds, base path error below 0.25 m, tray roll and pitch below 0.12 rad, arm final errors below 0.04 rad, and completion within 11 s."
+    },
+
+    {
+      "id": "RBE036",
+      "family": "closed_chain_mechanisms",
+      "split": "primary",
+      "difficulty": "foundational",
+      "expected_profiles": ["general_modelica_openusd", "closed_chain_mechanism"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["four_bar", "loop_closure", "revolute", "velocity_control", "encoder"],
+      "request": "Generate a planar four-bar linkage named PumpLink. Two fixed ground pivots are 0.48 m apart. A 0.18 m and 0.9 kg box crank, a 0.43 m and 1.4 kg box coupler, and a 0.34 m and 1.1 kg box rocker form a closed loop through four revolute Z joints. Drive the crank at 1.2 rad/s using PI velocity control with proportional gain 7 N.m.s/rad, integral gain 2.5 N.m/rad, and torque bound plus or minus 20 N.m. Encoders measure crank and rocker angles and crank velocity. Run at 200 Hz for 10 s. Require motor torque within bounds, crank speed between 0 rad/s and 1.6 rad/s, loop-closure position error below 0.0015 m, rocker angle between -1.3 rad and 1.3 rad, and no broken joint references."
+    },
+    {
+      "id": "RBE037",
+      "family": "closed_chain_mechanisms",
+      "split": "primary",
+      "difficulty": "intermediate",
+      "expected_profiles": ["general_modelica_openusd", "closed_chain_mechanism", "trajectory_coupled_control"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["five_bar", "parallel_robot", "dual_actuation", "loop_closure", "end_effector"],
+      "request": "Generate a planar five-bar parallel robot named PlotFive. Fixed base pivots are located at [-0.25 m,0,0] and [0.25 m,0,0]. Two 0.30 m, 1.2 kg actuated links and two 0.42 m, 0.9 kg passive links meet at one end-effector point through revolute Z joints. Actuated joint limits are plus or minus 2.2 rad with torque bounds plus or minus 35 N.m. Use encoder feedback and operational-space control to trace a circle of radius 0.10 m centered at [0,0.35] m with period 4 s. Run at 400 Hz for 12 s. Require joint and torque limits, both loop-closure errors below 0.001 m, Cartesian tracking error below 0.008 m after the first period, and no singular configuration with the two passive links closer than 0.10 rad to collinearity."
+    },
+    {
+      "id": "RBE038",
+      "family": "closed_chain_mechanisms",
+      "split": "primary",
+      "difficulty": "intermediate",
+      "expected_profiles": ["general_modelica_openusd", "closed_chain_mechanism", "trajectory_coupled_control"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["pantograph", "parallelogram", "prismatic_input", "path_scaling", "closure"],
+      "request": "Generate a planar pantograph mechanism named ScaleDraw. A fixed frame supports a parallelogram linkage with 0.25 m and 0.50 m box links, six revolute Z joints, and one actuated prismatic X input traveling from 0 m to 0.16 m. Link masses are proportional to length at 2.5 kg/m. The geometry must produce an output-point displacement twice the input-point displacement. Drive the prismatic input through a sinusoid between 0.03 m and 0.13 m at 0.5 Hz using PD force control with gains 450 N/m and 28 N.s/m and force limit 300 N. Measure input position and output planar position. Run at 250 Hz for 8 s. Require travel and force bounds, every loop-closure error below 0.0015 m, displacement scale ratio between 1.96 and 2.04, and output trajectory error below 0.006 m."
+    },
+    {
+      "id": "RBE039",
+      "family": "closed_chain_mechanisms",
+      "split": "primary",
+      "difficulty": "advanced",
+      "expected_profiles": ["general_modelica_openusd", "closed_chain_mechanism", "trajectory_coupled_control"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["stewart_platform", "six_actuators", "spherical_joint", "pose_control", "closure"],
+      "request": "Generate a six-leg Stewart platform named HexaStage. A fixed circular base of radius 0.45 m supports a 35 kg circular moving platform of radius 0.32 m through six identical variable-length struts. Each strut uses a base universal joint, a prismatic actuator with length 0.55 m to 0.85 m and force bound plus or minus 4 kN, and a platform spherical joint. Use leg-length sensing and pose feedback to command platform position [0.05,-0.04,0.68] m and roll-pitch-yaw [0.08,-0.06,0.10] rad through inverse-kinematic length control. Run at 500 Hz for 7 s. Require every actuator length and force bound, all six closure errors below 0.001 m, platform position error below 0.004 m, orientation error below 0.012 rad, and no strut pair collision."
+    },
+    {
+      "id": "RBE040",
+      "family": "closed_chain_mechanisms",
+      "split": "reserve",
+      "difficulty": "advanced",
+      "expected_profiles": ["general_modelica_openusd", "closed_chain_mechanism", "contact_environment"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["toggle_clamp", "closed_chain", "contact", "mechanical_advantage", "force"],
+      "request": "Generate a planar toggle clamp named LockPress. A fixed frame, 0.16 m input handle, 0.22 m coupler, 0.18 m rocker, and 0.10 m clamp link form a revolute-Z closed chain. The handle joint is effort-controlled with plus or minus 35 N.m and travels from -0.8 rad to 0.9 rad. The clamp pad contacts a fixed workpiece through normal stiffness 250 kN/m, damping 2.5 kN.s/m, and friction coefficient 0.7. Measure handle angle, closure error, pad displacement, and contact force. Drive the handle to 0.82 rad in 2 s and hold through 5 s. Run at 1 kHz. Require torque and angle bounds, loop-closure error below 0.0008 m, contact force between 1.5 kN and 3.5 kN during hold, pad slip below 0.002 m, and the mechanism to remain on the locked side of its toggle configuration."
+    },
+
+    {
+      "id": "RBE041",
+      "family": "sensor_estimation",
+      "split": "primary",
+      "difficulty": "foundational",
+      "expected_profiles": ["general_modelica_openusd", "sensor_estimation", "mobile_floating_base"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["differential_drive", "encoder", "imu", "ekf", "pose"],
+      "request": "Generate a differential-drive localization robot named FuseCart. A floating 15 kg box chassis has 0.09 m wheels separated by 0.41 m. Wheel encoders report angle at 100 Hz and an IMU at the chassis center reports yaw rate and planar acceleration at 200 Hz. Use an extended Kalman filter to estimate planar X, Y, yaw, linear velocity, and angular velocity at 100 Hz. Model encoder standard deviation 0.004 rad and gyro standard deviation 0.008 rad/s. Drive both wheels toward 3 rad/s using PI speed control with 9 N.m torque limits on a rigid plane with friction 0.8. Run for 12 s and inject a 0.03 rad/s gyro bias from 5 s onward for the estimator to track as a bias state. Require wheel and torque bounds, finite covariance, position error below 0.30 m, heading error below 0.15 rad, and estimated gyro bias within 0.01 rad/s by 10 s."
+    },
+    {
+      "id": "RBE042",
+      "family": "sensor_estimation",
+      "split": "primary",
+      "difficulty": "intermediate",
+      "expected_profiles": ["general_modelica_openusd", "sensor_estimation", "mobile_floating_base", "contact_environment"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["lidar", "camera", "imu", "multi_rate", "mapping"],
+      "request": "Generate a mobile mapping platform named AtlasCart. A floating 21 kg differential-drive chassis carries wheel encoders at 100 Hz, an IMU at 200 Hz, a 25 m planar lidar at 15 Hz mounted 0.42 m above the chassis, and a forward RGB-D camera at 30 Hz mounted at [0.25 m,0,0.48 m]. Preserve both sensor transforms in the scene. Fuse encoder, IMU, and lidar updates into a 100 Hz planar pose estimator while keeping camera frames as separate observations. Place six fixed box landmarks and two cylindrical obstacles on a rigid floor. Drive a rectangular 16 m route at 0.8 m/s. Run for 28 s. Require timestamp order and declared rates, estimator covariance positive and finite, position error below 0.22 m after loop closure, heading error below 0.10 rad, and no obstacle collision."
+    },
+    {
+      "id": "RBE043",
+      "family": "sensor_estimation",
+      "split": "primary",
+      "difficulty": "intermediate",
+      "expected_profiles": ["general_modelica_openusd", "sensor_estimation", "electromechanical_actuation"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["joint_torque_observer", "encoder", "current_sensor", "disturbance", "residual"],
+      "request": "Generate a fixed-base single-joint torque-estimation test named LoadObserver. A 7 kg, 0.55 m capsule link rotates about a revolute Y joint limited to plus or minus 1.4 rad and is driven through a 60:1 gearbox by an electric motor. Measure joint position and velocity at 500 Hz and motor current at 2 kHz. Use motor torque constant 0.11 N.m/A, gearbox efficiency 0.90, and a model-based disturbance observer to estimate external joint torque at 500 Hz. Apply a 12 N downward force at the link tip from 2.0 s to 3.5 s while a PD position controller holds 0.4 rad. Run for 6 s. Require joint, current, and 70 N.m torque bounds, estimated external torque error below 2.5 N.m during the force interval, residual below 1.0 N.m before contact, and finite observer state throughout."
+    },
+    {
+      "id": "RBE044",
+      "family": "sensor_estimation",
+      "split": "primary",
+      "difficulty": "advanced",
+      "expected_profiles": ["general_modelica_openusd", "sensor_estimation", "legged_locomotion", "contact_environment"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["legged_state_estimation", "imu", "contact_aided", "kinematics", "covariance"],
+      "request": "Generate a contact-aided state estimator for a quadruped named StatePaw. The floating 23 kg torso has four three-joint legs with joint encoders at 500 Hz, foot contact switches and normal-force sensors at 1 kHz, and an IMU at 400 Hz. Estimate torso position, velocity, orientation, IMU biases, and each stance-foot world position using an invariant or extended Kalman filter at 400 Hz. Treat a foot as stationary only when contact force exceeds 35 N and reject a contact when estimated slip exceeds 0.12 m/s. The robot walks over a rigid plane at 0.45 m/s for 14 s; inject accelerometer bias [0.08,-0.05,0.04] m/s2 and one 0.4 s slipping-foot interval. Require finite positive covariance, velocity error below 0.12 m/s after 5 s, orientation error below 0.08 rad, bias error below 0.03 m/s2, and rejection of the slipping contact within 0.10 s."
+    },
+    {
+      "id": "RBE045",
+      "family": "sensor_estimation",
+      "split": "reserve",
+      "difficulty": "advanced",
+      "expected_profiles": ["general_modelica_openusd", "sensor_estimation", "marine_robotics"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["auv_navigation", "dvl", "pressure", "acoustic", "multi_rate"],
+      "request": "Generate an underwater navigation estimator named DeepNav for a free-base AUV. An IMU reports acceleration and angular velocity at 200 Hz, a pressure sensor reports depth at 20 Hz, a Doppler velocity log reports body velocity at 5 Hz when altitude is below 30 m, and an acoustic beacon reports range to a fixed transponder at 1 Hz with 0.25 m standard deviation. Estimate 3D position, velocity, attitude, accelerometer bias, and gyro bias at 100 Hz. Follow a 60 s lawnmower path at 1.2 m/s and simulate a 12 s DVL dropout beginning at 24 s. Preserve every sensor transform and timestamp. Require finite covariance, depth error below 0.20 m, horizontal position error below 1.5 m before dropout and 3.0 m during dropout, attitude error below 0.10 rad, and recovery below 1.5 m within 8 s after DVL returns."
+    },
+
+    {
+      "id": "RBE046",
+      "family": "fluid_power",
+      "split": "primary",
+      "difficulty": "foundational",
+      "expected_profiles": ["general_modelica_openusd", "fluid_power_actuation", "sensor_estimation"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["hydraulic_cylinder", "valve", "pressure", "position_control", "end_stop"],
+      "request": "Generate a double-acting hydraulic lift named BenchLift. Chamber piston areas are 0.0038 m2 and 0.0030 m2, stroke is 0.42 m, moving mass is 95 kg, and viscous damping is 1500 N.s/m. Supply pressure is 14 MPa, tank pressure is 0.1 MPa, and a four-way valve delivers up to 0.0010 m3/s for command between -1 and 1. Measure position, velocity, and both chamber pressures. Use PID valve control to reach 0.30 m with gains 6.5 1/m, 1.2 1/(m.s), and 0.35 s/m. Represent the 28 kg cylinder and 10 kg rod as collidable cylinders joined by a prismatic Z joint. Use hard end stops at 0 m and 0.42 m. Run at 500 Hz for 7 s. Require travel and valve bounds, pressures between 0.1 MPa and 16 MPa, and final position error below 0.01 m."
+    },
+    {
+      "id": "RBE047",
+      "family": "fluid_power",
+      "split": "primary",
+      "difficulty": "intermediate",
+      "expected_profiles": ["general_modelica_openusd", "fluid_power_actuation", "sensor_estimation"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["hydraulic_motor", "rotary_joint", "pressure_compensation", "speed_control", "temperature"],
+      "request": "Generate a hydraulic rotary drive named SlewMotor. A bidirectional hydraulic motor with displacement 45 cm3/rev, volumetric efficiency 0.92, mechanical efficiency 0.88, rotor inertia 0.035 kg.m2, and viscous friction 0.08 N.m.s/rad drives a 120 kg turntable through a 12:1 gearbox. Supply and tank pressures are 18 MPa and 0.1 MPa, and valve flow is limited to plus or minus 0.0015 m3/s. Measure motor speed, turntable angle, port pressures, and fluid temperature. Use pressure-compensated PI speed control to track 0.8 rad/s with output-turntable torque limited to 1.8 kN.m. Represent the turntable as a collidable cylinder on a revolute Z joint. Run at 500 Hz for 15 s. Require pressure, flow, speed below 1.1 rad/s, torque, and 345 K temperature bounds, with speed error below 0.05 rad/s after 5 s."
+    },
+    {
+      "id": "RBE048",
+      "family": "fluid_power",
+      "split": "primary",
+      "difficulty": "intermediate",
+      "expected_profiles": ["general_modelica_openusd", "fluid_power_actuation", "contact_environment", "sensor_estimation"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["pneumatic_gripper", "compressibility", "pressure", "contact_force", "valve"],
+      "request": "Generate a pneumatic parallel gripper named AirGrip. Two opposing prismatic fingers each have 0.035 m travel, 0.8 kg moving mass, piston area 0.0012 m2, chamber dead volume 2.0e-5 m3, and viscous damping 45 N.s/m. Supply pressure is 0.65 MPa absolute and exhaust pressure 0.10 MPa. Two proportional valves receive commands from 0 to 1 and model compressible air flow. Finger position and chamber pressure sensors run at 500 Hz, and contact-force sensors detect a 1.4 kg cylindrical object with friction coefficient 0.75. Use pressure-position control to close to 0.025 m and regulate 18 N force per finger. Run at 1 kHz for 5 s. Require travel, command, and pressure bounds, force between 12 N and 25 N per finger after 2.5 s, pressure below 0.70 MPa, and object slip below 0.01 m."
+    },
+    {
+      "id": "RBE049",
+      "family": "fluid_power",
+      "split": "primary",
+      "difficulty": "advanced",
+      "expected_profiles": ["general_modelica_openusd", "fluid_power_actuation", "sensor_estimation", "trajectory_coupled_control"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["hydraulic_boom", "multi_actuator", "load_sensing", "trajectory", "pressure_relief"],
+      "request": "Generate a two-cylinder hydraulic loader boom named LoadSense. A fixed 180 kg base supports a 2.0 m, 240 kg boom on a revolute Y joint and a 1.4 m, 130 kg stick on a second revolute Y joint. A boom cylinder connects base point [0.35,0,0.30] m to boom point [0.85,0,0] m and has 0.90 m stroke; a stick cylinder connects boom point [1.15,0,0.10] m to stick point [0.55,0,0] m and has 0.75 m stroke. Both are double acting with bore area 0.010 m2 and rod area 0.0075 m2. Pump supply is limited to 22 MPa and 0.0035 m3/s with a 24 MPa relief valve and load-sensing margin 1.5 MPa. Measure joint angles, cylinder positions, chamber pressures, and pump flow. Track joint targets [0.65,-0.45] rad using coordinated valve control while carrying a 300 kg payload. Run at 500 Hz for 12 s. Require joint and cylinder travel bounds, pressure below relief, pump-flow bounds, final angle errors below 0.025 rad, and no base or link collision."
+    },
+    {
+      "id": "RBE050",
+      "family": "fluid_power",
+      "split": "reserve",
+      "difficulty": "advanced",
+      "expected_profiles": ["general_modelica_openusd", "fluid_power_actuation", "sensor_estimation"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["servo_pneumatic", "vertical_axis", "compressibility", "disturbance", "energy"],
+      "request": "Generate a servo-pneumatic vertical stage named AirLift. A 40 kg carriage moves on a prismatic Z joint from 0 m to 0.70 m using a double-acting cylinder with bore area 0.0045 m2, rod area 0.0036 m2, and chamber dead volumes 5.0e-5 m3. Supply and exhaust pressures are 0.8 MPa and 0.1 MPa absolute. Two proportional valves are bounded from 0 to 1. Measure carriage position, velocity, and both chamber pressures. Use nonlinear pressure-position control to track a smooth move from 0.10 m to 0.55 m in 3 s, reject an additional 120 N downward load from 4 s through 5 s, and minimize compressed-air use. Run at 1 kHz for 8 s. Require travel, pressure below 0.85 MPa, valve bounds, position error below 0.015 m after 3.5 s, recovery within 0.8 s, and total supplied air mass below 0.12 kg."
+    },
+
+    {
+      "id": "RBE051",
+      "family": "electromechanical_actuation",
+      "split": "primary",
+      "difficulty": "foundational",
+      "expected_profiles": ["general_modelica_openusd", "electromechanical_actuation", "sensor_estimation"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["dc_motor", "gearbox", "revolute_joint", "current", "thermal"],
+      "request": "Generate a geared electric joint named CompactServo. A 36 V permanent-magnet DC motor has resistance 0.60 ohm, inductance 0.003 H, torque and back-emf constants 0.08 in SI units, rotor inertia 0.0006 kg.m2, and viscous friction 0.0015 N.m.s/rad. An 80:1 ideal gearbox with efficiency 0.90 drives a 4.5 kg, 0.42 m capsule link about a revolute Y joint limited to plus or minus 1.45 rad. Measure output angle, velocity, motor current, and winding temperature. Use PID voltage control to target 0.75 rad with plus or minus 36 V saturation and plus or minus 14 A current limit. Use thermal resistance 3 K/W, capacitance 110 J/K, and ambient 298 K. Run at 1 kHz for 6 s. Require joint, voltage, current, final error below 0.03 rad, and temperature below 348 K."
+    },
+    {
+      "id": "RBE052",
+      "family": "electromechanical_actuation",
+      "split": "primary",
+      "difficulty": "intermediate",
+      "expected_profiles": ["general_modelica_openusd", "electromechanical_actuation", "mobile_floating_base", "sensor_estimation"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["bldc", "wheel_drive", "inverter", "field_oriented_control", "battery"],
+      "request": "Generate a brushless wheel-drive module named TractionBLDC. A 48 V three-phase permanent-magnet motor has phase resistance 0.11 ohm, phase inductance 0.00035 H, flux linkage 0.032 Wb, four pole pairs, rotor inertia 0.0012 kg.m2, and drives a 0.12 m wheel through a 9:1 gearbox of efficiency 0.93. A field-oriented controller uses phase-current sensing and rotor position to track wheel speed 8 rad/s, with DC-bus voltage bound 48 V and phase-current magnitude bound 35 A. The wheel supports one quarter of a 60 kg vehicle on rigid ground with friction 0.8. A battery model has 20 Ah capacity and 0.06 ohm internal resistance. Run electrical control at 10 kHz and mechanical control at 500 Hz for 12 s. Require current, voltage, wheel speed below 10 rad/s, traction-force, and battery state-of-charge bounds, with speed error below 0.25 rad/s after 3 s."
+    },
+    {
+      "id": "RBE053",
+      "family": "electromechanical_actuation",
+      "split": "primary",
+      "difficulty": "intermediate",
+      "expected_profiles": ["general_modelica_openusd", "electromechanical_actuation", "sensor_estimation"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["ball_screw", "linear_actuator", "motor", "backlash", "position_control"],
+      "request": "Generate an electric ball-screw axis named PrecisionSlide. A 24 V DC motor with resistance 0.42 ohm, inductance 0.0018 H, torque constant 0.075 N.m/A, and rotor inertia 0.0005 kg.m2 drives a 5 mm-pitch ball screw through a 2:1 belt reduction with overall efficiency 0.86. The 18 kg carriage moves on a prismatic X joint from 0 m to 0.65 m with viscous friction 140 N.s/m, Coulomb friction 55 N, and backlash 0.0004 m. Measure motor current and carriage position and velocity. Use cascaded current and position control to follow a 0.50 m S-curve move in 2.5 s, with plus or minus 24 V, plus or minus 16 A, and 1.2 m/s velocity limits. Run at 5 kHz inner loop and 500 Hz outer loop for 5 s. Require electrical and travel bounds, overshoot below 0.006 m, and final error below 0.0015 m."
+    },
+    {
+      "id": "RBE054",
+      "family": "electromechanical_actuation",
+      "split": "primary",
+      "difficulty": "advanced",
+      "expected_profiles": ["general_modelica_openusd", "electromechanical_actuation", "sensor_estimation", "contact_environment"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["series_elastic", "torque_control", "spring_deflection", "contact", "thermal"],
+      "request": "Generate a series-elastic revolute actuator named SafeJoint. A 48 V brushless motor and 100:1 gearbox drive one side of a torsional spring with stiffness 850 N.m/rad and damping 6 N.m.s/rad; the output side drives an 8 kg, 0.60 m capsule link about a revolute Y joint limited to plus or minus 1.6 rad. Motor-side and output-side encoders measure spring deflection, and current and temperature sensors monitor the drive. Use inner current control and outer spring-torque control to track 35 N.m while the link contacts a compliant stop at 0.8 rad. Limit motor current to 22 A, output torque to 55 N.m, and winding temperature to 360 K. Run inner control at 10 kHz and outer control at 1 kHz for 8 s. Require all electrical, joint, torque, spring-deflection below 0.075 rad, contact-force, and temperature bounds, with torque error below 2 N.m after contact."
+    },
+    {
+      "id": "RBE055",
+      "family": "electromechanical_actuation",
+      "split": "reserve",
+      "difficulty": "advanced",
+      "expected_profiles": ["general_modelica_openusd", "electromechanical_actuation", "sensor_estimation", "trajectory_coupled_control"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["winch", "cable", "payload", "motor", "tension_control"],
+      "request": "Generate an electric cable winch named RescueHoist. A 72 V permanent-magnet motor with resistance 0.30 ohm, inductance 0.0025 H, torque constant 0.18 N.m/A, and 45:1 gearbox drives a drum of radius 0.09 m and inertia 0.08 kg.m2. A massless cable suspends a 140 kg payload through a prismatic vertical coordinate from 0 m to 12 m. Measure drum angle, motor current, cable tension, and payload velocity. Use cascaded speed and tension control to raise the payload 8 m at 0.6 m/s, with voltage limit plus or minus 72 V, current limit 65 A, cable tension limit 2.2 kN, and acceleration limit 0.8 m/s2. Apply a 400 N downward disturbance for 0.5 s at 6 s. Run at 2 kHz for 20 s. Require every electrical, travel, tension, velocity, and acceleration bound, no cable slack, and final height error below 0.05 m."
+    },
+
+    {
+      "id": "RBE056",
+      "family": "soft_robotics",
+      "split": "primary",
+      "difficulty": "foundational",
+      "expected_profiles": ["general_modelica_openusd", "soft_continuum_robotics", "sensor_estimation"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["continuum", "tendon", "curvature", "tip_pose", "shape_control"],
+      "request": "Generate a tendon-driven continuum arm named FlexReach. A 0.50 m long, 2.0 kg cylindrical body of radius 0.03 m is represented by five constant-curvature sections of equal length. Three tendons are spaced 120 degrees apart at radius 0.022 m and each tension command is bounded from 0 N to 38 N. Section bending stiffness is 1.5 N.m2 and bending damping is 0.10 N.m2.s. Tendon tension sensors and a tip-pose sensor run at 100 Hz. Use shape control to target tip position [0.30 m,0.16 m,0.24 m] with proportional gain 25 N/m and derivative gain 3.5 N.s/m. Run at 200 Hz for 9 s. Require tendon bounds, maximum section curvature below 16 1/m, tip error below 0.045 m after 7 s, and finite section states."
+    },
+    {
+      "id": "RBE057",
+      "family": "soft_robotics",
+      "split": "primary",
+      "difficulty": "intermediate",
+      "expected_profiles": ["general_modelica_openusd", "soft_continuum_robotics", "fluid_power_actuation", "sensor_estimation", "contact_environment"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["pneumatic_soft_gripper", "chambers", "contact", "pressure", "grasp"],
+      "request": "Generate a three-finger pneumatic soft gripper named GentleTri. Three identical silicone fingers of length 0.12 m surround a 0.10 m radius palm and each contains one pressure chamber commanded from 0 kPa to 90 kPa gauge. Approximate each finger with four bending sections, bending stiffness 0.09 N.m2, damping 0.012 N.m2.s, and pressure-to-curvature gain 0.16 1/(m.kPa). Pressure sensors and distributed contact sensors run at 200 Hz. Grasp a 0.6 kg spherical fruit of radius 0.045 m using pressure control to reach 12 N total normal force without exceeding 6 N on any finger. Use friction coefficient 0.7 and compliant collision. Run at 500 Hz for 6 s. Require pressure, curvature below 22 1/m, per-finger and total force bounds, fruit displacement below 0.012 m after closure, and no loss of contact."
+    },
+    {
+      "id": "RBE058",
+      "family": "soft_robotics",
+      "split": "primary",
+      "difficulty": "intermediate",
+      "expected_profiles": ["general_modelica_openusd", "soft_continuum_robotics", "fluid_power_actuation", "sensor_estimation", "contact_environment", "trajectory_coupled_control"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["soft_crawler", "pneumatic", "friction", "gait", "strain_sensor"],
+      "request": "Generate a pneumatically actuated soft crawler named WaveCrawler. A 0.45 m long, 3 kg compliant body is divided into six serial bending chambers, each pressure-controlled from 0 kPa to 70 kPa gauge. Alternate odd and even chamber pressure with a 1.5 s traveling-wave period. Model body bending stiffness 0.7 N.m2, damping 0.08 N.m2.s, anisotropic ground friction 0.9 backward and 0.45 forward, and gravity. Embedded strain sensors estimate each section curvature at 100 Hz, and planar odometry estimates body position. Place the crawler on a rigid plane with two 0.03 m-high ridges. Run control at 200 Hz for 15 s. Require pressure and curvature below 20 1/m, strain within sensor range, average forward speed above 0.025 m/s after 3 s, backward slip below 0.05 m per gait cycle, and progress of at least 0.30 m."
+    },
+    {
+      "id": "RBE059",
+      "family": "soft_robotics",
+      "split": "primary",
+      "difficulty": "advanced",
+      "expected_profiles": ["general_modelica_openusd", "soft_continuum_robotics", "sensor_estimation", "contact_environment", "trajectory_coupled_control"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["variable_stiffness", "continuum", "heating", "contact", "tip_control"],
+      "request": "Generate a variable-stiffness continuum manipulator named ShapeLock. A 0.60 m flexible arm is represented by six constant-curvature sections and three tendons with 45 N tension limits. Each section contains a thermally activated stiffness element whose bending stiffness varies from 1.0 N.m2 at 320 K to 4.5 N.m2 at 345 K, with heater power limited to 18 W and temperature limited to 350 K. Tendon tensions, section temperatures, and tip pose are measured. Move the tip around a fixed cylindrical obstacle to [0.32,0.18,0.30] m, then stiffen the final three sections while applying a 10 N lateral tip load. Use contact friction 0.55 and control at 200 Hz for 20 s. Require tension, power, temperature, curvature below 17 1/m, contact force below 20 N, final tip error below 0.04 m, and loaded tip deflection below 0.025 m after stiffening."
+    },
+    {
+      "id": "RBE060",
+      "family": "soft_robotics",
+      "split": "reserve",
+      "difficulty": "advanced",
+      "expected_profiles": ["general_modelica_openusd", "soft_continuum_robotics", "electromechanical_actuation", "sensor_estimation"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["dielectric_elastomer", "soft_actuator", "voltage", "deformation", "feedback"],
+      "request": "Generate a dielectric-elastomer soft actuator named ElectroStretch. A 0.20 m by 0.05 m membrane with thickness 0.8 mm, mass 0.12 kg, relative permittivity 4.2, elastic modulus 0.9 MPa, and viscoelastic time constant 0.35 s elongates along X. Drive it with voltage from 0 kV to 5 kV through a 20 Mohm series resistance and capacitance derived from geometry. Measure voltage, leakage current, strain, and temperature. Use strain feedback to track 12 percent elongation with voltage slew limited to 0.8 kV/s. Model ambient temperature 298 K and thermal capacitance 18 J/K. Run electrical control at 2 kHz for 8 s. Require voltage, current below 0.30 mA, strain between 0 and 15 percent, temperature below 325 K, no compressive deformation, and final strain error below 1 percent."
+    },
+
+    {
+      "id": "RBE061",
+      "family": "multi_robot_systems",
+      "split": "primary",
+      "difficulty": "foundational",
+      "expected_profiles": ["general_modelica_openusd", "multi_robot_system", "mobile_floating_base", "sensor_estimation", "contact_environment"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["two_robots", "differential_drive", "formation", "relative_range", "collision"],
+      "request": "Generate two differential-drive robots named Lead and Follow in a shared corridor. Each floating 13 kg box chassis has 0.085 m wheels, 0.38 m track width, continuous wheel joints, 8 N.m torque limits, wheel encoders at 100 Hz, odometry at 100 Hz, and planar lidar at 10 Hz. Use PI wheel-speed control. Lead tracks 3.0 rad/s and Follow uses relative lidar range to maintain 1.8 m separation with speed correction limited to plus or minus 0.8 rad/s. Place both on rigid ground with friction 0.82 and add two fixed wall segments forming a 1.6 m-wide corridor. Run coordination at 100 Hz for 14 s. Require wheel speed and torque bounds, separation between 1.2 m and 2.5 m after 3 s, no robot-robot or wall collision, and both robots to progress at least 4 m."
+    },
+    {
+      "id": "RBE062",
+      "family": "multi_robot_systems",
+      "split": "primary",
+      "difficulty": "intermediate",
+      "expected_profiles": ["general_modelica_openusd", "multi_robot_system", "aerial_multibody", "sensor_estimation", "trajectory_coupled_control"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["three_drones", "formation", "communication", "waypoints", "collision_avoidance"],
+      "request": "Generate three free-base quadrotors named Center, Left, and Right. Each 1.7 kg vehicle has four rotors with 11 N thrust limits, an IMU at 200 Hz, GPS at 10 Hz, and peer-relative range at 20 Hz. Center follows waypoints [0,0,2], [5,0,2], and [8,3,2.5] m. Left and Right maintain offsets [-1.2,0,0] m and [1.2,0,0] m using distributed formation control with communication delay 40 ms and one 0.8 s communication dropout beginning at 7 s. Place four cylindrical obstacles in the shared environment. Run control at 250 Hz for 16 s. Require rotor thrust bounds, pairwise separation above 0.8 m, formation error below 0.25 m outside the dropout and below 0.6 m during it, attitude below 0.45 rad, and no obstacle collision."
+    },
+    {
+      "id": "RBE063",
+      "family": "multi_robot_systems",
+      "split": "primary",
+      "difficulty": "intermediate",
+      "expected_profiles": ["general_modelica_openusd", "multi_robot_system", "mobile_floating_base", "sensor_estimation", "contact_environment", "trajectory_coupled_control"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["warehouse_fleet", "three_agv", "intersection", "scheduling", "lidar"],
+      "request": "Generate three differential-drive warehouse robots named AisleA, AisleB, and AisleC in one shared scene. Each 18 kg robot has 0.10 m wheels, 0.44 m track width, 12 N.m torque limits, wheel encoders, odometry at 100 Hz, and 12 m lidar at 15 Hz. Assign routes that cross at one central intersection: east-to-west, south-to-north, and west-to-east. A decentralized reservation protocol grants one robot the intersection at a time with messages delayed up to 80 ms. Robots cruise at 0.9 m/s and brake at 1.2 m/s2. Place fixed shelving along the aisles on a rigid floor with friction 0.8. Run at 100 Hz for 25 s. Require command bounds, pairwise distance above 0.65 m, no shelf collision, no simultaneous intersection occupancy, waiting time below 6 s per robot, and all routes completed by 24 s."
+    },
+    {
+      "id": "RBE064",
+      "family": "multi_robot_systems",
+      "split": "primary",
+      "difficulty": "advanced",
+      "expected_profiles": ["general_modelica_openusd", "multi_robot_system", "mobile_floating_base", "aerial_multibody", "sensor_estimation", "trajectory_coupled_control"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["heterogeneous_team", "ground_air", "mapping", "handoff", "communication"],
+      "request": "Generate a heterogeneous inspection team containing a differential-drive ground robot named GroundOne and a quadrotor named AirOne. GroundOne is a 24 kg platform with lidar, wheel odometry, IMU, and 14 N.m wheel torque limits; AirOne is a 2.0 kg quadrotor with IMU, GPS, downward camera, and 13 N rotor thrust limits. GroundOne maps a corridor at 0.7 m/s while AirOne inspects overhead markers at 2.5 m altitude. They exchange timestamped pose and map updates at 10 Hz with 100 ms delay. At 12 s, AirOne hands its detected-marker list to GroundOne, which replans to visit the nearest marker. Use one shared environment with walls and three overhead markers. Run control at 200 Hz for 30 s. Require actuator bounds, inter-robot distance above 0.8 m, map-update age below 0.35 s, successful handoff by 14 s, no collision, and GroundOne arrival within 0.4 m of the selected marker by 28 s."
+    },
+    {
+      "id": "RBE065",
+      "family": "multi_robot_systems",
+      "split": "reserve",
+      "difficulty": "advanced",
+      "expected_profiles": ["general_modelica_openusd", "multi_robot_system", "marine_robotics", "sensor_estimation", "trajectory_coupled_control"],
+      "target_tier": 2,
+      "runtime_candidate": false,
+      "feature_tags": ["two_auv", "cooperative_localization", "acoustic_range", "formation", "dropout"],
+      "request": "Generate two free-base AUVs named North and South performing cooperative seabed survey. Each 78 kg capsule vehicle has two surge and two heave thrusters limited to plus or minus 100 N, an IMU, pressure depth sensor, Doppler velocity log, and acoustic modem. The vehicles exchange relative range and estimated pose at 1 Hz with 0.6 s latency and a 10 s dropout beginning at 35 s. North follows a 70 m lawnmower track at 1.0 m/s and South maintains a 6 m lateral offset using cooperative localization and bounded formation control. Model buoyancy, drag, seawater density, and a 0.15 m/s current. Run control at 50 Hz for 80 s. Require thruster bounds, pairwise distance between 4 m and 9 m, depth difference below 0.8 m, formation error below 1.2 m outside dropout and 3 m during it, finite estimator covariance, and no collision."
+    }
+  ]
+}

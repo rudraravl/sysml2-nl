@@ -8,7 +8,8 @@ from pathlib import Path
 
 from nl2robotics.benchmark.suite import BenchmarkTask
 
-from .capability_matrix import MANIFEST, audit_manifest
+from .capability_matrix import MANIFEST, audit_manifest as audit_capability_manifest
+from .paper_evaluation import audit_manifest as audit_paper_manifest
 
 
 class CapabilityBenchmarkSuite:
@@ -44,11 +45,13 @@ class CapabilityBenchmarkSuite:
             id=str(case["id"]),
             profile="capability",
             category=family,
-            difficulty="broad",
+            difficulty=str(case.get("difficulty", "broad")),
             target_level="capability_tier2",
             oracle={
                 "expected_profiles": list(case["expected_profiles"]),
                 "source_target_tier": case["target_tier"],
+                "benchmark_split": case.get("split"),
+                "runtime_candidate": case.get("runtime_candidate") is True,
                 "rag_route": dict(routes[family]),
             },
             prompt_variants={"rich": str(case["request"])},
@@ -66,7 +69,12 @@ class CapabilityBenchmarkSuite:
         return [(task, task.prompt_variants["rich"]) for task in self.tasks]
 
     def audit(self) -> dict:
-        source = audit_manifest(self.manifest_path)
+        data = json.loads(self.manifest_path.read_text(encoding="utf-8"))
+        source = (
+            audit_paper_manifest(self.manifest_path)
+            if data.get("benchmark_id") == "robotics-paper-evaluation-candidate-v1"
+            else audit_capability_manifest(self.manifest_path)
+        )
         return {
             "stage": "capability_benchmark_static_audit",
             "schema_version": "1.0",

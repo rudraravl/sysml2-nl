@@ -35,6 +35,12 @@ def main() -> None:
         "--profile", choices=("modelica", "openusd", "hybrid", "capability")
     )
     parser.add_argument("--task-id", action="append", default=[])
+    parser.add_argument(
+        "--benchmark-split", choices=("auto", "primary", "reserve", "all"),
+        default="auto",
+        help=("select held-out primary or reserve cases; auto selects primary "
+              "when split metadata exists and otherwise selects all tasks"),
+    )
     parser.add_argument("--condition", action="append", default=[])
     parser.add_argument("--variant", choices=("rich", "concise", "underspecified"),
                         default="rich")
@@ -91,12 +97,26 @@ def main() -> None:
         selected = suite.select(profile=args.profile, variant=args.variant)
     except ValueError as exc:
         parser.error(str(exc))
+    effective_benchmark_split = "explicit_task_ids"
     if args.task_id:
         wanted = set(args.task_id)
         selected = [item for item in selected if item[0].id in wanted]
         missing = wanted - {item[0].id for item in selected}
         if missing:
             parser.error(f"unknown or profile-excluded task IDs: {sorted(missing)}")
+    else:
+        available_splits = {
+            task.oracle.get("benchmark_split") for task, _ in selected
+        } - {None}
+        selected_split = args.benchmark_split
+        if selected_split == "auto":
+            selected_split = "primary" if available_splits else "all"
+        effective_benchmark_split = selected_split
+        if selected_split != "all":
+            selected = [
+                item for item in selected
+                if item[0].oracle.get("benchmark_split") == selected_split
+            ]
     conditions = select_conditions(args.condition or None)
     if not selected:
         parser.error("no benchmark tasks selected")
@@ -175,6 +195,7 @@ def main() -> None:
         ),
         "benchmark_manifest": audit["manifest"],
         "benchmark_manifest_sha256": audit["manifest_sha256"],
+        "benchmark_split": effective_benchmark_split,
         "isaac_handoff_configured": args.isaac_python is not None,
         "h2_controller_backend": args.h2_controller_backend,
         "h2_device": args.h2_device,

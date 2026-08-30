@@ -8,6 +8,10 @@ import unittest
 from .articulated import audit_articulated_suite
 from .capability_matrix import audit_manifest as audit_capabilities
 from .capability_benchmark import CapabilityBenchmarkSuite
+from .paper_evaluation import (
+    MANIFEST as PAPER_EVALUATION_MANIFEST,
+    audit_manifest as audit_paper_evaluation,
+)
 from .run_capability_smoke import (
     case_fingerprint,
     load_cases,
@@ -111,6 +115,40 @@ class CapabilityBreadthStudyTests(unittest.TestCase):
         self.assertEqual(2, summary["highest_reached_tier"])
         self.assertFalse(summary["claim_eligible_h2"])
         self.assertFalse(summary["claim_eligible_deltaai_h2"])
+
+
+class PaperEvaluationBenchmarkTests(unittest.TestCase):
+    def test_candidate_benchmark_is_balanced_grounded_and_held_out(self):
+        report = audit_paper_evaluation()
+        self.assertTrue(report["success"], report)
+        self.assertEqual(65, report["case_count"])
+        self.assertEqual(52, report["primary_case_count"])
+        self.assertEqual(13, report["reserve_case_count"])
+        self.assertEqual(13, len(report["family_counts"]))
+        self.assertEqual({5}, set(report["family_counts"].values()))
+        self.assertEqual(5, report["runtime_candidate_count"])
+
+    def test_candidate_manifest_loads_in_the_experiment_harness(self):
+        suite = CapabilityBenchmarkSuite(PAPER_EVALUATION_MANIFEST)
+        audit = suite.audit()
+        self.assertTrue(audit["success"], audit)
+        selected = suite.select(profile="capability", variant="rich")
+        self.assertEqual(65, len(selected))
+        splits = [task.oracle["benchmark_split"] for task, _ in selected]
+        self.assertEqual(52, splits.count("primary"))
+        self.assertEqual(13, splits.count("reserve"))
+        self.assertEqual(5, sum(task.oracle["runtime_candidate"]
+                                for task, _ in selected))
+
+    def test_retrieval_corpus_is_large_but_not_counted_as_evaluation(self):
+        report = audit_paper_evaluation()
+        corpus = report["retrieval_corpus"]
+        self.assertEqual(1500, corpus["modelica_prompt_count"])
+        self.assertEqual(500, corpus["modelica_semantic_case_count"])
+        self.assertEqual(1500, corpus["openusd_prompt_count"])
+        self.assertEqual(500, corpus["openusd_semantic_case_count"])
+        for leakage in report["leakage"].values():
+            self.assertEqual(0, leakage["exact_matches"])
 
 
 if __name__ == "__main__":
