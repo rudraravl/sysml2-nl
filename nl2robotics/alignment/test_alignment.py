@@ -148,6 +148,30 @@ class EvaluatorTests(unittest.TestCase):
                         if item["question"]["family"] == "entity_geometry")
         self.assertEqual("satisfied", geometry["artifact"]["status"])
 
+    def test_capability_duration_clock_is_compared_without_inventing_start(self):
+        ir = oracle_ir()
+        ir["execution_mode"] = "capability_tiered"
+        ir["clock"] = {
+            "duration": 2.0, "frequency_hz": 50.0,
+            "evidence": ["Run for 2 seconds at 50 Hz"],
+        }
+        ir["source_text"] += " Run for 2 seconds at 50 Hz."
+        contract = oracle_contract()
+        contract["clock"] = {"duration": 2.0, "frequency_hz": 50.0}
+        result = RoboticsAlignmentEvaluator().evaluate(
+            ir,
+            modelica=(ORACLE / "model.mo").read_text(encoding="utf-8"),
+            openusd=(ORACLE / "scene.usda").read_text(encoding="utf-8"),
+            contract=contract, hybrid_report=evidence_report(),
+        )
+        timing = next(row for row in result["rows"]
+                      if row["question"]["family"] == "timing")
+        self.assertEqual("satisfied", timing["artifact"]["status"])
+        self.assertEqual(
+            {"duration": 2.0, "frequency_hz": 50.0},
+            timing["question"]["expected"],
+        )
+
     def test_post_execution_evidence_is_required_for_claim_readiness(self):
         report = evidence_report()
         report["controller_conformance"] = {

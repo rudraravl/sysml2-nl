@@ -6,6 +6,7 @@ from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 import hashlib
 import json
+import re
 
 from nl2robotics.contracts.requirement_ir import (
     EXECUTION_MODES,
@@ -62,6 +63,7 @@ class RequirementNormalizer:
         prompt = _normalization_prompt(source_text, task_id, execution_mode)
         attempts: list[dict] = []
         issues: list[NormalizationIssue] = []
+        previous_candidate: dict | None = None
 
         for attempt in range(max_repairs + 1):
             response = ask(prompt)
@@ -76,6 +78,9 @@ class RequirementNormalizer:
             except (json.JSONDecodeError, ValueError) as exc:
                 issues = [NormalizationIssue("invalid_json", str(exc))]
             else:
+                preserved_fields = _preserve_unrelated_valid_fields(
+                    previous_candidate, candidate, issues
+                )
                 candidate["schema_version"] = "1.0"
                 candidate["task_id"] = task_id
                 candidate["source_text"] = source_text
@@ -91,9 +96,11 @@ class RequirementNormalizer:
                     **provenance,
                     "valid": not issues,
                     "issues": [asdict(item) for item in issues],
+                    "preserved_fields": preserved_fields,
                 })
                 if not issues:
                     return NormalizationResult(task_id, candidate, [], attempts)
+                previous_candidate = candidate
 
             if len(attempts) <= attempt:
                 attempts.append({
@@ -127,6 +134,86 @@ def _parse_json_object(response: str) -> dict:
     if not isinstance(data, dict):
         raise ValueError("normalizer JSON root must be an object")
     return data
+
+
+def _preserve_unrelated_valid_fields(
+    previous: dict | None,
+    candidate: dict,
+    repair_issues: list[NormalizationIssue],
+) -> list[str]:
+    """Keep valid IR collections that a scoped repair had no reason to rewrite.
+
+    The repair prompt contains exact diagnostics, so changing an unrelated
+    grounded collection is never required.  Cross-reference diagnostics permit
+    the referenced collection to change as well as the collection named by the
+    diagnostic path.
+    """
+    if not isinstance(previous, dict):
+        return []
+    mutable = set()
+    targeted_indices: dict[str, set[int]] = {}
+    for item in repair_issues:
+        match = re.match(r"^\$\.([A-Za-z_][A-Za-z0-9_]*)(?:\[(\d+)\])?", item.path)
+        if not match:
+            continue
+        collection, index = match.groups()
+        mutable.add(collection)
+        if index is not None:
+            targeted_indices.setdefault(collection, set()).add(int(index))
+    reference_dependencies = {
+        "unknown_state_reference": {"dynamics", "interfaces"},
+        "unobservable_property_state": {"interfaces"},
+        "unknown_interface_reference": {"interfaces"},
+        "unknown_joint_reference": {"joints"},
+        "unknown_entity_reference": {"entities"},
+        "unknown_sensor_reference": {"sensors"},
+    }
+    for item in repair_issues:
+        mutable.update(reference_dependencies.get(item.code, set()))
+    if "joints" in mutable:
+        mutable.update({"controllers", "actuators", "interfaces", "parameters"})
+    if "dynamics" in mutable:
+        mutable.update({"interfaces", "properties"})
+    if "interfaces" in mutable and any(
+        item.code in {"unknown_interface_reference", "unobservable_property_state"}
+        for item in repair_issues
+    ):
+        mutable.add("properties")
+
+    preserved = []
+    for collection in RECORD_COLLECTIONS:
+        old_value = previous.get(collection)
+        new_value = candidate.get(collection)
+        if (collection not in mutable and isinstance(old_value, list)
+                and new_value != old_value):
+            candidate[collection] = old_value
+            preserved.append(collection)
+        elif (collection in targeted_indices and isinstance(old_value, list)
+              and isinstance(new_value, list)):
+            # Only records named by diagnostics may be rewritten.  This keeps
+            # a property-bound repair from silently retargeting another
+            # property while still allowing an invalid grounded record to be
+            # corrected or omitted.
+            selected = targeted_indices[collection]
+            replacements = {
+                item.get("id"): item for item in new_value
+                if isinstance(item, dict) and isinstance(item.get("id"), str)
+            }
+            merged = []
+            for index, old_record in enumerate(old_value):
+                if index not in selected:
+                    merged.append(old_record)
+                    continue
+                old_id = old_record.get("id") if isinstance(old_record, dict) else None
+                replacement = replacements.get(old_id)
+                if replacement is not None:
+                    merged.append(replacement)
+                elif old_id is None and index < len(new_value):
+                    merged.append(new_value[index])
+            if merged != new_value:
+                candidate[collection] = merged
+                preserved.append(f"{collection}:non_diagnostic_records")
+    return preserved
 
 
 def _normalization_prompt(source_text: str, task_id: str,
@@ -412,6 +499,9 @@ interface with the exact same state_id. An explicit no-collision/no-contact
 requirement may be represented by a dimensionless contact interface and an
 always-property with upper bound 0.
 
+The root `dynamics` field MUST remain a JSON array of dynamics records, exactly
+like `"dynamics": [{{"id": "...", "owner": "...", "states": ["..."]}}]`;
+never replace that root array with an object. Within each record,
 `dynamics.states` must remain a flat list of state-id strings, never a list of
 objects. Each joint requires grounded existing parent and child entities; if an
 endpoint is unstated, omit the dangling joint and record the missing topology in

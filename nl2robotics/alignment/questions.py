@@ -51,10 +51,12 @@ def instantiate_questions(requirement_ir: dict) -> list[FocusedQuestion]:
         ))
     clock = requirement_ir.get("clock")
     if isinstance(clock, dict):
-        expected = _select(clock, "start_time", "stop_time", "frequency_hz")
+        expected = _select(
+            clock, "start_time", "stop_time", "duration", "frequency_hz"
+        )
         questions.append(_question(
             "timing", "clock", "cross_profile", clock,
-            "Do the artifacts use the required simulation start, stop, and frequency?",
+            "Does the contract preserve the grounded simulation time form and frequency?",
             expected,
         ))
 

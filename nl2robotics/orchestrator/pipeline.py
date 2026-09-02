@@ -213,22 +213,110 @@ class RoboticsOrchestrator:
                 modelica_report.get("passed") is True
                 and openusd_report.get("passed") is True
             )
+            capability_evidence = _capability_evidence(
+                plan, report, openusd_report, pair_passed=pair_passed
+            )
             if enable_alignment and pair_passed:
                 alignment = self.alignment_evaluator.evaluate(
                     plan.requirement_ir,
                     modelica=modelica,
                     openusd=openusd,
                     contract=plan.contract,
-                    hybrid_report={
-                        "contract": {},
-                        "properties": [],
-                        "capabilities": report,
-                    },
+                    hybrid_report=capability_evidence,
                     ask=alignment_ask,
                 )
             else:
                 alignment = _skipped_alignment(plan.task_id)
+            repair_report = None
+            if (enable_alignment and pair_passed
+                    and semantic_repair_ask is not None
+                    and max_semantic_repairs > 0
+                    and alignment["summary"]["blocking_violations"] > 0):
+                baseline = {
+                    "modelica": modelica,
+                    "openusd": openusd,
+                    "modelica_passed": True,
+                    "openusd_passed": True,
+                    "hybrid": capability_evidence,
+                    "alignment": alignment,
+                }
+
+                def evaluate_candidate(
+                    candidate_modelica: str,
+                    candidate_openusd: str,
+                    attempt: int,
+                ) -> dict:
+                    attempt_dir = output_dir / "semantic-repair" / f"attempt-{attempt}"
+                    model_report = self.modelica_pipeline.refine_layer1(
+                        plan.modelica_requirement,
+                        candidate_modelica,
+                        semantic_repair_ask,
+                        hits=[], max_repairs=0,
+                        output_dir=attempt_dir / "modelica-validation",
+                    )
+                    usd_report = self.openusd_pipeline.refine(
+                        plan.openusd_requirement,
+                        candidate_openusd,
+                        semantic_repair_ask,
+                        hits=[], max_repairs=0,
+                        output_dir=attempt_dir / "openusd-validation",
+                    )
+                    model_passed = model_report.get("passed") is True
+                    usd_passed = usd_report.get("passed") is True
+                    candidate_evidence = _capability_evidence(
+                        plan, report, usd_report,
+                        pair_passed=model_passed and usd_passed,
+                    )
+                    if model_passed and usd_passed:
+                        candidate_alignment = self.alignment_evaluator.evaluate(
+                            plan.requirement_ir,
+                            modelica=candidate_modelica,
+                            openusd=candidate_openusd,
+                            contract=plan.contract,
+                            hybrid_report=candidate_evidence,
+                            ask=alignment_ask,
+                        )
+                    else:
+                        candidate_alignment = {
+                            "passed": False,
+                            "summary": {"blocking_violations": 1},
+                            "repair_plan": {"actions": []},
+                        }
+                    _write_json(attempt_dir / "modelica-validation.json", model_report)
+                    _write_json(attempt_dir / "openusd-validation.json", usd_report)
+                    _write_json(attempt_dir / "alignment.json", candidate_alignment)
+                    return {
+                        "modelica": candidate_modelica,
+                        "openusd": candidate_openusd,
+                        "modelica_passed": model_passed,
+                        "openusd_passed": usd_passed,
+                        "hybrid": candidate_evidence,
+                        "alignment": candidate_alignment,
+                    }
+
+                repair_report = guarded_semantic_repair(
+                    baseline,
+                    semantic_repair_ask,
+                    evaluate_candidate,
+                    max_repairs=max_semantic_repairs,
+                )
+                final_candidate = repair_report["final"]
+                if repair_report["repairs_accepted"]:
+                    modelica = final_candidate["modelica"]
+                    openusd = final_candidate["openusd"]
+                    alignment = final_candidate["alignment"]
+                    (modelica_dir / "model.mo").write_text(
+                        modelica, encoding="utf-8"
+                    )
+                    source_usd.write_text(openusd, encoding="utf-8")
+                _write_json(output_dir / "semantic-repair.json", repair_report)
             _write_json(output_dir / "alignment.json", alignment)
+            if repair_report is not None:
+                result["semantic_repair"] = {
+                    "report": "semantic-repair.json",
+                    "attempted": repair_report["repairs_attempted"],
+                    "accepted": repair_report["repairs_accepted"],
+                }
             result["alignment"] = {
                 "enabled": enable_alignment,
                 "passed": alignment["passed"],
@@ -726,6 +814,37 @@ def _skipped_alignment(task_id: str) -> dict:
             "per_family": {},
         },
         "repair_plan": {"actions": []},
+    }
+
+
+def _capability_evidence(plan: CapabilityPlan, report: dict,
+                         openusd_report: dict, *, pair_passed: bool) -> dict:
+    """Expose native validator evidence to broad semantic alignment.
+
+    Capability runs do not have an executable FMU/USD contract report, but the
+    OpenUSD generation stage already produced authoritative semantic evidence.
+    The native evidence is intentionally kept outside ``contract``: broad
+    capability artifacts have no executable FMU/USD mappings, and presenting
+    them as an executable contract would turn unavailable runtime evidence into
+    false deterministic violations.
+    """
+    validation = {}
+    for attempt in openusd_report.get("attempts", []):
+        if attempt.get("accepted_as_best") is True:
+            validation = attempt.get("validation", {})
+    openusd_evidence = {
+        **validation.get("evidence", {}),
+        "success": validation.get("success") is True,
+        "metadata": validation.get("metadata", {}),
+        "counts": validation.get("counts", {}),
+    }
+    return {
+        "passed": pair_passed,
+        "contract": {},
+        "native_openusd": openusd_evidence,
+        "properties": [],
+        "capabilities": report,
+        "contract_kind": plan.contract.get("contract_kind"),
     }
 
 

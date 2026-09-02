@@ -134,6 +134,42 @@ class NormalizerTests(unittest.TestCase):
             prompts[1],
         )
 
+    def test_scoped_repair_preserves_unrelated_valid_dynamics_list(self):
+        source = "Report speed below 8 m/s for 2 s at 50 Hz."
+        candidate = {
+            "schema_version": "1.0", "task_id": "RCB-SCOPED",
+            "source_text": source, "execution_mode": "capability_tiered",
+            "clock": {"duration": 2.0, "frequency_hz": 50.0,
+                      "evidence": ["for 2 s at 50 Hz"]},
+            "dynamics": [{"id": "motion", "owner": "usd_physics",
+                          "states": ["speed"], "evidence": ["Report speed"]}],
+            "interfaces": [{"id": "speed_feedback", "state_id": "speed",
+                            "quantity": "velocity", "direction": "usd_to_fmu",
+                            "source_unit": "m/s", "evidence": ["speed"]}],
+            "properties": [{"id": "speed_bound", "kind": "always",
+                            "interface_id": "speed_feedback",
+                            "evidence": ["speed below 8 m/s"]}],
+        }
+        repaired = deepcopy(candidate)
+        repaired["properties"][0]["upper"] = 8.0
+        repaired["dynamics"] = repaired["dynamics"][0]
+        repaired["interfaces"].append({
+            "id": "hallucinated_tracking_error",
+            "state_id": "tracking.cross_track_error",
+            "quantity": "custom", "direction": "usd_to_fmu",
+            "source_unit": "m", "evidence": ["Report speed"],
+        })
+        responses = iter((json.dumps(candidate), json.dumps(repaired)))
+        result = RequirementNormalizer().normalize(
+            source, lambda _: next(responses), task_id="RCB-SCOPED",
+            execution_mode="capability_tiered", max_repairs=1,
+        )
+        self.assertTrue(result.success, result.to_dict())
+        self.assertIsInstance(result.ir["dynamics"], list)
+        self.assertIn("dynamics", result.attempts[1]["preserved_fields"])
+        self.assertIn("interfaces", result.attempts[1]["preserved_fields"])
+        self.assertEqual(candidate["interfaces"], result.ir["interfaces"])
+
 
 class PlannerTests(unittest.TestCase):
     def test_plan_derives_exact_cross_profile_identifiers(self):
@@ -323,6 +359,104 @@ class PlannerTests(unittest.TestCase):
 
 
 class OrchestratorTests(unittest.TestCase):
+    def test_capability_alignment_receives_validator_evidence_and_repairs(self):
+        source = "Create a 2 kg box robot under gravity 9.81 m/s2 for 2 s at 50 Hz."
+        ir = {
+            "schema_version": "1.0", "task_id": "RCAP",
+            "source_text": source, "execution_mode": "capability_tiered",
+            "clock": {"duration": 2.0, "frequency_hz": 50.0,
+                      "evidence": ["for 2 s at 50 Hz"]},
+            "domains": [],
+            "entities": [{"id": "robot", "kind": "rigid_link", "shape": "box",
+                          "mass": 2.0, "mass_unit": "kg",
+                          "evidence": ["2 kg box robot"]}],
+            "joints": [], "parameters": [], "dynamics": [],
+            "controllers": [], "actuators": [], "sensors": [],
+            "environment": [{"id": "gravity", "kind": "gravity",
+                             "magnitude": 9.81, "unit": "m/s2",
+                             "evidence": ["gravity 9.81 m/s2"]}],
+            "interfaces": [], "properties": [], "assumptions": [],
+            "unknowns": [],
+        }
+
+        def usd_report(code):
+            fixed = "PhysicsScene" in code
+            return {
+                "passed": True, "repairs": 0, "final_openusd": code,
+                "attempts": [{
+                    "accepted_as_best": True,
+                    "validation": {
+                        "success": True,
+                        "evidence": {"physics_scene_details": ([{
+                            "path": "/World/PhysicsScene",
+                            "gravity_magnitude": 9.81,
+                        }] if fixed else [])},
+                        "metadata": {}, "counts": {},
+                    },
+                }],
+            }
+
+        class ModelicaValidation:
+            def refine_layer1(self, requirement, candidate, repair, **kwargs):
+                return {"passed": True, "final_modelica": candidate, "repairs": 0}
+
+        class USDValidation:
+            def refine(self, requirement, candidate, repair, **kwargs):
+                return usd_report(candidate)
+
+        class Alignment:
+            def evaluate(self, requirement_ir, *, openusd, hybrid_report, **kwargs):
+                details = hybrid_report["native_openusd"][
+                    "physics_scene_details"
+                ]
+                fixed = bool(details) and "PhysicsScene" in openusd
+                return {
+                    "passed": fixed,
+                    "summary": {
+                        "blocking_violations": 0 if fixed else 1,
+                        "weighted_semantic_score": 1.0 if fixed else 0.5,
+                        "evidence_coverage": 1.0,
+                        "question_count": 1,
+                        "counts": {"satisfied": int(fixed),
+                                   "violated": int(not fixed),
+                                   "unknown": 0, "not_applicable": 0},
+                        "deterministic_violations": int(not fixed),
+                        "per_family": {"environment": 1.0 if fixed else 0.0},
+                    },
+                    "repair_plan": {"actions": ([] if fixed else [{
+                        "owner": "openusd",
+                        "violations": [{
+                            "qid": "Q-GRAVITY", "family": "environment",
+                            "text": "Author PhysicsScene",
+                            "expected": {"magnitude": 9.81},
+                            "diagnostic": "missing PhysicsScene",
+                        }],
+                    }])},
+                }
+
+        bad_usd = '#usda 1.0\ndef Xform "World" {}'
+        good_usd = '#usda 1.0\ndef PhysicsScene "PhysicsScene" {}'
+        with tempfile.TemporaryDirectory() as tmp:
+            pipeline = RoboticsOrchestrator(
+                modelica_pipeline=ModelicaValidation(),
+                openusd_pipeline=USDValidation(),
+                modelica_generator=lambda requirement, output: (
+                    "model RobotTask_RCAP end RobotTask_RCAP;",
+                    {"passed": True, "repairs": 0},
+                ),
+                openusd_generator=lambda requirement, output: (
+                    bad_usd, usd_report(bad_usd),
+                ),
+                alignment_evaluator=Alignment(),
+            )
+            result = pipeline.run(
+                source, lambda _: json.dumps(ir), output_dir=Path(tmp),
+                task_id="RCAP", execution_mode="capability_tiered",
+                max_ir_repairs=0, semantic_repair_ask=lambda _: good_usd,
+            )
+        self.assertTrue(result["passed"], result)
+        self.assertEqual(1, result["semantic_repair"]["accepted"])
+
     def test_one_plan_drives_both_generators_and_h1(self):
         ir = oracle_ir()
         calls = {}

@@ -21,7 +21,10 @@ class AlignmentContext:
 
     @property
     def openusd(self) -> dict:
-        return self.contract_report.get("openusd", {})
+        return (
+            self.contract_report.get("openusd", {})
+            or self.hybrid_report.get("native_openusd", {})
+        )
 
     @property
     def resolved_mappings(self) -> list[dict]:
@@ -177,16 +180,16 @@ def _clock_answer(question: FocusedQuestion, ir: dict,
         return _answer("violated", "contract is missing the required clock",
                        blocking=True, repair_eligible=True)
     try:
-        actual = {
-            "start_time": float(clock["start_time"]),
-            "stop_time": float(clock["stop_time"]),
-            "frequency_hz": 1.0 / float(clock["step_size"]),
-        }
         expected = {
             key: float(required[key])
-            for key in ("start_time", "stop_time", "frequency_hz")
+            for key in ("start_time", "stop_time", "duration", "frequency_hz")
+            if key in required
         }
+        actual = _normalized_clock(clock, expected)
     except (KeyError, TypeError, ValueError, ZeroDivisionError):
+        return _answer("violated", "contract clock is incomplete or non-numeric",
+                       blocking=True, repair_eligible=True)
+    if not expected or set(actual) != set(expected):
         return _answer("violated", "contract clock is incomplete or non-numeric",
                        blocking=True, repair_eligible=True)
     if all(math.isclose(actual[key], expected[key], rel_tol=0.0, abs_tol=1e-9)
@@ -196,6 +199,27 @@ def _clock_answer(question: FocusedQuestion, ir: dict,
         "violated", f"required clock {expected}, found {actual}",
         blocking=True, repair_eligible=True,
     )
+
+
+def _normalized_clock(clock: dict, expected: dict) -> dict:
+    actual = {}
+    if "start_time" in expected:
+        actual["start_time"] = float(clock["start_time"])
+    if "stop_time" in expected:
+        actual["stop_time"] = float(clock["stop_time"])
+    if "duration" in expected:
+        if "duration" in clock:
+            actual["duration"] = float(clock["duration"])
+        else:
+            actual["duration"] = (
+                float(clock["stop_time"]) - float(clock["start_time"])
+            )
+    if "frequency_hz" in expected:
+        if "frequency_hz" in clock:
+            actual["frequency_hz"] = float(clock["frequency_hz"])
+        else:
+            actual["frequency_hz"] = 1.0 / float(clock["step_size"])
+    return actual
 
 
 def _property_answer(question: FocusedQuestion,
@@ -601,7 +625,8 @@ def _environment_answer(question: FocusedQuestion,
         isinstance(actual_direction, list) and len(actual_direction) == len(direction)
         and all(_close(left, right) for left, right in zip(actual_direction, direction))
     )
-    if _close(actual, required) and direction_matches:
+    magnitude_matches = required is None or _close(actual, required)
+    if magnitude_matches and direction_matches:
         return _answer("satisfied", f"OpenUSD gravity magnitude is {actual} m/s2")
     return _answer(
         "violated", f"required gravity {required} m/s2, found {actual} m/s2",
