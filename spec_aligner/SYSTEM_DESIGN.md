@@ -134,3 +134,53 @@ code uses stub answers, so it does not validate real LLM answer accuracy. Before
 claiming an evaluation result in the paper, keep a hand-labeled golden set and run
 real perturbations such as deleting a connection, changing a bound, reversing a
 flow, removing a required part, and renaming or redirecting a state transition.
+
+## Multi-language banks (SysML v2 and Solidity)
+
+The aligner is language-parameterized. A bank declares its own model side:
+
+```json
+"language": {"id": "solidity", "label": "Solidity smart contract source",
+             "display": "Solidity", "fence": "solidity", "artifact_noun": "contract"}
+```
+
+Banks written before this block existed default to SysML, so `questions.json`,
+its reports, and every existing consumer are unchanged — the model-side answer
+key stays `sysml` there and becomes `solidity` in the Solidity bank.
+
+`language.id` selects: the answerer prompt's document label and code fence, the
+model-side worldview (`model_answerer_worldview`, falling back to
+`sysml_answerer_worldview`), the origin vocabulary given to the question writer,
+the answer-set key in `score`/`report` (`data["model_key"]`), and the wording of
+`build_repair_prompt` — which previously asked for "corrected SysML v2 text"
+regardless of what was being repaired.
+
+Select a bank with `compare_pair(..., bank_path=...)`, or `--language solidity`
+on the CLI. `nl2solidity/quality_gate.py` defaults to the Solidity bank.
+
+### Solidity bank
+
+`questions_solidity.json` — 45 universal questions, 36 templates, 3 distractors.
+Category coverage follows construct frequency measured over the 1500 contracts in
+`nl2solidity/dataset` (function 94.5%, view/pure 79.4%, state variable 71.1%,
+require/revert 65.1%, inheritance 55.1%, constructor 46.2%, external call 31.7%,
+event 30.0%, payable 26.4%, time 18.2%, access control 17.7%, upgradeable 13.8%),
+the same way the SysML bank's weights came from its 1935 gold models.
+
+Categories: global (canary), interface, state, access, value, accounting, events,
+validation, lifecycle, composition, time, safety, classification. `U-GLB-01` is
+kept as the domain-canary id because `score.py` special-cases it.
+
+Two Solidity-specific rules carry most of the semantic weight:
+
+- **Inheritance counts.** `contract X is ERC20, Ownable` provides `transfer` and
+  owner-gated access even though those bodies are not in the file. Corpus samples
+  are single files without their imports, so the closed-world answerer is told to
+  judge the deployed contract including what it inherits, from the base names.
+- **Permission, failure, and value are read semantically**, not lexically: a
+  modifier, an explicit `msg.sender` check, or an inherited access-control base
+  all count as restricting a function; `require`, `revert CustomError()`, and a
+  reverting modifier all count as rejecting invalid input.
+
+The runtime profile names its 11 questions in `profiles.runtime.universal_ids`
+rather than the hardcoded SysML set in `pipeline.py`.

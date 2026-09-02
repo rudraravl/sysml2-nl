@@ -1,0 +1,27 @@
+Solidity <-> Natural Language Alignment Dataset - Licensing
+===========================================================
+
+Two layers of rights apply to this dataset.
+
+1. Dataset packaging and natural-language descriptions
+   The manifest, metadata, curation scripts, and every generated `<id>.txt`
+   description are released under Creative Commons Attribution 4.0 International
+   (CC BY 4.0): https://creativecommons.org/licenses/by/4.0/
+
+2. Solidity sources (`<id>.sol`)
+   Each contract is redistributed under the license of its upstream project.
+   The per-sample license is recorded in `data/<id>/meta.json` (`license`) and
+   in `index/manifest.jsonl`, together with the upstream repository URL and the
+   exact commit in `source.provenance` / `source.version`.
+
+   Licenses present in this corpus include MIT, AGPL-3.0, LGPL-3.0,
+   GPL-2.0-or-later, and BUSL-1.1. BUSL-1.1 sources (Uniswap v3 core, Aave v3)
+   carry use restrictions until their stated change date; consult the upstream
+   repository before any production use.
+
+   Samples in the `verified` split are Etherscan-verified on-chain sources
+   mirrored via Smart Contract Sanctuary. Their license is whatever the deployer
+   declared in the SPDX header of the deployed source (often none), so they are
+   marked `unknown` and are included for research use only.
+
+Attribution for each sample is carried in `meta.json.source.attribution`.

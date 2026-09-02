@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import json
 
-from .bank import template_index
+from .bank import language, template_index
 from .jsonx import extract_json
 
 
-SOURCE_MODES = {"nl", "sysml", "both"}
+SOURCE_MODES = {"nl", "sysml", "solidity", "model", "both"}
 SOURCE_DEPENDENT_RULES = {
     "anchors",
     "distractor_verification",
@@ -30,7 +30,10 @@ def instantiate(bank: dict, nl: str, sysml: str, sample_id: str, ask, *,
     items = data.get("questions", data) if isinstance(data, dict) else data
     if not isinstance(items, list):
         raise ValueError("question writer did not return a list")
-    allowed = {source_mode} if source_mode != "both" else {"nl", "sysml", "both"}
+    lang_id = language(bank)["id"]
+    model_modes = {"sysml", "solidity", "model", lang_id}
+    origin = lang_id if source_mode in model_modes else source_mode
+    allowed = {origin} if source_mode != "both" else {"nl", lang_id, "both"}
     return validate_instances(items, bank, nl, sysml, sample_id,
                               cap=max_questions, allowed_origins=allowed,
                               allow_distractors=source_mode == "both")
@@ -40,6 +43,7 @@ def writer_prompt(bank: dict, nl: str, sysml: str, sample_id: str, *,
                   source_mode: str = "both", min_questions: int | None = None,
                   max_questions: int | None = None) -> str:
     rules = bank["instantiation_rules"]
+    lang = language(bank)
     if source_mode not in SOURCE_MODES:
         raise ValueError(f"unknown question source mode: {source_mode}")
     target = rules["target_instance_count"]
@@ -50,16 +54,19 @@ def writer_prompt(bank: dict, nl: str, sysml: str, sample_id: str, *,
 
     if source_mode == "both":
         source_instruction = "Read BOTH documents below, then instantiate questions from the templates:"
-        origin_instruction = "Use origin 'nl', 'sysml', or 'both' according to the supplied rules."
+        origin_instruction = (f"Use origin 'nl', '{lang['id']}', or 'both' according to "
+                              "the supplied rules.")
     elif source_mode == "nl":
         source_instruction = "Read ONLY the natural-language description below and instantiate questions from the templates:"
-        origin_instruction = "Set origin to 'nl' for every non-distractor question. Do not anticipate or infer anything from candidate SysML."
+        origin_instruction = ("Set origin to 'nl' for every non-distractor question. Do not "
+                              f"anticipate or infer anything from candidate {lang['display']}.")
     else:
-        source_instruction = "Read ONLY the SysML v2 model below and instantiate questions from the templates:"
-        origin_instruction = "Set origin to 'sysml' for every non-distractor question."
+        source_instruction = (f"Read ONLY the {lang['label']} below and instantiate "
+                              "questions from the templates:")
+        origin_instruction = f"Set origin to '{lang['id']}' for every non-distractor question."
 
     lines = [
-        "You are a question writer for NL <-> SysML v2 alignment checking.",
+        f"You are a question writer for NL <-> {lang['display']} alignment checking.",
         source_instruction,
         "fill each ⟨slot⟩ with this sample's actual entities, properties, values, states, actions.",
         "",
@@ -74,19 +81,20 @@ def writer_prompt(bank: dict, nl: str, sysml: str, sample_id: str, *,
           if isinstance(val, str)
           and key != "output_id_format"
           and (source_mode == "both" or key not in SOURCE_DEPENDENT_RULES)],
-        *_source_specific_rules(source_mode),
+        *_source_specific_rules(source_mode, lang),
         "- never include 'not_stated' in options (it is appended automatically); never leave a ⟨slot⟩ unfilled.",
         "",
         "## Output",
         'Strict JSON only: {"questions": [{"template_id": str, "text": str, "options": [str, ...],',
-        ' "origin": "nl"|"sysml"|"both"|"fabricated", "slots": {"<slot>": "<value>", ...},',
-        ' "anchors": {"nl_span": str|null, "sysml_lines": [int, int]|null}}]}',
+        f' "origin": "nl"|"{lang["id"]}"|"both"|"fabricated", "slots": {{"<slot>": "<value>", ...}},',
+        f' "anchors": {{"nl_span": str|null, "{lang["id"]}_lines": [int, int]|null}}}}]}}',
         "",
     ]
     if source_mode in ("nl", "both"):
         lines += ["## Document A - natural-language description", nl.strip(), ""]
-    if source_mode in ("sysml", "both"):
-        lines += ["## Document B - SysML v2 model", "```sysml", sysml.strip(), "```"]
+    if source_mode != "nl":
+        lines += [f"## Document B - {lang['label']}",
+                  f"```{lang['fence']}", sysml.strip(), "```"]
     return "\n".join(lines)
 
 
@@ -98,7 +106,8 @@ def _templates_for_source(bank: dict, source_mode: str) -> list[dict]:
             continue
         template = dict(original)
         if source_mode != "both":
-            source = "the natural-language description" if source_mode == "nl" else "the SysML model"
+            source = ("the natural-language description" if source_mode == "nl"
+                      else f"the {language(bank)['display']} {language(bank)['artifact_noun']}")
             for key in ("instantiate_when", "options_rule"):
                 value = template.get(key)
                 if isinstance(value, str):
@@ -110,10 +119,12 @@ def _templates_for_source(bank: dict, source_mode: str) -> list[dict]:
     return templates
 
 
-def _source_specific_rules(source_mode: str) -> list[str]:
+def _source_specific_rules(source_mode: str, lang: dict | None = None) -> list[str]:
     if source_mode == "both":
         return []
-    source = "natural-language description" if source_mode == "nl" else "SysML model"
+    lang = lang or {"display": "SysML", "artifact_noun": "model"}
+    source = ("natural-language description" if source_mode == "nl"
+              else f"{lang['display']} {lang['artifact_noun']}")
     return [
         f"- Harvest named options and anchors only from the {source}.",
         "- Do not instantiate distractor templates in single-source mode.",
@@ -126,7 +137,7 @@ def validate_instances(items: list, bank: dict, nl: str, sysml: str,
                        allow_distractors: bool = True) -> tuple[list[dict], list[dict]]:
     tpl = template_index(bank)
     cap = cap or bank["instantiation_rules"]["target_instance_count"]["max"]
-    allowed_origins = allowed_origins or {"nl", "sysml", "both"}
+    allowed_origins = allowed_origins or {"nl", language(bank)["id"], "both"}
     lo_nl, lo_sys = nl.lower(), sysml.lower()
     kept: list[dict] = []
     rejected: list[dict] = []

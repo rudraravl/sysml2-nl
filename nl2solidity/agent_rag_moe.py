@@ -359,13 +359,21 @@ def _similarity(a: str, b: str) -> float:
     return inter / (len(ta) ** 0.5 * len(tb) ** 0.5)
 
 
-def _collect_examples(root: Path, limit: int = 300) -> List[Tuple[str, str]]:
+_EXAMPLE_CACHE: dict[Path, List[Tuple[str, str]]] = {}
+
+
+def _collect_examples(root: Path, limit: int = 1500) -> List[Tuple[str, str]]:
     """Collect (NL, Solidity) example pairs from dataset/data/<id>/<id>.txt+.sol.
 
-    DANGLING (RAG samples): returns [] until Solidity example pairs are collected
-    under a dataset directory. When empty, _rag_context returns "" and generation
-    proceeds without retrieved examples.
+    The corpus is nl2solidity/dataset (see its README). When the directory is
+    absent, _rag_context returns "" and generation proceeds without retrieved
+    examples. Pairs are cached per root: the whole corpus is scanned so that
+    retrieval can reach the audit-contest and verified splits, not just the
+    reference contracts that sort first.
     """
+    cached = _EXAMPLE_CACHE.get(root)
+    if cached is not None:
+        return cached[:limit]
     pairs = []
     data_dir = root / "nl2solidity" / "dataset" / "data"
     if not data_dir.exists():
@@ -382,6 +390,7 @@ def _collect_examples(root: Path, limit: int = 300) -> List[Tuple[str, str]]:
                 pairs.append((txt, code))
                 if len(pairs) >= limit:
                     break
+    _EXAMPLE_CACHE[root] = pairs
     return pairs
 
 

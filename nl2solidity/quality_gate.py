@@ -4,12 +4,14 @@ Retargeted from nl2sysml/quality_gate.py. The semantic-alignment machinery in
 ``spec_aligner`` is reused as-is; that package is where smart-contract-specific
 spec matching should be tuned (question bank, thresholds, profiles).
 
-============================== TWEAKABLE / DANGLING ==============================
-spec_aligner was written for SysML v2. It still runs against Solidity (it is a
-generic NL<->artifact question/answer aligner), but the universal question bank
-and RUNTIME profile IDs are SysML-flavored. Tune spec_aligner (or point this gate
-at a Solidity-specific aligner) for meaningful smart-contract semantics.
-================================================================================
+This gate runs against the Solidity question bank
+(``spec_aligner/questions_solidity.json``): 45 universal questions plus per-sample
+templates covering the contract's callable surface, stored state, access control,
+value handling, events, validation, lifecycle, external dependencies, timing and
+safety. Category coverage follows construct frequency measured over
+nl2solidity/dataset. The bank also selects the model-side language, so answer
+records and mismatches are keyed ``solidity`` and repair prompts ask for Solidity
+source. Override with ``alignment_kwargs={"bank_path": ...}``.
 
 Generation's preferred ordering is handled outside this module:
   MoE synthesis -> solc refine -> execution refine -> semantic align (this gate).
@@ -28,6 +30,7 @@ import tempfile
 from dataclasses import asdict, is_dataclass
 from typing import Any, Callable
 
+from spec_aligner.bank import SOLIDITY_BANK_PATH
 from spec_aligner.feedback import build_repair_prompt, needs_repair
 from spec_aligner.pipeline import compare_pair
 
@@ -51,7 +54,7 @@ def run_quality_gate(nl: str, solidity: str, ask: Callable[[str], str], *,
     if max_repairs < 0:
         raise ValueError("max_repairs must be non-negative")
 
-    kwargs = {"profile": "runtime", "shards": 3}
+    kwargs = {"profile": "runtime", "shards": 3, "bank_path": SOLIDITY_BANK_PATH}
     kwargs.update(alignment_kwargs or {})
     kwargs.setdefault("sample_id", f"runtime-{hashlib.sha1(nl.encode()).hexdigest()[:12]}")
     temporary_cache = None

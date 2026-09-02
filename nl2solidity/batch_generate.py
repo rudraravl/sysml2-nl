@@ -8,7 +8,13 @@ framework; the target artifact is a Solidity `.sol` file instead of `.sysml`.
 By default, generation prompts come from the richer NL text in
 nl2solidity/dataset/data/XXXXXX/XXXXXX.txt (linked via meta.json source_path
 sol_seed.jsonl:U###). Seed IDs and output folders stay U### for resume
-compatibility. Use --prompt-source seed to fall back to short seeds.
+compatibility.
+
+Prompts default to --prompt-source seed_long: the rich per-seed specification in
+sol_seed.jsonl (description_long), written by nl2solidity/enrich_seeds.py from the
+external DefiLlama catalog. The one-line seeds (--prompt-source seed) state too few
+facts for twin-blind alignment to score - similarity collapses onto the
+extra_in_model credit - so they are no longer the default.
 
 Saves under nl2solidity/dataset/with_kernel_spec/ with the same structure as
 nl2solidity/dataset/data/.
@@ -27,6 +33,7 @@ import json
 import socket
 import sys
 import os
+import signal
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -34,9 +41,19 @@ from pathlib import Path
 from datetime import datetime
 from typing import Dict, Any, List, Optional, Tuple
 
-# A claim left behind by a crashed run is reclaimable after this long.
-CLAIM_STALE_SEC = float(os.getenv("BATCH_CLAIM_STALE_SEC", "7200"))
+# A claim left behind by a crashed run is reclaimable after this long. Live
+# claims are touched by the heartbeat thread every CLAIM_HEARTBEAT_SEC, so this
+# only has to exceed the heartbeat by a wide margin - not the longest entry.
+# It matters on a cluster: after a walltime kill the next job usually lands on a
+# different node, where the owner-pid liveness check cannot be applied, so the
+# age of the claim is the only signal left.
+CLAIM_STALE_SEC = float(os.getenv("BATCH_CLAIM_STALE_SEC", "900"))
+CLAIM_HEARTBEAT_SEC = float(os.getenv("BATCH_CLAIM_HEARTBEAT_SEC", "60"))
 CLAIM_DIRNAME = ".claim"
+
+# Claims held by this process, kept fresh by the heartbeat thread.
+_held_claims: set = set()
+_held_lock = threading.Lock()
 
 
 def load_rich_nl_by_seed_id(dataset_data_dir: Path) -> Dict[str, Dict[str, Any]]:
@@ -89,9 +106,24 @@ def resolve_entry_prompt(
     """
     entry_id = str(entry.get("id", "UNKNOWN")).strip() or "UNKNOWN"
     seed_description = str(entry.get("description") or "").strip()
+    seed_long = str(entry.get("description_long") or "").strip()
     rich = rich_nl.get(entry_id)
 
     out = dict(entry)
+    if prompt_source == "seed_long":
+        # Rich seed spec (nl2solidity/enrich_seeds.py): grounded in the external
+        # DefiLlama catalog, never in the RAG corpus or in generated output, so it
+        # introduces neither retrieval leakage nor circularity. Falls back to the
+        # one-line seed only when a seed was never enriched.
+        if seed_long:
+            out["description"] = seed_long
+            out["nl_prompt_source"] = "sol_seed_long"
+        else:
+            out["description"] = seed_description
+            out["nl_prompt_source"] = "sol_seed_short_fallback"
+        out["nl_source_path"] = f"sol_seed.jsonl:{entry_id}"
+        return out
+
     if prompt_source == "seed":
         out["description"] = seed_description
         out["nl_prompt_source"] = "sol_seed"
@@ -451,11 +483,52 @@ def claim_entry(entry_dir: Path, stale_after_sec: float = CLAIM_STALE_SEC) -> bo
         os.utime(claim_dir, None)
     except OSError:
         pass
+    with _held_lock:
+        _held_claims.add(claim_dir)
     return True
+
+
+def start_claim_heartbeat(stop_event: "threading.Event") -> threading.Thread:
+    """Touch every claim this process holds, so a live entry is never reclaimed.
+
+    Without this, a claim's mtime is set once and a long entry looks abandoned;
+    with it, only a dead process's claims age out.
+    """
+    def beat():
+        while not stop_event.wait(CLAIM_HEARTBEAT_SEC):
+            with _held_lock:
+                held = list(_held_claims)
+            for claim_dir in held:
+                try:
+                    os.utime(claim_dir, None)
+                except OSError:
+                    pass
+    thread = threading.Thread(target=beat, name="claim-heartbeat", daemon=True)
+    thread.start()
+    return thread
+
+
+def release_all_claims() -> int:
+    """Drop every claim this process holds (best effort, for signal shutdown)."""
+    with _held_lock:
+        held = list(_held_claims)
+    freed = 0
+    for claim_dir in held:
+        try:
+            (claim_dir / "owner.json").unlink(missing_ok=True)
+            claim_dir.rmdir()
+            freed += 1
+        except OSError:
+            pass
+        with _held_lock:
+            _held_claims.discard(claim_dir)
+    return freed
 
 
 def release_claim(entry_dir: Path) -> None:
     claim_dir = entry_dir / CLAIM_DIRNAME
+    with _held_lock:
+        _held_claims.discard(claim_dir)
     try:
         (claim_dir / "owner.json").unlink()
     except OSError:
@@ -768,6 +841,24 @@ def generate_batch(
                         )
 
     interrupted = False
+
+    # SLURM sends SIGTERM at walltime (and on scancel). Drain like Ctrl-C so the
+    # per-entry `finally` releases claims instead of stranding them on a node the
+    # next job will not recognise.
+    def _on_term(signum, _frame):
+        if not stop_event.is_set():
+            log(f"Received signal {signum}: no new entries; "
+                "finishing in-flight work and releasing claims", "WARNING")
+            stop_event.set()
+    for _sig in (signal.SIGTERM, signal.SIGUSR1):
+        try:
+            signal.signal(_sig, _on_term)
+        except (ValueError, AttributeError, OSError):
+            pass   # not the main thread, or signal unavailable
+
+    heartbeat_stop = threading.Event()
+    start_claim_heartbeat(heartbeat_stop)
+
     if routed_stdout is not None:
         sys.stdout = routed_stdout  # type: ignore[assignment]
     pool = ThreadPoolExecutor(max_workers=workers)
@@ -796,6 +887,10 @@ def generate_batch(
         if routed_stdout is not None:
             sys.stdout = real_stdout
         pool.shutdown(wait=True)
+        heartbeat_stop.set()
+        stranded = release_all_claims()
+        if stranded:
+            log(f"Released {stranded} claim(s) still held at shutdown", "WARNING")
 
     if usage_limit:
         print("\n" + "=" * 70)
@@ -862,8 +957,9 @@ def main():
 
     parser = argparse.ArgumentParser(
         description=(
-            "Batch generate NL-Solidity pairs. Prompts default to rich NL from "
-            "nl2solidity/dataset/data/XXXXXX/XXXXXX.txt (seed order from sol_seed.jsonl)."
+            "Batch generate NL-Solidity pairs. Prompts default to the rich seed "
+            "specification (description_long in sol_seed.jsonl), which is grounded in "
+            "the external DefiLlama catalog rather than the RAG corpus."
         )
     )
     parser.add_argument(
@@ -897,11 +993,13 @@ def main():
     )
     parser.add_argument(
         "--prompt-source",
-        choices=("dataset", "seed"),
-        default="dataset",
+        choices=("seed_long", "dataset", "seed"),
+        default="seed_long",
         help=(
-            "NL prompt source: dataset = nl2solidity/dataset/data/*.txt (default); "
-            "seed = short sol_seed.jsonl descriptions"
+            "NL prompt source: seed_long = rich sol_seed.jsonl description_long "
+            "(default; externally grounded, scorable by the spec aligner); "
+            "seed = the one-line seed description, which is too thin for alignment "
+            "to score; dataset = nl2solidity/dataset/data/*.txt"
         ),
     )
     parser.add_argument(

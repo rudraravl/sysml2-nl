@@ -6,6 +6,31 @@ import json
 from pathlib import Path
 
 BANK_PATH = Path(__file__).parent / "questions.json"
+SOLIDITY_BANK_PATH = Path(__file__).parent / "questions_solidity.json"
+
+# The model side of the twin-blind comparison is a language, not necessarily
+# SysML. A bank may declare its own; banks written before this was introduced
+# are SysML by default, so their reports and answer keys are unchanged.
+DEFAULT_LANGUAGE = {
+    "id": "sysml",
+    "label": "SysML v2 textual model",
+    "display": "SysML",
+    "fence": "sysml",
+    "artifact_noun": "model",
+}
+
+
+def language(bank: dict) -> dict:
+    """The model-side language config: id doubles as the answer-set key."""
+    lang = dict(DEFAULT_LANGUAGE)
+    lang.update(bank.get("language") or {})
+    return lang
+
+
+def origins(bank: dict) -> set[str]:
+    return {"nl", language(bank)["id"], "both"}
+
+
 ORIGINS = {"nl", "sysml", "both"}
 
 
@@ -64,6 +89,15 @@ def validate(bank: dict) -> None:
         assert t["max_instances"] > 0, f"{t['id']}: bad max_instances"
         for slot in t["slots"]:
             assert f"⟨{slot}⟩" in t["pattern"], f"{t['id']}: slot '{slot}' not in pattern"
+
+    lang = language(bank)
+    for key in ("id", "label", "display", "fence", "artifact_noun"):
+        assert lang.get(key), f"language missing '{key}'"
+    proto = bank["answering_protocol"]
+    assert ("model_answerer_worldview" in proto
+            or f"{lang['id']}_answerer_worldview" in proto
+            or "sysml_answerer_worldview" in proto), \
+        "answering_protocol missing a model-side worldview"
 
     sc = bank["scoring"]
     for key in ("aligned", "conflict", "missing_in_model", "unverifiable",

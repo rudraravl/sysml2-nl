@@ -1,0 +1,162 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "id",
+    "split",
+    "paths",
+    "sha256",
+    "sizes",
+    "stats",
+    "labels",
+    "license",
+    "source"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "split": {
+      "enum": [
+        "reference",
+        "audit",
+        "verified",
+        "agent",
+        "all"
+      ]
+    },
+    "paths": {
+      "type": "object",
+      "required": [
+        "solidity",
+        "text",
+        "meta"
+      ],
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "meta": {
+          "type": "string"
+        },
+        "solidity": {
+          "type": "string"
+        }
+      }
+    },
+    "sha256": {
+      "type": "object",
+      "required": [
+        "solidity",
+        "text",
+        "meta"
+      ],
+      "properties": {
+        "text": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "meta": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "solidity": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "sizes": {
+      "type": "object",
+      "required": [
+        "solidity",
+        "text",
+        "meta"
+      ],
+      "properties": {
+        "text": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "meta": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "solidity": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "stats": {
+      "type": "object",
+      "required": [
+        "solidity_lines",
+        "text_tokens",
+        "language"
+      ],
+      "properties": {
+        "text_tokens": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "language": {
+          "type": "string"
+        },
+        "solidity_lines": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "labels": {
+      "type": "object",
+      "properties": {
+        "domain": {
+          "type": "string"
+        },
+        "difficulty": {
+          "enum": [
+            "beginner",
+            "intermediate",
+            "advanced"
+          ]
+        },
+        "quality_tier": {
+          "enum": [
+            "A+",
+            "A",
+            "B",
+            "C"
+          ]
+        }
+      }
+    },
+    "license": {
+      "type": "string"
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "provenance",
+        "timestamp",
+        "version"
+      ],
+      "properties": {
+        "provenance": {
+          "type": "string"
+        },
+        "attribution": {
+          "type": "string"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "version": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

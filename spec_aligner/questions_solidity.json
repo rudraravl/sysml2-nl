@@ -1,0 +1,1245 @@
+{
+ "version": "0.1.0",
+ "name": "Solidity <-> NL alignment question bank",
+ "language": {
+  "id": "solidity",
+  "label": "Solidity smart contract source",
+  "display": "Solidity",
+  "fence": "solidity",
+  "artifact_noun": "contract"
+ },
+ "description": "Twin-blind QA instrument for NL <-> Solidity alignment. Retargeted from the SysML v2 bank (spec_aligner/questions.json) and structured identically: 45 universal questions plus per-sample instantiated templates, answered independently from each modality, scored by answer agreement. Category coverage follows construct frequency measured over the 1500 contracts in nl2solidity/dataset: function 94.5%, view/pure 79.4%, state variable 71.1%, require/revert 65.1%, inheritance 55.1%, constructor 46.2%, event 30.0%, external call 31.7%, payable 26.4%, access control 17.7%, time 18.2%, upgradeable 13.8%.",
+ "option_sets": {
+  "yes_no": [
+   "yes",
+   "no"
+  ],
+  "count_bucket": [
+   "none",
+   "one",
+   "two",
+   "three_to_five",
+   "more_than_five"
+  ],
+  "count_coarse": [
+   "none",
+   "one",
+   "multiple"
+  ],
+  "domain": [
+   "token_or_asset",
+   "exchange_or_trading",
+   "lending_or_credit",
+   "staking_or_rewards",
+   "governance_or_dao",
+   "bridge_or_messaging",
+   "nft_or_collectible",
+   "wallet_or_account",
+   "oracle_or_data",
+   "payments_or_escrow",
+   "game_or_prediction",
+   "insurance_or_risk",
+   "generic_or_abstract",
+   "other"
+  ],
+  "access_model": [
+   "single_owner_or_admin",
+   "role_based",
+   "multisig_or_governance",
+   "contract_or_protocol_only",
+   "open_to_anyone",
+   "other"
+  ],
+  "asset_kind": [
+   "native_currency",
+   "fungible_tokens",
+   "non_fungible_tokens",
+   "multiple_kinds",
+   "none"
+  ],
+  "upgrade_model": [
+   "immutable",
+   "parameters_adjustable",
+   "logic_upgradeable",
+   "replaceable_components",
+   "other"
+  ],
+  "token_standard": [
+   "erc20_fungible",
+   "erc721_nft",
+   "erc1155_multi_token",
+   "erc4626_vault",
+   "other_standard",
+   "none"
+  ]
+ },
+ "answering_protocol": {
+  "not_stated_always_appended": true,
+  "answer_schema": {
+   "qid": "question id",
+   "answer": "exactly one option string (or 'not_stated')",
+   "evidence": "shortest span of the document that justifies the answer; empty iff answer is not_stated",
+   "confidence": "float 0-1"
+  },
+  "nl_answerer_worldview": "OPEN WORLD. The text is a partial description of a smart contract. If a fact is not mentioned, answer not_stated - never infer 'no' from silence. Answer 'no'/'none' only when the text explicitly denies it or clearly implies exclusivity ('only the owner may call', 'the contract holds no funds'). Do not import plausible smart-contract facts the text does not state: most contracts emit events, validate input and restrict admin functions, but unless THIS text says so, answer not_stated. Generic mentions without specifics ('various parameters', 'standard checks', 'the usual safeguards') do NOT establish concrete elements. Non-exhaustive lists ('such as deposit and withdraw') are not exact counts - on count questions, commit only when the text enumerates the complete set. Naming a mechanism is enough to commit that the mechanism exists ('charges a 2% fee' commits a fee); describing a goal is not ('aims to be gas efficient' commits nothing). Closed-world options ('immutable', 'open_to_anyone', 'none') are claims the text must make explicitly; silence means not_stated, never one of these.",
+  "model_answerer_worldview": "CLOSED WORLD. The source is the complete contract. If a construct is absent, answer 'no'/'none' - not not_stated. Reserve not_stated for questions that are genuinely inapplicable or unreadable. Read Solidity semantically, not lexically:\n(1) Visibility decides the external surface: 'public' and 'external' functions are callable by others; 'internal'/'private' are not. Public state variables generate a getter and count as read-only queries.\n(2) INHERITANCE COUNTS. 'contract X is ERC20, Ownable' means X provides transfer, approve, balanceOf and owner-restricted access even though those bodies are not in this file. Answer for the deployed contract as a whole, including what it inherits from named bases and standards. Imports are not shown; judge from the names.\n(3) Permission is expressed by modifiers (onlyOwner, onlyRole, auth), by explicit require/if checks on msg.sender, or by a base contract's access control - all count as restricting a function.\n(4) Failure is expressed by require(...), revert CustomError(), assert, or a modifier that reverts - all count as rejecting invalid input.\n(5) Value handling: 'payable' and msg.value mean native currency is accepted; token.transfer / safeTransfer / _mint move fungible units; ERC721/1155 calls move non-fungible units. address(this).balance means the contract custodies value.\n(6) State is what lives in storage: contract-level variables, mappings and arrays. 'immutable' and 'constant' are set once and never change - they are configuration, not mutable state. Local variables and function arguments are not state.\n(7) Time is block.timestamp, block.number, and any deadline/duration/cliff computed from them.\n(8) Upgradeability: a constructor-only contract with no admin setters is immutable; setter functions make parameters adjustable; Initializable/UUPS/proxy patterns or delegatecall to a stored implementation make logic upgradeable.\n(9) An interface declaration or an abstract contract with no bodies is interface_only, even when it declares many functions.\n(10) A library or abstract base that other contracts inherit is reusable, even if it would never be deployed alone.",
+  "shared_rules": [
+   "Answer from the provided document ONLY; the other modality is never shown.",
+   "Bridge vocabulary: questions use plain functional language; map it to code yourself ('can a user get their deposit back' ~ function withdraw()).",
+   "Every committed answer must carry an evidence span; lazy uniform answers are detectable and rejected.",
+   "Answer all questions independently; do not let one answer bias another.",
+   "Temperature 0; output strict JSON, one record per question.",
+   "'other' means the document states something specific that differs from every listed option; if it states nothing, answer not_stated.",
+   "Options name referents, not exact wordings - choose the option denoting the same thing even when worded differently ('admin' ~ single_owner_or_admin, 'the DAO' ~ multisig_or_governance).",
+   "Numeric equivalence: approximate and exact statements of one quantity are the SAME option ('a 2% cut' matches '200 basis points'; '1 week' matches '604800 seconds').",
+   "Consistency rule: if the document's statement is consistent with a listed option and no option matches better, choose that option - never escape to 'other' or not_stated over wording differences."
+  ],
+  "batching": "per modality the question list is split into N contiguous shards (default 5), each answered by one single-shot LLM call run in parallel; shards are merged before scoring; dependencies are NOT enforced while answering - answer everything, skip logic is applied at scoring time",
+  "nl_answer_caching": "NL-side answers depend only on (sample NL, question set version) - cache and reuse them across every candidate contract for the same requirement (gold, naive, RAG, MoE, ...)."
+ },
+ "universal": [
+  {
+   "id": "U-GLB-01",
+   "category": "global",
+   "text": "What application domain does this contract serve? Choose the PRIMARY purpose, not the implementation technique (a lending market that uses an AMM to liquidate is lending_or_credit, not exchange_or_trading). If it is a general-purpose utility, base contract, or teaching example with no real-world domain, answer generic_or_abstract.",
+   "options_ref": "domain",
+   "depends_on": null,
+   "metamodel_refs": [],
+   "notes": "Canary question: disagreement here means catastrophic misalignment; reported separately."
+  },
+  {
+   "id": "U-GLB-02",
+   "category": "global",
+   "text": "Is this a deployable application contract, a reusable base/library other contracts build on, or an interface declaration only?",
+   "options": [
+    "application_contract",
+    "reusable_base_or_library",
+    "interface_only"
+   ],
+   "depends_on": null,
+   "metamodel_refs": []
+  },
+  {
+   "id": "U-INT-01",
+   "category": "interface",
+   "text": "How many distinct operations can an external caller invoke on this contract? Count externally callable operations, including any inherited from a stated base contract; do not count internal helpers.",
+   "options_ref": "count_bucket",
+   "depends_on": null,
+   "metamodel_refs": [
+    "function",
+    "external",
+    "public"
+   ]
+  },
+  {
+   "id": "U-INT-02",
+   "category": "interface",
+   "text": "Does the contract offer read-only queries that return information without changing anything?",
+   "options_ref": "yes_no",
+   "depends_on": null,
+   "metamodel_refs": [
+    "view",
+    "pure"
+   ]
+  },
+  {
+   "id": "U-INT-03",
+   "category": "interface",
+   "text": "Is at least one operation restricted so that only a privileged account may call it?",
+   "options_ref": "yes_no",
+   "depends_on": null,
+   "metamodel_refs": [
+    "modifier",
+    "onlyOwner",
+    "onlyRole"
+   ]
+  },
+  {
+   "id": "U-INT-04",
+   "category": "interface",
+   "text": "Is at least one state-changing operation open to any caller, with no permission check?",
+   "options_ref": "yes_no",
+   "depends_on": null,
+   "metamodel_refs": []
+  },
+  {
+   "id": "U-INT-05",
+   "category": "interface",
+   "text": "Does the contract accept plain transfers or calls that match no named operation?",
+   "options_ref": "yes_no",
+   "depends_on": null,
+   "metamodel_refs": [
+    "receive",
+    "fallback"
+   ]
+  },
+  {
+   "id": "U-STT-01",
+   "category": "state",
+   "text": "Does the contract remember information between separate transactions?",
+   "options_ref": "yes_no",
+   "depends_on": null,
+   "metamodel_refs": [
+    "storage"
+   ]
+  },
+  {
+   "id": "U-STT-02",
+   "category": "state",
+   "text": "How many distinct pieces of information does the contract store persistently?",
+   "options_ref": "count_bucket",
+   "depends_on": {
+    "question": "U-STT-01",
+    "answer": "yes"
+   },
+   "metamodel_refs": []
+  },
+  {
+   "id": "U-STT-03",
+   "category": "state",
+   "text": "Does it keep a separate record per account or address (balance, deposit, position, permission)?",
+   "options_ref": "yes_no",
+   "depends_on": null,
+   "metamodel_refs": [
+    "mapping"
+   ]
+  },
+  {
+   "id": "U-STT-04",
+   "category": "state",
+   "text": "Does it keep a collection of records that grows as it is used (a list, queue, or registry)?",
+   "options_ref": "yes_no",
+   "depends_on": null,
+   "metamodel_refs": [
+    "array",
+    "mapping"
+   ]
+  },
+  {
+   "id": "U-STT-06",
+   "category": "state",
+   "text": "Does it track a lifecycle status or phase, for an entity it manages or for the contract itself?",
+   "options_ref": "yes_no",
+   "depends_on": null,
+   "metamodel_refs": [
+    "enum",
+    "bool"
+   ]
+  },
+  {
+   "id": "U-ACC-01",
+   "category": "access",
+   "text": "What governs who may perform privileged operations?",
+   "options_ref": "access_model",
+   "depends_on": null,
+   "metamodel_refs": [
+    "Ownable",
+    "AccessControl"
+   ]
+  },
+  {
+   "id": "U-ACC-02",
+   "category": "access",
+   "text": "Can privileged rights be handed over, granted, or revoked after deployment?",
+   "options_ref": "yes_no",
+   "depends_on": {
+    "question": "U-INT-03",
+    "answer": "yes"
+   },
+   "metamodel_refs": []
+  },
+  {
+   "id": "U-ACC-04",
+   "category": "access",
+   "text": "Can a privileged account move, withdraw, or seize value belonging to other users?",
+   "options_ref": "yes_no",
+   "depends_on": null,
+   "metamodel_refs": []
+  },
+  {
+   "id": "U-VAL-01",
+   "category": "value",
+   "text": "What kind of value does the contract hold or move?",
+   "options_ref": "asset_kind",
+   "depends_on": null,
+   "metamodel_refs": []
+  },
+  {
+   "id": "U-VAL-02",
+   "category": "value",
+   "text": "Can the contract receive and hold the chain's native currency?",
+   "options_ref": "yes_no",
+   "depends_on": null,
+   "metamodel_refs": [
+    "payable",
+    "msg.value"
+   ]
+  },
+  {
+   "id": "U-VAL-03",
+   "category": "value",
+   "text": "Can a user get back value they previously put in (withdraw, redeem, claim, or refund)?",
+   "options_ref": "yes_no",
+   "depends_on": {
+    "question": "U-VAL-01",
+    "answer": "none"
+   },
+   "metamodel_refs": []
+  },
+  {
+   "id": "U-VAL-04",
+   "category": "value",
+   "text": "Is a fee, commission, or spread taken on any operation?",
+   "options_ref": "yes_no",
+   "depends_on": null,
+   "metamodel_refs": []
+  },
+  {
+   "id": "U-VAL-05",
+   "category": "value",
+   "text": "Does the contract send value to an address chosen at call time rather than a fixed address?",
+   "options_ref": "yes_no",
+   "depends_on": null,
+   "metamodel_refs": []
+  },
+  {
+   "id": "U-CAL-01",
+   "category": "accounting",
+   "text": "Does the contract create new units (tokens, shares, positions, or credits)?",
+   "options_ref": "yes_no",
+   "depends_on": null,
+   "metamodel_refs": [
+    "mint"
+   ]
+  },
+  {
+   "id": "U-CAL-02",
+   "category": "accounting",
+   "text": "Does it destroy or retire units?",
+   "options_ref": "yes_no",
+   "depends_on": null,
+   "metamodel_refs": [
+    "burn"
+   ]
+  },
+  {
+   "id": "U-CAL-03",
+   "category": "accounting",
+   "text": "Does it compute a rate, price, share, or proportion rather than only storing fixed numbers?",
+   "options_ref": "yes_no",
+   "depends_on": null,
+   "metamodel_refs": []
+  },
+  {
+   "id": "U-CAL-04",
+   "category": "accounting",
+   "text": "Is there an operation that changes two parties' holdings together as one atomic step?",
+   "options_ref": "yes_no",
+   "depends_on": null,
+   "metamodel_refs": []
+  },
+  {
+   "id": "U-EVT-01",
+   "category": "events",
+   "text": "Does the contract announce what happened, for off-chain observers to follow?",
+   "options_ref": "yes_no",
+   "depends_on": null,
+   "metamodel_refs": [
+    "event",
+    "emit"
+   ]
+  },
+  {
+   "id": "U-EVT-02",
+   "category": "events",
+   "text": "How many distinct kinds of announcement does it define?",
+   "options_ref": "count_bucket",
+   "depends_on": {
+    "question": "U-EVT-01",
+    "answer": "yes"
+   },
+   "metamodel_refs": []
+  },
+  {
+   "id": "U-EVT-03",
+   "category": "events",
+   "text": "Do the privileged or value-moving operations announce themselves?",
+   "options_ref": "yes_no",
+   "depends_on": {
+    "question": "U-EVT-01",
+    "answer": "yes"
+   },
+   "metamodel_refs": []
+  },
+  {
+   "id": "U-ERR-01",
+   "category": "validation",
+   "text": "Does the contract reject bad input or unauthorized calls by failing the transaction?",
+   "options_ref": "yes_no",
+   "depends_on": null,
+   "metamodel_refs": [
+    "require",
+    "revert"
+   ]
+  },
+  {
+   "id": "U-ERR-02",
+   "category": "validation",
+   "text": "Does it define its own named failure reasons?",
+   "options_ref": "yes_no",
+   "depends_on": null,
+   "metamodel_refs": [
+    "error"
+   ]
+  },
+  {
+   "id": "U-ERR-03",
+   "category": "validation",
+   "text": "Does it enforce a cap, floor, or limit on some quantity?",
+   "options_ref": "yes_no",
+   "depends_on": null,
+   "metamodel_refs": []
+  },
+  {
+   "id": "U-LFC-01",
+   "category": "lifecycle",
+   "text": "Must configuration be supplied when the contract is first set up?",
+   "options_ref": "yes_no",
+   "depends_on": null,
+   "metamodel_refs": [
+    "constructor",
+    "initializer"
+   ]
+  },
+  {
+   "id": "U-LFC-02",
+   "category": "lifecycle",
+   "text": "How can the contract's behavior change after it is deployed?",
+   "options_ref": "upgrade_model",
+   "depends_on": null,
+   "metamodel_refs": []
+  },
+  {
+   "id": "U-LFC-03",
+   "category": "lifecycle",
+   "text": "Can operations be paused, halted, or permanently shut down?",
+   "options_ref": "yes_no",
+   "depends_on": null,
+   "metamodel_refs": [
+    "Pausable"
+   ]
+  },
+  {
+   "id": "U-LFC-04",
+   "category": "lifecycle",
+   "text": "Does the contract create other contracts?",
+   "options_ref": "yes_no",
+   "depends_on": null,
+   "metamodel_refs": [
+    "new",
+    "create2"
+   ]
+  },
+  {
+   "id": "U-CMP-01",
+   "category": "composition",
+   "text": "Does the contract build on other contracts rather than standing alone?",
+   "options_ref": "yes_no",
+   "depends_on": null,
+   "metamodel_refs": [
+    "is",
+    "inheritance"
+   ]
+  },
+  {
+   "id": "U-CMP-02",
+   "category": "composition",
+   "text": "Does it call out to other contracts it does not itself define?",
+   "options_ref": "yes_no",
+   "depends_on": null,
+   "metamodel_refs": [
+    "interface",
+    "call"
+   ]
+  },
+  {
+   "id": "U-CMP-03",
+   "category": "composition",
+   "text": "Which published token standard does the contract implement, if any?",
+   "options_ref": "token_standard",
+   "depends_on": null,
+   "metamodel_refs": []
+  },
+  {
+   "id": "U-CMP-04",
+   "category": "composition",
+   "text": "Does it store the address of another contract it depends on?",
+   "options_ref": "yes_no",
+   "depends_on": null,
+   "metamodel_refs": []
+  },
+  {
+   "id": "U-TIM-01",
+   "category": "time",
+   "text": "Does any behavior depend on time or on how far the chain has progressed?",
+   "options_ref": "yes_no",
+   "depends_on": null,
+   "metamodel_refs": [
+    "block.timestamp",
+    "block.number"
+   ]
+  },
+  {
+   "id": "U-TIM-02",
+   "category": "time",
+   "text": "Is there a deadline or expiry after which an operation is refused?",
+   "options_ref": "yes_no",
+   "depends_on": {
+    "question": "U-TIM-01",
+    "answer": "yes"
+   },
+   "metamodel_refs": []
+  },
+  {
+   "id": "U-TIM-03",
+   "category": "time",
+   "text": "Is there a waiting period or lock before something takes effect or is released?",
+   "options_ref": "yes_no",
+   "depends_on": {
+    "question": "U-TIM-01",
+    "answer": "yes"
+   },
+   "metamodel_refs": []
+  },
+  {
+   "id": "U-SAF-01",
+   "category": "safety",
+   "text": "Does the contract protect against a called party re-entering it before the first call finishes?",
+   "options_ref": "yes_no",
+   "depends_on": null,
+   "metamodel_refs": [
+    "nonReentrant",
+    "ReentrancyGuard"
+   ]
+  },
+  {
+   "id": "U-SAF-02",
+   "category": "safety",
+   "text": "Does it depend on an external price or data source for its decisions?",
+   "options_ref": "yes_no",
+   "depends_on": null,
+   "metamodel_refs": [
+    "oracle"
+   ]
+  },
+  {
+   "id": "U-SAF-03",
+   "category": "safety",
+   "text": "Does it deliberately bypass or hand-roll arithmetic safety, or drop to low-level machine operations?",
+   "options_ref": "yes_no",
+   "depends_on": null,
+   "metamodel_refs": [
+    "unchecked",
+    "assembly"
+   ]
+  },
+  {
+   "id": "U-CLS-01",
+   "category": "classification",
+   "text": "What is the contract's primary role?",
+   "options": [
+    "custody_value",
+    "record_ownership",
+    "compute_or_route",
+    "coordinate_permissions",
+    "other"
+   ],
+   "depends_on": null,
+   "metamodel_refs": []
+  }
+ ],
+ "templates": [
+  {
+   "id": "T-FUN-01",
+   "category": "interface",
+   "type": "single_choice",
+   "pattern": "Can a caller ⟨action⟩?",
+   "slots": {
+    "action": "action"
+   },
+   "options": [
+    "yes",
+    "no"
+   ],
+   "origin": "nl|solidity|both",
+   "instantiate_when": "a concrete operation is named or clearly described in either modality",
+   "max_instances": 8
+  },
+  {
+   "id": "T-FUN-02",
+   "category": "access",
+   "type": "single_choice",
+   "pattern": "Who is allowed to ⟨action⟩?",
+   "slots": {
+    "action": "action"
+   },
+   "options_rule": "harvest the permitted parties named for this operation (owner, any user, a named role, a specific contract); add 'anyone' when it is unrestricted",
+   "origin": "nl|solidity|both",
+   "instantiate_when": "an operation's caller is restricted, or explicitly open, in either modality",
+   "max_instances": 6
+  },
+  {
+   "id": "T-FUN-03",
+   "category": "validation",
+   "type": "single_choice",
+   "pattern": "What must already be true for ⟨action⟩ to succeed?",
+   "slots": {
+    "action": "action"
+   },
+   "options_rule": "harvest the stated preconditions for this operation; keep each option to a short phrase",
+   "origin": "nl|solidity|both",
+   "instantiate_when": "a precondition, guard, or required state is stated for an operation",
+   "max_instances": 5
+  },
+  {
+   "id": "T-FUN-04",
+   "category": "interface",
+   "type": "single_choice",
+   "pattern": "Can ⟨action⟩ be performed more than once by the same caller?",
+   "slots": {
+    "action": "action"
+   },
+   "options": [
+    "once_only",
+    "repeatable"
+   ],
+   "origin": "nl|solidity|both",
+   "instantiate_when": "an operation is stated to be one-shot or repeatable",
+   "max_instances": 3
+  },
+  {
+   "id": "T-STT-01",
+   "category": "state",
+   "type": "single_choice",
+   "pattern": "Does the contract keep track of ⟨state_item⟩?",
+   "slots": {
+    "state_item": "entity"
+   },
+   "options": [
+    "yes",
+    "no"
+   ],
+   "origin": "nl|solidity|both",
+   "instantiate_when": "a tracked quantity, record, or registry is named in either modality",
+   "max_instances": 8
+  },
+  {
+   "id": "T-STT-02",
+   "category": "state",
+   "type": "single_choice",
+   "pattern": "What is the value of ⟨parameter⟩?",
+   "slots": {
+    "parameter": "parameter"
+   },
+   "options_rule": "harvest every value stated for this parameter in BOTH modalities; normalize units and number formats before deduplicating",
+   "origin": "nl|solidity|both",
+   "instantiate_when": "a named parameter carries a concrete value, cap, rate, or duration",
+   "max_instances": 6
+  },
+  {
+   "id": "T-STT-03",
+   "category": "state",
+   "type": "single_choice",
+   "pattern": "Is ⟨parameter⟩ fixed once the contract is live, or can it be changed later?",
+   "slots": {
+    "parameter": "parameter"
+   },
+   "options": [
+    "fixed_at_deployment",
+    "changeable_later"
+   ],
+   "origin": "nl|solidity|both",
+   "instantiate_when": "a parameter's mutability is stated or clearly implied",
+   "max_instances": 4
+  },
+  {
+   "id": "T-STT-04",
+   "category": "state",
+   "type": "single_choice",
+   "pattern": "Can ⟨entity⟩ be in the state ⟨state⟩?",
+   "slots": {
+    "entity": "entity",
+    "state": "state"
+   },
+   "options": [
+    "yes",
+    "no"
+   ],
+   "origin": "nl|solidity|both",
+   "instantiate_when": "an entity moves through named statuses or phases",
+   "max_instances": 5
+  },
+  {
+   "id": "T-STT-05",
+   "category": "state",
+   "type": "single_choice",
+   "pattern": "What causes ⟨entity⟩ to become ⟨state⟩?",
+   "slots": {
+    "entity": "entity",
+    "state": "state"
+   },
+   "options_rule": "harvest the stated triggers for this transition (a call, a deadline, a threshold being crossed)",
+   "origin": "nl|solidity|both",
+   "instantiate_when": "a status change has a stated cause",
+   "max_instances": 4
+  },
+  {
+   "id": "T-ROL-01",
+   "category": "access",
+   "type": "single_choice",
+   "pattern": "Does the contract recognize ⟨role⟩ as a distinct party?",
+   "slots": {
+    "role": "role"
+   },
+   "options": [
+    "yes",
+    "no"
+   ],
+   "origin": "nl|solidity|both",
+   "instantiate_when": "a role, actor, or counterparty is named in either modality",
+   "max_instances": 6
+  },
+  {
+   "id": "T-ROL-02",
+   "category": "access",
+   "type": "single_choice",
+   "pattern": "What can ⟨role⟩ do that other callers cannot?",
+   "slots": {
+    "role": "role"
+   },
+   "options_rule": "harvest the powers reserved to this role; one short phrase per power",
+   "origin": "nl|solidity|both",
+   "instantiate_when": "a role holds stated privileges",
+   "max_instances": 5
+  },
+  {
+   "id": "T-ROL-03",
+   "category": "access",
+   "type": "single_choice",
+   "pattern": "Can ⟨role⟩ be changed or replaced after deployment?",
+   "slots": {
+    "role": "role"
+   },
+   "options": [
+    "yes",
+    "no"
+   ],
+   "origin": "nl|solidity|both",
+   "instantiate_when": "a privileged role's transferability is stated",
+   "max_instances": 3
+  },
+  {
+   "id": "T-VAL-01",
+   "category": "value",
+   "type": "single_choice",
+   "pattern": "What does ⟨action⟩ move?",
+   "slots": {
+    "action": "action"
+   },
+   "options_rule": "harvest the asset moved by this operation (the native currency, a named token, an NFT, shares); merge different namings of one asset into one option",
+   "origin": "nl|solidity|both",
+   "instantiate_when": "an operation transfers value in either modality",
+   "max_instances": 6
+  },
+  {
+   "id": "T-VAL-02",
+   "category": "value",
+   "type": "single_choice",
+   "pattern": "Where does the value go when ⟨action⟩ happens?",
+   "slots": {
+    "action": "action"
+   },
+   "options_rule": "harvest the stated recipients (the caller, a named party, the contract itself, a treasury); one option per referent",
+   "origin": "nl|solidity|both",
+   "instantiate_when": "an operation's destination of funds is stated",
+   "max_instances": 5
+  },
+  {
+   "id": "T-VAL-03",
+   "category": "value",
+   "type": "single_choice",
+   "pattern": "Is a fee taken on ⟨action⟩?",
+   "slots": {
+    "action": "action"
+   },
+   "options": [
+    "yes",
+    "no"
+   ],
+   "origin": "nl|solidity|both",
+   "instantiate_when": "an operation is stated to charge, or explicitly not to charge, a fee",
+   "max_instances": 4
+  },
+  {
+   "id": "T-VAL-04",
+   "category": "value",
+   "type": "single_choice",
+   "pattern": "What fee or rate applies to ⟨action⟩?",
+   "slots": {
+    "action": "action"
+   },
+   "options_rule": "harvest every stated fee or rate for this operation; treat percent and basis points as one option",
+   "origin": "nl|solidity|both",
+   "instantiate_when": "a fee or rate carries a concrete value",
+   "max_instances": 4
+  },
+  {
+   "id": "T-VAL-05",
+   "category": "value",
+   "type": "single_choice",
+   "pattern": "Can ⟨role⟩ recover ⟨asset⟩ from the contract?",
+   "slots": {
+    "role": "role",
+    "asset": "entity"
+   },
+   "options": [
+    "yes",
+    "no"
+   ],
+   "origin": "nl|solidity|both",
+   "instantiate_when": "withdrawal, refund, redemption, or rescue of an asset is described",
+   "max_instances": 5
+  },
+  {
+   "id": "T-VAL-06",
+   "category": "value",
+   "type": "single_choice",
+   "pattern": "Who holds ⟨asset⟩ while ⟨condition⟩?",
+   "slots": {
+    "asset": "entity",
+    "condition": "condition"
+   },
+   "options_rule": "harvest the stated custodian during this period (the contract, the depositor, a named party)",
+   "origin": "nl|solidity|both",
+   "instantiate_when": "custody during a stated period is described",
+   "max_instances": 3
+  },
+  {
+   "id": "T-CAL-01",
+   "category": "accounting",
+   "type": "single_choice",
+   "pattern": "How is ⟨quantity⟩ determined?",
+   "slots": {
+    "quantity": "quantity"
+   },
+   "options_rule": "harvest the stated basis of the calculation; keep each option to a short phrase",
+   "origin": "nl|solidity|both",
+   "instantiate_when": "a computed quantity has a stated formula, basis, or source",
+   "max_instances": 5
+  },
+  {
+   "id": "T-CAL-02",
+   "category": "accounting",
+   "type": "single_choice",
+   "pattern": "Does ⟨quantity⟩ increase as ⟨driver⟩ increases?",
+   "slots": {
+    "quantity": "quantity",
+    "driver": "quantity"
+   },
+   "options": [
+    "yes",
+    "no"
+   ],
+   "origin": "nl|solidity|both",
+   "instantiate_when": "a monotonic relationship between two quantities is stated",
+   "max_instances": 3
+  },
+  {
+   "id": "T-LIM-01",
+   "category": "validation",
+   "type": "single_choice",
+   "pattern": "Is there a limit on ⟨quantity⟩?",
+   "slots": {
+    "quantity": "quantity"
+   },
+   "options": [
+    "yes",
+    "no"
+   ],
+   "origin": "nl|solidity|both",
+   "instantiate_when": "a cap, floor, minimum, or maximum is stated or clearly absent",
+   "max_instances": 5
+  },
+  {
+   "id": "T-LIM-02",
+   "category": "validation",
+   "type": "single_choice",
+   "pattern": "What is the limit on ⟨quantity⟩?",
+   "slots": {
+    "quantity": "quantity"
+   },
+   "options_rule": "harvest every stated bound for this quantity from BOTH modalities; normalize units first",
+   "origin": "nl|solidity|both",
+   "instantiate_when": "a bound carries a concrete value",
+   "max_instances": 5
+  },
+  {
+   "id": "T-LIM-03",
+   "category": "validation",
+   "type": "single_choice",
+   "pattern": "What happens if ⟨invalid_condition⟩?",
+   "slots": {
+    "invalid_condition": "condition"
+   },
+   "options": [
+    "transaction_reverts",
+    "call_does_nothing",
+    "call_succeeds_anyway",
+    "other"
+   ],
+   "origin": "nl|solidity|both",
+   "instantiate_when": "the contract's response to an invalid or unauthorized attempt is described",
+   "max_instances": 5
+  },
+  {
+   "id": "T-EVT-01",
+   "category": "events",
+   "type": "single_choice",
+   "pattern": "Is ⟨action⟩ announced so off-chain observers can see it?",
+   "slots": {
+    "action": "action"
+   },
+   "options": [
+    "yes",
+    "no"
+   ],
+   "origin": "nl|solidity|both",
+   "instantiate_when": "an operation is stated to emit, or notably not emit, an event",
+   "max_instances": 5
+  },
+  {
+   "id": "T-EVT-02",
+   "category": "events",
+   "type": "single_choice",
+   "pattern": "What does the announcement for ⟨action⟩ record?",
+   "slots": {
+    "action": "action"
+   },
+   "options_rule": "harvest the fields reported; bundle fields of one event into a single option",
+   "origin": "nl|solidity|both",
+   "instantiate_when": "an event's contents are stated",
+   "max_instances": 3
+  },
+  {
+   "id": "T-TIM-01",
+   "category": "time",
+   "type": "single_choice",
+   "pattern": "Is ⟨action⟩ restricted by time?",
+   "slots": {
+    "action": "action"
+   },
+   "options": [
+    "yes",
+    "no"
+   ],
+   "origin": "nl|solidity|both",
+   "instantiate_when": "an operation has a stated window, deadline, delay, or schedule",
+   "max_instances": 5
+  },
+  {
+   "id": "T-TIM-02",
+   "category": "time",
+   "type": "single_choice",
+   "pattern": "How long is ⟨period⟩?",
+   "slots": {
+    "period": "period"
+   },
+   "options_rule": "harvest every stated duration for this period; treat equivalent spellings as one option ('1 week' and '7 days')",
+   "origin": "nl|solidity|both",
+   "instantiate_when": "a duration, delay, or window carries a concrete value",
+   "max_instances": 4
+  },
+  {
+   "id": "T-ORD-01",
+   "category": "time",
+   "type": "single_choice",
+   "pattern": "Must ⟨action_a⟩ happen before ⟨action_b⟩?",
+   "slots": {
+    "action_a": "action",
+    "action_b": "action"
+   },
+   "options": [
+    "yes",
+    "no"
+   ],
+   "origin": "nl|solidity|both",
+   "instantiate_when": "a required ordering between two operations is stated",
+   "max_instances": 4
+  },
+  {
+   "id": "T-LFC-01",
+   "category": "lifecycle",
+   "type": "single_choice",
+   "pattern": "Is ⟨parameter⟩ fixed when the contract is first set up?",
+   "slots": {
+    "parameter": "parameter"
+   },
+   "options": [
+    "yes",
+    "no"
+   ],
+   "origin": "nl|solidity|both",
+   "instantiate_when": "a parameter is stated to be supplied at deployment",
+   "max_instances": 4
+  },
+  {
+   "id": "T-LFC-02",
+   "category": "lifecycle",
+   "type": "single_choice",
+   "pattern": "Can ⟨component⟩ be changed after deployment?",
+   "slots": {
+    "component": "entity"
+   },
+   "options": [
+    "yes",
+    "no"
+   ],
+   "origin": "nl|solidity|both",
+   "instantiate_when": "a component's upgradeability or replaceability is stated",
+   "max_instances": 4
+  },
+  {
+   "id": "T-CMP-01",
+   "category": "composition",
+   "type": "single_choice",
+   "pattern": "Does the contract interact with ⟨external_system⟩?",
+   "slots": {
+    "external_system": "entity"
+   },
+   "options": [
+    "yes",
+    "no"
+   ],
+   "origin": "nl|solidity|both",
+   "instantiate_when": "an external protocol, token, or contract dependency is named",
+   "max_instances": 6
+  },
+  {
+   "id": "T-CMP-02",
+   "category": "composition",
+   "type": "single_choice",
+   "pattern": "Which standard does ⟨entity⟩ follow?",
+   "slots": {
+    "entity": "entity"
+   },
+   "options_rule": "harvest the standards named for this entity (ERC-20, ERC-721, ERC-1155, ERC-4626, a named protocol interface)",
+   "origin": "nl|solidity|both",
+   "instantiate_when": "a token or interface standard is named",
+   "max_instances": 3
+  },
+  {
+   "id": "T-CNT-01",
+   "category": "state",
+   "type": "single_choice",
+   "pattern": "How many ⟨countable⟩ does the contract handle?",
+   "slots": {
+    "countable": "entity"
+   },
+   "options_rule": "use the count buckets none / one / two / three_to_five / more_than_five",
+   "origin": "nl|solidity|both",
+   "instantiate_when": "a countable set of entities is enumerated in either modality",
+   "max_instances": 4
+  },
+  {
+   "id": "T-SAF-01",
+   "category": "safety",
+   "type": "single_choice",
+   "pattern": "Is ⟨action⟩ protected against a called party re-entering the contract?",
+   "slots": {
+    "action": "action"
+   },
+   "options": [
+    "yes",
+    "no"
+   ],
+   "origin": "nl|solidity|both",
+   "instantiate_when": "re-entrancy protection is stated for an operation that makes external calls",
+   "max_instances": 3
+  },
+  {
+   "id": "T-SAF-02",
+   "category": "safety",
+   "type": "single_choice",
+   "pattern": "Does ⟨action⟩ rely on data from outside the contract?",
+   "slots": {
+    "action": "action"
+   },
+   "options": [
+    "yes",
+    "no"
+   ],
+   "origin": "nl|solidity|both",
+   "instantiate_when": "an operation consumes an oracle, feed, or caller-supplied proof",
+   "max_instances": 4
+  },
+  {
+   "id": "T-SAF-03",
+   "category": "safety",
+   "type": "single_choice",
+   "pattern": "Can ⟨action⟩ be blocked or halted by ⟨role⟩?",
+   "slots": {
+    "action": "action",
+    "role": "role"
+   },
+   "options": [
+    "yes",
+    "no"
+   ],
+   "origin": "nl|solidity|both",
+   "instantiate_when": "pausing, freezing, or blocking of an operation is described",
+   "max_instances": 3
+  },
+  {
+   "id": "T-DIS-01",
+   "category": "distractor",
+   "type": "single_choice",
+   "pattern": "Can a caller ⟨fabricated_action⟩?",
+   "slots": {
+    "fabricated_action": "fabricated_action"
+   },
+   "options": [
+    "yes",
+    "no"
+   ],
+   "origin": "fabricated",
+   "instantiate_when": "always instantiate 2-5 distractors per sample in dual-source mode",
+   "max_instances": 3,
+   "expected_answer": "no"
+  },
+  {
+   "id": "T-DIS-02",
+   "category": "distractor",
+   "type": "single_choice",
+   "pattern": "Does the contract charge a ⟨fabricated_fee⟩?",
+   "slots": {
+    "fabricated_fee": "fabricated_parameter"
+   },
+   "options": [
+    "yes",
+    "no"
+   ],
+   "origin": "fabricated",
+   "instantiate_when": "always instantiate 2-5 distractors per sample in dual-source mode",
+   "max_instances": 2,
+   "expected_answer": "no"
+  },
+  {
+   "id": "T-DIS-03",
+   "category": "distractor",
+   "type": "single_choice",
+   "pattern": "Does the contract integrate with ⟨fabricated_protocol⟩?",
+   "slots": {
+    "fabricated_protocol": "fabricated_entity"
+   },
+   "options": [
+    "yes",
+    "no"
+   ],
+   "origin": "fabricated",
+   "instantiate_when": "always instantiate 2-5 distractors per sample in dual-source mode",
+   "max_instances": 2,
+   "expected_answer": "no"
+  }
+ ],
+ "instantiation_rules": {
+  "target_instance_count": {
+   "min": 30,
+   "max": 60
+  },
+  "generator_input": "BOTH the NL requirement and the Solidity source",
+  "priorities": [
+   "1. every stated value, rate, cap or duration gets a T-STT-02 / T-LIM-02 / T-VAL-04 / T-TIM-02 question",
+   "2. every operation that moves value or is permission-restricted gets a T-FUN-* / T-VAL-* / T-ROL-* question",
+   "3. tracked state, statuses, external dependencies and orderings next, up to per-template max_instances",
+   "4. distractors last (2-5 per sample)"
+  ],
+  "vocabulary_bridging": "Question text must use plain functional vocabulary understandable from the NL alone. For facts that exist only in the code, describe the element by what it does, never by its identifier: 'function _harvest()' -> 'collecting accrued rewards'; 'mapping(address => uint256) shares' -> 'each account's share balance'. Never paste raw identifiers, type names, or modifier names into a question.",
+  "origin_tagging": "Each instantiated question records origin: 'nl' (fact only in the requirement), 'solidity' (only in the code), 'both'. Tag 'both' ONLY when the NL states the fact explicitly enough that a strict literal reader would commit to it; when in doubt tag 'nl' or 'solidity'.",
+  "option_harvesting": "For options_rule templates, collect candidate answers from BOTH modalities so a value conflict surfaces as two committed options rather than both sides answering 'other'. CRITICAL: one option per REFERENT - when the two modalities name the same thing differently ('the admin' vs 'the owner', '2%' vs '200 bps', '1 week' vs '7 days'), emit ONE option covering both phrasings. Only genuinely different values get separate options. Keep labels short and canonical (at most ~4 words); never embed sentences. Percentages, basis points and fractions of one rate are ONE option. Token amounts differing only by decimals scaling ('100 tokens' vs '100e18') are ONE option. Never probe the same fact with two templates - pick the better-fitting one.",
+  "slot_quality": "Action slots must be operations a caller performs ('withdraw a deposit', 'liquidate an undercollateralized position'), never code mechanics ('call an internal helper', 'read storage'). Parameter slots must be named quantities with a value (fee rate, cap, delay), never qualities ('secure', 'efficient'). Role slots must be parties ('the owner', 'a liquidator', 'the governance contract'), never contracts' internal functions. Entity slots use the bare entity ('the reward token'), not unverifiable qualifiers ('the trusted reward token').",
+  "permission_gating": "Instantiate T-ROL-* and T-FUN-02 only when at least one modality states who may act. The mere existence of an operation does not imply a permission statement.",
+  "quota": "NEVER emit more instances of a template than its max_instances - excess is discarded.",
+  "distractor_verification": "A fabricated slot value must not appear in either modality, literally or as a synonym, and must be plausible for the domain (a fabricated fee for a DEX, a fabricated protocol integration for a lending market). The generator must self-check and replace violations.",
+  "anchors": "The generator records, per question, where the fact came from (nl_span and/or solidity_lines) as metadata for mismatch reporting; anchors are STRIPPED before questions are shown to answerers.",
+  "output_id_format": "Q-<sample_id>-<template_id>-<n>, e.g. Q-000050-T-VAL-01-1"
+ },
+ "scoring": {
+  "outcome_rules": {
+   "aligned": "both sides committed to the same option",
+   "conflict": "both sides committed to different options (includes NL 'no' vs Solidity 'yes')",
+   "missing_in_model": "NL committed a positive/specific option; the contract answered 'no'/'none' (closed world: absent from the code)",
+   "extra_in_model": "NL answered not_stated; the contract committed a positive/specific option",
+   "unverifiable": "NL committed; the contract answered not_stated (rare)",
+   "vacuous": "NL not_stated and the contract in {no, none, not_stated} - EXCLUDED from scoring entirely"
+  },
+  "credit": {
+   "aligned": 1.0,
+   "conflict": 0.0,
+   "missing_in_model": 0.3,
+   "unverifiable": 0.4,
+   "extra_in_model_origin_sysml": 1.0,
+   "extra_in_model_origin_other": 0.85,
+   "adjacent_conflict": 0.7
+  },
+  "ordinal_option_sets": [
+   "count_bucket",
+   "count_coarse"
+  ],
+  "negative_answers": [
+   "no",
+   "none",
+   "nothing",
+   "nobody",
+   "never",
+   "not_assigned",
+   "open_to_anyone",
+   "call_does_nothing"
+  ],
+  "negative_prefix": "no_",
+  "reliability_threshold": 0.5,
+  "canary_wildcards": [
+   "generic_or_abstract",
+   "other"
+  ],
+  "nl_answer_remap": {},
+  "similarity": "S = mean(credit) over scored questions (non-vacuous, non-distractor, dependency-satisfied); reported overall plus per-category vector",
+  "dependency_handling": "Enforced at scoring, not answering: if a parent question's outcome is not 'aligned with a positive answer', its dependent children are excluded (prevents double-penalty cascades).",
+  "distractor_handling": "Distractors never enter S. Per answerer: reliability = share of distractors answered no/not_stated. Reliability < 0.5 flags the whole answer set for review.",
+  "canary_handling": "U-GLB-01 disagreement is reported as a standalone red flag (likely wrong pairing or degenerate generation), independent of S.",
+  "mismatch_report": "Every non-aligned scored question becomes a mismatch record: {qid, category, origin, nl_answer+evidence, solidity_answer+evidence, outcome, severity} - the direct input for repair feedback.",
+  "credit_note": "'extra_in_model_origin_sysml' keeps the SysML bank's key name: it is the schema's name for 'origin equals the model-side language', which for this bank is 'solidity'."
+ },
+ "profiles": {
+  "runtime": {
+   "universal_ids": [
+    "U-GLB-01",
+    "U-INT-01",
+    "U-INT-03",
+    "U-STT-01",
+    "U-STT-03",
+    "U-ACC-01",
+    "U-VAL-01",
+    "U-VAL-03",
+    "U-EVT-01",
+    "U-ERR-01",
+    "U-CMP-03"
+   ],
+   "notes": "11 broad questions covering the highest-frequency constructs, matching the SysML runtime profile's size. The candidate contract is never shown to the question writer in this profile."
+  }
+ },
+ "validation_plan": {
+  "golden_set": "Draw samples from nl2solidity/dataset/data (which pairs real contracts with generated NL); hand-review instantiated questions and expected answers; keep as regression fixtures.",
+  "perturbation_test": "For an aligned pair, mutate one contract fact (flip a permission check, change a fee constant, delete an event emission, remove a deadline); the corresponding question's outcome MUST flip to conflict/missing.",
+  "question_health_metrics": "Track per question across the dataset: vacuous rate (>80% -> demote), NL not_stated rate, distractor failure rate; prune or rephrase unhealthy questions each version bump."
+ }
+}

@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 
 from .answer import answer_all
-from .bank import load, universal
+from .bank import BANK_PATH, language, load, universal
 from .instantiate import instantiate
 from .report import report_data
 from .score import score
@@ -36,7 +36,14 @@ PROFILES = {
 def compare_pair(nl: str, sysml: str, ask, sample_id: str = "pair", shards: int = 5,
                  universal_only: bool = False, cache_dir: str | Path | None = None, *,
                  profile: str = "research", question_source: str | None = None,
-                 max_instantiated: int | None = None) -> dict:
+                 max_instantiated: int | None = None,
+                 bank_path: str | Path | None = None) -> dict:
+    """Compare an NL spec against a model-side artifact.
+
+    ``bank_path`` selects the question bank, and with it the model-side
+    language: the default SysML bank, spec_aligner/questions_solidity.json, or
+    any bank following the same schema.
+    """
     if profile not in PROFILES:
         raise ValueError(f"unknown alignment profile: {profile}")
     settings = dict(PROFILES[profile])
@@ -46,10 +53,13 @@ def compare_pair(nl: str, sysml: str, ask, sample_id: str = "pair", shards: int 
         settings["max_questions"] = max_instantiated
         settings["min_questions"] = min(settings["min_questions"], max_instantiated)
 
-    bank = load()
+    bank = load(bank_path or BANK_PATH)
+    lang = language(bank)
+    profile_ids = (bank.get("profiles", {}).get(profile, {}) or {}).get("universal_ids")
     questions = universal(bank)
     if profile == "runtime":
-        questions = [q for q in questions if q["id"] in RUNTIME_UNIVERSAL_IDS]
+        keep = set(profile_ids or RUNTIME_UNIVERSAL_IDS)
+        questions = [q for q in questions if q["id"] in keep]
     rejected: list[dict] = []
     if not universal_only:
         inst, rejected = _instances(bank, nl, sysml, sample_id, ask, cache_dir,
@@ -57,12 +67,14 @@ def compare_pair(nl: str, sysml: str, ask, sample_id: str = "pair", shards: int 
         questions = questions + inst
     nl_ans = _nl_answers(bank, questions, nl, sample_id, ask, shards, cache_dir,
                          profile, settings["source_mode"])
-    sys_ans = answer_all(questions, sysml, "sysml", ask, bank, shards)
+    sys_ans = answer_all(questions, sysml, lang["id"], ask, bank, shards)
     result = score(questions, nl_ans, sys_ans, bank)
     data = report_data(sample_id, bank, questions, result,
                        mode="universal_only" if universal_only else profile)
     data["question_selection"] = {
         "profile": profile,
+        "language": lang["id"],
+        "bank": str(bank_path or BANK_PATH),
         "source_mode": settings["source_mode"],
         "max_instantiated": settings["max_questions"],
     }

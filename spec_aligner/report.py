@@ -9,10 +9,12 @@ from pathlib import Path
 def report_data(sample_id: str, bank: dict, questions: list[dict], result: dict,
                 mode: str = "full") -> dict:
     uni = sum(1 for q in questions if q.get("tier") == "universal")
+    mk = result.get("model_key", "sysml")
     return {
         "sample": sample_id,
         "bank_version": bank["version"],
         "mode": mode,
+        "model_key": mk,
         "summary": {
             "similarity": result["similarity"],
             "scored": result["scored"],
@@ -37,6 +39,8 @@ def write_json(path: str | Path, data: dict) -> None:
 
 def render_markdown(data: dict) -> str:
     s = data["summary"]
+    mk = data.get("model_key", "sysml")
+    label = mk.upper() if mk == "nl" else mk.capitalize()
     sim = "insufficient signal (nothing scored)" if s["similarity"] is None \
         else f"**{s['similarity']:.4f}** over {s['scored']} scored questions"
     lines = [
@@ -47,7 +51,7 @@ def render_markdown(data: dict) -> str:
         f"(universal {s['questions']['universal']}, instantiated {s['questions']['instantiated']})",
         f"- Outcomes: " + ", ".join(f"{k} {v}" for k, v in sorted(s["counts"].items())),
         f"- Answerer reliability (distractors): nl {s['reliability']['nl']}, "
-        f"sysml {s['reliability']['sysml']}"
+        f"{mk} {s['reliability'][mk]}"
         + (" **UNRELIABLE - review answers**" if s["reliability_flag"] else ""),
     ]
     if s["domain_mismatch"]:
@@ -66,8 +70,8 @@ def render_markdown(data: dict) -> str:
             "",
             f"- NL answered `{m['nl']['answer']}`"
             + (f" – \"{m['nl']['evidence']}\"" if m["nl"]["evidence"] else ""),
-            f"- SysML answered `{m['sysml']['answer']}`"
-            + (f" – `{m['sysml']['evidence']}`" if m["sysml"]["evidence"] else ""),
+            f"- {label} answered `{m[mk]['answer']}`"
+            + (f" – `{m[mk]['evidence']}`" if m[mk]["evidence"] else ""),
         ]
         if m.get("metamodel_refs"):
             lines.append(f"- Metamodel refs: {', '.join(m['metamodel_refs'])}")

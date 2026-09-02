@@ -1,12 +1,12 @@
-"""Single-shot LLM calls via provider CLIs (Codex / Claude Code).
+"""Single-shot LLM calls over OpenRouter (default) or provider CLIs.
 
-Same scheme as nl2sysml/ablation_gpt55/batch_codex_gpt55.py: one subprocess per
-call, empty temp cwd, no tool use. Uses each provider's local sign-in rather
-than OpenRouter / Google Generative AI HTTP APIs.
+LLM_BACKEND defaults to `api`: every call goes to OpenRouter HTTP, and the
+default model is the open-weight combiner `z-ai/glm-5.2` — the same model the
+generation path uses. No GPT/Claude/Gemini CLI is spawned in this mode.
 
 Under LLM_BACKEND=cli: Claude/GPT use Claude Code / Codex; Gemini is proxied
 through those CLIs (CLI_PROXY_VIA / GEMINI_CLI_VIA). Models without a CLI
-(e.g. meta-llama/*) stay on OpenRouter.
+(e.g. z-ai/*, qwen/*, meta-llama/*) stay on OpenRouter even in this mode.
 """
 
 from __future__ import annotations
@@ -42,6 +42,9 @@ TEXT_PREFIX = (
 SINGLE_SHOT_PREFIX = JSON_PREFIX
 
 RETRIES = 3
+
+# Default spec-checker model: open-weight, served over OpenRouter.
+DEFAULT_MODEL = "z-ai/glm-5.2"
 
 # Default host-CLI models when a Gemini expert id is proxied through Claude/Codex.
 # Claude Code expects hyphenated ids (claude-sonnet-4-5), not OpenRouter dots.
@@ -264,6 +267,27 @@ def resolve_cli_model(model: str, provider: str | None = None) -> str:
     return name
 
 
+def llm_backend() -> str:
+    """Return 'api' (OpenRouter, default) or 'cli' (Claude Code / Codex).
+
+    Mirrors nl2sysml.agent_rag_moe._llm_backend, including its aliases, so the
+    spec checker and the generator agree on one env var.
+    """
+    raw = (os.getenv("LLM_BACKEND") or "api").strip().lower()
+    if raw in ("cli", "codex", "codex-cli", "claude", "claude-cli"):
+        return "cli"
+    return "api"
+
+
+def _has_cli_route(model: str) -> bool:
+    """True when the model can be served by a local Claude/Codex CLI."""
+    try:
+        provider_for_model(model)
+    except RuntimeError:
+        return False
+    return True
+
+
 def _ask_once(
     prompt: str,
     model: str | None,
@@ -272,7 +296,18 @@ def _ask_once(
     prefix: str,
     provider: str | None,
 ) -> str:
-    model = model or os.getenv("SPEC_ALIGNER_MODEL") or os.getenv("LLM_CLI_MODEL", "gpt-5.5")
+    model = (
+        model
+        or os.getenv("SPEC_ALIGNER_MODEL")
+        or os.getenv("LLM_CLI_MODEL")
+        or DEFAULT_MODEL
+    )
+
+    # OpenRouter unless the CLI backend is requested *and* this model has a CLI
+    # route; open-weight ids (z-ai/*, qwen/*, meta-llama/*) always stay on HTTP.
+    if provider is None and (llm_backend() != "cli" or not _has_cli_route(model)):
+        return _run_openrouter(prefix + prompt, model, timeout)
+
     provider = provider or provider_for_model(model)
     cli_model = resolve_cli_model(model, provider)
     full_prompt = prefix + prompt
@@ -285,6 +320,70 @@ def _ask_once(
         f"Unsupported CLI provider: {provider}. "
         "Supported providers: claude, codex."
     )
+
+
+def _run_openrouter(prompt: str, model: str, timeout: int) -> str:
+    """Single-shot OpenRouter chat completion. Raises RuntimeError on failure
+    so ask_completion's retry loop can handle transient errors."""
+    import json as _json
+    import urllib.error as _err
+    import urllib.request as _req
+
+    key = os.getenv("OPENROUTER_API_KEY")
+    if not key:
+        raise RuntimeError(
+            "OPENROUTER_API_KEY not set. Export it (or load .env) to run the "
+            "spec checker on OpenRouter, or set LLM_BACKEND=cli for the local "
+            "Claude Code / Codex transport."
+        )
+
+    base = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
+    payload = {
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.2,
+    }
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "Authorization": f"Bearer {key}",
+        "HTTP-Referer": os.getenv("HTTP_REFERER", "https://localhost"),
+        "Referer": os.getenv("HTTP_REFERER", "https://localhost"),
+        "X-Title": os.getenv("APP_TITLE", "Creatix Agent"),
+    }
+
+    req = _req.Request(
+        base + "/chat/completions",
+        data=_json.dumps(payload).encode(),
+        headers=headers,
+    )
+    try:
+        with _req.urlopen(req, timeout=timeout) as resp:
+            body = resp.read().decode("utf-8", "replace")
+    except _err.HTTPError as e:
+        detail = e.read().decode("utf-8", "replace")[:500]
+        message = f"OpenRouter HTTP {e.code} ({model}): {detail}"
+        if is_cli_usage_limit_message(detail):
+            raise CliUsageLimitError(message)
+        raise RuntimeError(message)
+    except Exception as e:
+        raise RuntimeError(f"OpenRouter request failed ({model}): {type(e).__name__}: {e}")
+
+    if not body.strip():
+        raise RuntimeError(f"OpenRouter returned an empty body ({model})")
+    try:
+        obj = _json.loads(body)
+    except _json.JSONDecodeError:
+        raise RuntimeError(f"OpenRouter returned non-JSON ({model}): {body[:200]}")
+    if "error" in obj and "choices" not in obj:
+        raise RuntimeError(f"OpenRouter error ({model}): {obj['error']}")
+    try:
+        text = obj["choices"][0]["message"]["content"]
+    except (KeyError, IndexError):
+        raise RuntimeError(f"Unexpected OpenRouter response ({model}): {body[:200]}")
+    if not (text or "").strip():
+        raise RuntimeError(f"OpenRouter produced no output ({model})")
+    return text.strip()
 
 
 def _require_binary(name: str) -> str:

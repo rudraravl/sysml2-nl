@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from .bank import language
+
 SEVERITY = {
     "conflict": "high",
     "missing_in_model": "medium",
@@ -18,13 +20,13 @@ def kind(answer: str, neg: set[str], prefix: str = "no_") -> str:
     return "pos"
 
 
-def outcome(nl_answer: str, sysml_answer: str, neg: set[str], prefix: str = "no_") -> str:
-    knl, ksys = kind(nl_answer, neg, prefix), kind(sysml_answer, neg, prefix)
+def outcome(nl_answer: str, model_answer: str, neg: set[str], prefix: str = "no_") -> str:
+    knl, ksys = kind(nl_answer, neg, prefix), kind(model_answer, neg, prefix)
     if knl == "ns":
         return "vacuous" if ksys in ("ns", "neg") else "extra_in_model"
     if ksys == "ns":
         return "unverifiable"
-    if nl_answer == sysml_answer:
+    if nl_answer == model_answer:
         return "aligned"
     if knl == "pos" and ksys == "neg":
         return "missing_in_model"
@@ -32,6 +34,8 @@ def outcome(nl_answer: str, sysml_answer: str, neg: set[str], prefix: str = "no_
 
 
 def score(questions: list[dict], nl_ans: dict, sys_ans: dict, bank: dict) -> dict:
+    # the model-side answer key follows the bank's language ("sysml", "solidity")
+    mk = language(bank)["id"]
     sc = bank["scoring"]
     neg, prefix = set(sc["negative_answers"]), sc["negative_prefix"]
     credit_map = sc["credit"]
@@ -39,13 +43,13 @@ def score(questions: list[dict], nl_ans: dict, sys_ans: dict, bank: dict) -> dic
     rows = []
     for q in questions:
         a, b = nl_ans[q["id"]]["answer"], sys_ans[q["id"]]["answer"]
-        rows.append({"q": q, "nl": nl_ans[q["id"]], "sysml": sys_ans[q["id"]],
+        rows.append({"q": q, "nl": nl_ans[q["id"]], mk: sys_ans[q["id"]],
                      "outcome": outcome(a, b, neg, prefix), "scored": False})
     by_id = {r["q"]["id"]: r for r in rows}
 
     distractors = [r for r in rows if r["q"].get("category") == "distractor"]
     reliability = {}
-    for side in ("nl", "sysml"):
+    for side in ("nl", mk):
         ok = sum(1 for r in distractors if kind(r[side]["answer"], neg, prefix) != "pos")
         reliability[side] = round(ok / len(distractors), 3) if distractors else 1.0
 
@@ -54,7 +58,7 @@ def score(questions: list[dict], nl_ans: dict, sys_ans: dict, bank: dict) -> dic
     canary_conflict = bool(
         canary and canary["outcome"] == "conflict"
         and canary["nl"]["answer"] not in wildcards
-        and canary["sysml"]["answer"] not in wildcards
+        and canary[mk]["answer"] not in wildcards
     )
 
     scored = []
@@ -71,7 +75,7 @@ def score(questions: list[dict], nl_ans: dict, sys_ans: dict, bank: dict) -> dic
         if r["outcome"] == "vacuous":
             continue
         r["scored"] = True
-        r["credit"] = _credit(r, credit_map)
+        r["credit"] = _credit(r, credit_map, mk)
         scored.append(r)
 
     similarity = round(sum(r["credit"] for r in scored) / len(scored), 4) if scored else None
@@ -88,10 +92,11 @@ def score(questions: list[dict], nl_ans: dict, sys_ans: dict, bank: dict) -> dic
     for r in rows:
         counts[r["outcome"]] = counts.get(r["outcome"], 0) + 1
 
-    mismatches = [_mismatch(r) for r in scored if r["outcome"] != "aligned"]
+    mismatches = [_mismatch(r, mk) for r in scored if r["outcome"] != "aligned"]
     mismatches.sort(key=lambda m: ("high", "medium", "low").index(m["severity"]))
 
     return {
+        "model_key": mk,
         "similarity": similarity,
         "per_category": per_category,
         "counts": counts,
@@ -104,27 +109,27 @@ def score(questions: list[dict], nl_ans: dict, sys_ans: dict, bank: dict) -> dic
         "rows": [
             {"qid": r["q"]["id"], "category": r["q"].get("category"),
              "outcome": r["outcome"], "scored": r["scored"], "credit": r.get("credit"),
-             "nl": r["nl"], "sysml": r["sysml"]}
+             "nl": r["nl"], mk: r[mk]}
             for r in rows
         ],
     }
 
 
-def _credit(row: dict, credit_map: dict) -> float:
+def _credit(row: dict, credit_map: dict, mk: str = "sysml") -> float:
     q = row["q"]
     if row["outcome"] == "extra_in_model":
-        key = ("extra_in_model_origin_sysml" if q.get("origin") == "sysml"
+        key = ("extra_in_model_origin_sysml" if q.get("origin") == mk
                else "extra_in_model_origin_other")
         return credit_map[key]
     if row["outcome"] == "conflict" and q.get("ordinal"):
         opts = q["options"]
-        a, b = row["nl"]["answer"], row["sysml"]["answer"]
+        a, b = row["nl"]["answer"], row[mk]["answer"]
         if a in opts and b in opts and abs(opts.index(a) - opts.index(b)) == 1:
             return credit_map.get("adjacent_conflict", 0.7)   # boundary fuzz, not a real clash
     return credit_map[row["outcome"]]
 
 
-def _mismatch(row: dict) -> dict:
+def _mismatch(row: dict, mk: str = "sysml") -> dict:
     q = row["q"]
     severity = SEVERITY[row["outcome"]]
     if row["outcome"] == "conflict" and row["credit"] >= 0.5:
@@ -139,7 +144,7 @@ def _mismatch(row: dict) -> dict:
         "severity": severity,
         "credit": row["credit"],
         "nl": row["nl"],
-        "sysml": row["sysml"],
+        mk: row[mk],
         "metamodel_refs": q.get("metamodel_refs", []),
         "anchors": q.get("anchors", {}),
     }

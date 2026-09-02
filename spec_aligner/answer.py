@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 
+from .bank import language
 from .jsonx import extract_json
 
 EMPTY = {"answer": "not_stated", "evidence": "", "confidence": 0.0, "missing": True}
@@ -43,11 +44,16 @@ def _answer_shard(questions, doc, modality, ask, bank, remap=None):
 
 def answer_prompt(questions: list[dict], doc: str, modality: str, bank: dict) -> str:
     p = bank["answering_protocol"]
+    lang = language(bank)
     nl = modality == "natural_language"
-    world = p["nl_answerer_worldview"] if nl else p["sysml_answerer_worldview"]
+    world = p["nl_answerer_worldview"] if nl else (
+        p.get("model_answerer_worldview")
+        or p.get(f"{lang['id']}_answerer_worldview")
+        or p["sysml_answerer_worldview"]
+    )
     lines = [
         "You answer alignment questions from ONE document. The document is "
-        + ("a natural-language system description." if nl else "a SysML v2 textual model."),
+        + ("a natural-language system description." if nl else f"a {lang['label']}."),
         "",
         world,
         "",
@@ -65,7 +71,7 @@ def answer_prompt(questions: list[dict], doc: str, modality: str, bank: dict) ->
         opts = " | ".join(list(q["options"]) + ["not_stated"])
         lines.append(f"- {q['id']} ({q['category']}) {q['text']}  [options: {opts}]")
     lines += ["", "## Document"]
-    lines += [doc.strip()] if nl else ["```sysml", doc.strip(), "```"]
+    lines += [doc.strip()] if nl else [f"```{lang['fence']}", doc.strip(), "```"]
     return "\n".join(lines)
 
 
