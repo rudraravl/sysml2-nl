@@ -50,6 +50,25 @@ apptainer exec --cleanenv --nv \
     --output-dir "/workspace/${OUTPUT_ROOT#"$REPO"/}/bundle" \
     --modelica-backend local
 
+GPU_SAMPLES="$OUTPUT_ROOT/gpu-memory-samples.csv"
+GPU_MONITOR_STDERR="$OUTPUT_ROOT/gpu-memory-monitor.stderr"
+GPU_MONITOR_PID=""
+
+stop_gpu_monitor() {
+  if [[ -n "$GPU_MONITOR_PID" ]] && kill -0 "$GPU_MONITOR_PID" 2>/dev/null; then
+    kill "$GPU_MONITOR_PID" 2>/dev/null || true
+    wait "$GPU_MONITOR_PID" 2>/dev/null || true
+  fi
+  GPU_MONITOR_PID=""
+}
+trap stop_gpu_monitor EXIT
+
+nvidia-smi \
+  --query-gpu=timestamp,index,uuid,name,memory.total,memory.used,utilization.gpu \
+  --format=csv,noheader,nounits \
+  --loop-ms=200 >"$GPU_SAMPLES" 2>"$GPU_MONITOR_STDERR" &
+GPU_MONITOR_PID=$!
+
 apptainer exec --cleanenv --nv \
   --bind "$REPO:/workspace" \
   --env PYTHONPATH="/workspace" \
@@ -64,5 +83,12 @@ apptainer exec --cleanenv --nv \
     --solver featherstone \
     --repetitions 3 \
     --repeatability-tolerance 1e-6
+
+stop_gpu_monitor
+trap - EXIT
+PYTHONPATH="$REPO" "$PYTHON_ENV/bin/python" \
+  -m nl2robotics.hybrid.deltaai.gpu_profile \
+  --samples "$GPU_SAMPLES" \
+  --output "$OUTPUT_ROOT/gpu-memory-summary.json"
 
 echo "DeltaAI evidence: $OUTPUT_ROOT"

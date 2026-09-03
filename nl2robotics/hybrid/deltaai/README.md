@@ -64,7 +64,10 @@ exported inside the ARM64 container so its binary matches the DeltaAI host.
 Each job writes a unique `outputs/deltaai-ORACLE-JOB_ID` directory containing
 preflight evidence, the hashed execution bundle, three traces, STL property
 results, repeatability comparison, post-execution alignment, and the final
-Newton claim gate.
+Newton claim gate. During the Newton process, `nvidia-smi` samples the allocated
+GPU every 200 ms. `gpu-memory-summary.json` records the device, total VRAM,
+baseline and peak VRAM use, incremental peak, peak utilization, and sampling
+window; the raw observations remain in `gpu-memory-samples.csv`.
 
 ## Recorded frozen checkpoint
 
