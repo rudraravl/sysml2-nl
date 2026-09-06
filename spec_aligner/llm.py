@@ -148,6 +148,26 @@ def ask_completion(
     assert last is not None
     raise last
 
+
+def probe_completion(
+    *, model: str, provider: str | None = None, timeout: int = 120
+) -> str:
+    """Run one bounded completion to verify model/provider compatibility.
+
+    Unlike :func:`ask_completion`, this intentionally does not retry.  It is
+    used by experiment preflight so an invalid model name, missing account
+    entitlement, or broken CLI transport fails before any experiment cells
+    are created.
+    """
+    return _ask_once(
+        "Reply with exactly READY and nothing else.",
+        model,
+        timeout,
+        prefix=TEXT_PREFIX,
+        provider=provider,
+    )
+
+
 def format_chat_prompt(system_msg: str, human_msg: str) -> str:
     """Combine chat-style system/user messages into one CLI prompt body."""
     system = (system_msg or "").strip()

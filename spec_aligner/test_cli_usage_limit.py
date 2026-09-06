@@ -10,6 +10,7 @@ from spec_aligner.llm import (
     ask_completion,
     is_cli_policy_refusal_message,
     is_cli_usage_limit_message,
+    probe_completion,
 )
 
 
@@ -66,6 +67,18 @@ class CliUsageLimitDetectionTests(unittest.TestCase):
                 ask_completion(
                     "hello", model="anthropic/claude-sonnet-4.5", provider="claude"
                 )
+        self.assertEqual(calls["n"], 1)
+
+    def test_probe_completion_never_retries(self):
+        calls = {"n": 0}
+
+        def boom(*args, **kwargs):
+            calls["n"] += 1
+            raise RuntimeError("model is not supported")
+
+        with patch("spec_aligner.llm._ask_once", side_effect=boom):
+            with self.assertRaises(RuntimeError):
+                probe_completion(model="gpt-unsupported", provider="codex")
         self.assertEqual(calls["n"], 1)
 
 

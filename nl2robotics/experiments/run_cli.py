@@ -24,6 +24,7 @@ from spec_aligner.llm import (
     JSON_PREFIX,
     TEXT_PREFIX,
     ask_completion,
+    probe_completion,
     provider_for_model,
 )
 
@@ -345,7 +346,7 @@ def main() -> None:
     if preflight["success"] is not True:
         diagnostics = "; ".join(preflight["diagnostics"]) or "unknown failure"
         parser.error(
-            "runtime preflight failed before model calls: "
+            "runtime preflight failed before experiment cells: "
             f"{diagnostics}"
         )
     runner = AblationRunner(
@@ -418,7 +419,7 @@ def _preflight_fmi_runtime(pipeline: ModelicaPipeline) -> dict:
 def _preflight_llm_environment(*, model: str, provider: str | None,
                                repository: Path,
                                require_moe: bool = True) -> dict:
-    """Validate configured model transports without sending a model request."""
+    """Validate credentials and make one bounded model-compatibility request."""
     load_dotenv(repository / ".env")
     diagnostics = []
     inferred_provider = None
@@ -444,6 +445,18 @@ def _preflight_llm_environment(*, model: str, provider: str | None,
         diagnostics.append("OPENROUTER_API_KEY is required by the frozen MoE roster")
     if require_moe and "gemini" in route_values and not gemini_ready:
         diagnostics.append("GEMINI_API_KEY is required by the frozen MoE roster")
+
+    model_probe_attempted = False
+    model_probe_passed = False
+    if not diagnostics and selected_provider:
+        model_probe_attempted = True
+        try:
+            probe_completion(model=model, provider=selected_provider, timeout=120)
+            model_probe_passed = True
+        except Exception as exc:  # surfaced as infrastructure, never a model outcome
+            diagnostics.append(
+                f"{selected_provider} model probe failed for {model!r}: {exc}"
+            )
     return {
         "stage": "llm_transport_preflight",
         "success": not diagnostics,
@@ -451,6 +464,8 @@ def _preflight_llm_environment(*, model: str, provider: str | None,
         "requested_provider": provider,
         "resolved_provider": selected_provider,
         "provider_cli_present": cli_present,
+        "model_probe_attempted": model_probe_attempted,
+        "model_probe_passed": model_probe_passed,
         "moe_required": require_moe,
         "moe_backend": routes["backend"],
         "moe_routes": routes["routes"],

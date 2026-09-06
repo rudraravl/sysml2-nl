@@ -255,6 +255,9 @@ class ExperimentTests(unittest.TestCase):
             with patch(
                 "nl2robotics.experiments.run_cli.shutil.which",
                 return_value="/usr/bin/codex",
+            ), patch(
+                "nl2robotics.experiments.run_cli.probe_completion",
+                return_value="READY",
             ), patch.dict("os.environ", {}, clear=True):
                 report = _preflight_llm_environment(
                     model="gpt-5.4", provider="codex",
@@ -262,6 +265,28 @@ class ExperimentTests(unittest.TestCase):
                 )
         self.assertTrue(report["success"])
         self.assertFalse(report["moe_required"])
+        self.assertTrue(report["model_probe_attempted"])
+        self.assertTrue(report["model_probe_passed"])
+
+    def test_llm_preflight_rejects_unusable_model_before_cells(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch(
+                "nl2robotics.experiments.run_cli.shutil.which",
+                return_value="/usr/bin/codex",
+            ), patch(
+                "nl2robotics.experiments.run_cli.probe_completion",
+                side_effect=RuntimeError("model is not supported"),
+            ), patch.dict("os.environ", {}, clear=True):
+                report = _preflight_llm_environment(
+                    model="gpt-unsupported", provider="codex",
+                    repository=Path(tmp), require_moe=False,
+                )
+        self.assertFalse(report["success"])
+        self.assertTrue(report["model_probe_attempted"])
+        self.assertFalse(report["model_probe_passed"])
+        self.assertTrue(any(
+            "model is not supported" in item for item in report["diagnostics"]
+        ))
 
     def test_usage_limit_stops_without_recording_failed_cell(self):
         task = BenchmarkSuite().select(profile="modelica")[0]
