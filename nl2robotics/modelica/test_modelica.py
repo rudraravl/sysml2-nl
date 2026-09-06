@@ -171,6 +171,38 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual("source", result.diagnostics[0].stage)
         self.assertIn("top-level Modelica model", result.diagnostics[0].message)
 
+    @patch("nl2robotics.modelica.openmodelica.shutil.which", return_value="omc")
+    @patch("nl2robotics.modelica.openmodelica.subprocess.run")
+    def test_hidden_load_failure_replays_source_for_precise_diagnostic(
+        self, run, _which
+    ):
+        def fake_run(command, *, cwd, **kwargs):
+            if command[-1] == "build.mos":
+                Path(cwd, "load.txt").write_text("false\n", encoding="utf-8")
+                Path(cwd, "check.txt").write_text(
+                    "Error: Class Candidate not found", encoding="utf-8"
+                )
+                Path(cwd, "build.txt").write_text("", encoding="utf-8")
+                return type("Result", (), {"returncode": 0, "stdout": ""})()
+            self.assertEqual("Candidate.mo", command[-1])
+            return type("Result", (), {
+                "returncode": 1,
+                "stdout": (
+                    "[/work/Candidate.mo:12:4-12:8] Error: Expected token ')'"
+                ),
+            })()
+
+        run.side_effect = fake_run
+        with tempfile.TemporaryDirectory() as tmp:
+            result = OpenModelicaRunner(backend="local").compile(
+                "model Candidate end Candidate;", output_dir=Path(tmp)
+            )
+        self.assertFalse(result.success)
+        self.assertEqual(2, run.call_count)
+        self.assertTrue(any(
+            "Candidate.mo:12:4" in item.message for item in result.diagnostics
+        ))
+
     def test_unavailable_compiler_does_not_trigger_repairs(self):
         pipeline = ModelicaPipeline()
         unavailable = Layer1CandidateResult(

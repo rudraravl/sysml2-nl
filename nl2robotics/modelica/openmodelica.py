@@ -98,7 +98,8 @@ class OpenModelicaRunner:
         load = _read(work / "load.txt")
         check = _read(work / "check.txt")
         build = _read(work / "build.txt")
-        combined = "\n".join((proc.stdout, load, check, build))
+        source_parse = self._diagnose_load_failure(backend, work, load)
+        combined = "\n".join((proc.stdout, load, source_parse, check, build))
         diagnostics = _diagnostics(combined)
         executable = work / "candidate_build"
         checked = "completed successfully" in check.lower() and not _has_error(check)
@@ -182,7 +183,8 @@ class OpenModelicaRunner:
         load = _read(work / "load.txt")
         check = _read(work / "check.txt")
         simulation = _read(work / "simulate.txt")
-        combined = "\n".join((proc.stdout, load, check, simulation))
+        source_parse = self._diagnose_load_failure(backend, work, load)
+        combined = "\n".join((proc.stdout, load, source_parse, check, simulation))
         diagnostics = _diagnostics(combined)
         result = work / "result_res.csv"
         checked = "completed successfully" in check.lower() and not _has_error(check)
@@ -259,7 +261,8 @@ class OpenModelicaRunner:
         load = _read(work / "load.txt")
         check = _read(work / "check.txt")
         export = _read(work / "export.txt")
-        combined = "\n".join((proc.stdout, load, check, export))
+        source_parse = self._diagnose_load_failure(backend, work, load)
+        combined = "\n".join((proc.stdout, load, source_parse, check, export))
         diagnostics = _diagnostics(combined)
         checked = "completed successfully" in check.lower() and not _has_error(check)
         fmu_path = work / "candidate.fmu"
@@ -309,6 +312,37 @@ class OpenModelicaRunner:
             "omc", script,
         ]
 
+    def _diagnose_load_failure(
+        self, backend: str, work: Path, load_report: str
+    ) -> str:
+        """Recover parser diagnostics hidden by a false scripting loadFile().
+
+        Some OpenModelica parse failures make ``loadFile`` return false while
+        ``getErrorString`` remains empty.  Replaying only the source file makes
+        OMC emit the precise line/column error needed by bounded repair.
+        """
+        if not _load_failed(load_report):
+            return ""
+        try:
+            proc = subprocess.run(
+                self._command(backend, work, "Candidate.mo"),
+                cwd=work,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                timeout=self.timeout,
+                env=os.environ.copy(),
+            )
+        except subprocess.TimeoutExpired:
+            return (
+                "Error: OpenModelica source-diagnostic replay timed out after "
+                f"{self.timeout}s"
+            )
+        detail = (proc.stdout or "").strip()
+        if detail:
+            return detail
+        return "Error: OpenModelica loadFile returned false for Candidate.mo"
+
 
 def find_model_name(code: str) -> str:
     match = _MODEL.search(code)
@@ -326,8 +360,9 @@ if not loadModel(Modelica) then
   loadModel(Modelica);
 end if;
 writeFile("library.txt", getErrorString());
-loadFile("Candidate.mo");
-writeFile("load.txt", getErrorString());
+loaded := loadFile("Candidate.mo");
+loadMessages := getErrorString();
+writeFile("load.txt", String(loaded) + "\n" + loadMessages);
 writeFile("check.txt", checkModel({name}) + "\\n" + getErrorString());
 buildModel({name}, fileNamePrefix="candidate_build");
 writeFile("build.txt", getErrorString());
@@ -348,8 +383,9 @@ if not loadModel(Modelica) then
   loadModel(Modelica);
 end if;
 writeFile("library.txt", getErrorString());
-loadFile("Candidate.mo");
-writeFile("load.txt", getErrorString());
+loaded := loadFile("Candidate.mo");
+loadMessages := getErrorString();
+writeFile("load.txt", String(loaded) + "\n" + loadMessages);
 writeFile("check.txt", checkModel({name}) + "\\n" + getErrorString());
 result := simulate({name}, startTime={start}, stopTime={stop},
   numberOfIntervals={intervals}, tolerance={tolerance}, outputFormat="csv",
@@ -368,8 +404,9 @@ if not loadModel(Modelica) then
   loadModel(Modelica);
 end if;
 writeFile("library.txt", getErrorString());
-loadFile("Candidate.mo");
-writeFile("load.txt", getErrorString());
+loaded := loadFile("Candidate.mo");
+loadMessages := getErrorString();
+writeFile("load.txt", String(loaded) + "\n" + loadMessages);
 writeFile("check.txt", checkModel({name}) + "\\n" + getErrorString());
 generated := buildModelFMU({name}, version="2.0", fmuType="cs",
   fileNamePrefix="candidate", platforms={{"static"}});
@@ -379,6 +416,11 @@ writeFile("export.txt", generated + "\\n" + getErrorString());
 
 def _read(path: Path) -> str:
     return path.read_text(encoding="utf-8") if path.exists() else ""
+
+
+def _load_failed(text: str) -> bool:
+    lines = text.strip().lower().splitlines()
+    return bool(lines) and lines[0] == "false"
 
 
 def _has_error(text: str) -> bool:
