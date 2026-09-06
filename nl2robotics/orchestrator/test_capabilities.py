@@ -99,7 +99,8 @@ class CapabilityPlanningTests(unittest.TestCase):
         self.assertIsInstance(plan, CapabilityPlan)
         self.assertEqual(2, len(plan.contract["mappings"]))
         self.assertIn("floating base", plan.openusd_requirement)
-        self.assertIn("controller state", plan.modelica_requirement)
+        self.assertIn("plant/controller/estimator", plan.modelica_requirement)
+        self.assertIn("Compilation alone is never success", plan.modelica_requirement)
         self.assertIn("retrieved examples only as syntax", plan.modelica_requirement)
         self.assertIn("robotics:placeholder", plan.openusd_requirement)
         self.assertEqual(
@@ -180,7 +181,7 @@ class CapabilityPlanningTests(unittest.TestCase):
 
 
 class CapabilityOrchestratorTests(unittest.TestCase):
-    def test_artifact_profile_finishes_at_explicit_tier_two(self):
+    def test_artifact_validation_without_a_grounded_clock_cannot_pass(self):
         ir = broad_ir()
 
         def generated_modelica(requirement: str, output_dir: Path):
@@ -209,16 +210,91 @@ class CapabilityOrchestratorTests(unittest.TestCase):
                 (root / "capability-report.json").read_text(encoding="utf-8")
             )
 
-        self.assertTrue(result["passed"], result)
-        self.assertEqual("artifacts_validated", result["execution_status"])
-        self.assertTrue(result["alignment"]["enabled"])
-        self.assertTrue(result["alignment"]["passed"])
+        self.assertFalse(result["passed"], result)
+        self.assertEqual("execution_failed", result["execution_status"])
+        self.assertEqual("execution_clock", result["failure_stage"])
+        self.assertTrue(result["pre_execution_alignment"]["passed"])
+        self.assertEqual("failed", result["stage_trace"][5]["status"])
+        self.assertEqual("not_reached", result["stage_trace"][9]["status"])
         self.assertEqual(2, report["verification"]["highest_reached_tier"])
         self.assertFalse(report["claim_eligible_deltaai_h2"])
         self.assertEqual(
             "requires_cross_artifact_validation",
             report["grounding"]["artifact_grounding_status"],
         )
+
+    def test_executed_behavior_and_post_alignment_are_required_for_pass(self):
+        ir = broad_ir()
+        clock_text = "Run at 100 Hz for 2 s."
+        ir["source_text"] += " " + clock_text
+        ir["clock"] = {
+            "duration": 2.0, "frequency_hz": 100.0,
+            "evidence": [clock_text],
+        }
+
+        def generated_modelica(requirement: str, output_dir: Path):
+            return "model RobotTask_RPROF001 end RobotTask_RPROF001;", {
+                "passed": True, "repairs": 0, "generation_mode": "test",
+            }
+
+        def generated_usd(requirement: str, output_dir: Path):
+            return "#usda 1.0\n", {
+                "passed": True, "repairs": 0, "generation_mode": "test",
+            }
+
+        class FakeCapabilityExecution:
+            def run(self, modelica, requirement_ir, contract, *, output_dir):
+                mappings = [
+                    {**row, "verification_status": "resolved_fmu_output"}
+                    for row in contract["mappings"]
+                ]
+                return {
+                    "passed": True,
+                    "execution_mode": "integrated_fmu_behavior",
+                    "execution_completed": True,
+                    "behavior_evaluated": True,
+                    "behavior_passed": True,
+                    "fmu": {"success": True},
+                    "contract": {
+                        "success": True,
+                        "resolved_mappings": mappings,
+                        "fmu": {"variables": []},
+                    },
+                    "execution": {
+                        "success": True, "initialized": True,
+                        "sample_count": 200,
+                    },
+                    "trace_gate": {"success": True, "finite": True},
+                    "properties": [{
+                        "id": "bounded_angular_rate",
+                        "property_id": "bounded_angular_rate",
+                        "passed": True,
+                        "status": "satisfied",
+                        "robustness": 1.0,
+                    }],
+                    "property_summary": {
+                        "total": 1, "passed": 1,
+                        "violated": 0, "unevaluable": 0,
+                    },
+                }
+
+        with tempfile.TemporaryDirectory() as tmp:
+            result = RoboticsOrchestrator(
+                modelica_generator=generated_modelica,
+                openusd_generator=generated_usd,
+                capability_execution_pipeline=FakeCapabilityExecution(),
+            ).run(
+                ir["source_text"], lambda _: json.dumps(ir),
+                output_dir=Path(tmp), task_id=ir["task_id"],
+                execution_mode="capability_tiered", max_ir_repairs=0,
+            )
+
+        self.assertTrue(result["passed"], result)
+        self.assertEqual("behaviorally_executed", result["execution_status"])
+        self.assertTrue(result["hybrid"]["execution_completed"])
+        self.assertTrue(result["stage_trace"][9]["passed"])
+        self.assertTrue(result["stage_trace"][10]["passed"])
+        self.assertTrue(result["stage_trace"][11]["passed"])
 
     def test_artifact_profiles_are_both_evaluated_on_partial_failure(self):
         ir = broad_ir()

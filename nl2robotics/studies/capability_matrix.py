@@ -79,8 +79,8 @@ def audit_manifest(path: Path = MANIFEST) -> dict:
             issues.append({"code": "invalid_target_tier", "path": f"{prefix}.target_tier"})
         if tier == 5 and "articulated_joint_space_h2" not in expected:
             issues.append({"code": "unsupported_tier5_claim", "path": f"{prefix}.target_tier"})
-        if isinstance(tier, int) and tier > 2 and case_id != "RCB001":
-            issues.append({"code": "unimplemented_runtime_claim", "path": f"{prefix}.target_tier"})
+        if tier != 4:
+            issues.append({"code": "wrong_broad_execution_target", "path": f"{prefix}.target_tier"})
     missing_families = REQUIRED_FAMILIES - families
     if missing_families:
         issues.append({"code": "missing_family", "path": "$.cases",
@@ -172,7 +172,7 @@ def _audit_launch(path: Path, manifest_path: Path,
         if set(phase.get("case_ids", [])) != case_ids:
             issues.append({"code": "launch_phase_case_mismatch",
                            "path": f"$.phases[{index}].case_ids"})
-        if phase.get("target_tier") != 2 or phase.get("deltaai_gpu_count") != 0:
+        if phase.get("target_tier") != 4 or phase.get("deltaai_gpu_count") != 0:
             issues.append({"code": "launch_phase_overclaim",
                            "path": f"$.phases[{index}]"})
         expected_retrieval = {
@@ -183,8 +183,8 @@ def _audit_launch(path: Path, manifest_path: Path,
             issues.append({"code": "launch_retrieval_policy_mismatch",
                            "path": f"$.phases[{index}].retrieval_policy"})
     policy = data.get("claim_policy", {})
-    if any(policy.get(key) is not False for key in (
-        "capability_runs_may_claim_tier_above_2",
+    if policy.get("maximum_capability_execution_tier") != 4 or any(
+        policy.get(key) is not False for key in (
         "capability_runs_may_set_claim_eligible_h2",
         "capability_runs_may_set_claim_eligible_deltaai_h2",
     )):

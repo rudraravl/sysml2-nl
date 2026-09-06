@@ -13,6 +13,7 @@ from nl2robotics.contracts.capabilities import capability_report
 from nl2robotics.hybrid.isaac_bundle import prepare_isaac_bundle
 from nl2robotics.hybrid.newton_bundle import prepare_newton_bundle
 from nl2robotics.hybrid.portable import PortableHybridPipeline
+from nl2robotics.hybrid.capability_execution import CapabilityExecutionPipeline
 from nl2robotics.modelica.moe import generate_modelica_moe
 from nl2robotics.modelica.pipeline import ModelicaPipeline
 from nl2robotics.openusd.moe import generate_openusd_moe
@@ -37,6 +38,7 @@ class RoboticsOrchestrator:
         modelica_pipeline: ModelicaPipeline | None = None,
         openusd_pipeline: OpenUSDPipeline | None = None,
         portable_pipeline: PortableHybridPipeline | None = None,
+        capability_execution_pipeline: CapabilityExecutionPipeline | None = None,
         modelica_generator: ProfileGenerator | None = None,
         openusd_generator: ProfileGenerator | None = None,
         alignment_evaluator: RoboticsAlignmentEvaluator | None = None,
@@ -51,6 +53,12 @@ class RoboticsOrchestrator:
         self.modelica_pipeline = modelica_pipeline or ModelicaPipeline()
         self.openusd_pipeline = openusd_pipeline or OpenUSDPipeline()
         self.portable_pipeline = portable_pipeline or PortableHybridPipeline()
+        self.capability_execution_pipeline = (
+            capability_execution_pipeline or CapabilityExecutionPipeline(
+                modelica_runner=getattr(self.modelica_pipeline, "runner", None),
+                fmi_runner=getattr(self.modelica_pipeline, "fmi_runner", None),
+            )
+        )
         self.modelica_generator = modelica_generator
         self.openusd_generator = openusd_generator
         self.alignment_evaluator = alignment_evaluator or RoboticsAlignmentEvaluator()
@@ -225,8 +233,13 @@ class RoboticsOrchestrator:
                     hybrid_report=capability_evidence,
                     ask=alignment_ask,
                 )
-            else:
+            elif not enable_alignment:
                 alignment = _skipped_alignment(plan.task_id)
+            else:
+                alignment = _not_run_alignment(
+                    plan.task_id,
+                    "artifact pair did not pass native validation",
+                )
             repair_report = None
             if (enable_alignment and pair_passed
                     and semantic_repair_ask is not None
@@ -305,41 +318,128 @@ class RoboticsOrchestrator:
                     modelica = final_candidate["modelica"]
                     openusd = final_candidate["openusd"]
                     alignment = final_candidate["alignment"]
+                    capability_evidence = final_candidate["hybrid"]
                     (modelica_dir / "model.mo").write_text(
                         modelica, encoding="utf-8"
                     )
                     source_usd.write_text(openusd, encoding="utf-8")
                 _write_json(output_dir / "semantic-repair.json", repair_report)
-            _write_json(output_dir / "alignment.json", alignment)
+            _write_json(output_dir / "pre-execution-alignment.json", alignment)
             if repair_report is not None:
                 result["semantic_repair"] = {
                     "report": "semantic-repair.json",
                     "attempted": repair_report["repairs_attempted"],
                     "accepted": repair_report["repairs_accepted"],
                 }
-            result["alignment"] = {
+            result["pre_execution_alignment"] = {
                 "enabled": enable_alignment,
                 "passed": alignment["passed"],
+                "skipped": alignment.get("skipped", False),
+                "not_run": alignment.get("not_run", False),
                 "claim_ready": alignment.get("claim_ready", False),
-                "report": "alignment.json",
+                "report": "pre-execution-alignment.json",
                 **alignment["summary"],
             }
             aligned = not enable_alignment or alignment["passed"] is True
-            result["execution_status"] = (
-                "artifacts_validated" if pair_passed and aligned
-                else "artifact_validation_failed"
-            )
             result["claim_eligible_h2"] = False
             result["claim_eligible_deltaai_h2"] = False
-            result["passed"] = pair_passed and aligned
-            if pair_passed and aligned:
-                result["failure_stage"] = None
-            elif modelica_report.get("passed") is not True:
+            if modelica_report.get("passed") is not True:
                 result["failure_stage"] = "modelica_validation"
             elif openusd_report.get("passed") is not True:
                 result["failure_stage"] = "openusd_validation"
-            else:
+            elif not aligned:
                 result["failure_stage"] = "semantic_alignment"
+            if not pair_passed or not aligned:
+                result["execution_status"] = "not_executed"
+                result["passed"] = False
+                _write_json(output_dir / "alignment.json", alignment)
+                result["alignment"] = result["pre_execution_alignment"]
+                result["stage_trace"] = _stage_trace(result)
+                return self._finish(output_dir, result)
+
+            result["failure_stage"] = "capability_behavior_execution"
+            try:
+                execution = self.capability_execution_pipeline.run(
+                    modelica,
+                    plan.requirement_ir,
+                    plan.contract,
+                    output_dir=output_dir / "hybrid",
+                )
+            except Exception as exc:
+                result["error"] = str(exc)
+                result["execution_status"] = "execution_failed"
+                result["passed"] = False
+                result["stage_trace"] = _stage_trace(result)
+                return self._finish(output_dir, result)
+            _write_json(output_dir / "hybrid" / "bundle.json", execution)
+            result["hybrid"] = _capability_execution_summary(execution)
+            report = capability_report(
+                plan.requirement_ir,
+                modelica_passed=True,
+                openusd_passed=True,
+                contract_valid=execution.get("contract", {}).get("success"),
+                execution_completed=execution.get("execution_completed"),
+                behavior_evaluated=execution.get("behavior_evaluated"),
+            )
+            _write_json(output_dir / "capability-report.json", report)
+            result["capabilities"] = {
+                "report": "capability-report.json",
+                **report["verification"],
+                "requested_feature_count": len(report["requested_features"]),
+                "profile_count": len(report["profiles"]),
+            }
+            runtime_evidence = _capability_evidence(
+                plan, report, openusd_report, pair_passed=True,
+                execution=execution,
+            )
+            runtime_evidence["native_openusd"] = capability_evidence.get(
+                "native_openusd", runtime_evidence["native_openusd"]
+            )
+            executed = execution.get("execution_completed") is True
+            if enable_alignment and executed:
+                post_alignment = self.alignment_evaluator.evaluate(
+                    plan.requirement_ir,
+                    modelica=modelica,
+                    openusd=openusd,
+                    contract=plan.contract,
+                    hybrid_report=runtime_evidence,
+                    ask=alignment_ask,
+                )
+            elif not enable_alignment and executed:
+                post_alignment = _skipped_alignment(plan.task_id)
+            else:
+                post_alignment = _not_run_alignment(
+                    plan.task_id,
+                    "runtime execution did not complete",
+                )
+            _write_json(output_dir / "alignment.json", post_alignment)
+            result["alignment"] = {
+                "enabled": enable_alignment,
+                "passed": post_alignment["passed"],
+                "skipped": post_alignment.get("skipped", False),
+                "not_run": post_alignment.get("not_run", False),
+                "claim_ready": post_alignment.get("claim_ready", False),
+                "report": "alignment.json",
+                **post_alignment["summary"],
+            }
+            behavior_passed = execution.get("behavior_passed") is True
+            result["execution_status"] = (
+                "behaviorally_executed" if executed else "execution_failed"
+            )
+            result["passed"] = bool(
+                executed and behavior_passed and post_alignment["passed"] is True
+            )
+            if not executed:
+                result["failure_stage"] = execution.get(
+                    "failure_stage", "capability_behavior_execution"
+                )
+            elif not behavior_passed:
+                result["failure_stage"] = "behavior_evaluation"
+            elif post_alignment["passed"] is not True:
+                result["failure_stage"] = "post_execution_semantic_alignment"
+            else:
+                result["failure_stage"] = None
+            result["stage_trace"] = _stage_trace(result)
             return self._finish(output_dir, result)
 
         if isinstance(plan, H2Plan):
@@ -817,16 +917,37 @@ def _skipped_alignment(task_id: str) -> dict:
     }
 
 
+def _not_run_alignment(task_id: str, reason: str) -> dict:
+    return {
+        "stage": "robotics_semantic_alignment",
+        "schema_version": "1.0",
+        "task_id": task_id,
+        "passed": False,
+        "not_run": True,
+        "reason": reason,
+        "summary": {
+            "question_count": 0,
+            "counts": {"satisfied": 0, "violated": 0, "unknown": 0,
+                       "not_applicable": 0},
+            "weighted_semantic_score": None,
+            "evidence_coverage": 0.0,
+            "blocking_violations": 0,
+            "deterministic_violations": 0,
+            "per_family": {},
+        },
+        "repair_plan": {"actions": []},
+    }
+
+
 def _capability_evidence(plan: CapabilityPlan, report: dict,
-                         openusd_report: dict, *, pair_passed: bool) -> dict:
+                         openusd_report: dict, *, pair_passed: bool,
+                         execution: dict | None = None) -> dict:
     """Expose native validator evidence to broad semantic alignment.
 
-    Capability runs do not have an executable FMU/USD contract report, but the
-    OpenUSD generation stage already produced authoritative semantic evidence.
-    The native evidence is intentionally kept outside ``contract``: broad
-    capability artifacts have no executable FMU/USD mappings, and presenting
-    them as an executable contract would turn unavailable runtime evidence into
-    false deterministic violations.
+    Capability runs have an FMU trace contract, but not an H1/H2 joint
+    FMU-to-USD actuation contract. The native OpenUSD evidence and broad
+    execution contract are kept separate so neither is misrepresented as
+    Newton/Isaac closed-loop evidence.
     """
     validation = {}
     for attempt in openusd_report.get("attempts", []):
@@ -838,14 +959,94 @@ def _capability_evidence(plan: CapabilityPlan, report: dict,
         "metadata": validation.get("metadata", {}),
         "counts": validation.get("counts", {}),
     }
+    execution = execution or {}
     return {
-        "passed": pair_passed,
+        "passed": execution.get("passed", pair_passed),
+        # Broad semantic mappings are not H1/H2 joint contracts. Keep them out
+        # of the strict joint-contract alignment adapter while exposing their
+        # own validation report explicitly.
         "contract": {},
+        "execution_contract": execution.get("contract", {}),
         "native_openusd": openusd_evidence,
-        "properties": [],
+        "properties": list(execution.get("properties", [])),
+        "execution": execution.get("execution", {}),
+        "execution_completed": execution.get("execution_completed", False),
         "capabilities": report,
         "contract_kind": plan.contract.get("contract_kind"),
     }
+
+
+def _capability_execution_summary(report: dict) -> dict:
+    properties = list(report.get("properties", []))
+    return {
+        "passed": report.get("passed") is True,
+        "execution_completed": report.get("execution_completed") is True,
+        "behavior_evaluated": report.get("behavior_evaluated") is True,
+        "behavior_passed": report.get("behavior_passed") is True,
+        "execution_mode": report.get("execution_mode"),
+        "failure_stage": report.get("failure_stage"),
+        "report": "hybrid/bundle.json",
+        "fmu": report.get("fmu", {}),
+        "contract": report.get("contract", {}),
+        "execution": report.get("execution", {}),
+        "trace_gate": report.get("trace_gate", {}),
+        "properties": properties,
+        "property_summary": report.get("property_summary", {}),
+        "property_count": len(properties),
+        "claim_eligible_h2": False,
+        "claim_eligible_newton_h2": False,
+        "claim_eligible_deltaai_h2": False,
+    }
+
+
+def _stage_trace(result: dict) -> list[dict]:
+    """Emit reached/pass status without treating disabled checks as successes."""
+    hybrid = result.get("hybrid", {})
+    pre = result.get("pre_execution_alignment", {})
+    post = result.get("alignment", {})
+    values = (
+        ("requirement_normalization", "normalization" in result,
+         result.get("normalization", {}).get("success") is True, None),
+        ("interface_planning", "plan" in result,
+         result.get("plan", {}).get("success") is True, None),
+        ("modelica_validation", "modelica" in result,
+         result.get("modelica", {}).get("passed") is True, None),
+        ("openusd_validation", "openusd" in result,
+         result.get("openusd", {}).get("passed") is True, None),
+        ("pre_execution_semantic_alignment", bool(pre),
+         pre.get("passed") is True,
+         "disabled" if pre.get("skipped") else
+         "not_reached" if pre.get("not_run") else None),
+        ("execution_preflight", bool(hybrid),
+         hybrid.get("failure_stage") not in {
+             "execution_contract", "execution_clock"
+         }, None),
+        ("fmu_export", bool(hybrid.get("fmu")),
+         hybrid.get("fmu", {}).get("success") is True, None),
+        ("fmu_interface_contract", bool(hybrid.get("contract")),
+         hybrid.get("contract", {}).get("success") is True, None),
+        ("runtime_initialization", bool(hybrid.get("execution")),
+         hybrid.get("execution", {}).get("initialized") is True, None),
+        ("runtime_execution", bool(hybrid.get("execution")),
+         hybrid.get("execution_completed") is True, None),
+        ("behavior_evaluation", hybrid.get("execution_completed") is True,
+         hybrid.get("behavior_evaluated") is True, None),
+        ("post_execution_semantic_alignment", bool(post),
+         post.get("passed") is True,
+         "disabled" if post.get("skipped") else
+         "not_reached" if post.get("not_run") else None),
+    )
+    rows = []
+    for index, (stage, reached, passed, override) in enumerate(values):
+        status = override or ("passed" if passed else "failed" if reached else "not_reached")
+        rows.append({
+            "index": index,
+            "stage": stage,
+            "reached": reached and status != "not_reached",
+            "passed": passed if status in {"passed", "failed"} else None,
+            "status": status,
+        })
+    return rows
 
 
 def _h1_failure_stage(report: dict) -> str:

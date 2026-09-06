@@ -48,19 +48,20 @@ replace an unmapped property with a constant monitor.
 | 0 | Natural language was normalized with source evidence. |
 | 1 | The broad shared IR passed structural and reference validation. |
 | 2 | Both generated artifacts passed their Modelica and OpenUSD profile validators. |
-| 3 | A profile-specific contract resolved and checked the real FMU/USD interfaces. |
-| 4 | A profile-specific coupled runtime executed and its properties passed. |
+| 3 | An executable contract resolved and checked every required FMU trace interface. |
+| 4 | A real runtime completed and emitted externally evaluated behavior verdicts. |
 | 5 | Execution also passed accelerator, backend, repeatability, and provenance gates. |
 
 Every run records the highest tier actually reached. A difficult mobile,
-contact, aerial, or sensing request can therefore participate in generation
-and semantic-fidelity experiments even before its dedicated closed-loop adapter
-exists. Its report remains tier 2 rather than being mislabeled as an H2 run.
+contact, aerial, or sensing request can therefore contribute to stage-survival,
+behavior, and semantic-fidelity experiments even when it fails before the final
+gate. Tier 4 from the integrated FMU route is never mislabeled as Newton H2.
 
 ## Implemented profiles
 
-- `general_modelica_openusd`: broad complementary artifact generation and
-  validation, tier-2 ceiling.
+- `general_modelica_openusd`: broad complementary artifact generation,
+  integrated FMU behavior execution, external property evaluation, and
+  post-execution semantic alignment, tier-4 ceiling.
 - `portable_fmu_kinematic`: real FMU execution plus verified USD playback.
 - `articulated_joint_space_h2`: fixed-base acyclic revolute/prismatic trees,
   independent saturated PD effort control, Newton or Isaac adapter, and tier-5
@@ -68,9 +69,9 @@ exists. Its report remains tier 2 rather than being mislabeled as an H2 run.
 
 The router also identifies requested mobile, aerial, legged, marine, soft,
 fluid-power, electromechanical, multi-robot, closed-chain, sensor, contact, and
-trajectory/coupled-control profiles. Those currently use the general artifact
-path and are explicitly marked as needing a dedicated runtime adapter for
-tiers 3–5.
+trajectory/coupled-control profiles. Those use the integrated FMU behavior path;
+they still require dedicated simulator adapters before any Newton/Isaac or
+accelerator claim.
 
 ## Command
 
@@ -82,10 +83,11 @@ python3 -m nl2robotics.orchestrator.cli \
   --mode moe --subset full1500
 ```
 
-The bundle contains the grounded IR, capability contract, profile-specific
-generation requirements, Modelica and OpenUSD artifacts, validator reports,
-`capability-report.json`, and `result.json`. Claim flags remain false unless a
-separate strict executable profile produces the required runtime evidence.
+The bundle contains the grounded IR, executable capability contract,
+profile-specific generation requirements, Modelica and OpenUSD artifacts,
+validator reports, FMU, runtime trace, property verdicts, pre/post semantic
+alignment, `capability-report.json`, and `result.json`. Newton/accelerator claim
+flags remain false unless the strict H2 profile produces that evidence.
 
 For reproducible artifact ablations, freeze a validated normalization and rerun
 without another normalization model call:

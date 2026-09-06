@@ -4,18 +4,28 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
+import shutil
+
+from dotenv import load_dotenv
 
 from nl2robotics.benchmark.suite import BenchmarkSuite
 from nl2robotics.hybrid.portable import PortableHybridPipeline
 from nl2robotics.hybrid.gpu_handoff import run_handoff
 from nl2robotics.hybrid.newton_cli import run_newton_bundle
 from nl2robotics.modelica.corpus import ExampleCorpus
+from nl2robotics.modelica.moe import routing as modelica_moe_routing
 from nl2robotics.modelica.openmodelica import OpenModelicaRunner
 from nl2robotics.modelica.pipeline import ModelicaPipeline
 from nl2robotics.openusd.pipeline import OpenUSDPipeline
 from nl2robotics.studies.capability_benchmark import CapabilityBenchmarkSuite
-from spec_aligner.llm import JSON_PREFIX, TEXT_PREFIX, ask_completion
+from spec_aligner.llm import (
+    JSON_PREFIX,
+    TEXT_PREFIX,
+    ask_completion,
+    provider_for_model,
+)
 
 from .conditions import select_conditions
 from .executor import PipelineExperimentExecutor
@@ -53,6 +63,10 @@ def main() -> None:
                         default="rich")
     parser.add_argument("--repetitions", type=int, default=1)
     parser.add_argument("--randomization-seed", type=int, default=20260830)
+    parser.add_argument("--shard-count", type=int, default=1,
+                        help="split the frozen randomized cell plan across workers")
+    parser.add_argument("--shard-index", type=int, default=0,
+                        help="zero-based worker index within --shard-count")
     parser.add_argument("--model", default="gpt-5.4")
     parser.add_argument("--provider", choices=("codex", "claude"))
     parser.add_argument("--modelica-backend", choices=("auto", "local", "docker"),
@@ -96,6 +110,10 @@ def main() -> None:
         help="audit and print the exact experiment grid without model calls",
     )
     args = parser.parse_args()
+    if args.shard_count < 1:
+        parser.error("--shard-count must be positive")
+    if args.shard_index < 0 or args.shard_index >= args.shard_count:
+        parser.error("--shard-index must be in [0, --shard-count)")
 
     suite = _load_suite(args.benchmark_manifest)
     audit = suite.audit()
@@ -236,7 +254,20 @@ def main() -> None:
         "newton_repetitions": args.newton_repetitions,
         "newton_repeatability_tolerance": args.newton_repeatability_tolerance,
         "require_complete_moe": True,
+        "shard_count": args.shard_count,
+        "shard_assignment": "category_stratified_task_block_round_robin",
     }
+    randomize_task_order = (
+        getattr(suite, "benchmark_id", "")
+        in {
+            "robotics-pipeline-prompt-corpus-v1",
+            "robotics-pipeline-execution-corpus-v2",
+            "robotics-paper-execution-evaluation-candidate-v2",
+        }
+    )
+    configuration["task_order"] = (
+        "seeded_randomized" if randomize_task_order else "canonical"
+    )
     protocol, configuration = freeze_protocol(
         repository=Path(__file__).resolve().parents[2],
         output_dir=args.output_dir,
@@ -246,6 +277,7 @@ def main() -> None:
         repetitions=args.repetitions,
         configuration=configuration,
         randomization_seed=args.randomization_seed,
+        randomize_task_order=randomize_task_order,
     )
     size = experiment_size(len(selected), len(conditions), 1, args.repetitions)
     print(json.dumps({"experiment_size": size, "configuration": configuration},
@@ -263,9 +295,65 @@ def main() -> None:
             "planned_cells": protocol["planned_cells"],
         }, indent=2))
         return
+    preflight_suffix = (
+        "" if args.shard_count == 1 else
+        f"-shard-{args.shard_index:03d}-of-{args.shard_count:03d}"
+    )
+    modelica_required = any(task.profile != "openusd" for task, _ in selected)
+    modelica_preflight = (
+        _preflight_modelica_backend(
+            modelica,
+            args.output_dir / f"runtime-preflight{preflight_suffix}" / "modelica",
+        ) if modelica_required else {
+            "stage": "modelica_runtime_preflight",
+            "success": True,
+            "required": False,
+            "skipped": True,
+            "diagnostics": [],
+        }
+    )
+    fmi_preflight = _preflight_fmi_runtime(modelica) if modelica_required else {
+        "stage": "fmi_runtime_preflight",
+        "success": True,
+        "required": False,
+        "skipped": True,
+        "diagnostics": [],
+    }
+    llm_preflight = _preflight_llm_environment(
+        model=args.model, provider=args.provider,
+        repository=Path(__file__).resolve().parents[2],
+        require_moe=any(condition.moe for condition in conditions),
+    )
+    preflight = {
+        "stage": "robotics_experiment_runtime_preflight",
+        "success": (
+            modelica_preflight["success"] is True
+            and fmi_preflight["success"] is True
+            and llm_preflight["success"] is True
+        ),
+        "modelica": modelica_preflight,
+        "fmi": fmi_preflight,
+        "llm": llm_preflight,
+        "diagnostics": (
+            modelica_preflight["diagnostics"] + fmi_preflight["diagnostics"]
+            + llm_preflight["diagnostics"]
+        ),
+    }
+    write_json(
+        args.output_dir / f"runtime-preflight{preflight_suffix}.json", preflight
+    )
+    if preflight["success"] is not True:
+        diagnostics = "; ".join(preflight["diagnostics"]) or "unknown failure"
+        parser.error(
+            "runtime preflight failed before model calls: "
+            f"{diagnostics}"
+        )
     runner = AblationRunner(
         args.output_dir, configuration=configuration,
         randomization_seed=args.randomization_seed,
+        randomize_task_order=randomize_task_order,
+        shard_count=args.shard_count,
+        shard_index=args.shard_index,
     )
     records = runner.run(
         selected, conditions, executor,
@@ -276,7 +364,11 @@ def main() -> None:
     summary = summarize_records(records)
     summary["run_control"] = runner.last_run_control
     summary["protocol_core_sha256"] = protocol["protocol_core_sha256"]
-    write_json(args.output_dir / "summary.json", summary)
+    summary_name = (
+        "summary.json" if args.shard_count == 1 else
+        f"summary-shard-{args.shard_index:03d}-of-{args.shard_count:03d}.json"
+    )
+    write_json(args.output_dir / summary_name, summary)
     print(json.dumps(summary, indent=2, allow_nan=False))
 
 
@@ -284,6 +376,88 @@ def _load_suite(manifest_path: Path | None):
     if manifest_path is not None and CapabilityBenchmarkSuite.supports(manifest_path):
         return CapabilityBenchmarkSuite(manifest_path)
     return BenchmarkSuite(manifest_path=manifest_path)
+
+
+def _preflight_modelica_backend(pipeline: ModelicaPipeline,
+                                output_dir: Path) -> dict:
+    """Build known-good source so backend failures stop before paid model calls."""
+    source = """model NL2RoboticsRuntimePreflight
+  Real x(start=1.0, fixed=true);
+equation
+  der(x) = -x;
+end NL2RoboticsRuntimePreflight;
+"""
+    result = pipeline.compile(source, output_dir=output_dir)
+    build = result.build
+    return {
+        "stage": "modelica_runtime_preflight",
+        "success": result.passed,
+        "requested_backend": pipeline.runner.backend,
+        "resolved_backend": pipeline.runner.resolved_backend(),
+        "available": build.available,
+        "checked": build.checked,
+        "compiled": build.compiled,
+        "diagnostics": [item.message for item in build.diagnostics],
+    }
+
+
+def _preflight_fmi_runtime(pipeline: ModelicaPipeline) -> dict:
+    available = pipeline.fmi_runner.available()
+    return {
+        "stage": "fmi_runtime_preflight",
+        "success": available,
+        "required": True,
+        "image": pipeline.fmi_runner.image,
+        "available": available,
+        "diagnostics": ([] if available else [
+            f"FMI runtime image is unavailable: {pipeline.fmi_runner.image}"
+        ]),
+    }
+
+
+def _preflight_llm_environment(*, model: str, provider: str | None,
+                               repository: Path,
+                               require_moe: bool = True) -> dict:
+    """Validate configured model transports without sending a model request."""
+    load_dotenv(repository / ".env")
+    diagnostics = []
+    inferred_provider = None
+    try:
+        inferred_provider = provider_for_model(model)
+    except RuntimeError as exc:
+        diagnostics.append(str(exc))
+    selected_provider = provider or inferred_provider
+    if provider and inferred_provider and provider != inferred_provider:
+        diagnostics.append(
+            f"provider {provider!r} is incompatible with model {model!r}; "
+            f"expected {inferred_provider!r}"
+        )
+    cli_present = bool(selected_provider and shutil.which(selected_provider))
+    if selected_provider and not cli_present:
+        diagnostics.append(f"{selected_provider} CLI is not available on PATH")
+
+    routes = modelica_moe_routing()
+    route_values = set(routes["routes"].values())
+    openrouter_ready = bool(os.getenv("OPENROUTER_API_KEY"))
+    gemini_ready = bool(os.getenv("GEMINI_API_KEY"))
+    if require_moe and "openrouter" in route_values and not openrouter_ready:
+        diagnostics.append("OPENROUTER_API_KEY is required by the frozen MoE roster")
+    if require_moe and "gemini" in route_values and not gemini_ready:
+        diagnostics.append("GEMINI_API_KEY is required by the frozen MoE roster")
+    return {
+        "stage": "llm_transport_preflight",
+        "success": not diagnostics,
+        "single_model": model,
+        "requested_provider": provider,
+        "resolved_provider": selected_provider,
+        "provider_cli_present": cli_present,
+        "moe_required": require_moe,
+        "moe_backend": routes["backend"],
+        "moe_routes": routes["routes"],
+        "openrouter_key_present": openrouter_ready,
+        "gemini_key_present": gemini_ready,
+        "diagnostics": diagnostics,
+    }
 
 
 if __name__ == "__main__":

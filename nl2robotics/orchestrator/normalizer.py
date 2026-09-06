@@ -470,6 +470,25 @@ Cross-record consistency is mandatory:
   interface with source_unit `dimensionless` and an `always` property whose
   upper bound is 0. Do not create this encoding unless the prohibition is
   explicit in SOURCE_TEXT.
+- Prefer machine-evaluable trace predicates whenever SOURCE_TEXT grounds a
+  scalar signal, threshold, tolerance, or time window. Use `always` for bounds
+  that must hold throughout an interval, `eventually` for a target that must be
+  reached within an interval, `final` for a terminal bound, and `response` only
+  for a bounded response interval. Copy grounded numeric limits into
+  `lower`/`upper` and grounded deadlines into `start`/`end`; never infer a
+  threshold or deadline.
+- Encode "settle/remain within tolerance after T" as an `always` bound on an
+  explicit tracking-error interface with `start` T. Encode "reach within
+  tolerance by T" as an `eventually` bound with `end` T. Encode a final-error
+  requirement as `final`. Encode a grounded overshoot limit as an `always`
+  upper bound on an explicit overshoot interface. These transformations are
+  semantic normalization, not new facts: every field still needs exact source
+  evidence.
+- Use `custom`, `reach_avoid`, `collision_free`, `energy`, `overshoot`, or
+  `settling_time` only when the requirement cannot be expressed faithfully by
+  the supported scalar predicates above. Such properties may be reported as
+  unevaluable unless a dedicated deterministic evaluator exists; do not hide a
+  grounded numeric predicate behind `custom`.
 
 Return raw JSON only.
 
@@ -498,6 +517,13 @@ unit. Every property targeting `state_id` also requires a matching observable
 interface with the exact same state_id. An explicit no-collision/no-contact
 requirement may be represented by a dimensionless contact interface and an
 always-property with upper bound 0.
+
+For capability_tiered properties, repair grounded scalar requirements into
+machine-evaluable predicates instead of generic `custom` records: `always` for
+interval bounds, `eventually` for reach-by requirements, `final` for terminal
+bounds, and bounded `response` for response intervals. Settling after T is an
+`always` bound on a tracking-error interface with `start` T. Never add a bound,
+deadline, target, signal, or unit that is absent from SOURCE_TEXT.
 
 The root `dynamics` field MUST remain a JSON array of dynamics records, exactly
 like `"dynamics": [{{"id": "...", "owner": "...", "states": ["..."]}}]`;

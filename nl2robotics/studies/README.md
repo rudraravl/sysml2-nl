@@ -85,7 +85,7 @@ is deliberately separate from the 65 held-out evaluation prompts; see
 `nl2robotics/corpus/README.md` for generation, audit, and filtered-run commands.
 
 Each case is a numerical, source-grounded system specification rather than a
-one-line category label. Execute the economical tier-2 breadth smoke locally
+one-line category label. Execute the economical breadth smoke locally
 with the frozen full-1500 retrieval corpora and checkpoint after every family:
 
 ```bash
@@ -127,6 +127,6 @@ python3 -m nl2robotics.experiments.run_cli \
   --output-dir outputs/capability-paper-v1 --dry-run
 ```
 
-Capability cells remain capped at tier 2. Dedicated profile runtimes, closed-loop
-execution, and genuine accelerator provenance are required before any higher
-tier or H2 claim; broad artifacts are never relabeled as runtime evidence.
+Capability cells can reach integrated FMU behavioral tier 4. Dedicated
+simulator runtimes and genuine accelerator provenance remain required for H2 or
+Newton/Isaac claims; broad FMU evidence is never relabeled as simulator physics.

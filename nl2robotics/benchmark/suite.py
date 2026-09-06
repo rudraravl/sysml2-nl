@@ -129,7 +129,9 @@ class BenchmarkSuite:
                     issues.append(_issue(
                         "missing_capability_profiles", path, str(expected)
                     ))
-                if task.target_level != "capability_tier2":
+                if task.target_level not in {
+                    "capability_tier2", "capability_execution",
+                }:
                     issues.append(_issue(
                         "invalid_capability_target", path, task.target_level
                     ))

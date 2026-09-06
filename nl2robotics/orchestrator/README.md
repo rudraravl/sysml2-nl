@@ -1,13 +1,15 @@
 # Unified Robotics Orchestrator
 
-This package turns one natural-language robotics request into a reproducible H1
-execution bundle or an H2 GPU-ready execution bundle:
+This package turns one natural-language robotics request into a reproducible
+broad behavioral, H1, or H2 execution bundle:
 
 1. one constrained LLM call extracts a shared requirement IR;
 2. exact source excerpts are checked for every normalized fact;
 3. deterministic code freezes names, paths, units, ownership, mappings, and time;
 4. the existing RAG/MoE profiles generate and validate Modelica and OpenUSD;
-5. the portable H1 runtime exports and executes the FMU, validates the real
+5. the broad route executes an integrated FMU, checks its finite trace,
+   evaluates grounded properties, and reruns semantic alignment on runtime
+   evidence; the portable H1 runtime exports and executes the FMU, validates the real
    cross-profile contract, authors and independently verifies USD playback, and
    evaluates trace properties; or
 6. the H2 path exports a controller FMU, validates a dynamic effort-controlled
@@ -55,9 +57,10 @@ python3 -m nl2robotics.orchestrator.cli \
 
 This path accepts mobile/floating, aerial, legged, marine, sensing, contact,
 trajectory, multi-DOF, closed-chain, fluid-power, electromechanical, and soft
-robotics requirements. It generates and validates complementary Modelica and
-OpenUSD artifacts and writes an explicit verification-tier report. It never
-reports artifact-only success as coupled physics or GPU evidence. See
+robotics requirements. It validates complementary Modelica and OpenUSD
+artifacts, executes the integrated Modelica behavior as a real FMU, evaluates
+the runtime trace, and writes pre/post semantic reports plus a stage trace. It
+never reports that broad FMU execution as coupled Newton physics or GPU evidence. See
 `../CAPABILITY_TIERED_PIPELINE.md`.
 
 Checked local profile smoke tests are available without model calls:

@@ -26,6 +26,7 @@ class CapabilityBenchmarkSuite:
             raise ValueError("capability manifest must contain a non-empty case list")
         if not isinstance(routes, dict):
             raise ValueError("capability manifest must contain RAG family routes")
+        self.benchmark_id = str(data.get("benchmark_id", ""))
         self.tasks = [self._task(case, routes) for case in cases]
 
     @staticmethod
@@ -47,7 +48,7 @@ class CapabilityBenchmarkSuite:
             profile="capability",
             category=family,
             difficulty=str(case.get("difficulty", "broad")),
-            target_level="capability_tier2",
+            target_level="capability_execution",
             oracle={
                 "expected_profiles": list(case["expected_profiles"]),
                 "source_target_tier": case["target_tier"],
@@ -76,15 +77,22 @@ class CapabilityBenchmarkSuite:
     def audit(self) -> dict:
         data = json.loads(self.manifest_path.read_text(encoding="utf-8"))
         benchmark_id = data.get("benchmark_id")
-        if benchmark_id == "robotics-paper-evaluation-candidate-v1":
+        if benchmark_id in {
+            "robotics-paper-evaluation-candidate-v1",
+            "robotics-paper-execution-evaluation-candidate-v2",
+        }:
             source = audit_paper_manifest(self.manifest_path)
-        elif benchmark_id == "robotics-pipeline-prompt-corpus-v1":
+        elif benchmark_id in {
+            "robotics-pipeline-prompt-corpus-v1",
+            "robotics-pipeline-execution-corpus-v2",
+        }:
             source = audit_prompt_corpus(self.manifest_path)
         else:
             source = audit_capability_manifest(self.manifest_path)
         return {
             "stage": "capability_benchmark_static_audit",
             "schema_version": "1.0",
+            "benchmark_id": self.benchmark_id,
             "success": source.get("success") is True,
             "task_count": len(self.tasks),
             "profile_counts": {"capability": len(self.tasks)},

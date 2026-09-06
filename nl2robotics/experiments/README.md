@@ -23,6 +23,10 @@ condition definitions, model roster, runtime/validator provenance, exclusion
 rules, randomized order, and exact cell fingerprints. Reusing that output
 directory with different frozen inputs fails closed.
 
+Corpus and execution-targeted held-out runs use a seeded randomized task order
+instead of their manifest row order. Task/repetition blocks remain intact, and
+multi-worker corpus shards are category-stratified.
+
 The concrete executor maps each condition to the real Modelica, OpenUSD, H1,
 or H2 preparation path. Run a small frozen slice with:
 
@@ -63,12 +67,20 @@ validity. Every run also contains a condition-fidelity audit proving which RAG,
 MoE, tool-repair, contract, and alignment controls were active. A missing frozen
 MoE expert makes the cell infrastructure-ineligible and forces an identical
 rerun; it is never compared as a smaller accidental ensemble. Provider usage
-limits stop the batch without writing a false failed cell. Summarize archived
-runs with:
+limits stop the batch without writing a false failed cell.
+
+For capability ablations, use artifact validity, runtime execution, behavior
+evaluation, and property-pass rates for paired B0-to-FULL comparisons.
+`configured_pipeline_success` records whether each condition completed its own
+enabled stages. `end_to_end` is intentionally unavailable when semantic
+alignment is disabled, so the headline full-funnel comparison cannot become a
+tautology.
+
+Summarize archived capability comparisons with a common outcome metric:
 
 ```bash
 python3 -m nl2robotics.experiments.cli outputs/robotics-ablations \
-  --pair B0 FULL --metric end_to_end \
+  --pair B0 FULL --metric all_properties_pass \
   --output outputs/robotics-ablations/summary.json
 ```
 
@@ -77,7 +89,8 @@ inspect failures, then repeat a representative subset and add prompt variants.
 
 The frozen broad capability study is exposed directly to this runner without
 copying its manifest or fabricating extra prompt variants. Its paper grid is 13
-families x 5 conditions x 3 repetitions and remains capped at capability tier 2:
+families x 5 conditions x 3 repetitions. Each cell attempts the full broad
+execution funnel and records the maximum stage reached:
 
 ```bash
 python3 -m nl2robotics.experiments.run_cli \
@@ -89,5 +102,6 @@ python3 -m nl2robotics.experiments.run_cli \
 
 Remove `--dry-run` only after inspecting a small selected slice. B1 through FULL
 use the frozen family-preferred RAG routes; B0 remains direct generation.
-Capability `FULL` also executes the artifact-alignment stage; B3 and FULL are
-therefore behaviorally distinct rather than label-only variants.
+Capability `FULL` also executes both semantic-alignment stages; B3 and FULL are
+therefore behaviorally distinct rather than label-only variants. Integrated FMU
+execution is reported separately from strict Newton H2 execution.

@@ -205,14 +205,18 @@ class PipelineExperimentExecutor:
         openusd_categories = tuple(route.get("openusd", ()))
 
         def modelica_generator(profile_requirement: str, generation_dir: Path):
-            requirement = prompt if condition.id == "B0" else profile_requirement
+            requirement = generation_requirement(
+                prompt, profile_requirement, condition
+            )
             return self._generate_modelica(
                 requirement, condition, generation_dir,
                 preferred_categories=modelica_categories,
             )
 
         def openusd_generator(profile_requirement: str, generation_dir: Path):
-            requirement = prompt if condition.id == "B0" else profile_requirement
+            requirement = generation_requirement(
+                prompt, profile_requirement, condition
+            )
             return self._generate_openusd(
                 requirement, condition, generation_dir,
                 preferred_categories=openusd_categories,
@@ -382,11 +386,18 @@ def generation_strategy(condition: AblationCondition) -> str:
     return "rag_moe"
 
 
+def generation_requirement(raw_prompt: str, profiled_prompt: str,
+                           condition: AblationCondition) -> str:
+    """Expose the normalized execution contract only in contract conditions."""
+    return profiled_prompt if condition.validated_contract else raw_prompt
+
+
 def _execution_mode(task: BenchmarkTask) -> str:
     return {
         "isaac_h2": "isaac_closed_loop",
         "newton_h2": "newton_closed_loop",
-        "capability_tier2": "capability_tiered",
+        "capability_tier2": "capability_tiered",  # legacy manifests
+        "capability_execution": "capability_tiered",
     }.get(task.target_level, "portable_fmu_kinematic")
 
 

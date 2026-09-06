@@ -231,6 +231,12 @@ def _property_answer(question: FocusedQuestion,
     if not matches:
         return _answer("unknown", "no runtime result exists for this property")
     row = matches[0]
+    if row.get("status") == "unevaluable":
+        return _answer(
+            "unknown",
+            f"runtime property {question.subject_id} is unevaluable: "
+            f"{row.get('detail')}",
+        )
     evidence = (
         f"runtime property {question.subject_id}: passed={row.get('passed')}, "
         f"robustness={row.get('robustness')}"

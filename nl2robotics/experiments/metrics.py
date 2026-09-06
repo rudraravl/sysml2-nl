@@ -13,7 +13,10 @@ BINARY_METRICS = (
     "artifact_pair_valid_attempt_0", "condition_fidelity",
     "modelica_build", "fmu_export", "fmu_execution",
     "usd_semantic_valid", "named_simulator_load", "stable_simulation",
-    "contract_valid", "end_to_end", "all_properties_pass",
+    "contract_valid", "pre_execution_semantic", "runtime_execution",
+    "behavior_evaluated", "post_execution_semantic",
+    "configured_pipeline_success", "end_to_end",
+    "all_properties_pass",
 )
 
 
@@ -61,26 +64,41 @@ def extract_metrics(profile: str, result: dict, *,
         all(item.get("passed") is True for item in properties)
         if properties else None
     )
-    end_to_end = _truth(result.get("passed", result.get("success")))
+    configured_pipeline_success = _truth(
+        result.get("passed", result.get("success"))
+    )
+    end_to_end = configured_pipeline_success
     simulator = hybrid.get("simulator", hybrid.get("runtime", {}))
     simulator_load = _truth(
         simulator.get("loaded") if isinstance(simulator, dict) else None
     )
     repeatability = hybrid.get("repeatability", {})
     stable = _truth(repeatability.get("success", repeatability.get("passed")))
+    if stable is None:
+        stable = _truth(hybrid.get("trace_gate", {}).get("success"))
     if profile == "modelica":
         modelica_pass = _truth(result.get("passed", modelica_pass))
     elif profile == "openusd":
         usd_pass = _truth(result.get("passed", usd_pass))
-    elif profile == "capability":
-        # Tier-2 artifact completion is useful but is not coupled execution.
-        end_to_end = None
-        fmu_export = None
-        fmu_execution = None
-        contract_valid = None
-        property_pass = None
-        simulator_load = None
-        stable = None
+    elif profile == "capability" and not result.get("stage_trace"):
+        # Legacy validation-only capability results are never end-to-end.
+        end_to_end = False
+    stage_trace = {
+        item.get("stage"): item.get("passed")
+        for item in result.get("stage_trace", []) if isinstance(item, dict)
+    }
+    if profile == "capability" and result.get("stage_trace"):
+        alignment_enabled = result.get("ablation", {}).get(
+            "condition", {}
+        ).get("alignment")
+        if alignment_enabled is None:
+            alignment_enabled = result.get(
+                "pre_execution_alignment", {}
+            ).get("enabled")
+        if alignment_enabled is not True:
+            # A configured pipeline can finish with the semantic stage disabled,
+            # but that is not a comparable full-funnel outcome.
+            end_to_end = None
 
     summary = alignment.get("summary", alignment)
     return {
@@ -108,12 +126,22 @@ def extract_metrics(profile: str, result: dict, *,
         "named_simulator_load": simulator_load,
         "stable_simulation": stable,
         "contract_valid": contract_valid,
+        "pre_execution_semantic": _truth(
+            stage_trace.get("pre_execution_semantic_alignment")
+        ),
+        "runtime_execution": _truth(stage_trace.get("runtime_execution")),
+        "behavior_evaluated": _truth(stage_trace.get("behavior_evaluation")),
+        "post_execution_semantic": _truth(
+            stage_trace.get("post_execution_semantic_alignment")
+        ),
+        "configured_pipeline_success": configured_pipeline_success,
         "end_to_end": end_to_end,
         "all_properties_pass": property_pass,
         "semantic_score": summary.get("weighted_semantic_score"),
         "semantic_coverage": summary.get("evidence_coverage"),
         "blocking_violations": summary.get("blocking_violations"),
         "verification_tier": capabilities.get("highest_reached_tier"),
+        "maximum_stage_reached": _maximum_stage_reached(result.get("stage_trace", [])),
         "repairs": _repairs(result),
     }
 
@@ -138,7 +166,8 @@ def summarize_records(records: list[dict], *, bootstrap_samples: int = 2000,
             )
         continuous = {}
         for metric in (
-            "semantic_score", "semantic_coverage", "verification_tier", "repairs"
+            "semantic_score", "semantic_coverage", "verification_tier",
+            "maximum_stage_reached", "repairs"
         ):
             values = [item["metrics"].get(metric) for item in rows]
             numeric = [float(value) for value in values
@@ -159,6 +188,18 @@ def summarize_records(records: list[dict], *, bootstrap_samples: int = 2000,
         "infrastructure_failure_count": infrastructure_failures,
         "conditions": summaries,
     }
+
+
+def _maximum_stage_reached(rows: list[dict]) -> int | None:
+    reached = [
+        item.get("index") for item in rows
+        if isinstance(item, dict) and (
+            item.get("reached") is True
+            or ("reached" not in item and item.get("passed") is True)
+        )
+        and isinstance(item.get("index"), int)
+    ]
+    return max(reached) if reached else None
 
 
 def paired_binary_comparison(records: list[dict], condition_a: str,

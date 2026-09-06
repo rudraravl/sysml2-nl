@@ -17,15 +17,21 @@ from .runner import planned_cells
 
 def freeze_protocol(*, repository: Path, output_dir: Path, tasks: list,
                     conditions: list, variant: str, repetitions: int,
-                    configuration: dict, randomization_seed: int
+                    configuration: dict, randomization_seed: int,
+                    randomize_task_order: bool = False,
                     ) -> tuple[dict, dict]:
     """Write the frozen inputs and exact ordered/fingerprinted cell plan."""
     core = {
         "schema_version": "1.0",
         "stage": "robotics_study_protocol_freeze",
         "randomization": {
-            "design": "task_repetition_blocked_condition_randomization",
+            "design": (
+                "randomized_task_repetition_blocks_and_condition_order"
+                if randomize_task_order else
+                "task_repetition_blocked_condition_randomization"
+            ),
             "seed": randomization_seed,
+            "task_order_randomized": randomize_task_order,
         },
         "configuration": configuration,
         "conditions": [condition.to_dict() for condition in conditions],
@@ -79,7 +85,8 @@ def freeze_protocol(*, repository: Path, output_dir: Path, tasks: list,
     }
     plan = []
     for index, cell in enumerate(planned_cells(
-        tasks, conditions, repetitions=repetitions, seed=randomization_seed
+        tasks, conditions, repetitions=repetitions, seed=randomization_seed,
+        randomize_task_order=randomize_task_order,
     )):
         task, prompt = cell["task"], cell["prompt"]
         condition, repetition = cell["condition"], cell["repetition"]

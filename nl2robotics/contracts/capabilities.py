@@ -48,8 +48,8 @@ TIER_NAMES = {
     0: "normalized",
     1: "ir_validated",
     2: "artifacts_validated",
-    3: "cross_artifact_validated",
-    4: "closed_loop_executed",
+    3: "executable_contract_validated",
+    4: "behaviorally_executed",
     5: "accelerator_provenance_verified",
 }
 
@@ -201,8 +201,9 @@ def assess_profiles(ir: dict) -> tuple[ProfileAssessment, ...]:
     """Route a broad IR to honest profile ceilings.
 
     Tier ceilings describe implemented evidence paths, not backend theoretical
-    capability. General Modelica/OpenUSD generation reaches tier 2; the frozen
-    articulated subset may be handed to the existing tier-5 H2 workflow.
+    capability. General Modelica/OpenUSD generation can reach tier 4 through
+    the integrated FMU behavioral route; the frozen articulated subset may be
+    handed to the stronger tier-5 H2 workflow.
     """
     features = requested_features(ir)
     feature_set = set(features)
@@ -259,8 +260,8 @@ def assess_profiles(ir: dict) -> tuple[ProfileAssessment, ...]:
     rows = [ProfileAssessment(
         profile_id="general_modelica_openusd",
         applicable=True,
-        maximum_supported_tier=2,
-        status="artifact_generation_and_profile_validation",
+        maximum_supported_tier=4,
+        status="integrated_fmu_behavior_execution",
         matched_features=features,
         blockers=(),
     )]
@@ -294,23 +295,31 @@ def assess_profiles(ir: dict) -> tuple[ProfileAssessment, ...]:
         rows.append(ProfileAssessment(
             profile_id=profile_id,
             applicable=applicable,
-            maximum_supported_tier=2,
-            status=("artifact_generation_and_validation" if applicable
+            maximum_supported_tier=4 if applicable else 2,
+            status=("integrated_fmu_behavior_execution" if applicable
                     else "not_requested"),
             matched_features=(marker,) if applicable else (),
-            blockers=(("dedicated closed-loop adapter not yet implemented",)
+            blockers=(("not a domain-specific Newton/Isaac physics adapter",)
                       if applicable else ()),
         ))
     return tuple(rows)
 
 
 def capability_report(ir: dict, *, modelica_passed: bool | None = None,
-                      openusd_passed: bool | None = None) -> dict:
+                      openusd_passed: bool | None = None,
+                      contract_valid: bool | None = None,
+                      execution_completed: bool | None = None,
+                      behavior_evaluated: bool | None = None) -> dict:
     artifact_known = modelica_passed is not None and openusd_passed is not None
     artifacts_passed = modelica_passed is True and openusd_passed is True
     reached = 2 if artifacts_passed else 1
     if not artifact_known:
         reached = 1
+    if artifacts_passed and contract_valid is True:
+        reached = 3
+    if (contract_valid is True and execution_completed is True
+            and behavior_evaluated is True):
+        reached = 4
     return {
         "schema_version": "1.0",
         "stage": "robotics_capability_assessment",
@@ -333,10 +342,18 @@ def capability_report(ir: dict, *, modelica_passed: bool | None = None,
                  "passed": artifacts_passed if artifact_known else None,
                  "modelica_passed": modelica_passed,
                  "openusd_passed": openusd_passed},
-                {"tier": 3, "name": TIER_NAMES[3], "passed": False,
-                 "reason": "requires a profile-specific executable contract"},
-                {"tier": 4, "name": TIER_NAMES[4], "passed": False,
-                 "reason": "requires a profile-specific closed-loop adapter"},
+                {"tier": 3, "name": TIER_NAMES[3], "passed": contract_valid,
+                 "reason": (None if contract_valid is True else
+                            "requires a validated executable FMU contract")},
+                {"tier": 4, "name": TIER_NAMES[4],
+                 "passed": (
+                     execution_completed is True and behavior_evaluated is True
+                 ) if execution_completed is not None else None,
+                 "execution_completed": execution_completed,
+                 "behavior_evaluated": behavior_evaluated,
+                 "reason": (None if execution_completed is True
+                            and behavior_evaluated is True else
+                            "requires a real runtime trace and behavior verdicts")},
                 {"tier": 5, "name": TIER_NAMES[5], "passed": False,
                  "reason": "requires genuine accelerator execution provenance"},
             ],

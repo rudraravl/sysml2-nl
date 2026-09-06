@@ -51,3 +51,26 @@ Omit the filters only when intentionally processing the full 1,560-input
 catalog. Materializing this file does not mean the prompts have already been
 sent to a model or that their Modelica/OpenUSD outputs have passed validation.
 Those outcomes belong in the generated corpus produced by actual pipeline runs.
+
+The full corpus now requires the complete broad execution funnel: artifact
+validation, pre-execution semantic alignment, FMU export and execution, finite
+trace validation, external behavior evaluation, and post-execution semantic
+alignment. It does not claim Newton execution and does not require a GPU. Every
+failure stage remains an experimental outcome. The runner randomizes task order
+with the frozen seed and preflights OpenModelica plus the FMI runtime before any
+model calls. For concurrent workers, first freeze and inspect one shared plan:
+
+```bash
+python3 -m nl2robotics.experiments.run_cli \
+  --benchmark-manifest nl2robotics/corpus/pipeline_prompt_manifest.json \
+  --profile capability --benchmark-split all --condition FULL --variant rich \
+  --repetitions 1 --randomization-seed 20260830 --model gpt-5.4 \
+  --modelica-backend docker --modelica-subset full1500 \
+  --shard-count 4 --output-dir outputs/robotics-corpus-full-v1 --dry-run
+```
+
+Then launch shard indices `0` through `3` with that exact command, remove
+`--dry-run`, and add the matching `--shard-index`. Shards share the frozen
+protocol and write disjoint cell directories plus separate run-control and
+summary files. Aggregate all completed records from the shared output root with
+`python3 -m nl2robotics.experiments.cli outputs/robotics-corpus-full-v1`.

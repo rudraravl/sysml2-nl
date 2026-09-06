@@ -121,6 +121,8 @@ class NormalizerTests(unittest.TestCase):
             "Every usd_to_fmu interface state_id must appear verbatim",
             prompts[0],
         )
+        self.assertIn("Prefer machine-evaluable trace predicates", prompts[0])
+        self.assertIn("Settling after T", prompts[1])
         self.assertIn(
             "every usd_to_fmu interface `state_id` must be declared verbatim",
             prompts[1],
@@ -436,6 +438,26 @@ class OrchestratorTests(unittest.TestCase):
 
         bad_usd = '#usda 1.0\ndef Xform "World" {}'
         good_usd = '#usda 1.0\ndef PhysicsScene "PhysicsScene" {}'
+
+        class CapabilityExecution:
+            def run(self, modelica, requirement_ir, contract, *, output_dir):
+                return {
+                    "passed": True,
+                    "execution_mode": "integrated_fmu_behavior",
+                    "execution_completed": True,
+                    "behavior_evaluated": True,
+                    "behavior_passed": True,
+                    "fmu": {"success": True},
+                    "contract": {"success": True, "resolved_mappings": []},
+                    "execution": {"success": True, "initialized": True},
+                    "trace_gate": {"success": True, "finite": True},
+                    "properties": [],
+                    "property_summary": {
+                        "total": 0, "passed": 0,
+                        "violated": 0, "unevaluable": 0,
+                    },
+                }
+
         with tempfile.TemporaryDirectory() as tmp:
             pipeline = RoboticsOrchestrator(
                 modelica_pipeline=ModelicaValidation(),
@@ -448,6 +470,7 @@ class OrchestratorTests(unittest.TestCase):
                     bad_usd, usd_report(bad_usd),
                 ),
                 alignment_evaluator=Alignment(),
+                capability_execution_pipeline=CapabilityExecution(),
             )
             result = pipeline.run(
                 source, lambda _: json.dumps(ir), output_dir=Path(tmp),

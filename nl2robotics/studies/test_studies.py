@@ -44,7 +44,7 @@ class CapabilityBreadthStudyTests(unittest.TestCase):
         self.assertTrue(audit["success"], audit)
         selected = suite.select(profile="capability", variant="rich")
         self.assertEqual(13, len(selected))
-        self.assertEqual("capability_tier2", selected[0][0].target_level)
+        self.assertEqual("capability_execution", selected[0][0].target_level)
         self.assertEqual(3, len(selected[0][0].oracle["rag_route"]["modelica"]))
         with self.assertRaises(ValueError):
             suite.select(profile="capability", variant="concise")
@@ -54,8 +54,8 @@ class CapabilityBreadthStudyTests(unittest.TestCase):
         self.assertTrue(report["success"], report)
         self.assertEqual(13, report["case_count"])
         self.assertEqual(13, report["family_count"])
-        self.assertEqual(1, report["target_tier_counts"]["5"])
-        self.assertEqual(12, report["target_tier_counts"]["2"])
+        self.assertEqual(13, report["target_tier_counts"]["4"])
+        self.assertEqual(0, report["target_tier_counts"]["5"])
         self.assertEqual(13, report["rag"]["routed_family_count"])
         self.assertEqual(1500, report["rag"]["modelica_example_count"])
         self.assertEqual(1500, report["rag"]["openusd_example_count"])
@@ -79,7 +79,7 @@ class CapabilityBreadthStudyTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             select_cases(cases, ["RCB999"])
 
-    def test_resume_requires_matching_fingerprint_and_passed_result(self):
+    def test_resume_requires_matching_fingerprint_and_completed_outcome(self):
         _, cases = load_cases()
         case = cases[0]
         fingerprint = case_fingerprint(case, {"model": "test"}, "abc")
@@ -94,6 +94,10 @@ class CapabilityBreadthStudyTests(unittest.TestCase):
             }), encoding="utf-8")
             self.assertTrue(resumable(root, fingerprint))
             self.assertFalse(resumable(root, "different"))
+            (root / "result.json").write_text(json.dumps({
+                "passed": False, "failure_stage": "behavior_evaluation",
+            }), encoding="utf-8")
+            self.assertTrue(resumable(root, fingerprint))
 
     def test_smoke_summary_preserves_honest_claim_state(self):
         _, cases = load_cases()
@@ -126,7 +130,7 @@ class PaperEvaluationBenchmarkTests(unittest.TestCase):
         self.assertEqual(13, report["reserve_case_count"])
         self.assertEqual(13, len(report["family_counts"]))
         self.assertEqual({5}, set(report["family_counts"].values()))
-        self.assertEqual(5, report["runtime_candidate_count"])
+        self.assertEqual(65, report["runtime_candidate_count"])
 
     def test_candidate_manifest_loads_in_the_experiment_harness(self):
         suite = CapabilityBenchmarkSuite(PAPER_EVALUATION_MANIFEST)
@@ -137,7 +141,7 @@ class PaperEvaluationBenchmarkTests(unittest.TestCase):
         splits = [task.oracle["benchmark_split"] for task, _ in selected]
         self.assertEqual(52, splits.count("primary"))
         self.assertEqual(13, splits.count("reserve"))
-        self.assertEqual(5, sum(task.oracle["runtime_candidate"]
+        self.assertEqual(65, sum(task.oracle["runtime_candidate"]
                                 for task, _ in selected))
 
     def test_retrieval_corpus_is_large_but_not_counted_as_evaluation(self):

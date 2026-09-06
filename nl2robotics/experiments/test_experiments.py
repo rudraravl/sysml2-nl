@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from nl2robotics.benchmark.suite import BenchmarkSuite
 from nl2robotics.experiments.conditions import CONDITIONS
@@ -10,6 +11,7 @@ from nl2robotics.experiments.executor import (
     PipelineExperimentExecutor,
     _one_shot_outcomes,
     _study_validity,
+    generation_requirement,
     generation_strategy,
 )
 from nl2robotics.experiments.metrics import (
@@ -19,7 +21,12 @@ from nl2robotics.experiments.metrics import (
 )
 from nl2robotics.experiments.protocol import freeze_protocol
 from nl2robotics.experiments.runner import AblationRunner, planned_cells
-from nl2robotics.experiments.run_cli import _load_suite
+from nl2robotics.experiments.run_cli import (
+    _load_suite,
+    _preflight_llm_environment,
+    _preflight_modelica_backend,
+)
+from nl2robotics.modelica.models import Diagnostic, ModelicaBuild
 from nl2robotics.orchestrator.normalizer import NormalizationResult
 from nl2robotics.studies.capability_matrix import MANIFEST as CAPABILITY_MANIFEST
 
@@ -36,6 +43,18 @@ class ExperimentTests(unittest.TestCase):
         self.assertEqual("rag_single", generation_strategy(CONDITIONS["B1"]))
         self.assertEqual("rag_moe", generation_strategy(CONDITIONS["B2"]))
         self.assertEqual("rag_moe", generation_strategy(CONDITIONS["FULL"]))
+
+    def test_contract_prompt_is_hidden_from_non_contract_baselines(self):
+        for condition_id in ("B0", "B1", "B2"):
+            self.assertEqual(
+                "raw",
+                generation_requirement("raw", "profiled", CONDITIONS[condition_id]),
+            )
+        for condition_id in ("B3", "FULL"):
+            self.assertEqual(
+                "profiled",
+                generation_requirement("raw", "profiled", CONDITIONS[condition_id]),
+            )
 
     def test_runner_checkpoints_and_resumes_exact_cells(self):
         task = BenchmarkSuite().select(profile="modelica")[0]
@@ -83,6 +102,48 @@ class ExperimentTests(unittest.TestCase):
         self.assertEqual(2, len(execute.contexts))
         self.assertIs(execute.contexts[0], execute.contexts[1])
 
+    def test_shards_are_disjoint_and_cover_the_global_randomized_plan(self):
+        tasks = BenchmarkSuite().select(profile="hybrid")[:5]
+        conditions = [CONDITIONS["B0"], CONDITIONS["FULL"]]
+        seen = [[], []]
+
+        def execute(task, condition, prompt, output_dir):
+            seen[current_shard].append((task.id, condition.id))
+            return {
+                "passed": True,
+                "study_validity": {"eligible": True},
+            }
+
+        with tempfile.TemporaryDirectory() as tmp:
+            for current_shard in range(2):
+                runner = AblationRunner(
+                    Path(tmp), randomization_seed=17,
+                    randomize_task_order=True,
+                    shard_count=2, shard_index=current_shard,
+                )
+                records = runner.run(
+                    tasks, conditions, execute, variant="rich",
+                )
+                self.assertEqual(
+                    current_shard,
+                    runner.last_run_control["shard_index"],
+                )
+            self.assertTrue((Path(tmp) / "run-control-shard-000-of-002.json").is_file())
+            self.assertTrue((Path(tmp) / "run-control-shard-001-of-002.json").is_file())
+        self.assertFalse(set(seen[0]) & set(seen[1]))
+        self.assertEqual(
+            sorted(
+                (task.id, condition.id)
+                for task, _ in tasks for condition in conditions
+            ),
+            sorted(seen[0] + seen[1]),
+        )
+        owner = {}
+        for shard_index, rows in enumerate(seen):
+            for task_id, _ in rows:
+                owner.setdefault(task_id, set()).add(shard_index)
+        self.assertTrue(all(len(shards) == 1 for shards in owner.values()))
+
     def test_normalization_block_is_cached_and_reconstructed_exactly(self):
         task, prompt = BenchmarkSuite().select(profile="hybrid")[0]
         ir = {"source_text": prompt, "execution_mode": "portable_fmu_kinematic"}
@@ -124,6 +185,83 @@ class ExperimentTests(unittest.TestCase):
         for offset in range(0, len(first), len(conditions)):
             block = first[offset:offset + len(conditions)]
             self.assertEqual(len(conditions), len({row["condition"].id for row in block}))
+
+    def test_corpus_task_order_is_seeded_randomized_and_reproducible(self):
+        tasks = BenchmarkSuite().select()[:10]
+        conditions = [CONDITIONS["FULL"]]
+        first = planned_cells(
+            tasks, conditions, repetitions=1, seed=17,
+            randomize_task_order=True,
+        )
+        second = planned_cells(
+            tasks, conditions, repetitions=1, seed=17,
+            randomize_task_order=True,
+        )
+        third = planned_cells(
+            tasks, conditions, repetitions=1, seed=18,
+            randomize_task_order=True,
+        )
+        ids = lambda rows: [row["task"].id for row in rows]
+        canonical = sorted(task.id for task, _ in tasks)
+        self.assertEqual(ids(first), ids(second))
+        self.assertNotEqual(canonical, ids(first))
+        self.assertNotEqual(ids(first), ids(third))
+        self.assertEqual(canonical, sorted(ids(first)))
+
+    def test_runtime_preflight_reports_backend_failure(self):
+        class Pipeline:
+            class Runner:
+                backend = "docker"
+
+                @staticmethod
+                def resolved_backend():
+                    return "docker"
+
+            runner = Runner()
+
+            @staticmethod
+            def compile(source, *, output_dir):
+                self.assertIn("NL2RoboticsRuntimePreflight", source)
+                return type("Result", (), {"passed": False, "build": ModelicaBuild(
+                    True, "NL2RoboticsRuntimePreflight",
+                    diagnostics=[Diagnostic(
+                        "infrastructure", "error", "Docker daemon unavailable"
+                    )],
+                )})()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            report = _preflight_modelica_backend(Pipeline(), Path(tmp))
+        self.assertFalse(report["success"])
+        self.assertEqual(["Docker daemon unavailable"], report["diagnostics"])
+
+    def test_llm_preflight_rejects_provider_model_mismatch_without_calls(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch(
+                "nl2robotics.experiments.run_cli.shutil.which",
+                return_value="/usr/bin/claude",
+            ), patch.dict(
+                "os.environ", {"OPENROUTER_API_KEY": "present"}, clear=True,
+            ):
+                report = _preflight_llm_environment(
+                    model="gpt-5.4", provider="claude", repository=Path(tmp)
+                )
+        self.assertFalse(report["success"])
+        self.assertTrue(any(
+            "incompatible" in item for item in report["diagnostics"]
+        ))
+
+    def test_non_moe_preflight_does_not_require_openrouter(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch(
+                "nl2robotics.experiments.run_cli.shutil.which",
+                return_value="/usr/bin/codex",
+            ), patch.dict("os.environ", {}, clear=True):
+                report = _preflight_llm_environment(
+                    model="gpt-5.4", provider="codex",
+                    repository=Path(tmp), require_moe=False,
+                )
+        self.assertTrue(report["success"])
+        self.assertFalse(report["moe_required"])
 
     def test_usage_limit_stops_without_recording_failed_cell(self):
         task = BenchmarkSuite().select(profile="modelica")[0]
@@ -282,7 +420,7 @@ class ExperimentTests(unittest.TestCase):
         self.assertFalse(metrics["infrastructure_available"])
         self.assertIsNone(metrics["end_to_end"])
 
-    def test_capability_result_records_tier_without_claiming_execution(self):
+    def test_legacy_capability_validation_is_not_end_to_end_execution(self):
         metrics = extract_metrics("capability", {
             "passed": True, "failure_stage": None,
             "normalization": {"success": True},
@@ -295,8 +433,22 @@ class ExperimentTests(unittest.TestCase):
         self.assertTrue(metrics["ir_valid"])
         self.assertTrue(metrics["artifact_pair_valid"])
         self.assertEqual(2, metrics["verification_tier"])
-        self.assertIsNone(metrics["end_to_end"])
+        self.assertFalse(metrics["end_to_end"])
         self.assertIsNone(metrics["fmu_execution"])
+
+    def test_disabled_alignment_is_not_counted_as_full_funnel_success(self):
+        metrics = extract_metrics("capability", {
+            "passed": True,
+            "ablation": {"condition": {"alignment": False}},
+            "stage_trace": [
+                {"index": 8, "stage": "runtime_execution", "reached": True,
+                 "passed": True, "status": "passed"},
+                {"index": 11, "stage": "post_execution_semantic_alignment",
+                 "reached": False, "passed": None, "status": "disabled"},
+            ],
+        })
+        self.assertTrue(metrics["configured_pipeline_success"])
+        self.assertIsNone(metrics["end_to_end"])
 
     def test_h2_handoff_result_replaces_preparation_for_metrics(self):
         isaac = {

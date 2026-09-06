@@ -102,7 +102,10 @@ def audit_manifest(path: Path = MANIFEST) -> dict:
 
     require(data.get("schema_version") == "1.0", "unsupported_schema",
             "$.schema_version")
-    require(data.get("status") == "candidate_pending_mentor_approval",
+    require(data.get("status") in {
+        "candidate_pending_mentor_approval",
+        "candidate_execution_protocol_pending_mentor_approval",
+    },
             "wrong_freeze_status", "$.status")
     require(data.get("execution_mode") == "capability_tiered",
             "wrong_execution_mode", "$.execution_mode")
@@ -177,9 +180,9 @@ def audit_manifest(path: Path = MANIFEST) -> dict:
                         "missing_family_profile", f"{prefix}.expected_profiles",
                         expected=FAMILY_PROFILE[family])
         articulated = family == "articulated_manipulation"
-        require(case.get("target_tier") == (5 if articulated else 2),
+        require(case.get("target_tier") == (5 if articulated else 4),
                 "unsupported_target_tier", f"{prefix}.target_tier")
-        require(case.get("runtime_candidate") is articulated,
+        require(case.get("runtime_candidate") is True,
                 "invalid_runtime_candidate", f"{prefix}.runtime_candidate")
         require(("articulated_joint_space_h2" in (expected or [])) is articulated,
                 "invalid_runtime_profile", f"{prefix}.expected_profiles")

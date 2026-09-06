@@ -51,6 +51,13 @@ def case_fingerprint(case: dict, configuration: dict, manifest_sha256: str) -> s
 
 def summarize_result(case: dict, result: dict) -> dict:
     capabilities = result.get("capabilities", {})
+    hybrid = result.get("hybrid", {})
+    stage_trace = result.get("stage_trace", [])
+    reached = [
+        row.get("index") for row in stage_trace
+        if isinstance(row, dict) and row.get("reached") is True
+        and isinstance(row.get("index"), int)
+    ]
     return {
         "case_id": case["id"],
         "family": case["family"],
@@ -61,6 +68,16 @@ def summarize_result(case: dict, result: dict) -> dict:
         "profile_count": capabilities.get("profile_count"),
         "modelica_passed": result.get("modelica", {}).get("passed") is True,
         "openusd_passed": result.get("openusd", {}).get("passed") is True,
+        "pre_execution_semantic_passed": (
+            result.get("pre_execution_alignment", {}).get("passed") is True
+        ),
+        "execution_completed": hybrid.get("execution_completed") is True,
+        "behavior_evaluated": hybrid.get("behavior_evaluated") is True,
+        "behavior_passed": hybrid.get("behavior_passed") is True,
+        "post_execution_semantic_passed": (
+            result.get("alignment", {}).get("passed") is True
+        ),
+        "maximum_stage_reached": max(reached) if reached else None,
         "modelica_repairs": result.get("modelica", {}).get("repairs"),
         "openusd_repairs": result.get("openusd", {}).get("repairs"),
         "normalization_attempts": result.get("normalization", {}).get(
@@ -86,7 +103,9 @@ def resumable(case_dir: Path, fingerprint: str) -> bool:
     return (
         record.get("fingerprint") == fingerprint
         and record.get("completed") is True
-        and result.get("passed") is True
+        and record.get("usage_limit_detected") is not True
+        and result.get("infrastructure_pending") is not True
+        and result.get("failure_stage") != "infrastructure"
     )
 
 
@@ -113,7 +132,17 @@ def build_summary(
         if path.is_file():
             rows.append(json.loads(path.read_text(encoding="utf-8")))
     passed = sum(row.get("summary", {}).get("passed") is True for row in rows)
+    executed = sum(
+        row.get("summary", {}).get("execution_completed") is True for row in rows
+    )
+    evaluated = sum(
+        row.get("summary", {}).get("behavior_evaluated") is True for row in rows
+    )
     stopped = [row for row in rows if row.get("usage_limit_detected") is True]
+    infrastructure = [
+        row for row in rows
+        if row.get("summary", {}).get("failure_stage") == "infrastructure"
+    ]
     return {
         "schema_version": "1.0",
         "stage": "capability_breadth_smoke",
@@ -125,9 +154,15 @@ def build_summary(
         "completed_case_count": len(rows),
         "passed_case_count": passed,
         "failed_case_count": len(rows) - passed,
+        "execution_completed_case_count": executed,
+        "behavior_evaluated_case_count": evaluated,
         "pending_case_count": len(selected_ids) - len(rows),
         "usage_limit_detected": bool(stopped),
-        "success": len(rows) == len(selected_ids) and passed == len(rows),
+        "success": (
+            len(rows) == len(selected_ids)
+            and not stopped
+            and not infrastructure
+        ),
         "cases": [row.get("summary", {}) for row in rows],
     }
 
@@ -198,7 +233,7 @@ def main() -> None:
         fingerprint = case_fingerprint(case, configuration, manifest_sha256)
         if not args.no_resume and resumable(case_dir, fingerprint):
             print(
-                f"[{index}/{len(selected)}] {case_id} already passed; resuming",
+                f"[{index}/{len(selected)}] {case_id} already completed; resuming",
                 flush=True,
             )
             continue

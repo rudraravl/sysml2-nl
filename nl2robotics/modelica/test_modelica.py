@@ -194,6 +194,23 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(0, report["repairs"])
         self.assertFalse(report["passed"])
 
+    @patch("nl2robotics.modelica.openmodelica.shutil.which", return_value="docker")
+    @patch("nl2robotics.modelica.openmodelica.subprocess.run")
+    def test_docker_daemon_failure_is_infrastructure_not_model_output(
+        self, run, _which
+    ):
+        run.return_value = type("Result", (), {
+            "returncode": 1,
+            "stdout": (
+                "permission denied while trying to connect to the docker API"
+            ),
+        })()
+        result = OpenModelicaRunner(backend="docker").compile(
+            "model Candidate end Candidate;"
+        )
+        self.assertFalse(result.available)
+        self.assertEqual("infrastructure", result.diagnostics[0].stage)
+
     def test_fmi_pipeline_stops_when_export_fails(self):
         pipeline = ModelicaPipeline()
         pipeline.runner.export_fmu = lambda *args, **kwargs: ModelicaFMU(  # type: ignore[method-assign]

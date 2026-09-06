@@ -391,8 +391,8 @@ def build_cases() -> list[dict]:
                         "configuration_variant": f"controlled_config_{variant_index}",
                         "expected_profiles": ["general_modelica_openusd",
                                               FAMILY_PROFILE[family]],
-                        "target_tier": 2,
-                        "runtime_candidate": False,
+                        "target_tier": 4,
+                        "runtime_candidate": True,
                         "provenance": "systematic-authored-robotics-design-space-v1",
                         "design_axes": {
                             "embodiment": platform["slug"],
@@ -413,8 +413,8 @@ def build_manifest() -> dict:
     ]
     return {
         "schema_version": "1.0",
-        "benchmark_id": "robotics-pipeline-prompt-corpus-v1",
-        "status": "candidate_generated_inputs_not_executed",
+        "benchmark_id": "robotics-pipeline-execution-corpus-v2",
+        "status": "candidate_execution_inputs_not_yet_run",
         "execution_mode": "capability_tiered",
         "design": {
             "family_count": 13,
@@ -511,6 +511,10 @@ def audit_manifest(path: Path = MANIFEST) -> dict:
         require(case.get("expected_profiles") == [
             "general_modelica_openusd", FAMILY_PROFILE[case["family"]]
         ], "wrong_profiles", f"{prefix}.expected_profiles")
+        require(case.get("target_tier") == 4,
+                "wrong_target_tier", f"{prefix}.target_tier")
+        require(case.get("runtime_candidate") is True,
+                "runtime_not_required", f"{prefix}.runtime_candidate")
 
     evaluation = json.loads(EVALUATION_MANIFEST.read_text(encoding="utf-8"))["cases"]
     development = json.loads(DEVELOPMENT_MANIFEST.read_text(encoding="utf-8"))["cases"]

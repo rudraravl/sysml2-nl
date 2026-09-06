@@ -87,6 +87,14 @@ class OpenModelicaRunner:
                 )],
             )
         duration = time.monotonic() - started
+        infrastructure = _infrastructure_failure(backend, proc.stdout)
+        if infrastructure:
+            return ModelicaBuild(
+                False,
+                name,
+                duration_seconds=duration,
+                diagnostics=[Diagnostic("infrastructure", "error", infrastructure)],
+            )
         load = _read(work / "load.txt")
         check = _read(work / "check.txt")
         build = _read(work / "build.txt")
@@ -163,6 +171,14 @@ class OpenModelicaRunner:
                                         f"OpenModelica timed out after {self.timeout}s")],
             )
         duration = time.monotonic() - started
+        infrastructure = _infrastructure_failure(backend, proc.stdout)
+        if infrastructure:
+            return ModelicaRun(
+                False,
+                name,
+                duration_seconds=duration,
+                diagnostics=[Diagnostic("infrastructure", "error", infrastructure)],
+            )
         load = _read(work / "load.txt")
         check = _read(work / "check.txt")
         simulation = _read(work / "simulate.txt")
@@ -232,6 +248,14 @@ class OpenModelicaRunner:
             )
 
         duration = time.monotonic() - started
+        infrastructure = _infrastructure_failure(backend, proc.stdout)
+        if infrastructure:
+            return ModelicaFMU(
+                False,
+                name,
+                duration_seconds=duration,
+                diagnostics=[Diagnostic("infrastructure", "error", infrastructure)],
+            )
         load = _read(work / "load.txt")
         check = _read(work / "check.txt")
         export = _read(work / "export.txt")
@@ -378,3 +402,23 @@ def _diagnostics(text: str) -> list[Diagnostic]:
             found.append(Diagnostic("compiler", severity, clean))
             seen.add(clean)
     return found
+
+
+def _infrastructure_failure(backend: str, output: str) -> str | None:
+    """Identify container-runtime failures separately from candidate failures."""
+    if backend != "docker":
+        return None
+    lowered = output.lower()
+    markers = (
+        "cannot connect to the docker daemon",
+        "permission denied while trying to connect to the docker api",
+        "error during connect",
+        "is the docker daemon running",
+        "no such image",
+        "pull access denied",
+        "manifest unknown",
+    )
+    if not any(marker in lowered for marker in markers):
+        return None
+    detail = output.strip()
+    return detail[-2000:] if detail else "OpenModelica Docker runtime is unavailable"

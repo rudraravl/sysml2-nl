@@ -17,19 +17,8 @@ from nl2robotics.studies.capability_matrix import (
 
 REQUIRED_FILES = (
     "request.txt",
-    "normalization.json",
-    "requirement_ir.json",
-    "normalized_requirement_ir.json",
-    "contract.json",
-    "plan.json",
-    "modelica-requirement.txt",
-    "openusd-requirement.txt",
-    "modelica/generation.json",
-    "modelica/model.mo",
-    "openusd/generation.json",
-    "openusd/scene.usda",
-    "capability-report.json",
     "result.json",
+    "case-record.json",
 )
 
 
@@ -69,7 +58,8 @@ def audit_smoke(
             {"expected": sorted(expected), "observed": sorted(observed)},
         ))
 
-    passed_rows = [row for row in rows if row.get("success") is True]
+    valid_rows = [row for row in rows if row.get("evidence_valid") is True]
+    end_to_end_rows = [row for row in rows if row.get("end_to_end_passed") is True]
     durations = [
         float(row["duration_seconds"])
         for row in rows if isinstance(row.get("duration_seconds"), (int, float))
@@ -81,13 +71,20 @@ def audit_smoke(
     return {
         "stage": "capability_breadth_evidence_audit",
         "schema_version": "1.0",
-        "success": not issues and len(passed_rows) == len(cases),
+        "success": not issues and len(valid_rows) == len(cases),
         "manifest": str(manifest_path.resolve()),
         "manifest_sha256": manifest_sha,
         "run_dir": str(run_dir),
         "case_overrides": {key: str(value) for key, value in sorted(overrides.items())},
         "case_count": len(rows),
-        "passed_case_count": len(passed_rows),
+        "evidence_valid_case_count": len(valid_rows),
+        "end_to_end_passed_case_count": len(end_to_end_rows),
+        "execution_completed_case_count": sum(
+            row.get("execution_completed") is True for row in rows
+        ),
+        "behavior_evaluated_case_count": sum(
+            row.get("behavior_evaluated") is True for row in rows
+        ),
         "family_count": len({row.get("family") for row in rows}),
         "profile_count": len(KNOWN_PROFILES),
         "total_requested_feature_count": sum(
@@ -104,7 +101,11 @@ def audit_smoke(
         "claims": {
             "claim_eligible_h2": False,
             "claim_eligible_deltaai_h2": False,
-            "maximum_verified_tier": 2,
+            "maximum_verified_tier": max(
+                (int(row["highest_reached_tier"]) for row in rows
+                 if isinstance(row.get("highest_reached_tier"), int)),
+                default=None,
+            ),
         },
         "cases": rows,
         "artifact_sha256": artifact_hashes,
@@ -156,8 +157,6 @@ def _audit_case(case: dict, case_dir: Path, *, manifest_sha: str) -> tuple[dict,
     modelica = _read_text(case_dir / "modelica/model.mo")
     openusd = _read_text(case_dir / "openusd/scene.usda")
 
-    _require(result.get("passed") is True, issues, "result_not_passed", prefix, result.get("failure_stage"))
-    _require(result.get("failure_stage") is None, issues, "unexpected_failure_stage", prefix, result.get("failure_stage"))
     _require(result.get("task_id") == case_id, issues, "task_id_mismatch", prefix, result.get("task_id"))
     _require(result.get("claim_eligible_h2") is False, issues, "h2_overclaim", prefix, result.get("claim_eligible_h2"))
     _require(result.get("claim_eligible_deltaai_h2") is False, issues, "deltaai_overclaim", prefix, result.get("claim_eligible_deltaai_h2"))
@@ -166,56 +165,88 @@ def _audit_case(case: dict, case_dir: Path, *, manifest_sha: str) -> tuple[dict,
         issues, "source_hash_mismatch", prefix, result.get("source_text_sha256"),
     )
 
-    _require(normalization.get("success") is True, issues, "normalization_failed", prefix, None)
-    normalized_attempt = _last_valid_normalization_response(normalization)
-    _require(normalized_attempt == ir, issues, "normalization_ir_mismatch", prefix, None)
-    _require(raw_ir == ir, issues, "saved_ir_mismatch", prefix, None)
-    validation = validate_requirement_ir(ir) if isinstance(ir, dict) else None
-    _require(validation is not None and validation.success, issues, "invalid_requirement_ir", prefix,
-             validation.to_dict() if validation is not None else None)
-    _require(ir.get("source_text", "").strip() == request, issues, "ir_source_mismatch", prefix, None)
-    _require(ir.get("task_id") == case_id, issues, "ir_task_id_mismatch", prefix, ir.get("task_id"))
-    _require(ir.get("execution_mode") == "capability_tiered", issues,
-             "ir_execution_mode_mismatch", prefix, ir.get("execution_mode"))
+    if normalization:
+        if normalization.get("success") is True:
+            normalized_attempt = _last_valid_normalization_response(normalization)
+            _require(normalized_attempt == ir, issues, "normalization_ir_mismatch", prefix, None)
+            _require(raw_ir == ir, issues, "saved_ir_mismatch", prefix, None)
+            validation = validate_requirement_ir(ir)
+            _require(validation.success, issues, "invalid_requirement_ir", prefix,
+                     validation.to_dict())
+            _require(ir.get("source_text", "").strip() == request, issues,
+                     "ir_source_mismatch", prefix, None)
+            _require(ir.get("task_id") == case_id, issues,
+                     "ir_task_id_mismatch", prefix, ir.get("task_id"))
+            _require(ir.get("execution_mode") == "capability_tiered", issues,
+                     "ir_execution_mode_mismatch", prefix, ir.get("execution_mode"))
+    else:
+        issues.append(_issue("missing_normalization_evidence", prefix, None))
+
+    if contract:
+        _require(contract.get("task_id") == case_id, issues,
+                 "contract_task_id_mismatch", prefix, contract.get("task_id"))
+        _require(contract.get("execution_mode") == "capability_tiered", issues,
+                 "contract_mode_mismatch", prefix, contract.get("execution_mode"))
+        _require(contract.get("verification_ceiling") == "behavioral_execution", issues,
+                 "wrong_contract_ceiling", prefix, contract.get("verification_ceiling"))
+        _require(contract.get("claim_eligible_h2") is False, issues,
+                 "contract_h2_overclaim", prefix, contract.get("claim_eligible_h2"))
+
+    if modelica_report or modelica:
+        _audit_modelica(modelica_report, modelica, issues, prefix)
+    if openusd_report or openusd:
+        _audit_openusd(openusd_report, openusd, issues, prefix)
+    if contract and modelica and openusd:
+        _audit_mappings(contract.get("mappings"), modelica, openusd, issues, prefix)
 
     verification = capability.get("verification", {})
-    tiers = verification.get("tiers", []) if isinstance(verification, dict) else []
-    tier_map = {item.get("tier"): item for item in tiers if isinstance(item, dict)}
-    _require(verification.get("highest_reached_tier") == 2, issues,
-             "wrong_capability_tier", prefix, verification.get("highest_reached_tier"))
-    for tier in range(3):
-        _require(tier_map.get(tier, {}).get("passed") is True, issues,
-                 "missing_passed_tier", prefix, tier)
-    for tier in range(3, 6):
-        _require(tier_map.get(tier, {}).get("passed") is False, issues,
-                 "capability_tier_overclaim", prefix, tier)
-    profiles = capability.get("profiles", [])
-    profile_map = {
-        item.get("profile_id"): item for item in profiles if isinstance(item, dict)
-    }
-    _require(set(profile_map) == set(KNOWN_PROFILES), issues,
-             "profile_set_mismatch", prefix, sorted(profile_map))
-    for profile_id in case.get("expected_profiles", []):
-        _require(profile_id in profile_map, issues,
-                 "expected_profile_missing", prefix, profile_id)
-    _require(capability.get("claim_eligible_h2") is False, issues,
-             "capability_h2_overclaim", prefix, capability.get("claim_eligible_h2"))
-    _require(capability.get("claim_eligible_deltaai_h2") is False, issues,
-             "capability_deltaai_overclaim", prefix,
-             capability.get("claim_eligible_deltaai_h2"))
+    if capability:
+        profiles = capability.get("profiles", [])
+        profile_map = {
+            item.get("profile_id"): item for item in profiles if isinstance(item, dict)
+        }
+        _require(set(profile_map) == set(KNOWN_PROFILES), issues,
+                 "profile_set_mismatch", prefix, sorted(profile_map))
+        _require(capability.get("claim_eligible_h2") is False, issues,
+                 "capability_h2_overclaim", prefix, capability.get("claim_eligible_h2"))
+        _require(capability.get("claim_eligible_deltaai_h2") is False, issues,
+                 "capability_deltaai_overclaim", prefix,
+                 capability.get("claim_eligible_deltaai_h2"))
 
-    _require(contract.get("task_id") == case_id, issues, "contract_task_id_mismatch", prefix,
-             contract.get("task_id"))
-    _require(contract.get("execution_mode") == "capability_tiered", issues,
-             "contract_mode_mismatch", prefix, contract.get("execution_mode"))
-    _require(contract.get("verification_ceiling") == "artifacts_validated", issues,
-             "contract_ceiling_overclaim", prefix, contract.get("verification_ceiling"))
-    _require(contract.get("claim_eligible_h2") is False, issues,
-             "contract_h2_overclaim", prefix, contract.get("claim_eligible_h2"))
+    hybrid = _object(documents.get("hybrid/bundle.json"))
+    execution_completed = hybrid.get("execution_completed") is True
+    behavior_evaluated = hybrid.get("behavior_evaluated") is True
+    if result.get("hybrid"):
+        _require(bool(hybrid), issues, "missing_hybrid_bundle", prefix, None)
+    if hybrid:
+        _require(hybrid.get("claim_eligible_h2") is False, issues,
+                 "hybrid_h2_overclaim", prefix, hybrid.get("claim_eligible_h2"))
+        _require(hybrid.get("claim_eligible_deltaai_h2") is False, issues,
+                 "hybrid_deltaai_overclaim", prefix,
+                 hybrid.get("claim_eligible_deltaai_h2"))
+        if execution_completed:
+            for key in ("fmu", "contract", "execution", "trace_gate"):
+                _require(hybrid.get(key, {}).get("success") is True, issues,
+                         f"invalid_{key}_execution_evidence", prefix,
+                         hybrid.get(key))
+        if behavior_evaluated:
+            _require(len(hybrid.get("properties", [])) == len(ir.get("properties", [])),
+                     issues, "runtime_property_count_mismatch", prefix, None)
 
-    _audit_modelica(modelica_report, modelica, issues, prefix)
-    _audit_openusd(openusd_report, openusd, issues, prefix)
-    _audit_mappings(contract.get("mappings"), modelica, openusd, issues, prefix)
+    highest_tier = verification.get("highest_reached_tier")
+    _require(highest_tier == result.get("capabilities", {}).get("highest_reached_tier"),
+             issues, "capability_tier_summary_mismatch", prefix, highest_tier)
+    if highest_tier == 4:
+        _require(execution_completed and behavior_evaluated, issues,
+                 "capability_tier4_overclaim", prefix, None)
+    _require(highest_tier != 5, issues, "capability_tier5_overclaim", prefix, highest_tier)
+
+    if result.get("passed") is True:
+        _require(execution_completed, issues, "pass_without_execution", prefix, None)
+        _require(hybrid.get("behavior_passed") is True, issues,
+                 "pass_without_behavior", prefix, None)
+        _require(result.get("alignment", {}).get("passed") is True, issues,
+                 "pass_without_post_alignment", prefix, None)
 
     case_record_value = documents.get("case-record.json")
     case_record = _object(case_record_value) if case_record_value is not None else None
@@ -232,6 +263,10 @@ def _audit_case(case: dict, case_dir: Path, *, manifest_sha: str) -> tuple[dict,
         "family": case.get("family"),
         "case_dir": str(case_dir),
         "success": not issues,
+        "evidence_valid": not issues,
+        "end_to_end_passed": result.get("passed") is True,
+        "execution_completed": execution_completed,
+        "behavior_evaluated": behavior_evaluated,
         "highest_reached_tier": summary.get("highest_reached_tier"),
         "requested_feature_count": summary.get("requested_feature_count", 0),
         "normalization_attempts": result.get("normalization", {}).get("attempt_count", 0),
@@ -246,7 +281,8 @@ def _audit_case(case: dict, case_dir: Path, *, manifest_sha: str) -> tuple[dict,
 
 
 def _audit_modelica(report: dict, modelica: str, issues: list[dict], prefix: str) -> None:
-    _require(report.get("passed") is True, issues, "modelica_failed", prefix, None)
+    _require(isinstance(report.get("passed"), bool), issues,
+             "missing_modelica_outcome", prefix, None)
     _require(report.get("final_modelica", "").strip() == modelica, issues,
              "modelica_artifact_mismatch", prefix, None)
     attempts = report.get("attempts", [])
@@ -256,7 +292,7 @@ def _audit_modelica(report: dict, modelica: str, issues: list[dict], prefix: str
     ]
     _require(len(final_attempts) == 1, issues, "modelica_final_attempt_count", prefix,
              len(final_attempts))
-    if final_attempts:
+    if final_attempts and report.get("passed") is True:
         build = final_attempts[0].get("build", {})
         _require(final_attempts[0].get("passed") is True, issues,
                  "modelica_final_attempt_failed", prefix, final_attempts[0].get("attempt"))
@@ -266,7 +302,8 @@ def _audit_modelica(report: dict, modelica: str, issues: list[dict], prefix: str
 
 
 def _audit_openusd(report: dict, openusd: str, issues: list[dict], prefix: str) -> None:
-    _require(report.get("passed") is True, issues, "openusd_failed", prefix, None)
+    _require(isinstance(report.get("passed"), bool), issues,
+             "missing_openusd_outcome", prefix, None)
     _require(report.get("final_openusd", "").strip() == openusd, issues,
              "openusd_artifact_mismatch", prefix, None)
     attempts = report.get("attempts", [])
@@ -276,7 +313,7 @@ def _audit_openusd(report: dict, openusd: str, issues: list[dict], prefix: str) 
     ]
     _require(len(final_attempts) == 1, issues, "openusd_final_attempt_count", prefix,
              len(final_attempts))
-    if final_attempts:
+    if final_attempts and report.get("passed") is True:
         validation = final_attempts[0].get("validation", {})
         _require(validation.get("success") is True
                  and validation.get("syntax_valid") is True

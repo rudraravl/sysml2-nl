@@ -76,11 +76,10 @@ def build_capability_plan(requirement_ir: dict) -> CapabilityPlan:
     variable_names = {}
     for interface in ir["interfaces"]:
         direction = interface["direction"]
-        variable = (
-            f"in_{_identifier(interface['id'])}"
-            if direction == "usd_to_fmu"
-            else f"out_{_identifier(interface['id'])}"
-        )
+        # The broad execution capsule integrates plant and controller behavior
+        # in one FMU.  Semantic coupling direction is preserved separately,
+        # while every observable/command channel is exported as a trace output.
+        variable = f"trace_{_identifier(interface['id'])}"
         variable_names[interface["id"]] = variable
         target_kind, target_id, target_path = _interface_target(
             interface, entity_paths, joint_paths, sensor_paths
@@ -97,14 +96,20 @@ def build_capability_plan(requirement_ir: dict) -> CapabilityPlan:
             "target_kind": target_kind,
             "target_id": target_id,
             "usd_prim_path": target_path,
+            "usd_joint_path": target_path if target_kind == "joint" else None,
+            "usd_quantity": interface["quantity"],
+            "semantic_joint_id": interface.get("joint_id"),
+            "semantic_entity_id": interface.get("entity_id"),
+            "semantic_sensor_id": interface.get("sensor_id"),
             "required": interface.get("required", True),
+            "fmu_causality": "output",
             "verification_status": "declared_unresolved",
         })
 
     assessment = capability_report(ir)
     contract = {
         "schema_version": "1.0",
-        "contract_kind": "capability_tiered",
+        "contract_kind": "capability_execution",
         "task_id": task_id,
         "execution_mode": "capability_tiered",
         "clock": deepcopy(ir.get("clock")),
@@ -121,7 +126,7 @@ def build_capability_plan(requirement_ir: dict) -> CapabilityPlan:
             "declared_unknowns": deepcopy(ir["unknowns"]),
             "artifact_grounding_status": "requires_cross_artifact_validation",
         },
-        "verification_ceiling": "artifacts_validated",
+        "verification_ceiling": "behavioral_execution",
         "claim_eligible_h2": False,
     }
     identifiers = {
@@ -160,20 +165,24 @@ def _interface_target(interface: dict, entity_paths: dict[str, str],
 def _modelica_requirement(ir: dict, contract: dict, model_name: str) -> str:
     interface_lines = []
     for row in contract["mappings"]:
-        causality = "input" if row["direction"] == "usd_to_fmu" else "output"
-        unit = (row["target_unit"] if causality == "input" else row["source_unit"])
+        causality = "output"
+        unit = row["source_unit"]
         interface_lines.append(
             f"- Declare {causality} Real {row['fmu_variable']}"
-            f"(unit=\"{unit}\") for {row['quantity']} ({row['state_id']})."
+            f"(unit=\"{unit}\") for the executed trace of {row['quantity']} "
+            f"({row['state_id']}); its semantic coupling direction remains "
+            f"{row['direction']}."
         )
     return f"""{ir['source_text']}
 
 CAPABILITY-TIERED MODELICA/FMI OBLIGATIONS
 - Return one self-contained top-level model named {model_name}.
-- Implement the dynamic, control, actuator, sensing/estimation, trajectory, and
-  hybrid behavior explicitly grounded in the IR. Do not invent omitted numeric
-  parameters; leave omitted behavior explicitly unresolved when it cannot be
-  implemented without them.
+- Implement one integrated, directly executable plant/controller/estimator
+  capsule containing every dynamic, control, actuator, sensing/estimation,
+  trajectory, and hybrid behavior explicitly grounded in the IR. Every declared
+  trace output must be computed by the executed equations; a constant placeholder
+  is not behavioral evidence. Do not invent omitted numeric parameters; leave
+  omitted behavior explicitly unresolved when it cannot be implemented.
 - Treat retrieved examples only as syntax and modeling-pattern references; they
   are never evidence for a numeric value, component, transform, or behavior.
 - Do not mirror USD-owned geometry, mass, environment, pose, contact, or sensor
@@ -185,7 +194,7 @@ CAPABILITY-TIERED MODELICA/FMI OBLIGATIONS
   `UNRESOLVED_ASSUMPTION` comment containing the exact unknown text. Do not
   declare an unbound parameter merely to make the omission look implemented;
   the top-level model must remain directly buildable and FMU-exportable.
-- For an interface whose unit is `unspecified`, preserve the exact Real input
+- For an interface whose unit is `unspecified`, preserve the exact Real trace output
   and interface name but do not invent a scale, conversion factor, offset, or
   physical unit. Do not use that signal in unit-dependent arithmetic unless a
   separate compatible grounded interface supplies the needed quantity.
@@ -193,11 +202,13 @@ CAPABILITY-TIERED MODELICA/FMI OBLIGATIONS
   directly checkable by OpenModelica. Exportability as a Co-Simulation FMU is
   preferred when the requested semantics permit it.
 {chr(10).join(interface_lines) if interface_lines else '- No cross-profile signal interface was grounded.'}
-- Modelica owns equations, controller state, actuator dynamics, estimators, and
-  abstract plant dynamics assigned to it. It must not duplicate rigid-body state
-  explicitly assigned to USD physics.
-- This is the broad artifact profile. Successful compilation does not by itself
-  claim closed-loop physics execution or CUDA provenance.
+- In this integrated execution capsule, Modelica computes trace surrogates for
+  states semantically assigned to USD physics so that broad-domain behavior can
+  be executed and evaluated. This does not transfer semantic ownership and must
+  not be described as Newton, Isaac, PhysX, contact-solver, or CUDA execution.
+- Compilation alone is never success. The generated model must export as an FMI
+  2.0 Co-Simulation FMU, run for the grounded clock, and emit every required
+  trace output for external property evaluation.
 
 GROUNDED REQUIREMENT IR
 {json.dumps(ir, indent=2, sort_keys=True)}
