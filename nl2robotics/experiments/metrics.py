@@ -19,6 +19,14 @@ BINARY_METRICS = (
     "all_properties_pass",
 )
 
+CONTINUOUS_METRICS = (
+    "semantic_score", "semantic_coverage", "verification_tier",
+    "maximum_stage_reached", "repairs", "property_total",
+    "property_evaluable", "property_satisfied", "property_violated",
+    "property_unevaluable", "property_evaluability_rate",
+    "property_satisfaction_rate_evaluable",
+)
+
 
 def extract_metrics(profile: str, result: dict, *,
                     infrastructure_error: str | None = None) -> dict:
@@ -27,12 +35,14 @@ def extract_metrics(profile: str, result: dict, *,
             "infrastructure_available": False,
             "failure_stage": "infrastructure",
             **{name: None for name in BINARY_METRICS},
+            **{name: None for name in CONTINUOUS_METRICS},
         }
     if result.get("infrastructure_pending") is True:
         return {
             "infrastructure_available": False,
             "failure_stage": "infrastructure",
             **{name: None for name in BINARY_METRICS},
+            **{name: None for name in CONTINUOUS_METRICS},
         }
     modelica = result.get("modelica", {})
     openusd = result.get("openusd", {})
@@ -63,6 +73,32 @@ def extract_metrics(profile: str, result: dict, *,
     property_pass = (
         all(item.get("passed") is True for item in properties)
         if properties else None
+    )
+    property_total = len(properties) if properties else None
+    property_satisfied = (
+        sum(item.get("passed") is True for item in properties)
+        if properties else None
+    )
+    property_violated = (
+        sum(item.get("status") == "violated" for item in properties)
+        if properties else None
+    )
+    property_unevaluable = (
+        sum(item.get("status") == "unevaluable" for item in properties)
+        if properties else None
+    )
+    property_evaluable = (
+        property_total - property_unevaluable
+        if property_total is not None and property_unevaluable is not None
+        else None
+    )
+    property_evaluability_rate = (
+        property_evaluable / property_total
+        if property_total else None
+    )
+    property_satisfaction_rate_evaluable = (
+        property_satisfied / property_evaluable
+        if property_evaluable else None
     )
     configured_pipeline_success = _truth(
         result.get("passed", result.get("success"))
@@ -137,6 +173,15 @@ def extract_metrics(profile: str, result: dict, *,
         "configured_pipeline_success": configured_pipeline_success,
         "end_to_end": end_to_end,
         "all_properties_pass": property_pass,
+        "property_total": property_total,
+        "property_evaluable": property_evaluable,
+        "property_satisfied": property_satisfied,
+        "property_violated": property_violated,
+        "property_unevaluable": property_unevaluable,
+        "property_evaluability_rate": property_evaluability_rate,
+        "property_satisfaction_rate_evaluable": (
+            property_satisfaction_rate_evaluable
+        ),
         "semantic_score": summary.get("weighted_semantic_score"),
         "semantic_coverage": summary.get("evidence_coverage"),
         "blocking_violations": summary.get("blocking_violations"),
@@ -165,10 +210,7 @@ def summarize_records(records: list[dict], *, bootstrap_samples: int = 2000,
                 seed=seed + sum(map(ord, condition + metric)),
             )
         continuous = {}
-        for metric in (
-            "semantic_score", "semantic_coverage", "verification_tier",
-            "maximum_stage_reached", "repairs"
-        ):
+        for metric in CONTINUOUS_METRICS:
             values = [item["metrics"].get(metric) for item in rows]
             numeric = [float(value) for value in values
                        if isinstance(value, (int, float)) and not isinstance(value, bool)]

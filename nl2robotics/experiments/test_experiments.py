@@ -468,6 +468,26 @@ class ExperimentTests(unittest.TestCase):
         self.assertTrue(metrics["stable_simulation"])
         self.assertTrue(metrics["all_properties_pass"])
 
+    def test_property_outcomes_remain_visible_when_strict_gate_fails(self):
+        result = {
+            "stage": "portable_hybrid",
+            "passed": False,
+            "properties": [
+                {"status": "satisfied", "passed": True},
+                {"status": "violated", "passed": False},
+                {"status": "unevaluable", "passed": False},
+            ],
+        }
+        metrics = extract_metrics("hybrid", result)
+        self.assertFalse(metrics["all_properties_pass"])
+        self.assertEqual(3, metrics["property_total"])
+        self.assertEqual(2, metrics["property_evaluable"])
+        self.assertEqual(1, metrics["property_satisfied"])
+        self.assertEqual(1, metrics["property_violated"])
+        self.assertEqual(1, metrics["property_unevaluable"])
+        self.assertAlmostEqual(2 / 3, metrics["property_evaluability_rate"])
+        self.assertEqual(0.5, metrics["property_satisfaction_rate_evaluable"])
+
     def test_pending_h2_infrastructure_is_excluded_from_rates(self):
         metrics = extract_metrics("hybrid", {
             "infrastructure_pending": True,
