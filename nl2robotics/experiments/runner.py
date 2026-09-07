@@ -78,6 +78,14 @@ class AblationRunner:
             if resume and path.is_file():
                 cached = json.loads(path.read_text(encoding="utf-8"))
                 if (_resumable(cached, fingerprint)):
+                    # Results are the immutable evidence; metrics are a derived
+                    # view that may gain new fields between interrupted runs.
+                    # Refresh the in-memory view without rewriting checkpoints.
+                    cached["metrics"] = extract_metrics(
+                        cached.get("profile", task.profile),
+                        cached.get("result", {}),
+                        infrastructure_error=cached.get("infrastructure_error"),
+                    )
                     records.append(cached)
                     continue
             block_key = (task.id, repetition)

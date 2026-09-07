@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 import tempfile
 import unittest
@@ -74,6 +75,39 @@ class ExperimentTests(unittest.TestCase):
                                 execute, variant="rich")
         self.assertEqual(2, calls["count"])
         self.assertEqual(first, second)
+
+    def test_resume_refreshes_derived_metrics_without_rewriting_evidence(self):
+        task = BenchmarkSuite().select(profile="hybrid")[0]
+
+        def execute(*args, **kwargs):
+            return {
+                "stage": "portable_hybrid",
+                "passed": False,
+                "properties": [
+                    {"status": "satisfied", "passed": True},
+                    {"status": "unevaluable", "passed": False},
+                ],
+            }
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            runner = AblationRunner(root)
+            first = runner.run(
+                [task], [CONDITIONS["B0"]], execute, variant="rich"
+            )
+            checkpoint = next(root.glob("**/run.json"))
+            saved = json.loads(checkpoint.read_text(encoding="utf-8"))
+            saved["metrics"].pop("property_total")
+            checkpoint.write_text(json.dumps(saved), encoding="utf-8")
+
+            second = runner.run(
+                [task], [CONDITIONS["B0"]], execute, variant="rich"
+            )
+            unchanged = json.loads(checkpoint.read_text(encoding="utf-8"))
+
+        self.assertEqual(2, second[0]["metrics"]["property_total"])
+        self.assertNotIn("property_total", unchanged["metrics"])
+        self.assertEqual(first[0]["result"], second[0]["result"])
 
     def test_runner_prepares_one_shared_block_for_all_conditions(self):
         task = BenchmarkSuite().select(profile="hybrid")[0]
