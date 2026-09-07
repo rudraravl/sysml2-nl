@@ -46,6 +46,44 @@ def quality_report(final_sysml: str = "part def Repaired;") -> dict:
 
 
 class BatchGenerationIntegrationTests(unittest.TestCase):
+    def test_openrouter_retries_transient_read_timeout(self):
+        payload = b'{"choices":[{"message":{"content":"model Ok end Ok;"}}]}'
+
+        class Response:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def read(self):
+                return payload
+
+        with patch.object(
+            agent_rag_moe._req, "urlopen",
+            side_effect=[TimeoutError("The read operation timed out"), Response()],
+        ) as urlopen, patch.object(agent_rag_moe.time, "sleep") as sleep:
+            result = agent_rag_moe._openrouter_invoke(
+                "z-ai/glm-5.2", "system", "human", "test-key"
+            )
+        self.assertEqual("model Ok end Ok;", result)
+        self.assertEqual(2, urlopen.call_count)
+        sleep.assert_called_once_with(5)
+
+    def test_openrouter_does_not_retry_permanent_failure(self):
+        error = agent_rag_moe._urlerror.HTTPError(
+            "https://openrouter.ai", 401, "Unauthorized", {}, None
+        )
+        with patch.object(
+            agent_rag_moe._req, "urlopen", side_effect=error
+        ) as urlopen, patch.object(agent_rag_moe.time, "sleep") as sleep:
+            with self.assertRaisesRegex(RuntimeError, "OpenRouter call failed"):
+                agent_rag_moe._openrouter_invoke(
+                    "z-ai/glm-5.2", "system", "human", "test-key"
+                )
+        self.assertEqual(1, urlopen.call_count)
+        sleep.assert_not_called()
+
     def test_generation_returns_quality_gate_repair_and_report(self):
         report = quality_report()
         env = {

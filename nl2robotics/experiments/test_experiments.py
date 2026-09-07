@@ -8,6 +8,8 @@ from unittest.mock import patch
 from nl2robotics.benchmark.suite import BenchmarkSuite
 from nl2robotics.experiments.conditions import CONDITIONS
 from nl2robotics.experiments.executor import (
+    COMBINER_MODEL,
+    EXPERT_MODELS,
     PipelineExperimentExecutor,
     _one_shot_outcomes,
     _study_validity,
@@ -336,6 +338,36 @@ class ExperimentTests(unittest.TestCase):
         )
         self.assertFalse(validity["eligible"])
         self.assertTrue(any("expert" in issue for issue in validity["issues"]))
+
+    def test_provider_timeout_is_infrastructure_ineligible(self):
+        validity = _study_validity({
+            "stage": "robotics_orchestrator",
+            "failure_stage": "openusd_generation",
+            "error": (
+                "OpenRouter call failed (z-ai/glm-5.2): "
+                "The read operation timed out"
+            ),
+            "modelica": {
+                "passed": True,
+                "generation_mode": "moe",
+                "retrieved_examples": [{"id": str(i)} for i in range(5)],
+                "expert_candidates": list(EXPERT_MODELS),
+                "expert_models": list(EXPERT_MODELS),
+                "expert_soft_fail_count": 0,
+                "combiner_model": COMBINER_MODEL,
+                "study_controls": {
+                    "rag_enabled": True,
+                    "moe_enabled": True,
+                    "tool_repair_enabled": True,
+                    "retrieval_k": 5,
+                },
+            },
+        }, CONDITIONS["FULL"], True)
+        self.assertFalse(validity["eligible"])
+        self.assertTrue(any(
+            "provider infrastructure failure" in issue
+            for issue in validity["issues"]
+        ))
 
     def test_attempt_zero_is_separate_from_repaired_final_validity(self):
         result = {

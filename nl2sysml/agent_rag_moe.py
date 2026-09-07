@@ -31,8 +31,11 @@ from pathlib import Path
 import os
 import json
 import re
+import socket
 import sys
+import time
 from typing import Any, List, Tuple, Optional
+from urllib import error as _urlerror
 from urllib import request as _req
 
 from dotenv import load_dotenv
@@ -471,21 +474,27 @@ def _openrouter_invoke(model: str, system_msg: str, human_msg: str, key: str) ->
         "User-Agent": os.getenv("APP_TITLE", "Creatix Agent"),
     }
     req = _req.Request(url, data=data, headers=headers)
-    try:
-        with _req.urlopen(req, timeout=120) as resp:  # Increased timeout to 120s
-            raw = resp.read().decode("utf-8", errors="ignore")
-            obj = json.loads(raw)
-    except Exception as e:
-        detail = str(e)
-        if os.getenv("OPENROUTER_DEBUG"):
-            try:
-                body = getattr(e, "read", lambda: b"")()
-                msg = body.decode("utf-8", errors="ignore") if body else str(e)
-                (Path(__file__).parent / "result_rag_moe" / "openrouter_error.log").write_text(msg)
-                detail = msg or detail
-            except Exception:
-                pass
-        raise RuntimeError(f"OpenRouter call failed ({model}): {detail}") from e
+    attempts = 3
+    for attempt in range(attempts):
+        try:
+            with _req.urlopen(req, timeout=120) as resp:
+                raw = resp.read().decode("utf-8", errors="ignore")
+                obj = json.loads(raw)
+            break
+        except Exception as e:
+            if _is_transient_openrouter_error(e) and attempt < attempts - 1:
+                time.sleep(5 * (attempt + 1))
+                continue
+            detail = str(e)
+            if os.getenv("OPENROUTER_DEBUG"):
+                try:
+                    body = getattr(e, "read", lambda: b"")()
+                    msg = body.decode("utf-8", errors="ignore") if body else str(e)
+                    (Path(__file__).parent / "result_rag_moe" / "openrouter_error.log").write_text(msg)
+                    detail = msg or detail
+                except Exception:
+                    pass
+            raise RuntimeError(f"OpenRouter call failed ({model}): {detail}") from e
 
     if isinstance(obj, dict) and obj.get("error"):
         raise RuntimeError(f"OpenRouter error ({model}): {obj['error']}")
@@ -498,6 +507,27 @@ def _openrouter_invoke(model: str, system_msg: str, human_msg: str, key: str) ->
     if not str(text).strip():
         raise RuntimeError(f"OpenRouter returned empty content for {model}")
     return str(text)
+
+
+def _is_transient_openrouter_error(exc: Exception) -> bool:
+    if isinstance(exc, _urlerror.HTTPError):
+        return exc.code in {408, 409, 425, 429, 500, 502, 503, 504}
+    if isinstance(exc, (
+        TimeoutError,
+        socket.timeout,
+        ConnectionError,
+        _urlerror.URLError,
+    )):
+        return True
+    lowered = str(exc).lower()
+    return any(marker in lowered for marker in (
+        "timed out",
+        "timeout",
+        "connection reset",
+        "connection aborted",
+        "temporarily unavailable",
+        "remote end closed connection",
+    ))
 
 
 def _cli_invoke(

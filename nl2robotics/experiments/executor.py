@@ -416,6 +416,9 @@ def _study_validity(result: dict, condition: AblationCondition,
                     require_complete_moe: bool) -> dict:
     reports = _generation_reports(result)
     issues: list[str] = []
+    provider_issue = _provider_infrastructure_issue(result)
+    if provider_issue is not None:
+        issues.append(provider_issue)
     expected_strategy = generation_strategy(condition)
     observed = []
     for owner, report in reports:
@@ -501,6 +504,30 @@ def _study_validity(result: dict, condition: AblationCondition,
         "contract_created": result.get("plan", {}).get("success") is True,
         "issues": issues,
     }
+
+
+def _provider_infrastructure_issue(result: dict) -> str | None:
+    """Identify provider/transport exceptions caught by the orchestrator.
+
+    Generated artifacts that fail validators remain experimental outcomes.
+    A provider failing to return an artifact is infrastructure and must be
+    rerun identically rather than counted as a model-generation failure.
+    """
+    error = result.get("error")
+    if not isinstance(error, str) or not error.strip():
+        return None
+    lowered = error.strip().lower()
+    provider_markers = (
+        "openrouter call failed",
+        "openrouter error",
+        "openrouter returned",
+        "openrouter_api_key missing",
+        "gemini api call failed",
+        "gemini api returned",
+    )
+    if any(lowered.startswith(marker) for marker in provider_markers):
+        return f"provider infrastructure failure: {error.strip()}"
+    return None
 
 
 def _generation_reports(result: dict) -> list[tuple[str, dict]]:
