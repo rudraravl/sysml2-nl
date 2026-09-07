@@ -203,6 +203,43 @@ class PipelineTests(unittest.TestCase):
             "Candidate.mo:12:4" in item.message for item in result.diagnostics
         ))
 
+    @patch("nl2robotics.modelica.openmodelica.shutil.which", return_value="omc")
+    @patch("nl2robotics.modelica.openmodelica.subprocess.run")
+    def test_silent_fmu_failure_replays_actionable_backend_diagnostic(
+        self, run, _which
+    ):
+        def fake_run(command, *, cwd, **kwargs):
+            if "--showErrorMessages" not in command:
+                Path(cwd, "load.txt").write_text("true\n", encoding="utf-8")
+                Path(cwd, "check.txt").write_text(
+                    "Check of Candidate completed successfully.", encoding="utf-8"
+                )
+                return type("Result", (), {"returncode": 0, "stdout": "true\n"})()
+            self.assertEqual("export.mos", command[-1])
+            return type("Result", (), {
+                "returncode": 0,
+                "stdout": "\n".join((
+                    'Error: Class loadModel not found in scope <global scope>',
+                    'Error: Function argument v=x in call to '
+                    'OpenModelica.Internal.intAbs has variability continuous',
+                    'Error: Internal error - IndexReduction failed!',
+                )),
+            })()
+
+        run.side_effect = fake_run
+        with tempfile.TemporaryDirectory() as tmp:
+            result = OpenModelicaRunner(backend="local").export_fmu(
+                "model Candidate Real x; equation der(x) = 0; end Candidate;",
+                output_dir=Path(tmp),
+            )
+
+        self.assertFalse(result.success)
+        self.assertEqual(2, run.call_count)
+        messages = "\n".join(item.message for item in result.diagnostics)
+        self.assertIn("IndexReduction failed", messages)
+        self.assertNotIn("loadModel not found", messages)
+        self.assertNotIn("intAbs", messages)
+
     def test_unavailable_compiler_does_not_trigger_repairs(self):
         pipeline = ModelicaPipeline()
         unavailable = Layer1CandidateResult(

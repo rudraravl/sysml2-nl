@@ -64,6 +64,8 @@ def freeze_protocol(*, repository: Path, output_dir: Path, tasks: list,
             for path in (
                 "nl2robotics/modelica/openmodelica.py",
                 "nl2robotics/modelica/pipeline.py",
+                "nl2robotics/hybrid/capability_execution.py",
+                "nl2robotics/hybrid/capability_repair.py",
                 "nl2robotics/openusd/validator.py",
                 "nl2robotics/openusd/local_validator.py",
                 "nl2robotics/openusd/runtime/validate_stage.py",

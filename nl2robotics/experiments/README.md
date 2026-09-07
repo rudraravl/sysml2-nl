@@ -104,4 +104,11 @@ Remove `--dry-run` only after inspecting a small selected slice. B1 through FULL
 use the frozen family-preferred RAG routes; B0 remains direct generation.
 Capability `FULL` also executes both semantic-alignment stages; B3 and FULL are
 therefore behaviorally distinct rather than label-only variants. Integrated FMU
-execution is reported separately from strict Newton H2 execution.
+execution is reported separately from strict Newton H2 execution. In the two
+tool-repair conditions, FMU export, interface, initialization, execution, or
+trace-survival failures may trigger the frozen bounded runtime-repair loop.
+Each candidate must preserve the top-level model identity, recompile, retain
+the required FMU interface, advance farther through real execution, and (for
+FULL) pass pre-execution alignment again. Behavioral requirement violations and
+unevaluable qualitative requirements remain experimental outcomes and never
+trigger this repair loop.

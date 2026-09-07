@@ -361,6 +361,115 @@ class PlannerTests(unittest.TestCase):
 
 
 class OrchestratorTests(unittest.TestCase):
+    def test_capability_runtime_failure_is_recompiled_and_reexecuted(self):
+        source = "Create a 2 kg box robot for 2 s at 50 Hz."
+        ir = {
+            "schema_version": "1.0", "task_id": "RCAP-RUNTIME",
+            "source_text": source, "execution_mode": "capability_tiered",
+            "clock": {"duration": 2.0, "frequency_hz": 50.0,
+                      "evidence": ["for 2 s at 50 Hz"]},
+            "domains": [],
+            "entities": [{"id": "robot", "kind": "rigid_link", "shape": "box",
+                          "mass": 2.0, "mass_unit": "kg",
+                          "evidence": ["2 kg box robot"]}],
+            "joints": [], "parameters": [], "dynamics": [],
+            "controllers": [], "actuators": [], "sensors": [],
+            "environment": [], "interfaces": [], "properties": [],
+            "assumptions": [], "unknowns": [],
+        }
+
+        class ModelicaValidation:
+            def refine_layer1(self, requirement, candidate, repair, **kwargs):
+                return {"passed": True, "final_modelica": candidate, "repairs": 0}
+
+        class USDValidation:
+            def refine(self, requirement, candidate, repair, **kwargs):
+                return {
+                    "passed": True, "final_openusd": candidate, "repairs": 0,
+                    "attempts": [{"accepted_as_best": True,
+                                  "validation": {"success": True,
+                                                 "evidence": {}, "metadata": {},
+                                                 "counts": {}}}],
+                }
+
+        class Alignment:
+            def evaluate(self, *args, **kwargs):
+                return {
+                    "passed": True,
+                    "summary": {
+                        "question_count": 0,
+                        "counts": {"satisfied": 0, "violated": 0,
+                                   "unknown": 0, "not_applicable": 0},
+                        "weighted_semantic_score": 1.0,
+                        "evidence_coverage": 1.0,
+                        "blocking_violations": 0,
+                        "deterministic_violations": 0,
+                        "per_family": {},
+                    },
+                    "repair_plan": {"actions": []},
+                }
+
+        class CapabilityExecution:
+            def __init__(self):
+                self.calls = 0
+
+            def run(self, modelica, requirement_ir, contract, *, output_dir):
+                self.calls += 1
+                fixed = "Real fixed" in modelica
+                return {
+                    "passed": fixed,
+                    "execution_mode": "integrated_fmu_behavior",
+                    "execution_completed": fixed,
+                    "behavior_evaluated": fixed,
+                    "behavior_passed": fixed,
+                    "failure_stage": None if fixed else "fmu_export",
+                    "fmu": {"success": fixed, "diagnostics": ([] if fixed else [{
+                        "stage": "compiler", "severity": "error",
+                        "message": "IndexReduction failed",
+                    }])},
+                    "contract": {"success": fixed, "resolved_mappings": []},
+                    "execution": {"success": fixed, "initialized": fixed},
+                    "trace_gate": {"success": fixed, "finite": fixed},
+                    "properties": [],
+                    "property_summary": {"total": 0, "passed": 0,
+                                         "violated": 0, "unevaluable": 0},
+                }
+
+        runtime = CapabilityExecution()
+        initial = "model RobotTask_RCAP_RUNTIME end RobotTask_RCAP_RUNTIME;"
+        fixed = "model RobotTask_RCAP_RUNTIME Real fixed = 1; end RobotTask_RCAP_RUNTIME;"
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp)
+            pipeline = RoboticsOrchestrator(
+                modelica_pipeline=ModelicaValidation(),
+                openusd_pipeline=USDValidation(),
+                modelica_generator=lambda requirement, directory: (
+                    initial, {"passed": True, "repairs": 0}
+                ),
+                openusd_generator=lambda requirement, directory: (
+                    '#usda 1.0\ndef Xform "World" {}',
+                    USDValidation().refine("", "", None),
+                ),
+                alignment_evaluator=Alignment(),
+                capability_execution_pipeline=runtime,
+            )
+            result = pipeline.run(
+                source, lambda _: json.dumps(ir), output_dir=output,
+                task_id="RCAP-RUNTIME", execution_mode="capability_tiered",
+                max_ir_repairs=0, max_semantic_repairs=0,
+                runtime_repair_ask=lambda _: fixed, max_runtime_repairs=1,
+            )
+            saved_model = (output / "modelica" / "model.mo").read_text()
+            original_model = (
+                output / "modelica" / "pre-runtime-model.mo"
+            ).read_text()
+
+        self.assertTrue(result["passed"], result)
+        self.assertEqual(2, runtime.calls)
+        self.assertEqual(1, result["runtime_repair"]["accepted"])
+        self.assertEqual(fixed, saved_model)
+        self.assertEqual(initial, original_model)
+
     def test_capability_alignment_receives_validator_evidence_and_repairs(self):
         source = "Create a 2 kg box robot under gravity 9.81 m/s2 for 2 s at 50 Hz."
         ir = {

@@ -419,6 +419,15 @@ class ExperimentTests(unittest.TestCase):
         self.assertFalse(metrics["modelica_build_attempt_0"])
         self.assertTrue(metrics["modelica_build"])
 
+    def test_repair_metric_includes_profile_semantic_and_runtime_attempts(self):
+        result = {
+            "modelica": {"repairs": 1},
+            "openusd": {"repairs": 2},
+            "semantic_repair": {"attempted": 1, "accepted": 1},
+            "runtime_repair": {"attempted": 2, "accepted": 1},
+        }
+        self.assertEqual(6, extract_metrics("capability", result)["repairs"])
+
     def test_protocol_freezes_corpora_models_and_exact_cell_fingerprints(self):
         task = BenchmarkSuite().select(profile="modelica")[:1]
         with tempfile.TemporaryDirectory() as tmp:

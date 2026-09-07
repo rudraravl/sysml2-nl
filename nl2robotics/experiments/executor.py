@@ -243,6 +243,10 @@ class PipelineExperimentExecutor:
             alignment_ask=self.json_ask if condition.alignment else None,
             semantic_repair_ask=self.text_ask if condition.alignment else None,
             max_semantic_repairs=(1 if condition.alignment else 0),
+            runtime_repair_ask=self.text_ask if condition.tool_repair else None,
+            max_runtime_repairs=(
+                self.max_tool_repairs if condition.tool_repair else 0
+            ),
             enable_alignment=condition.alignment,
             precomputed_normalization=(
                 block_context.get("normalization")

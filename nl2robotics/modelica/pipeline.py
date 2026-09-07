@@ -20,8 +20,13 @@ Return Modelica code only, without markdown or prose. Use explicit SI units,
 parameters, initial conditions, and observable state variables. Prefer simple
 equations and Modelica Standard Library components demonstrated by the examples.
 The top-level model must compile in OpenModelica. Standalone plant requests must
-be directly simulatable. Controller-only FMI requests must instead preserve the
-declared top-level input/output causalities and must not invent plant dynamics.
+be directly simulatable and exportable as an FMI 2.0 Co-Simulation FMU. Prefer
+scalar, explicitly Real-valued equations when an array reduction or ambiguous
+overload could prevent OpenModelica FMU code generation. Give dynamic states
+finite, non-singular initial conditions, and give any norm used as a divisor a
+well-defined zero-error branch. Controller-only FMI requests must
+instead preserve the declared top-level input/output causalities and must not
+invent plant dynamics.
 Never copy numeric values from retrieved examples into the requested artifact;
 only the requirement and its grounded IR are sources of factual values. A model
 must not contain unbound parameters: omit unresolved behavior and label it in a

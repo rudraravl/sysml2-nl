@@ -14,7 +14,12 @@ from nl2robotics.hybrid.isaac_bundle import prepare_isaac_bundle
 from nl2robotics.hybrid.newton_bundle import prepare_newton_bundle
 from nl2robotics.hybrid.portable import PortableHybridPipeline
 from nl2robotics.hybrid.capability_execution import CapabilityExecutionPipeline
+from nl2robotics.hybrid.capability_repair import (
+    REPAIRABLE_FAILURE_STAGES,
+    guarded_capability_runtime_repair,
+)
 from nl2robotics.modelica.moe import generate_modelica_moe
+from nl2robotics.modelica.openmodelica import find_model_name
 from nl2robotics.modelica.pipeline import ModelicaPipeline
 from nl2robotics.openusd.moe import generate_openusd_moe
 from nl2robotics.openusd.pipeline import OpenUSDPipeline
@@ -81,6 +86,8 @@ class RoboticsOrchestrator:
         alignment_ask: Ask | None = None,
         semantic_repair_ask: Ask | None = None,
         max_semantic_repairs: int = 1,
+        runtime_repair_ask: Ask | None = None,
+        max_runtime_repairs: int = 1,
         enable_alignment: bool = True,
         precomputed_normalization: NormalizationResult | None = None,
     ) -> dict:
@@ -371,6 +378,138 @@ class RoboticsOrchestrator:
                 result["passed"] = False
                 result["stage_trace"] = _stage_trace(result)
                 return self._finish(output_dir, result)
+            runtime_repair_report = None
+            if (
+                runtime_repair_ask is not None
+                and max_runtime_repairs > 0
+                and execution.get("failure_stage") in REPAIRABLE_FAILURE_STAGES
+            ):
+                baseline_runtime = {
+                    "modelica": modelica,
+                    "modelica_passed": True,
+                    "identity_preserved": True,
+                    "pre_alignment_passed": aligned,
+                    "alignment": alignment,
+                    "execution": execution,
+                }
+
+                def evaluate_runtime_candidate(
+                    candidate_modelica: str, attempt: int
+                ) -> dict:
+                    attempt_dir = (
+                        output_dir / "runtime-repair" / f"attempt-{attempt}"
+                    )
+                    model_report = self.modelica_pipeline.refine_layer1(
+                        plan.modelica_requirement,
+                        candidate_modelica,
+                        runtime_repair_ask,
+                        hits=[],
+                        max_repairs=0,
+                        output_dir=attempt_dir / "modelica-validation",
+                    )
+                    model_passed = model_report.get("passed") is True
+                    try:
+                        identity_preserved = (
+                            find_model_name(candidate_modelica)
+                            == find_model_name(modelica)
+                        )
+                    except ValueError:
+                        identity_preserved = False
+                    candidate_alignment = _not_run_alignment(
+                        plan.task_id, "runtime repair did not pass Modelica validation"
+                    )
+                    candidate_aligned = False
+                    if model_passed and identity_preserved:
+                        candidate_evidence = _capability_evidence(
+                            plan, report, openusd_report, pair_passed=True
+                        )
+                        if enable_alignment:
+                            candidate_alignment = self.alignment_evaluator.evaluate(
+                                plan.requirement_ir,
+                                modelica=candidate_modelica,
+                                openusd=openusd,
+                                contract=plan.contract,
+                                hybrid_report=candidate_evidence,
+                                ask=alignment_ask,
+                            )
+                        else:
+                            candidate_alignment = _skipped_alignment(plan.task_id)
+                        candidate_aligned = candidate_alignment.get("passed") is True
+                    if model_passed and identity_preserved and candidate_aligned:
+                        candidate_execution = self.capability_execution_pipeline.run(
+                            candidate_modelica,
+                            plan.requirement_ir,
+                            plan.contract,
+                            output_dir=attempt_dir / "execution",
+                        )
+                    else:
+                        candidate_execution = {
+                            "stage": "capability_behavior_execution",
+                            "passed": False,
+                            "execution_completed": False,
+                            "failure_stage": (
+                                "modelica_identity"
+                                if model_passed and not identity_preserved
+                                else "pre_execution_semantic_alignment"
+                                if model_passed else "modelica_validation"
+                            ),
+                        }
+                    _write_json(attempt_dir / "modelica-validation.json", model_report)
+                    _write_json(attempt_dir / "pre-execution-alignment.json",
+                                candidate_alignment)
+                    _write_json(attempt_dir / "execution.json", candidate_execution)
+                    return {
+                        "modelica": candidate_modelica,
+                        "modelica_passed": model_passed,
+                        "identity_preserved": identity_preserved,
+                        "pre_alignment_passed": candidate_aligned,
+                        "alignment": candidate_alignment,
+                        "execution": candidate_execution,
+                    }
+
+                runtime_repair_report = guarded_capability_runtime_repair(
+                    plan.modelica_requirement,
+                    baseline_runtime,
+                    runtime_repair_ask,
+                    evaluate_runtime_candidate,
+                    max_repairs=max_runtime_repairs,
+                )
+                final_runtime = runtime_repair_report["final"]
+                if runtime_repair_report["repairs_accepted"]:
+                    (modelica_dir / "pre-runtime-model.mo").write_text(
+                        modelica, encoding="utf-8"
+                    )
+                    modelica = final_runtime["modelica"]
+                    alignment = final_runtime["alignment"]
+                    execution = final_runtime["execution"]
+                    aligned = final_runtime["pre_alignment_passed"] is True
+                    (modelica_dir / "model.mo").write_text(
+                        modelica, encoding="utf-8"
+                    )
+                    _write_json(output_dir / "pre-execution-alignment.json", alignment)
+                    result["pre_execution_alignment"] = {
+                        "enabled": enable_alignment,
+                        "passed": alignment["passed"],
+                        "skipped": alignment.get("skipped", False),
+                        "not_run": alignment.get("not_run", False),
+                        "claim_ready": alignment.get("claim_ready", False),
+                        "report": "pre-execution-alignment.json",
+                        **alignment["summary"],
+                    }
+                    result["modelica"]["runtime_repaired"] = True
+                _write_json(
+                    output_dir / "runtime-repair.json", runtime_repair_report
+                )
+                result["runtime_repair"] = {
+                    "report": "runtime-repair.json",
+                    "attempted": runtime_repair_report["repairs_attempted"],
+                    "accepted": runtime_repair_report["repairs_accepted"],
+                    "original_model": (
+                        "modelica/pre-runtime-model.mo"
+                        if runtime_repair_report["repairs_accepted"] else None
+                    ),
+                    "final_model": "modelica/model.mo",
+                }
             _write_json(output_dir / "hybrid" / "bundle.json", execution)
             result["hybrid"] = _capability_execution_summary(execution)
             report = capability_report(

@@ -315,4 +315,8 @@ def _repairs(result: dict) -> int | None:
         value = result.get(key, {}).get("repairs")
         if isinstance(value, int) and not isinstance(value, bool):
             values.append(value)
+    for key in ("semantic_repair", "runtime_repair"):
+        value = result.get(key, {}).get("attempted")
+        if isinstance(value, int) and not isinstance(value, bool):
+            values.append(value)
     return sum(values) if values else None

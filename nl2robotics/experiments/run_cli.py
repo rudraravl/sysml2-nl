@@ -230,6 +230,12 @@ def main() -> None:
         "modelica_subset": args.modelica_subset,
         "k": args.k,
         "max_tool_repairs": args.max_tool_repairs,
+        "runtime_repair_policy": (
+            "tool_conditions_only_monotonic_recompile_realign_reexecute"
+        ),
+        "max_runtime_repairs": args.max_tool_repairs,
+        "runtime_repair_model": args.model,
+        "runtime_repair_provider": args.provider or provider_for_model(args.model),
         "rag_routing": (
             "family_preferred_4_of_5_with_global_fallback"
             if any(task.oracle.get("rag_route") for task, _ in selected)

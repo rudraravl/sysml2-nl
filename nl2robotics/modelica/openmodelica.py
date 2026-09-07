@@ -262,11 +262,16 @@ class OpenModelicaRunner:
         check = _read(work / "check.txt")
         export = _read(work / "export.txt")
         source_parse = self._diagnose_load_failure(backend, work, load)
-        combined = "\n".join((proc.stdout, load, source_parse, check, export))
-        diagnostics = _diagnostics(combined)
         checked = "completed successfully" in check.lower() and not _has_error(check)
         fmu_path = work / "candidate.fmu"
         exported = proc.returncode == 0 and fmu_path.is_file() and not _has_error(export)
+        export_replay = ""
+        if checked and not exported:
+            export_replay = self._diagnose_export_failure(backend, work)
+        combined = "\n".join(
+            (proc.stdout, load, source_parse, check, export, export_replay)
+        )
+        diagnostics = _diagnostics(combined)
         metadata = {}
         if exported:
             try:
@@ -285,6 +290,7 @@ class OpenModelicaRunner:
                 "fmu_export", "error",
                 export.strip() or proc.stdout.strip() or "OpenModelica FMU export failed",
             ))
+        duration = time.monotonic() - started
         return ModelicaFMU(
             True,
             name,
@@ -297,6 +303,46 @@ class OpenModelicaRunner:
             variables=metadata.get("variables", []),
             diagnostics=diagnostics,
             duration_seconds=duration,
+        )
+
+    def _diagnose_export_failure(self, backend: str, work: Path) -> str:
+        """Replay a silent FMU failure with OpenModelica diagnostics enabled.
+
+        ``buildModelFMU`` can return an empty string and leave no ``export.txt``
+        while ``omc`` itself exits zero.  In that case the ordinary scripting
+        output contains no feedback for bounded repair.  ``--showErrorMessages``
+        exposes the backend/index-reduction error, but also prints speculative
+        overload and scripting-lookup failures, so retain only actionable model
+        and terminal backend diagnostics.
+        """
+        replay = work / "diagnostic-replay"
+        replay.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(work / "Candidate.mo", replay / "Candidate.mo")
+        shutil.copy2(work / "export.mos", replay / "export.mos")
+        command = self._command(backend, replay, "export.mos")
+        command.insert(-1, "--showErrorMessages")
+        try:
+            proc = subprocess.run(
+                command,
+                cwd=replay,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                timeout=self.timeout,
+                env=os.environ.copy(),
+            )
+        except subprocess.TimeoutExpired:
+            return (
+                "Error: OpenModelica FMU diagnostic replay timed out after "
+                f"{self.timeout}s"
+            )
+        (replay / "stdout.txt").write_text(proc.stdout or "", encoding="utf-8")
+        actionable = _actionable_export_diagnostics(proc.stdout or "")
+        if actionable:
+            return actionable
+        return (
+            "Error: OpenModelica buildModelFMU produced no FMU and its "
+            f"diagnostic replay returned no actionable message (exit {proc.returncode})"
         )
 
     def _command(self, backend: str, work: Path, script: str) -> list[str]:
@@ -444,6 +490,33 @@ def _diagnostics(text: str) -> list[Diagnostic]:
             found.append(Diagnostic("compiler", severity, clean))
             seen.add(clean)
     return found
+
+
+def _actionable_export_diagnostics(text: str) -> str:
+    """Discard ``--showErrorMessages`` speculative-resolution noise."""
+    found = []
+    seen = set()
+    scripting_noise = (
+        "class loadmodel not found in scope <global scope>",
+        "class geterrorstring not found in scope <global scope>",
+        "class checkmodel not found in scope <global scope>",
+        "class writefile not found in scope <global scope>",
+        "variable modelica not found in scope <global scope>",
+        "in call to openmodelica.internal.int",
+    )
+    for line in text.splitlines():
+        clean = line.strip()
+        lowered = clean.lower()
+        if not any(marker in lowered for marker in (
+            "error:", "warning:", "notification: invalid unit"
+        )):
+            continue
+        if any(marker in lowered for marker in scripting_noise):
+            continue
+        if clean and clean not in seen:
+            found.append(clean)
+            seen.add(clean)
+    return "\n".join(found)
 
 
 def _infrastructure_failure(backend: str, output: str) -> str | None:
