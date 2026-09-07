@@ -330,6 +330,43 @@ class FMUTests(unittest.TestCase):
         self.assertFalse(result.success)
         self.assertEqual("fmi_source", result.diagnostics[0].stage)
 
+    @patch("nl2robotics.modelica.fmu_runtime.FMIContainerRunner.available",
+           return_value=True)
+    @patch("nl2robotics.modelica.fmu_runtime.subprocess.run")
+    def test_runtime_preserves_native_log_when_report_has_generic_error(
+        self, run, _available
+    ):
+        run.return_value = type("Result", (), {
+            "returncode": 1,
+            "stdout": "LOG_ASSERT | division by zero at time 0",
+        })()
+        with tempfile.TemporaryDirectory() as tmp:
+            work = Path(tmp)
+            fmu = work / "candidate.fmu"
+            fmu.write_bytes(b"placeholder")
+            output = work / "execution"
+            output.mkdir()
+
+            def execute_with_report(*args, **kwargs):
+                (output / "execution.json").write_text(
+                    json.dumps({
+                        "success": False,
+                        "initialized": False,
+                        "error": "FMICallException: fmi2GetReal failed",
+                    }),
+                    encoding="utf-8",
+                )
+                return run.return_value
+
+            run.side_effect = execute_with_report
+            result = FMIContainerRunner().run(fmu, output_dir=output)
+
+        self.assertFalse(result.success)
+        message = result.diagnostics[0].message
+        self.assertIn("FMICallException", message)
+        self.assertIn("Native runtime log", message)
+        self.assertIn("division by zero", message)
+
 
 class MoETests(unittest.TestCase):
     def pipeline(self):

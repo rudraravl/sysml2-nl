@@ -110,7 +110,12 @@ class FMIContainerRunner:
                     "fmi_execution", "error", f"invalid execution report: {exc}"
                 ))
         if process.returncode != 0 or not report.get("success"):
-            message = report.get("error") or process.stdout.strip() or "FMU execution failed"
+            report_error = str(report.get("error") or "").strip()
+            runtime_log = (process.stdout or "").strip()
+            if report_error and runtime_log and runtime_log not in report_error:
+                message = f"{report_error}\nNative runtime log:\n{runtime_log[-4000:]}"
+            else:
+                message = report_error or runtime_log or "FMU execution failed"
             diagnostics.append(Diagnostic("fmi_execution", "error", message))
         simulated = (
             process.returncode == 0
