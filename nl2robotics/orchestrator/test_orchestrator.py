@@ -466,6 +466,9 @@ class OrchestratorTests(unittest.TestCase):
 
         self.assertTrue(result["passed"], result)
         self.assertEqual(2, runtime.calls)
+        self.assertTrue(result["runtime_repair"]["enabled"])
+        self.assertTrue(result["runtime_repair"]["triggered"])
+        self.assertEqual(1, result["runtime_repair"]["max_repairs"])
         self.assertEqual(1, result["runtime_repair"]["accepted"])
         self.assertEqual(fixed, saved_model)
         self.assertEqual(initial, original_model)
@@ -588,6 +591,9 @@ class OrchestratorTests(unittest.TestCase):
             )
         self.assertTrue(result["passed"], result)
         self.assertEqual(1, result["semantic_repair"]["accepted"])
+        self.assertFalse(result["runtime_repair"]["enabled"])
+        self.assertFalse(result["runtime_repair"]["triggered"])
+        self.assertEqual(0, result["runtime_repair"]["max_repairs"])
 
     def test_one_plan_drives_both_generators_and_h1(self):
         ir = oracle_ir()

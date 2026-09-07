@@ -240,6 +240,39 @@ class PipelineTests(unittest.TestCase):
         self.assertNotIn("loadModel not found", messages)
         self.assertNotIn("intAbs", messages)
 
+    @patch("nl2robotics.modelica.openmodelica.shutil.which", return_value="omc")
+    @patch("nl2robotics.modelica.openmodelica.subprocess.run")
+    def test_failed_export_with_only_warnings_still_has_error_diagnostic(
+        self, run, _which
+    ):
+        def fake_run(command, *, cwd, **kwargs):
+            if "--showErrorMessages" not in command:
+                Path(cwd, "load.txt").write_text("true\n", encoding="utf-8")
+                Path(cwd, "check.txt").write_text(
+                    "Check of Candidate completed successfully.", encoding="utf-8"
+                )
+                Path(cwd, "export.txt").write_text(
+                    "Warning: export produced no artifact", encoding="utf-8"
+                )
+                return type("Result", (), {"returncode": 0, "stdout": "true\n"})()
+            return type("Result", (), {
+                "returncode": 0,
+                "stdout": "Warning: diagnostic replay produced no additional error",
+            })()
+
+        run.side_effect = fake_run
+        with tempfile.TemporaryDirectory() as tmp:
+            result = OpenModelicaRunner(backend="local").export_fmu(
+                "model Candidate Real x; equation der(x) = 0; end Candidate;",
+                output_dir=Path(tmp),
+            )
+
+        self.assertFalse(result.success)
+        self.assertTrue(any(
+            item.severity == "error" and item.stage == "fmu_export"
+            for item in result.diagnostics
+        ))
+
     def test_unavailable_compiler_does_not_trigger_repairs(self):
         pipeline = ModelicaPipeline()
         unavailable = Layer1CandidateResult(

@@ -373,6 +373,61 @@ class ExperimentTests(unittest.TestCase):
         self.assertFalse(validity["eligible"])
         self.assertTrue(any("expert" in issue for issue in validity["issues"]))
 
+    def test_runtime_repair_cannot_execute_in_a_disabled_ablation(self):
+        result = {
+            "stage": "robotics_orchestrator",
+            "modelica": {
+                "passed": True,
+                "generation_mode": "direct",
+                "retrieved_examples": [],
+                "expert_candidates": [],
+                "study_controls": {
+                    "rag_enabled": False,
+                    "moe_enabled": False,
+                    "tool_repair_enabled": False,
+                    "retrieval_k": 0,
+                },
+            },
+            "runtime_repair": {
+                "enabled": True, "triggered": True,
+                "attempted": 1, "max_repairs": 1,
+            },
+        }
+        validity = _study_validity(result, CONDITIONS["B0"], False)
+        self.assertFalse(validity["eligible"])
+        self.assertIn("runtime-repair control mismatch", validity["issues"])
+        self.assertIn("runtime repair executed while disabled", validity["issues"])
+
+    def test_runtime_repair_attempt_bound_is_a_fidelity_gate(self):
+        result = {
+            "stage": "robotics_orchestrator",
+            "modelica": {
+                "passed": True,
+                "generation_mode": "rag_moe",
+                "retrieved_examples": [{"id": str(i)} for i in range(5)],
+                "expert_candidates": list(EXPERT_MODELS),
+                "expert_models": list(EXPERT_MODELS),
+                "expert_soft_fail_count": 0,
+                "combiner_model": COMBINER_MODEL,
+                "study_controls": {
+                    "rag_enabled": True,
+                    "moe_enabled": True,
+                    "tool_repair_enabled": True,
+                    "retrieval_k": 5,
+                },
+            },
+            "runtime_repair": {
+                "enabled": True, "triggered": True,
+                "attempted": 2, "max_repairs": 1,
+            },
+        }
+        validity = _study_validity(result, CONDITIONS["FULL"], True)
+        self.assertFalse(validity["eligible"])
+        self.assertIn(
+            "runtime repair exceeded its frozen attempt bound",
+            validity["issues"],
+        )
+
     def test_provider_timeout_is_infrastructure_ineligible(self):
         validity = _study_validity({
             "stage": "robotics_orchestrator",
@@ -400,6 +455,37 @@ class ExperimentTests(unittest.TestCase):
         self.assertFalse(validity["eligible"])
         self.assertTrue(any(
             "provider infrastructure failure" in issue
+            for issue in validity["issues"]
+        ))
+
+    def test_native_runtime_outage_is_infrastructure_ineligible(self):
+        result = {
+            "stage": "robotics_orchestrator",
+            "modelica": {
+                "passed": True,
+                "generation_mode": "direct",
+                "retrieved_examples": [],
+                "expert_candidates": [],
+                "study_controls": {
+                    "rag_enabled": False,
+                    "moe_enabled": False,
+                    "tool_repair_enabled": False,
+                    "retrieval_k": 0,
+                },
+            },
+            "hybrid": {"fmu": {"diagnostics": [{
+                "stage": "infrastructure", "severity": "error",
+                "message": "Docker daemon unavailable",
+            }]}},
+            "runtime_repair": {
+                "enabled": False, "triggered": False,
+                "attempted": 0, "max_repairs": 0,
+            },
+        }
+        validity = _study_validity(result, CONDITIONS["B0"], False)
+        self.assertFalse(validity["eligible"])
+        self.assertTrue(any(
+            "native infrastructure failure" in issue
             for issue in validity["issues"]
         ))
 

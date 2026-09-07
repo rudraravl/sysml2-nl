@@ -423,6 +423,9 @@ def _study_validity(result: dict, condition: AblationCondition,
     provider_issue = _provider_infrastructure_issue(result)
     if provider_issue is not None:
         issues.append(provider_issue)
+    native_issue = _native_infrastructure_issue(result)
+    if native_issue is not None:
+        issues.append(native_issue)
     expected_strategy = generation_strategy(condition)
     observed = []
     for owner, report in reports:
@@ -494,6 +497,22 @@ def _study_validity(result: dict, condition: AblationCondition,
     if not condition.alignment and isinstance(alignment, dict):
         if alignment.get("enabled") is True:
             issues.append("alignment executed while disabled")
+    runtime_repair = result.get("runtime_repair")
+    runtime_repair_observed = None
+    if isinstance(runtime_repair, dict):
+        runtime_repair_observed = runtime_repair.get("enabled")
+        if runtime_repair_observed is not condition.tool_repair:
+            issues.append("runtime-repair control mismatch")
+        if runtime_repair.get("triggered") is True and not condition.tool_repair:
+            issues.append("runtime repair executed while disabled")
+        attempted = runtime_repair.get("attempted", 0)
+        maximum = runtime_repair.get("max_repairs", 0)
+        if (
+            isinstance(attempted, int)
+            and isinstance(maximum, int)
+            and attempted > maximum
+        ):
+            issues.append("runtime repair exceeded its frozen attempt bound")
     fidelity_passed = not issues if generation_reached else None
     return {
         "eligible": not issues,
@@ -505,6 +524,7 @@ def _study_validity(result: dict, condition: AblationCondition,
         "alignment_observed": (
             alignment.get("enabled") if isinstance(alignment, dict) else None
         ),
+        "runtime_repair_observed": runtime_repair_observed,
         "contract_created": result.get("plan", {}).get("success") is True,
         "issues": issues,
     }
@@ -531,6 +551,29 @@ def _provider_infrastructure_issue(result: dict) -> str | None:
     )
     if any(lowered.startswith(marker) for marker in provider_markers):
         return f"provider infrastructure failure: {error.strip()}"
+    return None
+
+
+def _native_infrastructure_issue(result: dict) -> str | None:
+    """Surface nested compiler/runtime availability errors for identical rerun."""
+    runtime_repair = result.get("runtime_repair", {})
+    if isinstance(runtime_repair, dict):
+        error = runtime_repair.get("infrastructure_error")
+        if isinstance(error, str) and error.strip():
+            return f"native infrastructure failure: {error.strip()}"
+    stack: list[object] = [result]
+    while stack:
+        item = stack.pop()
+        if isinstance(item, dict):
+            if (
+                item.get("stage") == "infrastructure"
+                and item.get("severity") == "error"
+            ):
+                message = str(item.get("message") or "native runtime unavailable")
+                return f"native infrastructure failure: {message}"
+            stack.extend(item.values())
+        elif isinstance(item, list):
+            stack.extend(item)
     return None
 
 

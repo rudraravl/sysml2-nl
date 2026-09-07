@@ -34,23 +34,21 @@ def guarded_capability_runtime_repair(
     """
     current = baseline
     attempts = []
+    infrastructure_error = capability_runtime_infrastructure_error(
+        current.get("execution", {})
+    )
     for attempt in range(1, max_repairs + 1):
+        if infrastructure_error is not None:
+            break
         execution = current.get("execution", {})
         if execution.get("failure_stage") not in REPAIRABLE_FAILURE_STAGES:
             break
         prompt = build_capability_runtime_repair_prompt(
             requirement, current["modelica"], execution
         )
-        try:
-            repaired = clean_code(ask(prompt))
-        except Exception as exc:
-            attempts.append({
-                "attempt": attempt,
-                "accepted": False,
-                "failure_stage": "repair_generation",
-                "error": str(exc),
-            })
-            break
+        # Provider/transport exceptions are infrastructure state, not model
+        # outcomes.  Let the study runner stop or mark the cell for rerun.
+        repaired = clean_code(ask(prompt))
         if repaired == current["modelica"]:
             attempts.append({
                 "attempt": attempt,
@@ -59,6 +57,18 @@ def guarded_capability_runtime_repair(
             })
             break
         candidate = evaluate(repaired, attempt)
+        infrastructure_error = capability_runtime_infrastructure_error(
+            candidate.get("execution", {})
+        )
+        if infrastructure_error is not None:
+            attempts.append({
+                "attempt": attempt,
+                "accepted": False,
+                "failure_stage": "infrastructure",
+                "error": infrastructure_error,
+                "candidate": candidate,
+            })
+            break
         before = capability_runtime_quality(current)
         after = capability_runtime_quality(candidate)
         accepted = bool(
@@ -86,9 +96,27 @@ def guarded_capability_runtime_repair(
         "max_repairs": max_repairs,
         "repairs_attempted": len(attempts),
         "repairs_accepted": sum(item.get("accepted") is True for item in attempts),
+        "infrastructure_error": infrastructure_error,
         "attempts": attempts,
         "final": current,
     }
+
+
+def capability_runtime_infrastructure_error(execution: dict) -> str | None:
+    """Return a native infrastructure diagnostic without repairing around it."""
+    stack: list[object] = [execution]
+    while stack:
+        item = stack.pop()
+        if isinstance(item, dict):
+            if (
+                item.get("stage") == "infrastructure"
+                and item.get("severity") == "error"
+            ):
+                return str(item.get("message") or "native runtime unavailable")
+            stack.extend(item.values())
+        elif isinstance(item, list):
+            stack.extend(item)
+    return None
 
 
 def capability_runtime_quality(candidate: dict) -> tuple[int, ...]:

@@ -4,8 +4,10 @@ import unittest
 
 from nl2robotics.hybrid.capability_repair import (
     build_capability_runtime_repair_prompt,
+    capability_runtime_infrastructure_error,
     guarded_capability_runtime_repair,
 )
+from spec_aligner.llm import CliUsageLimitError
 
 
 def candidate(modelica: str, *, failure_stage: str | None,
@@ -101,6 +103,44 @@ class CapabilityRuntimeRepairTests(unittest.TestCase):
         self.assertIn("Preserve every grounded numeric\nrequirement", prompt)
         self.assertIn("Do not delete dynamics or checks", prompt)
         self.assertIn("fmu_execution", prompt)
+
+    def test_provider_usage_limit_propagates_without_becoming_model_failure(self):
+        baseline = candidate(
+            "model Broken end Broken;", failure_stage="fmu_export"
+        )
+
+        def quota_stop(_prompt):
+            raise CliUsageLimitError("5-hour limit reached")
+
+        with self.assertRaises(CliUsageLimitError):
+            guarded_capability_runtime_repair(
+                "Execute the model.", baseline, quota_stop,
+                lambda *_: self.fail("quota stop must not evaluate a candidate"),
+            )
+
+    def test_native_infrastructure_failure_does_not_trigger_repair(self):
+        baseline = candidate(
+            "model Valid end Valid;", failure_stage="fmu_export"
+        )
+        baseline["execution"]["fmu"]["diagnostics"] = [{
+            "stage": "infrastructure", "severity": "error",
+            "message": "Docker daemon unavailable",
+        }]
+        calls = []
+        report = guarded_capability_runtime_repair(
+            "Execute the model.", baseline,
+            lambda prompt: calls.append(prompt) or baseline["modelica"],
+            lambda *_: self.fail("infrastructure must not evaluate a candidate"),
+        )
+        self.assertEqual([], calls)
+        self.assertEqual(0, report["repairs_attempted"])
+        self.assertEqual(
+            "Docker daemon unavailable", report["infrastructure_error"]
+        )
+        self.assertEqual(
+            "Docker daemon unavailable",
+            capability_runtime_infrastructure_error(baseline["execution"]),
+        )
 
 
 if __name__ == "__main__":

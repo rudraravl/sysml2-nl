@@ -16,6 +16,7 @@ from nl2robotics.hybrid.portable import PortableHybridPipeline
 from nl2robotics.hybrid.capability_execution import CapabilityExecutionPipeline
 from nl2robotics.hybrid.capability_repair import (
     REPAIRABLE_FAILURE_STAGES,
+    capability_runtime_infrastructure_error,
     guarded_capability_runtime_repair,
 )
 from nl2robotics.modelica.moe import generate_modelica_moe
@@ -365,6 +366,21 @@ class RoboticsOrchestrator:
                 return self._finish(output_dir, result)
 
             result["failure_stage"] = "capability_behavior_execution"
+            runtime_repair_enabled = (
+                runtime_repair_ask is not None and max_runtime_repairs > 0
+            )
+            result["runtime_repair"] = {
+                "enabled": runtime_repair_enabled,
+                "triggered": False,
+                "max_repairs": (
+                    max_runtime_repairs if runtime_repair_enabled else 0
+                ),
+                "report": None,
+                "attempted": 0,
+                "accepted": 0,
+                "original_model": None,
+                "final_model": "modelica/model.mo",
+            }
             try:
                 execution = self.capability_execution_pipeline.run(
                     modelica,
@@ -380,9 +396,9 @@ class RoboticsOrchestrator:
                 return self._finish(output_dir, result)
             runtime_repair_report = None
             if (
-                runtime_repair_ask is not None
-                and max_runtime_repairs > 0
+                runtime_repair_enabled
                 and execution.get("failure_stage") in REPAIRABLE_FAILURE_STAGES
+                and capability_runtime_infrastructure_error(execution) is None
             ):
                 baseline_runtime = {
                     "modelica": modelica,
@@ -501,9 +517,15 @@ class RoboticsOrchestrator:
                     output_dir / "runtime-repair.json", runtime_repair_report
                 )
                 result["runtime_repair"] = {
+                    "enabled": True,
+                    "triggered": True,
+                    "max_repairs": max_runtime_repairs,
                     "report": "runtime-repair.json",
                     "attempted": runtime_repair_report["repairs_attempted"],
                     "accepted": runtime_repair_report["repairs_accepted"],
+                    "infrastructure_error": runtime_repair_report.get(
+                        "infrastructure_error"
+                    ),
                     "original_model": (
                         "modelica/pre-runtime-model.mo"
                         if runtime_repair_report["repairs_accepted"] else None

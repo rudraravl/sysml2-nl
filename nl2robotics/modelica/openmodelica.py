@@ -285,7 +285,9 @@ class OpenModelicaRunner:
                 "fmu_inspection", "error",
                 "OpenModelica did not export a Co-Simulation FMU",
             ))
-        if not exported and not diagnostics:
+        if not exported and not any(
+            item.severity == "error" for item in diagnostics
+        ):
             diagnostics.append(Diagnostic(
                 "fmu_export", "error",
                 export.strip() or proc.stdout.strip() or "OpenModelica FMU export failed",
