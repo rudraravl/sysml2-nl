@@ -17,6 +17,9 @@ from nl2robotics.modelica.pipeline import ModelicaPipeline, clean_code
 from nl2robotics.openusd.moe import generate_openusd_moe
 from nl2robotics.openusd.pipeline import OpenUSDPipeline, clean_usda
 from nl2robotics.orchestrator.pipeline import RoboticsOrchestrator
+from nl2robotics.orchestrator.modelica_capability import (
+    ModelicaCapabilityOrchestrator,
+)
 from nl2robotics.orchestrator.normalizer import (
     NormalizationIssue,
     NormalizationResult,
@@ -222,6 +225,34 @@ class PipelineExperimentExecutor:
                 preferred_categories=openusd_categories,
             )
 
+        if task.profile == "capability":
+            orchestrator = ModelicaCapabilityOrchestrator(
+                modelica_pipeline=self.modelica,
+                modelica_generator=modelica_generator,
+                normalizer=self.normalizer,
+            )
+            return orchestrator.run(
+                prompt,
+                self.json_ask,
+                output_dir=output_dir,
+                task_id=task.id,
+                max_ir_repairs=1,
+                runtime_repair_ask=(
+                    self.text_ask if condition.tool_repair else None
+                ),
+                max_runtime_repairs=(
+                    self.max_tool_repairs if condition.tool_repair else 0
+                ),
+                specification_ask=(
+                    self.json_ask if condition.alignment else None
+                ),
+                enable_specification_alignment=condition.alignment,
+                precomputed_normalization=(
+                    block_context.get("normalization")
+                    if block_context is not None else None
+                ),
+            )
+
         orchestrator = RoboticsOrchestrator(
             modelica_pipeline=self.modelica,
             openusd_pipeline=self.openusd,
@@ -401,7 +432,7 @@ def _execution_mode(task: BenchmarkTask) -> str:
         "isaac_h2": "isaac_closed_loop",
         "newton_h2": "newton_closed_loop",
         "capability_tier2": "capability_tiered",  # legacy manifests
-        "capability_execution": "capability_tiered",
+        "capability_execution": "modelica_capability",
     }.get(task.target_level, "portable_fmu_kinematic")
 
 
@@ -486,7 +517,10 @@ def _study_validity(result: dict, condition: AblationCondition,
             if combiner != COMBINER_MODEL:
                 issues.append(f"{owner} MoE combiner does not match the freeze")
     generation_reached = bool(reports)
+    artifact_mode = result.get("artifact_mode", "modelica_openusd")
     pair_valid = (
+        result.get("modelica", {}).get("passed") is True
+        if artifact_mode == "modelica_only" else
         result.get("modelica", {}).get("passed") is True
         and result.get("openusd", {}).get("passed") is True
     )
@@ -594,7 +628,8 @@ def _one_shot_outcomes(result: dict) -> dict:
     rows = dict(_generation_reports(result))
     modelica = _attempt_zero(rows.get("modelica"), "modelica")
     openusd = _attempt_zero(rows.get("openusd"), "openusd")
-    pair = (
+    artifact_mode = result.get("artifact_mode", "modelica_openusd")
+    pair = None if artifact_mode == "modelica_only" else (
         modelica and openusd
         if isinstance(modelica, bool) and isinstance(openusd, bool) else None
     )
@@ -602,6 +637,9 @@ def _one_shot_outcomes(result: dict) -> dict:
         "modelica_valid_attempt_0": modelica,
         "openusd_valid_attempt_0": openusd,
         "artifact_pair_valid_attempt_0": pair,
+        "artifact_valid_attempt_0": (
+            modelica if artifact_mode == "modelica_only" else pair
+        ),
     }
 
 

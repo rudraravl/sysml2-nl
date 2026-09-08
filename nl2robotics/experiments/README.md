@@ -18,7 +18,7 @@ condition. Every eligible cell has a configuration fingerprint and independent
 prompts, normalization, or run order.
 
 Before either a dry run or a real run, `study-protocol.json` freezes the Git
-state, prompt and manifest hashes, full Modelica/OpenUSD corpus tree hashes,
+state, prompt and manifest hashes, applicable retrieval-corpus tree hashes,
 condition definitions, model roster, runtime/validator provenance, exclusion
 rules, randomized order, and exact cell fingerprints. Reusing that output
 directory with different frozen inputs fails closed.
@@ -27,8 +27,10 @@ Corpus and execution-targeted held-out runs use a seeded randomized task order
 instead of their manifest row order. Task/repetition blocks remain intact, and
 multi-worker corpus shards are category-stratified.
 
-The concrete executor maps each condition to the real Modelica, OpenUSD, H1,
-or H2 preparation path. Run a small frozen slice with:
+The concrete executor maps legacy profile tasks to their original paths. All
+paper-facing `capability` tasks use the Modelica-only compile/FMU/behavior/spec
+path and never invoke OpenUSD generation or validation. Run a small frozen
+slice with:
 
 ```bash
 python3 -m nl2robotics.experiments.run_cli \
@@ -69,8 +71,9 @@ MoE expert makes the cell infrastructure-ineligible and forces an identical
 rerun; it is never compared as a smaller accidental ensemble. Provider usage
 limits stop the batch without writing a false failed cell.
 
-For capability ablations, use artifact validity, runtime execution, behavior
-evaluation, and property-pass rates for paired B0-to-FULL comparisons.
+For capability ablations, use Modelica artifact validity, FMU interface
+validity, runtime execution, behavior evaluation, and property-pass rates for
+paired B0-to-FULL comparisons.
 `configured_pipeline_success` records whether each condition completed its own
 enabled stages. `end_to_end` is intentionally unavailable when semantic
 alignment is disabled, so the headline full-funnel comparison cannot become a

@@ -8,13 +8,15 @@ import random
 
 
 BINARY_METRICS = (
-    "normalization_valid", "ir_valid", "artifact_pair_valid",
+    "normalization_valid", "ir_valid", "artifact_valid", "artifact_pair_valid",
     "modelica_build_attempt_0", "usd_semantic_valid_attempt_0",
-    "artifact_pair_valid_attempt_0", "condition_fidelity",
+    "artifact_valid_attempt_0", "artifact_pair_valid_attempt_0",
+    "condition_fidelity",
     "modelica_build", "fmu_export", "fmu_execution",
     "usd_semantic_valid", "named_simulator_load", "stable_simulation",
-    "contract_valid", "pre_execution_semantic", "runtime_execution",
-    "behavior_evaluated", "post_execution_semantic",
+    "contract_valid", "fmu_interface_valid", "pre_execution_semantic",
+    "runtime_execution", "runtime_trace_valid", "behavior_evaluated",
+    "post_execution_semantic", "specification_claim_ready",
     "configured_pipeline_success", "end_to_end",
     "all_properties_pass",
 )
@@ -60,12 +62,16 @@ def extract_metrics(profile: str, result: dict, *,
 
     modelica_pass = _truth(modelica.get("passed"))
     usd_pass = _truth(openusd.get("passed"))
+    artifact_mode = result.get("artifact_mode", "modelica_openusd")
     normalization_valid = _truth(result.get("normalization", {}).get("success"))
     ir_valid = _truth(result.get("plan", {}).get("success"))
-    artifact_pair_valid = (
+    artifact_pair_valid = None if artifact_mode == "modelica_only" else (
         modelica_pass and usd_pass
         if isinstance(modelica_pass, bool) and isinstance(usd_pass, bool)
         else None
+    )
+    artifact_valid = (
+        modelica_pass if artifact_mode == "modelica_only" else artifact_pair_valid
     )
     fmu_export = _truth(fmu.get("success"))
     fmu_execution = _truth(execution.get("success"))
@@ -142,6 +148,7 @@ def extract_metrics(profile: str, result: dict, *,
         "failure_stage": result.get("failure_stage"),
         "normalization_valid": normalization_valid,
         "ir_valid": ir_valid,
+        "artifact_valid": artifact_valid,
         "artifact_pair_valid": artifact_pair_valid,
         "modelica_build_attempt_0": _truth(
             one_shot.get("modelica_valid_attempt_0")
@@ -151,6 +158,9 @@ def extract_metrics(profile: str, result: dict, *,
         ),
         "artifact_pair_valid_attempt_0": _truth(
             one_shot.get("artifact_pair_valid_attempt_0")
+        ),
+        "artifact_valid_attempt_0": _truth(
+            one_shot.get("artifact_valid_attempt_0")
         ),
         "condition_fidelity": _truth(
             study_validity.get("condition_fidelity_passed")
@@ -162,14 +172,22 @@ def extract_metrics(profile: str, result: dict, *,
         "named_simulator_load": simulator_load,
         "stable_simulation": stable,
         "contract_valid": contract_valid,
+        "fmu_interface_valid": contract_valid,
         "pre_execution_semantic": _truth(
             stage_trace.get("pre_execution_semantic_alignment")
         ),
         "runtime_execution": _truth(stage_trace.get("runtime_execution")),
+        "runtime_trace_valid": _truth(
+            hybrid.get("trace_gate", {}).get("success")
+        ),
         "behavior_evaluated": _truth(stage_trace.get("behavior_evaluation")),
         "post_execution_semantic": _truth(
-            stage_trace.get("post_execution_semantic_alignment")
+            stage_trace.get(
+                "modelica_specification_alignment",
+                stage_trace.get("post_execution_semantic_alignment"),
+            )
         ),
+        "specification_claim_ready": _truth(alignment.get("claim_ready")),
         "configured_pipeline_success": configured_pipeline_success,
         "end_to_end": end_to_end,
         "all_properties_pass": property_pass,

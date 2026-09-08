@@ -21,6 +21,7 @@ EXECUTION_MODES = {
     "isaac_closed_loop",
     "newton_closed_loop",
     "capability_tiered",
+    "modelica_capability",
 }
 CLOSED_LOOP_MODES = {"isaac_closed_loop", "newton_closed_loop"}
 RECORD_COLLECTIONS = (
@@ -239,7 +240,7 @@ def validate_requirement_ir(data: dict) -> RequirementIRValidation:
                 f"property references undeclared state {state_id!r}",
                 f"$.properties[{index}].state_id",
             ))
-        if (data.get("execution_mode") == "capability_tiered"
+        if (data.get("execution_mode") in {"capability_tiered", "modelica_capability"}
                 and state_id is not None and state_id not in interface_state_ids):
             issues.append(IRIssue(
                 "unobservable_property_state",
@@ -253,7 +254,9 @@ def validate_requirement_ir(data: dict) -> RequirementIRValidation:
             issues.append(IRIssue("invalid_clock", "clock must be an object", "$.clock"))
         else:
             _validate_evidence(clock, source, "$.clock", issues)
-            capability_clock = data.get("execution_mode") == "capability_tiered"
+            capability_clock = data.get("execution_mode") in {
+                "capability_tiered", "modelica_capability"
+            }
             required_clock_fields = (
                 ("frequency_hz",) if capability_clock
                 else ("start_time", "stop_time", "frequency_hz")
@@ -371,7 +374,11 @@ def _validate_record_shape(collection: str, record: dict, path: str,
         "joints": {"type": BROAD_JOINT_TYPES, "axis": BROAD_JOINT_AXES},
         "entities": {"shape": BROAD_LINK_SHAPES},
         "interfaces": {
-            "direction": {"fmu_to_usd", "usd_to_fmu"},
+            "direction": (
+                {"modelica_output"}
+                if execution_mode == "modelica_capability"
+                else {"fmu_to_usd", "usd_to_fmu"}
+            ),
             "quantity": BROAD_INTERFACE_QUANTITIES,
         },
         "properties": {"kind": BROAD_PROPERTY_KINDS},
@@ -382,7 +389,7 @@ def _validate_record_shape(collection: str, record: dict, path: str,
         # grounded feature names remain representable and are routed to the
         # generic profile. Executable modes stay closed-world.
         open_world = (
-            execution_mode == "capability_tiered"
+            execution_mode in {"capability_tiered", "modelica_capability"}
             and not (collection == "interfaces" and key == "direction")
         )
         comparable = value

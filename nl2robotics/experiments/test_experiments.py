@@ -14,6 +14,7 @@ from nl2robotics.experiments.executor import (
     PipelineExperimentExecutor,
     _one_shot_outcomes,
     _study_validity,
+    _execution_mode,
     generation_requirement,
     generation_strategy,
 )
@@ -40,6 +41,35 @@ class ExperimentTests(unittest.TestCase):
         selected = suite.select(profile="capability", variant="rich")
         self.assertEqual(13, len(selected))
         self.assertEqual("RCB001", selected[0][0].id)
+
+    def test_capability_cells_route_only_to_modelica_execution(self):
+        task, prompt = _load_suite(CAPABILITY_MANIFEST).select(
+            profile="capability", variant="rich"
+        )[0]
+        self.assertEqual("modelica_capability", _execution_mode(task))
+        executor = object.__new__(PipelineExperimentExecutor)
+        executor.modelica = object()
+        executor.normalizer = object()
+        executor.text_ask = lambda _: ""
+        executor.json_ask = lambda _: ""
+        executor.max_tool_repairs = 2
+        executor.k = 5
+        executor._generate_modelica = lambda *args, **kwargs: ("model X end X;", {})
+        executor._generate_openusd = lambda *args, **kwargs: self.fail(
+            "capability path invoked OpenUSD generation"
+        )
+        with tempfile.TemporaryDirectory() as tmp, patch(
+            "nl2robotics.experiments.executor.ModelicaCapabilityOrchestrator"
+        ) as orchestrator:
+            orchestrator.return_value.run.return_value = {
+                "artifact_mode": "modelica_only", "passed": False,
+            }
+            result = executor._run_hybrid(
+                task, CONDITIONS["FULL"], prompt, Path(tmp)
+            )
+        self.assertEqual("modelica_only", result["artifact_mode"])
+        orchestrator.assert_called_once()
+        orchestrator.return_value.run.assert_called_once()
 
     def test_frozen_conditions_map_to_distinct_generation_strategies(self):
         self.assertEqual("direct", generation_strategy(CONDITIONS["B0"]))
@@ -534,6 +564,18 @@ class ExperimentTests(unittest.TestCase):
                 configuration={"single_model": "test"},
                 randomization_seed=11,
             )
+            modelica_only, _ = freeze_protocol(
+                repository=root,
+                output_dir=Path(tmp) / "modelica-only",
+                tasks=task,
+                conditions=[CONDITIONS["FULL"]],
+                variant="rich",
+                repetitions=1,
+                configuration={
+                    "single_model": "test", "artifact_mode": "modelica_only",
+                },
+                randomization_seed=11,
+            )
             with self.assertRaises(ValueError):
                 freeze_protocol(
                     repository=root,
@@ -548,6 +590,8 @@ class ExperimentTests(unittest.TestCase):
         self.assertEqual(4, report["planned_cell_count"])
         self.assertEqual(4, len({row["fingerprint"] for row in report["planned_cells"]}))
         self.assertEqual(3, report["corpora"]["modelica"]["file_count"])
+        self.assertEqual({"modelica"}, set(modelica_only["corpora"]))
+        self.assertNotIn("openusd_validator", modelica_only["runtime_versions"])
         self.assertIn("study_protocol_core_sha256", configuration)
 
     def test_summary_separates_infrastructure_failure(self):
@@ -641,6 +685,29 @@ class ExperimentTests(unittest.TestCase):
         self.assertEqual(2, metrics["verification_tier"])
         self.assertFalse(metrics["end_to_end"])
         self.assertIsNone(metrics["fmu_execution"])
+
+    def test_modelica_only_metrics_never_imply_an_artifact_pair(self):
+        metrics = extract_metrics("capability", {
+            "artifact_mode": "modelica_only", "passed": True,
+            "modelica": {"passed": True},
+            "hybrid": {
+                "fmu": {"success": True},
+                "contract": {"success": True},
+                "execution": {"success": True},
+                "trace_gate": {"success": True},
+                "properties": [{"status": "satisfied", "passed": True}],
+            },
+            "alignment": {"claim_ready": True},
+            "stage_trace": [{
+                "index": 8, "stage": "modelica_specification_alignment",
+                "reached": True, "passed": True,
+            }],
+        })
+        self.assertTrue(metrics["artifact_valid"])
+        self.assertIsNone(metrics["artifact_pair_valid"])
+        self.assertTrue(metrics["fmu_interface_valid"])
+        self.assertTrue(metrics["runtime_trace_valid"])
+        self.assertTrue(metrics["post_execution_semantic"])
 
     def test_disabled_alignment_is_not_counted_as_full_funnel_success(self):
         metrics = extract_metrics("capability", {

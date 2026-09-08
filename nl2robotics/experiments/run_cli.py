@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 
 from nl2robotics.benchmark.suite import BenchmarkSuite
 from nl2robotics.hybrid.portable import PortableHybridPipeline
+from nl2robotics.hybrid.capability_execution import CapabilityExecutionPipeline
 from nl2robotics.hybrid.gpu_handoff import run_handoff
 from nl2robotics.hybrid.newton_cli import run_newton_bundle
 from nl2robotics.modelica.corpus import ExampleCorpus
@@ -223,6 +224,16 @@ def main() -> None:
         newton_handoff=newton_handoff,
     )
     configuration = {
+        "artifact_mode": (
+            "modelica_only"
+            if all(task.profile == "capability" for task, _ in selected)
+            else "modelica_openusd"
+        ),
+        "pipeline": (
+            "nl_ir_modelica_compile_fmu_execute_spec"
+            if all(task.profile == "capability" for task, _ in selected)
+            else "legacy_profile_dispatch"
+        ),
         "single_model": args.model,
         "single_provider": args.provider,
         "moe_configuration": "shared_with_sysml_pipeline",
@@ -231,7 +242,7 @@ def main() -> None:
         "k": args.k,
         "max_tool_repairs": args.max_tool_repairs,
         "runtime_repair_policy": (
-            "tool_conditions_only_monotonic_recompile_realign_reexecute"
+            "tool_conditions_only_monotonic_recompile_reexecute_recheck_behavior"
         ),
         "max_runtime_repairs": args.max_tool_repairs,
         "runtime_repair_model": args.model,
@@ -319,7 +330,10 @@ def main() -> None:
             "diagnostics": [],
         }
     )
-    fmi_preflight = _preflight_fmi_runtime(modelica) if modelica_required else {
+    fmi_preflight = _preflight_fmi_runtime(
+        modelica,
+        args.output_dir / f"runtime-preflight{preflight_suffix}" / "fmi",
+    ) if modelica_required else {
         "stage": "fmi_runtime_preflight",
         "success": True,
         "required": False,
@@ -408,17 +422,71 @@ end NL2RoboticsRuntimePreflight;
     }
 
 
-def _preflight_fmi_runtime(pipeline: ModelicaPipeline) -> dict:
-    available = pipeline.fmi_runner.available()
+def _preflight_fmi_runtime(pipeline: ModelicaPipeline,
+                           output_dir: Path | None = None) -> dict:
+    """Exercise the exact export, FMI metadata, execution, trace, and monitor path."""
+    source = """model NL2RoboticsFMIPreflight
+  parameter Real fact_parameters_decay_value = 1.0;
+  output Real trace_state;
+  Real x(start=1.0, fixed=true);
+equation
+  der(x) = -fact_parameters_decay_value*x;
+  trace_state = x;
+end NL2RoboticsFMIPreflight;
+"""
+    ir = {
+        "task_id": "NL2RoboticsFMIPreflight",
+        "properties": [{
+            "id": "bounded_state", "kind": "always",
+            "interface_id": "state", "lower": 0.0, "upper": 1.0,
+        }],
+    }
+    contract = {
+        "contract_kind": "modelica_capability_execution",
+        "model_name": "NL2RoboticsFMIPreflight",
+        "clock": {"duration": 0.2, "frequency_hz": 50.0},
+        "mappings": [{
+            "id": "map_state", "interface_id": "state",
+            "state_id": "state", "fmu_variable": "trace_state",
+            "required": True,
+        }],
+        "parameter_mappings": [{
+            "id": "fact_decay", "fact_id": "parameters.decay.value",
+            "fmu_variable": "fact_parameters_decay_value",
+            "expected_value": 1.0, "source_unit": "unspecified",
+            "required": True,
+        }],
+    }
+    root = output_dir or Path("/private/tmp/nl2robotics-fmi-preflight")
+    result = CapabilityExecutionPipeline(
+        modelica_runner=pipeline.runner,
+        fmi_runner=pipeline.fmi_runner,
+    ).run(source, ir, contract, output_dir=root)
+    diagnostics = []
+    if result.get("passed") is not True:
+        diagnostics.append(
+            "FMI export/execution preflight failed at "
+            f"{result.get('failure_stage') or 'unknown stage'}"
+        )
+        for row in result.get("fmu", {}).get("diagnostics", []):
+            if isinstance(row, dict) and row.get("message"):
+                diagnostics.append(str(row["message"]))
+        for row in result.get("execution", {}).get("diagnostics", []):
+            if isinstance(row, dict) and row.get("message"):
+                diagnostics.append(str(row["message"]))
     return {
         "stage": "fmi_runtime_preflight",
-        "success": available,
+        "success": result.get("passed") is True,
         "required": True,
         "image": pipeline.fmi_runner.image,
-        "available": available,
-        "diagnostics": ([] if available else [
-            f"FMI runtime image is unavailable: {pipeline.fmi_runner.image}"
-        ]),
+        "available": result.get("execution", {}).get("available", False),
+        "fmu_exported": result.get("fmu", {}).get("success") is True,
+        "interface_valid": result.get("contract", {}).get("success") is True,
+        "execution_completed": result.get("execution_completed") is True,
+        "trace_valid": result.get("trace_gate", {}).get("success") is True,
+        "behavior_passed": result.get("behavior_passed") is True,
+        "diagnostics": diagnostics,
+        "report": result,
     }
 
 

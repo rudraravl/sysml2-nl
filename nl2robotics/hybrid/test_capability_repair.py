@@ -48,20 +48,46 @@ class CapabilityRuntimeRepairTests(unittest.TestCase):
         self.assertEqual(1, report["repairs_accepted"])
         self.assertIs(fixed, report["final"])
 
-    def test_behavioral_violation_is_not_a_repair_trigger(self):
+    def test_unevaluable_property_is_not_a_repair_trigger(self):
         baseline = candidate(
             "model Valid end Valid;", failure_stage="behavior_evaluation",
             executed=True,
         )
+        baseline["execution"]["properties"] = [{
+            "status": "unevaluable", "passed": False,
+        }]
         calls = []
         report = guarded_capability_runtime_repair(
             "Keep error under a limit.", baseline,
             lambda prompt: calls.append(prompt) or baseline["modelica"],
-            lambda *_: self.fail("behavior failures must not be repaired"),
+            lambda *_: self.fail("unevaluable properties must not be repaired"),
             max_repairs=2,
         )
         self.assertEqual([], calls)
         self.assertEqual(0, report["repairs_attempted"])
+
+    def test_deterministic_behavior_violation_can_be_monotonically_repaired(self):
+        baseline = candidate(
+            "model Valid end Valid;", failure_stage="behavior_evaluation",
+            executed=True,
+        )
+        baseline["execution"]["properties"] = [{
+            "status": "violated", "passed": False,
+        }]
+        fixed = candidate(
+            "model Valid end Valid; // fixed", failure_stage=None,
+            executed=True,
+        )
+        fixed["execution"]["properties"] = [{
+            "status": "satisfied", "passed": True,
+        }]
+        fixed["execution"]["behavior_passed"] = True
+        report = guarded_capability_runtime_repair(
+            "Keep error under a limit.", baseline,
+            lambda _: fixed["modelica"], lambda *_: fixed,
+        )
+        self.assertEqual(1, report["repairs_accepted"])
+        self.assertIs(fixed, report["final"])
 
     def test_rejects_candidate_that_does_not_advance_execution(self):
         baseline = candidate(
@@ -100,8 +126,9 @@ class CapabilityRuntimeRepairTests(unittest.TestCase):
             "model Broken end Broken;",
             {"failure_stage": "fmu_execution"},
         )
-        self.assertIn("Preserve every grounded numeric\nrequirement", prompt)
-        self.assertIn("Do not delete dynamics or checks", prompt)
+        self.assertIn("Preserve\nevery grounded numeric requirement", prompt)
+        self.assertIn("delete dynamics or checks", prompt)
+        self.assertIn("Never replace a dynamic signal with", prompt)
         self.assertIn("fmu_execution", prompt)
 
     def test_provider_usage_limit_propagates_without_becoming_model_failure(self):

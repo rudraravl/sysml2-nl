@@ -220,6 +220,8 @@ def _normalization_prompt(source_text: str, task_id: str,
                           execution_mode: str) -> str:
     if execution_mode == "capability_tiered":
         return _capability_normalization_prompt(source_text, task_id)
+    if execution_mode == "modelica_capability":
+        return _modelica_capability_normalization_prompt(source_text, task_id)
     if execution_mode == "portable_fmu_kinematic":
         profile = """The portable profile uses a Modelica/FMI plant as physical-state
 owner and OpenUSD as a kinematic embodiment. Required interfaces flow fmu_to_usd
@@ -497,11 +499,58 @@ SOURCE_TEXT:
 """
 
 
+def _modelica_capability_normalization_prompt(
+    source_text: str, task_id: str
+) -> str:
+    """Ground broad robotics requirements for one Modelica-owned runtime."""
+    prompt = _capability_normalization_prompt(source_text, task_id)
+    replacements = {
+        "This broad profile is not limited to a single-joint arm.": (
+            "This Modelica-only broad profile is not limited to a single-joint arm."
+        ),
+        'execution_mode\n"capability_tiered"': (
+            'execution_mode\n"modelica_capability"'
+        ),
+        '"execution_mode": "capability_tiered"': (
+            '"execution_mode": "modelica_capability"'
+        ),
+        '"owner": "fmu_controller|fmu_plant|usd_physics"': (
+            '"owner": "modelica_controller|modelica_plant|modelica_estimator"'
+        ),
+        '"owner": "fmu_plant|usd_physics|fmu_controller"': (
+            '"owner": "modelica_plant|modelica_controller|modelica_estimator"'
+        ),
+        '"owner": "fmu_controller"': '"owner": "modelica_controller"',
+        '"owner": "usd_physics|fmu_plant"': (
+            '"owner": "modelica_plant|modelica_estimator"'
+        ),
+        '"direction": "usd_to_fmu|fmu_to_usd"': (
+            '"direction": "modelica_output"'
+        ),
+        "Every usd_to_fmu interface state_id": (
+            "Every modelica_output interface state_id"
+        ),
+        "Use owner `usd_physics` for simulator/body,\n  contact, and simulator-hosted sensor state; use `fmu_plant` only when the\n  source explicitly makes the FMU the physical-state owner.": (
+            "Use owner `modelica_plant` for physical and contact state, "
+            "`modelica_controller` for controller state, and "
+            "`modelica_estimator` for estimator state."
+        ),
+    }
+    for old, new in replacements.items():
+        prompt = prompt.replace(old, new)
+    return prompt
+
+
 def _repair_prompt(source_text: str, task_id: str, execution_mode: str,
                    response: str,
                    issues: list[NormalizationIssue]) -> str:
     diagnostics = "\n".join(
         f"- [{item.code}] {item.path}: {item.message}" for item in issues
+    )
+    interface_rule = (
+        "every modelica_output interface `state_id` must be declared verbatim"
+        if execution_mode == "modelica_capability" else
+        "every usd_to_fmu interface `state_id` must be declared verbatim"
     )
     return f"""Correct the JSON extraction using only SOURCE_TEXT. Do not add a
 fact to resolve an error. Preserve supported facts whenever the schema can
@@ -510,7 +559,7 @@ unknowns. Evidence must remain exact substrings. Use task_id {task_id!r} and
 execution_mode {execution_mode!r}.
 
 Repair cross-record references, not just the field named by the diagnostic. In
-particular, every usd_to_fmu interface `state_id` must be declared verbatim by a
+particular, {interface_rule} by a
 grounded `dynamics.states` entry. Every interface requires `source_unit`; use
 `unspecified` plus an unknown when the request states the signal but omits its
 unit. Every property targeting `state_id` also requires a matching observable
@@ -518,7 +567,7 @@ interface with the exact same state_id. An explicit no-collision/no-contact
 requirement may be represented by a dimensionless contact interface and an
 always-property with upper bound 0.
 
-For capability_tiered properties, repair grounded scalar requirements into
+For broad capability properties, repair grounded scalar requirements into
 machine-evaluable predicates instead of generic `custom` records: `always` for
 interval bounds, `eventually` for reach-by requirements, `final` for terminal
 bounds, and bounded `response` for response intervals. Settling after T is an
@@ -533,7 +582,7 @@ objects. Each joint requires grounded existing parent and child entities; if an
 endpoint is unstated, omit the dangling joint and record the missing topology in
 unknowns instead of inventing an entity.
 
-For capability_tiered mode, repair an incomplete clock without inventing a
+For broad capability mode, repair an incomplete clock without inventing a
 start time: use `duration` plus a stated system `frequency_hz` when SOURCE_TEXT
 says "for N seconds"; use `start_time`, `stop_time`, and `frequency_hz` only
 when those values are stated; otherwise omit the entire clock. Never return a

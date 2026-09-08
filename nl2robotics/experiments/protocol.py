@@ -21,6 +21,32 @@ def freeze_protocol(*, repository: Path, output_dir: Path, tasks: list,
                     randomize_task_order: bool = False,
                     ) -> tuple[dict, dict]:
     """Write the frozen inputs and exact ordered/fingerprinted cell plan."""
+    artifact_mode = configuration.get("artifact_mode", "modelica_openusd")
+    corpora = {
+        "modelica": _tree_provenance(
+            repository / "nl2robotics" / "modelica" / "examples"
+        ),
+    }
+    validator_paths = [
+        "nl2robotics/contracts/requirement_ir.py",
+        "nl2robotics/orchestrator/normalizer.py",
+        "nl2robotics/orchestrator/profiled_planner.py",
+        "nl2robotics/orchestrator/modelica_capability.py",
+        "nl2robotics/modelica/openmodelica.py",
+        "nl2robotics/modelica/pipeline.py",
+        "nl2robotics/modelica/specification.py",
+        "nl2robotics/hybrid/capability_execution.py",
+        "nl2robotics/hybrid/capability_repair.py",
+    ]
+    if artifact_mode != "modelica_only":
+        corpora["openusd"] = _tree_provenance(
+            repository / "nl2robotics" / "openusd" / "examples"
+        )
+        validator_paths.extend((
+            "nl2robotics/openusd/validator.py",
+            "nl2robotics/openusd/local_validator.py",
+            "nl2robotics/openusd/runtime/validate_stage.py",
+        ))
     core = {
         "schema_version": "1.0",
         "stage": "robotics_study_protocol_freeze",
@@ -50,26 +76,11 @@ def freeze_protocol(*, repository: Path, output_dir: Path, tasks: list,
             "partial_ensembles_eligible": False,
         },
         "source_provenance": _source_provenance(repository),
-        "corpora": {
-            "modelica": _tree_provenance(
-                repository / "nl2robotics" / "modelica" / "examples"
-            ),
-            "openusd": _tree_provenance(
-                repository / "nl2robotics" / "openusd" / "examples"
-            ),
-        },
-        "runtime_versions": _runtime_versions(),
+        "corpora": corpora,
+        "runtime_versions": _runtime_versions(artifact_mode),
         "validator_sources": {
             path: _file_sha256(repository / path)
-            for path in (
-                "nl2robotics/modelica/openmodelica.py",
-                "nl2robotics/modelica/pipeline.py",
-                "nl2robotics/hybrid/capability_execution.py",
-                "nl2robotics/hybrid/capability_repair.py",
-                "nl2robotics/openusd/validator.py",
-                "nl2robotics/openusd/local_validator.py",
-                "nl2robotics/openusd/runtime/validate_stage.py",
-            )
+            for path in validator_paths
         },
         "exclusion_policy": {
             "provider_usage_limit": "stop_without_recording_active_cell_then_resume",
@@ -168,20 +179,27 @@ def _tree_provenance(root: Path) -> dict:
     }
 
 
-def _runtime_versions() -> dict:
+def _runtime_versions(artifact_mode: str = "modelica_openusd") -> dict:
     packages = {}
-    for name in ("FMPy", "newton", "warp-lang", "usd-core", "usd-exchange"):
+    names = ["FMPy"]
+    if artifact_mode != "modelica_only":
+        names.extend(("newton", "warp-lang", "usd-core", "usd-exchange"))
+    for name in names:
         try:
             packages[name] = metadata.version(name)
         except metadata.PackageNotFoundError:
             packages[name] = "not_installed_in_planning_environment"
-    return {
+    report = {
         "python": platform.python_version(),
         "platform": platform.platform(),
         "packages": packages,
         "modelica_validator": "OpenModelica selected backend recorded per run",
-        "openusd_validator": "repository semantic validator plus configured pxr runtime",
     }
+    if artifact_mode != "modelica_only":
+        report["openusd_validator"] = (
+            "repository semantic validator plus configured pxr runtime"
+        )
+    return report
 
 
 def _file_sha256(path: Path) -> str:

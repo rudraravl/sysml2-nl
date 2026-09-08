@@ -116,6 +116,17 @@ class RequirementIRTests(unittest.TestCase):
         codes = {item.code for item in validate_requirement_ir(ir).issues}
         self.assertIn("ambiguous_clock_range", codes)
 
+    def test_modelica_capability_requires_modelica_owned_observables(self):
+        ir = load("requirement_ir.json")
+        ir["execution_mode"] = "modelica_capability"
+        for interface in ir["interfaces"]:
+            interface["direction"] = "modelica_output"
+        self.assertTrue(validate_requirement_ir(ir).success)
+
+        ir["interfaces"][0]["direction"] = "usd_to_fmu"
+        result = validate_requirement_ir(ir)
+        self.assertIn("invalid_field_value", {item.code for item in result.issues})
+
     def test_incomplete_records_are_rejected_before_planning(self):
         ir = load("requirement_ir.json")
         del ir["joints"][0]["axis"]

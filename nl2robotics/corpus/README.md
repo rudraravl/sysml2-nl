@@ -49,16 +49,20 @@ python3 -m nl2robotics.experiments.run_cli \
 
 Omit the filters only when intentionally processing the full 1,560-input
 catalog. Materializing this file does not mean the prompts have already been
-sent to a model or that their Modelica/OpenUSD outputs have passed validation.
+sent to a model or that their Modelica outputs have passed validation.
 Those outcomes belong in the generated corpus produced by actual pipeline runs.
 
-The full corpus now requires the complete broad execution funnel: artifact
-validation, pre-execution semantic alignment, FMU export and execution, finite
-trace validation, external behavior evaluation, and post-execution semantic
-alignment. It does not claim Newton execution and does not require a GPU. Every
-failure stage remains an experimental outcome. The runner randomizes task order
-with the frozen seed and preflights OpenModelica plus the FMI runtime before any
-model calls. For concurrent workers, first freeze and inspect one shared plan:
+The paper-facing corpus uses one cohesive Modelica-only funnel: grounded IR,
+Modelica RAG/MoE generation, native OpenModelica compilation, FMI 2.0
+Co-Simulation export, FMU identity/interface/value/unit checks, execution,
+finite trace validation, external behavior monitors, and evidence-backed
+Modelica/specification alignment. OpenUSD is excluded from this experiment;
+legacy OpenUSD and Newton utilities remain only for archived auxiliary studies.
+This corpus path does not claim Newton, PhysX, OpenUSD, CUDA, or GPU execution
+and does not require a GPU. Every generated-model failure remains an
+experimental outcome. The runner randomizes task order with the frozen seed and
+preflights the exact OpenModelica-to-FMU behavior path before any model calls.
+For concurrent workers, first freeze and inspect one shared plan:
 
 ```bash
 python3 -m nl2robotics.experiments.run_cli \

@@ -9,8 +9,17 @@ import unittest
 from nl2robotics.contracts.capabilities import assess_profiles, requested_features
 from nl2robotics.contracts.requirement_ir import validate_requirement_ir
 from nl2robotics.orchestrator.pipeline import RoboticsOrchestrator
+from nl2robotics.orchestrator.modelica_capability import (
+    ModelicaCapabilityOrchestrator,
+)
+from nl2robotics.orchestrator.normalizer import (
+    _modelica_capability_normalization_prompt,
+)
 from nl2robotics.orchestrator.planner import PlanningError, build_h2_plan, build_plan
-from nl2robotics.orchestrator.profiled_planner import CapabilityPlan
+from nl2robotics.orchestrator.profiled_planner import (
+    CapabilityPlan,
+    build_modelica_capability_plan,
+)
 
 
 ORACLES = Path(__file__).resolve().parents[1] / "hybrid" / "oracles"
@@ -85,6 +94,42 @@ def broad_ir() -> dict:
 
 
 class CapabilityPlanningTests(unittest.TestCase):
+    def modelica_ir(self) -> dict:
+        ir = deepcopy(broad_ir())
+        timing = " Run at 100 Hz for 2 s."
+        ir["source_text"] += timing
+        ir["execution_mode"] = "modelica_capability"
+        ir["clock"] = {
+            "duration": 2.0, "frequency_hz": 100.0,
+            "evidence": [timing.strip()],
+        }
+        ir["dynamics"][0]["owner"] = "modelica_plant"
+        ir["dynamics"][0]["states"].append("chassis.wrench")
+        for interface in ir["interfaces"]:
+            interface["direction"] = "modelica_output"
+        return ir
+
+    def test_modelica_only_plan_has_no_openusd_obligation(self):
+        plan = build_modelica_capability_plan(self.modelica_ir())
+        self.assertEqual("modelica_only", plan.contract["artifact_mode"])
+        self.assertEqual("modelica_capability_execution",
+                         plan.contract["contract_kind"])
+        self.assertEqual(plan.model_name, plan.contract["model_name"])
+        self.assertEqual("", plan.openusd_requirement)
+        self.assertNotIn("OpenUSD artifact", plan.modelica_requirement)
+        self.assertTrue(all(
+            row["direction"] == "modelica_output"
+            for row in plan.contract["mappings"]
+        ))
+
+    def test_modelica_normalization_prompt_excludes_dual_artifact_schema(self):
+        prompt = _modelica_capability_normalization_prompt("robot", "T")
+        self.assertIn('"execution_mode": "modelica_capability"', prompt)
+        self.assertIn('"direction": "modelica_output"', prompt)
+        self.assertNotIn("usd_to_fmu", prompt)
+        self.assertNotIn("fmu_to_usd", prompt)
+        self.assertNotIn("usd_physics", prompt)
+
     def test_broad_mobile_sensor_contact_request_is_representable(self):
         ir = broad_ir()
         validation = validate_requirement_ir(ir)
@@ -181,6 +226,63 @@ class CapabilityPlanningTests(unittest.TestCase):
 
 
 class CapabilityOrchestratorTests(unittest.TestCase):
+    def test_modelica_only_orchestrator_reaches_behavior_without_openusd(self):
+        ir = CapabilityPlanningTests().modelica_ir()
+        plan = build_modelica_capability_plan(ir)
+
+        def generated_modelica(requirement: str, output_dir: Path):
+            self.assertIn("MODELICA-ONLY EXECUTABLE", requirement)
+            return f"model {plan.model_name} end {plan.model_name};", {
+                "passed": True, "repairs": 0, "generation_mode": "test",
+                "attempts": [{"passed": True}],
+            }
+
+        class Pipeline:
+            runner = object()
+            fmi_runner = object()
+
+        class Execution:
+            def run(self, modelica, requirement_ir, contract, *, output_dir):
+                return {
+                    "passed": True, "execution_mode": "integrated_fmu_behavior",
+                    "execution_completed": True, "behavior_evaluated": True,
+                    "behavior_passed": True, "clock": {
+                        "start_time": 0.0, "stop_time": 2.0,
+                        "frequency_hz": 100.0, "step_size": 0.01,
+                    },
+                    "fmu": {"success": True},
+                    "contract": {
+                        "success": True,
+                        "resolved_mappings": contract["mappings"],
+                        "resolved_parameter_mappings": contract["parameter_mappings"],
+                    },
+                    "execution": {"success": True, "initialized": True},
+                    "trace_gate": {"success": True},
+                    "properties": [{
+                        "id": "bounded_angular_rate", "passed": True,
+                        "status": "satisfied",
+                    }],
+                    "property_summary": {
+                        "total": 1, "passed": 1, "violated": 0,
+                        "unevaluable": 0,
+                    },
+                }
+
+        with tempfile.TemporaryDirectory() as tmp:
+            result = ModelicaCapabilityOrchestrator(
+                modelica_pipeline=Pipeline(),
+                modelica_generator=generated_modelica,
+                execution_pipeline=Execution(),
+            ).run(
+                ir["source_text"], lambda _: json.dumps(ir),
+                output_dir=Path(tmp), task_id=ir["task_id"],
+                max_ir_repairs=0, enable_specification_alignment=False,
+            )
+        self.assertTrue(result["passed"], result)
+        self.assertEqual("modelica_only", result["artifact_mode"])
+        self.assertNotIn("openusd", result)
+        self.assertTrue(result["hybrid"]["execution_completed"])
+
     def test_artifact_validation_without_a_grounded_clock_cannot_pass(self):
         ir = broad_ir()
 

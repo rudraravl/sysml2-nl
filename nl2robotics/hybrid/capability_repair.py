@@ -15,6 +15,7 @@ REPAIRABLE_FAILURE_STAGES = frozenset({
     "fmu_interface",
     "fmu_execution",
     "runtime_trace",
+    "behavior_evaluation",
 })
 
 
@@ -28,9 +29,10 @@ def guarded_capability_runtime_repair(
 ) -> dict:
     """Retain only a recompiling, real-execution stage improvement.
 
-    Behavioral requirement violations and unevaluable qualitative properties
-    are intentionally not repair triggers.  This loop addresses only FMU
-    export, interface, initialization, execution, and trace-survival failures.
+    This loop addresses FMU export, interface, initialization, execution,
+    trace-survival failures, and deterministic trace-property violations.
+    Qualitative properties without a deterministic evaluator are never repair
+    targets because changing code cannot manufacture an evaluation oracle.
     """
     current = baseline
     attempts = []
@@ -41,7 +43,7 @@ def guarded_capability_runtime_repair(
         if infrastructure_error is not None:
             break
         execution = current.get("execution", {})
-        if execution.get("failure_stage") not in REPAIRABLE_FAILURE_STAGES:
+        if not _repairable_execution_failure(execution):
             break
         prompt = build_capability_runtime_repair_prompt(
             requirement, current["modelica"], execution
@@ -92,7 +94,8 @@ def guarded_capability_runtime_repair(
     return {
         "strategy": "modelica_runtime_monotonic_recompile_realign_reexecute",
         "repair_scope": sorted(REPAIRABLE_FAILURE_STAGES),
-        "behavioral_violations_are_repair_triggers": False,
+        "behavioral_violations_are_repair_triggers": True,
+        "unevaluable_properties_are_repair_triggers": False,
         "max_repairs": max_repairs,
         "repairs_attempted": len(attempts),
         "repairs_accepted": sum(item.get("accepted") is True for item in attempts),
@@ -136,6 +139,21 @@ def capability_runtime_quality(candidate: dict) -> tuple[int, ...]:
         int(runtime.get("success") is True),
         int(trace.get("success") is True),
         int(report.get("execution_completed") is True),
+        sum(item.get("status") != "unevaluable"
+            for item in report.get("properties", [])),
+        sum(item.get("passed") is True
+            for item in report.get("properties", [])),
+        int(report.get("behavior_passed") is True),
+    )
+
+
+def _repairable_execution_failure(execution: dict) -> bool:
+    stage = execution.get("failure_stage")
+    if stage != "behavior_evaluation":
+        return stage in REPAIRABLE_FAILURE_STAGES
+    return any(
+        item.get("status") == "violated"
+        for item in execution.get("properties", [])
     )
 
 
@@ -151,16 +169,19 @@ def build_capability_runtime_repair_prompt(
             "diagnostics", []
         ),
         "trace_gate": execution.get("trace_gate", {}),
+        "property_results": execution.get("properties", []),
     }
     return f"""{SYSTEM_PROMPT}
 
-Repair only the Modelica candidate's FMU export or numerical runtime failure
-using the grounded native feedback below. Preserve every grounded numeric
-requirement, required output name, interface mapping, assertion, and intended
-behavior. Do not delete dynamics or checks merely to make execution pass. Do
-not change the OpenUSD artifact or contract. Prefer simple FMI-compatible
-equations, explicit non-singular initial conditions, and physically justified
-numerical regularization. Return one complete Modelica model and no prose.
+Repair only the Modelica candidate's FMU export, numerical runtime, or concrete
+trace-property violation using the grounded native feedback below. Preserve
+every grounded numeric requirement, required output name, interface mapping,
+property threshold, and intended behavior. Never replace a dynamic signal with
+a constant chosen to satisfy a monitor, delete dynamics or checks, clamp an
+output solely to hide a violation, or modify the grounded execution contract.
+Prefer simple FMI-compatible equations, explicit non-singular initial
+conditions, and physically justified numerical regularization. Return one
+complete Modelica model and no prose.
 
 Requirement:
 {requirement}

@@ -309,9 +309,17 @@ def capability_report(ir: dict, *, modelica_passed: bool | None = None,
                       openusd_passed: bool | None = None,
                       contract_valid: bool | None = None,
                       execution_completed: bool | None = None,
-                      behavior_evaluated: bool | None = None) -> dict:
-    artifact_known = modelica_passed is not None and openusd_passed is not None
-    artifacts_passed = modelica_passed is True and openusd_passed is True
+                      behavior_evaluated: bool | None = None,
+                      artifact_mode: str = "modelica_openusd") -> dict:
+    modelica_only = artifact_mode == "modelica_only"
+    artifact_known = (
+        modelica_passed is not None if modelica_only else
+        modelica_passed is not None and openusd_passed is not None
+    )
+    artifacts_passed = (
+        modelica_passed is True if modelica_only else
+        modelica_passed is True and openusd_passed is True
+    )
     reached = 2 if artifacts_passed else 1
     if not artifact_known:
         reached = 1
@@ -324,12 +332,16 @@ def capability_report(ir: dict, *, modelica_passed: bool | None = None,
         "schema_version": "1.0",
         "stage": "robotics_capability_assessment",
         "task_id": ir.get("task_id"),
+        "artifact_mode": artifact_mode,
         "requested_features": list(requested_features(ir)),
         "grounding": {
             "policy": "grounded_or_explicitly_unresolved",
             "declared_assumptions": list(ir.get("assumptions", [])),
             "declared_unknowns": list(ir.get("unknowns", [])),
-            "artifact_grounding_status": "requires_cross_artifact_validation",
+            "artifact_grounding_status": (
+                "requires_modelica_and_runtime_validation" if modelica_only else
+                "requires_cross_artifact_validation"
+            ),
         },
         "profiles": [row.to_dict() for row in assess_profiles(ir)],
         "verification": {

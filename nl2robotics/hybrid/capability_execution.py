@@ -1,8 +1,8 @@
-"""Executable FMU-owned behavior path for broad capability-tiered tasks.
+"""Executable Modelica/FMU behavior path for broad robotics tasks.
 
-This path deliberately does not claim Newton/Isaac closed-loop provenance.  It
-executes an integrated Modelica plant/controller FMU and uses the resulting
-trace as behavioral evidence for the separately validated OpenUSD artifact.
+This path deliberately does not claim Newton/Isaac/OpenUSD provenance. It
+executes an integrated Modelica plant/controller FMU and evaluates externally
+owned requirements against the resulting trace.
 """
 
 from __future__ import annotations
@@ -15,6 +15,7 @@ from nl2robotics.modelica.fmu import FMUInspectionError, inspect_fmu
 from nl2robotics.modelica.fmu_runtime import FMIContainerRunner
 from nl2robotics.modelica.openmodelica import OpenModelicaRunner
 from nl2robotics.modelica.properties import evaluate_properties, read_trace
+from nl2robotics.contracts.units import UnitError, canonical_unit, conversion
 
 
 class CapabilityExecutionPipeline:
@@ -41,9 +42,13 @@ class CapabilityExecutionPipeline:
             "claim_eligible_newton_h2": False,
             "claim_eligible_deltaai_h2": False,
         }
-        if contract.get("contract_kind") != "capability_execution":
+        if contract.get("contract_kind") not in {
+            "capability_execution", "modelica_capability_execution"
+        }:
             report["failure_stage"] = "execution_contract"
-            report["error"] = "capability execution requires capability_execution contract"
+            report["error"] = (
+                "capability execution requires a supported capability contract"
+            )
             return report
 
         clock = _execution_clock(contract.get("clock"))
@@ -70,7 +75,31 @@ class CapabilityExecutionPipeline:
 
         variables = {item.name: item for item in metadata["variables"]}
         mappings = []
+        parameter_mappings = []
         interface_issues = []
+        if metadata.get("fmi_version") != "2.0":
+            interface_issues.append({
+                "code": "unsupported_fmi_version",
+                "expected": "2.0",
+                "actual": metadata.get("fmi_version"),
+            })
+        if metadata.get("interface_type") != "co_simulation":
+            interface_issues.append({
+                "code": "unsupported_fmi_interface",
+                "expected": "co_simulation",
+                "actual": metadata.get("interface_type"),
+            })
+        expected_model_name = contract.get("model_name")
+        if (
+            isinstance(expected_model_name, str)
+            and expected_model_name
+            and metadata.get("model_name") != expected_model_name
+        ):
+            interface_issues.append({
+                "code": "fmu_model_identity_mismatch",
+                "expected": expected_model_name,
+                "actual": metadata.get("model_name"),
+            })
         for row in contract.get("mappings", []):
             if row.get("required", True) is not True:
                 continue
@@ -92,11 +121,98 @@ class CapabilityExecutionPipeline:
                     "scalar_type": variable.scalar_type,
                 })
                 continue
+            source_unit = str(row.get("source_unit", "unspecified"))
+            if source_unit != "unspecified" and not variable.unit:
+                interface_issues.append({
+                    "code": "missing_fmu_output_unit",
+                    "interface_id": row.get("interface_id"),
+                    "fmu_variable": variable_name,
+                    "expected_unit": source_unit,
+                })
+                continue
+            if (
+                source_unit != "unspecified"
+                and variable.unit
+                and not _units_compatible(source_unit, variable.unit)
+            ):
+                interface_issues.append({
+                    "code": "incompatible_fmu_output_unit",
+                    "interface_id": row.get("interface_id"),
+                    "fmu_variable": variable_name,
+                    "expected_unit": source_unit,
+                    "actual_unit": variable.unit,
+                })
+                continue
             mappings.append({**row, "verification_status": "resolved_fmu_output"})
+        for row in contract.get("parameter_mappings", []):
+            if row.get("required", True) is not True:
+                continue
+            variable_name = row.get("fmu_variable")
+            variable = variables.get(variable_name)
+            if variable is None:
+                interface_issues.append({
+                    "code": "missing_grounded_parameter",
+                    "fact_id": row.get("fact_id"),
+                    "fmu_variable": variable_name,
+                })
+                continue
+            if variable.causality != "parameter" or variable.scalar_type != "real":
+                interface_issues.append({
+                    "code": "invalid_grounded_parameter",
+                    "fact_id": row.get("fact_id"),
+                    "fmu_variable": variable_name,
+                    "causality": variable.causality,
+                    "scalar_type": variable.scalar_type,
+                })
+                continue
+            try:
+                actual = float(variable.start)
+                expected = float(row["expected_value"])
+                source_unit = str(row.get("source_unit", "unspecified"))
+                if source_unit != "unspecified" and not variable.unit:
+                    raise UnitError(
+                        f"FMU parameter {variable_name!r} has no unit metadata"
+                    )
+                target_unit = str(variable.unit or "unspecified")
+                if (
+                    source_unit != "unspecified"
+                    and target_unit != "unspecified"
+                    and canonical_unit(source_unit) != canonical_unit(target_unit)
+                ):
+                    expected = conversion(source_unit, target_unit).apply(expected)
+                tolerance = max(1e-9, abs(expected) * 1e-8)
+                matched = math.isclose(
+                    actual, expected, rel_tol=0.0, abs_tol=tolerance
+                )
+            except (KeyError, TypeError, ValueError, UnitError) as exc:
+                interface_issues.append({
+                    "code": "unverifiable_grounded_parameter",
+                    "fact_id": row.get("fact_id"),
+                    "fmu_variable": variable_name,
+                    "error": str(exc),
+                })
+                continue
+            if not matched:
+                interface_issues.append({
+                    "code": "grounded_parameter_mismatch",
+                    "fact_id": row.get("fact_id"),
+                    "fmu_variable": variable_name,
+                    "expected": expected,
+                    "actual": actual,
+                    "unit": target_unit,
+                })
+                continue
+            parameter_mappings.append({
+                **row,
+                "actual_value": actual,
+                "actual_unit": target_unit,
+                "verification_status": "resolved_fmu_parameter",
+            })
         report["contract"] = {
             "success": not interface_issues,
             "issues": interface_issues,
             "resolved_mappings": mappings,
+            "resolved_parameter_mappings": parameter_mappings,
             "fmu": {
                 "fmi_version": metadata.get("fmi_version"),
                 "interface_type": metadata.get("interface_type"),
@@ -203,6 +319,16 @@ def _execution_clock(clock: object) -> dict | None:
         "frequency_hz": frequency,
         "step_size": 1.0 / frequency,
     }
+
+
+def _units_compatible(expected: str, actual: str) -> bool:
+    if expected == actual:
+        return True
+    try:
+        conversion(expected, actual)
+    except UnitError:
+        return False
+    return True
 
 
 def _evaluate_behavior_properties(trace: dict[str, list[float]],

@@ -1,5 +1,11 @@
 # Capability-tiered robotics pipeline
 
+> Historical dual-artifact design. The paper-facing corpus now uses
+> `modelica_capability`: one generated Modelica artifact followed by native
+> compilation, FMI 2.0 Co-Simulation export, FMU contract checks, execution,
+> trace-property monitoring, and Modelica/specification alignment. This file is
+> retained only to interpret archived Modelica+OpenUSD evidence.
+
 The robotics pipeline has a broad generation path and separately named
 executable profiles. It does not force every robotics request into the
 fixed-base PD articulation contract, and it does not promote artifact validity

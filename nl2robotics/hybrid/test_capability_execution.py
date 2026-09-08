@@ -17,6 +17,9 @@ MODEL_DESCRIPTION = """<?xml version="1.0" encoding="UTF-8"?>
     <ScalarVariable name="trace_position" valueReference="1" causality="output">
       <Real unit="m"/>
     </ScalarVariable>
+    <ScalarVariable name="fact_mass" valueReference="2" causality="parameter" variability="fixed" initial="exact">
+      <Real unit="kg" start="2.0"/>
+    </ScalarVariable>
   </ModelVariables>
 </fmiModelDescription>
 """
@@ -136,6 +139,47 @@ class CapabilityExecutionTests(unittest.TestCase):
                 output_dir=Path(tmp),
             )
         self.assertTrue(report["behavior_passed"], report)
+
+    def test_grounded_parameter_is_checked_in_exported_fmu_metadata(self):
+        mapped = contract()
+        mapped["parameter_mappings"] = [{
+            "id": "fact_body_mass", "fact_id": "entities.body.mass",
+            "fmu_variable": "fact_mass", "expected_value": 2.0,
+            "source_unit": "kg", "required": True,
+        }]
+        with tempfile.TemporaryDirectory() as tmp:
+            report = CapabilityExecutionPipeline(
+                modelica_runner=Exporter(), fmi_runner=Executor()
+            ).run(
+                "model Behavior end Behavior;", requirement_ir(), mapped,
+                output_dir=Path(tmp),
+            )
+        self.assertTrue(report["contract"]["success"], report)
+        self.assertEqual(
+            "resolved_fmu_parameter",
+            report["contract"]["resolved_parameter_mappings"][0]
+            ["verification_status"],
+        )
+
+    def test_grounded_parameter_mismatch_fails_before_execution(self):
+        mapped = contract()
+        mapped["parameter_mappings"] = [{
+            "id": "fact_body_mass", "fact_id": "entities.body.mass",
+            "fmu_variable": "fact_mass", "expected_value": 3.0,
+            "source_unit": "kg", "required": True,
+        }]
+        with tempfile.TemporaryDirectory() as tmp:
+            report = CapabilityExecutionPipeline(
+                modelica_runner=Exporter(), fmi_runner=Executor()
+            ).run(
+                "model Behavior end Behavior;", requirement_ir(), mapped,
+                output_dir=Path(tmp),
+            )
+        self.assertEqual("fmu_interface", report["failure_stage"])
+        self.assertEqual(
+            "grounded_parameter_mismatch",
+            report["contract"]["issues"][0]["code"],
+        )
 
 
 if __name__ == "__main__":

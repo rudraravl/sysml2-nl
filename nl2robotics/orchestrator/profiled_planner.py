@@ -25,7 +25,8 @@ class CapabilityPlan:
         return {
             "schema_version": "1.0",
             "task_id": self.task_id,
-            "execution_mode": "capability_tiered",
+            "execution_mode": self.contract["execution_mode"],
+            "artifact_mode": self.contract.get("artifact_mode", "modelica_openusd"),
             "model_name": self.model_name,
             "identifiers": self.identifiers,
             "capabilities": self.contract["capabilities"],
@@ -146,6 +147,191 @@ def build_capability_plan(requirement_ir: dict) -> CapabilityPlan:
         modelica_requirement=_modelica_requirement(ir, contract, model_name),
         openusd_requirement=_openusd_requirement(ir, contract, identifiers),
     )
+
+
+def build_modelica_capability_plan(requirement_ir: dict) -> CapabilityPlan:
+    """Plan one Modelica-owned executable artifact with no OpenUSD dependency."""
+    validation = validate_requirement_ir(requirement_ir)
+    if not validation.success:
+        from .planner import PlanIssue, PlanningError
+        raise PlanningError([
+            PlanIssue(item.code, item.message, item.path)
+            for item in validation.issues
+        ])
+    if requirement_ir.get("execution_mode") != "modelica_capability":
+        from .planner import PlanIssue, PlanningError
+        raise PlanningError([PlanIssue(
+            "unsupported_mode",
+            "Modelica capability planning requires execution_mode modelica_capability",
+            "$.execution_mode",
+        )])
+
+    ir = deepcopy(requirement_ir)
+    for collection in (
+        "domains", "entities", "joints", "parameters", "dynamics", "controllers",
+        "actuators", "sensors", "environment", "interfaces", "properties",
+    ):
+        ir.setdefault(collection, [])
+    ir.setdefault("assumptions", [])
+    ir.setdefault("unknowns", [])
+    task_id = ir["task_id"]
+    model_name = f"RobotTask_{_identifier(task_id)}"
+    mappings = []
+    variable_names = {}
+    for interface in ir["interfaces"]:
+        variable = f"trace_{_identifier(interface['id'])}"
+        variable_names[interface["id"]] = variable
+        mappings.append({
+            "id": f"map_{interface['id']}",
+            "interface_id": interface["id"],
+            "state_id": interface["state_id"],
+            "direction": "modelica_output",
+            "quantity": interface["quantity"],
+            "fmu_variable": variable,
+            "source_unit": interface["source_unit"],
+            "target_unit": interface.get("target_unit", interface["source_unit"]),
+            "semantic_joint_id": interface.get("joint_id"),
+            "semantic_entity_id": interface.get("entity_id"),
+            "semantic_sensor_id": interface.get("sensor_id"),
+            "required": interface.get("required", True),
+            "fmu_causality": "output",
+            "verification_status": "declared_unresolved",
+        })
+    parameter_mappings = _grounded_parameter_mappings(ir)
+    assessment = capability_report(ir, artifact_mode="modelica_only")
+    contract = {
+        "schema_version": "1.0",
+        "contract_kind": "modelica_capability_execution",
+        "artifact_mode": "modelica_only",
+        "task_id": task_id,
+        "model_name": model_name,
+        "execution_mode": "modelica_capability",
+        "clock": deepcopy(ir.get("clock")),
+        "mappings": mappings,
+        "parameter_mappings": parameter_mappings,
+        "state_ownership": [
+            {"state_id": state_id, "owner": row.get("owner", "modelica_plant")}
+            for row in ir["dynamics"]
+            for state_id in row.get("states", [])
+        ],
+        "capabilities": assessment,
+        "grounding": {
+            "policy": "grounded_or_explicitly_unresolved",
+            "declared_assumptions": deepcopy(ir["assumptions"]),
+            "declared_unknowns": deepcopy(ir["unknowns"]),
+            "artifact_grounding_status": "requires_modelica_and_runtime_validation",
+        },
+        "verification_ceiling": "trace_based_behavioral_execution",
+        "claim_eligible_h2": False,
+    }
+    identifiers = {
+        "modelica_model": model_name,
+        "interface_fmu_variables": variable_names,
+        "grounded_parameter_variables": {
+            row["fact_id"]: row["fmu_variable"] for row in parameter_mappings
+        },
+    }
+    return CapabilityPlan(
+        task_id=task_id,
+        model_name=model_name,
+        requirement_ir=ir,
+        contract=contract,
+        identifiers=identifiers,
+        modelica_requirement=_modelica_only_requirement(
+            ir, contract, model_name
+        ),
+        openusd_requirement="",
+    )
+
+
+def _grounded_parameter_mappings(ir: dict) -> list[dict]:
+    rows: list[dict] = []
+
+    def add(collection: str, record_id: str, field: str,
+            value: object, unit: object) -> None:
+        if not isinstance(value, (int, float)) or isinstance(value, bool):
+            return
+        fact_id = f"{collection}.{record_id}.{field}"
+        rows.append({
+            "id": f"fact_{_identifier(fact_id)}",
+            "fact_id": fact_id,
+            "collection": collection,
+            "record_id": record_id,
+            "field": field,
+            "fmu_variable": f"fact_{_identifier(fact_id)}",
+            "expected_value": float(value),
+            "source_unit": str(unit or "unspecified"),
+            "required": True,
+        })
+
+    for record in ir.get("entities", []):
+        add("entities", record["id"], "mass", record.get("mass"),
+            record.get("mass_unit"))
+        for field in ("length", "width", "depth", "height", "radius"):
+            add("entities", record["id"], field, record.get(field),
+                record.get("dimension_unit"))
+    for record in ir.get("joints", []):
+        for field in ("lower_limit", "upper_limit"):
+            add("joints", record["id"], field, record.get(field),
+                record.get("limit_unit"))
+    for record in ir.get("parameters", []):
+        add("parameters", record["id"], "value", record.get("value"),
+            record.get("unit"))
+    for record in ir.get("environment", []):
+        add("environment", record["id"], "magnitude", record.get("magnitude"),
+            record.get("unit"))
+    for record in ir.get("interfaces", []):
+        add("interfaces", record["id"], "initial_value",
+            record.get("initial_value"), record.get("source_unit"))
+    return rows
+
+
+def _modelica_only_requirement(ir: dict, contract: dict, model_name: str) -> str:
+    output_lines = [
+        f"- Declare output Real {row['fmu_variable']}"
+        + (
+            f"(unit=\"{row['source_unit']}\")"
+            if row["source_unit"] != "unspecified" else ""
+        )
+        + f" for grounded state {row['state_id']} ({row['quantity']})."
+        for row in contract["mappings"]
+    ]
+    parameter_lines = [
+        f"- Declare parameter Real {row['fmu_variable']}"
+        + (
+            f"(unit=\"{row['source_unit']}\")"
+            if row["source_unit"] != "unspecified" else ""
+        )
+        + " = "
+        f"{row['expected_value']!r} for {row['fact_id']} in "
+        f"{row['source_unit']}; use this parameter in the relevant equations."
+        for row in contract["parameter_mappings"]
+    ]
+    return f"""{ir['source_text']}
+
+MODELICA-ONLY EXECUTABLE ROBOTICS OBLIGATIONS
+- Return one self-contained top-level model named {model_name}.
+- Modelica owns the requested plant, controller, actuator, sensor/estimator,
+  disturbance, environment, and contact approximations. Implement every
+  grounded behavior that is expressible as deterministic equations. Never
+  claim Newton, Isaac, PhysX, OpenUSD, CUDA, or rigid-contact-solver execution.
+- Treat retrieved examples only as syntax and modeling-pattern references.
+  Numeric facts may come only from the source and grounded IR.
+- The model must compile in OpenModelica, export as an FMI 2.0 Co-Simulation
+  FMU, initialize, run for the grounded clock, and emit every required output.
+- Every output must be computed by executed equations; constant placeholders
+  are not behavioral evidence. Use finite, non-singular initial conditions and
+  explicit zero-error branches for divisors and normalized vectors.
+- Preserve genuinely missing facts as `UNRESOLVED_ASSUMPTION` comments. Do not
+  invent a value or leave an unbound parameter merely to make code compile.
+{chr(10).join(output_lines) if output_lines else '- No observable trace output was grounded.'}
+{chr(10).join(parameter_lines) if parameter_lines else '- No scalar physical parameter obligation was grounded.'}
+- External monitors—not assertions authored by the generator—own the property
+  thresholds below. Do not alter or weaken them.
+
+GROUNDED REQUIREMENT IR
+{json.dumps(ir, indent=2, sort_keys=True)}
+"""
 
 
 def _interface_target(interface: dict, entity_paths: dict[str, str],
