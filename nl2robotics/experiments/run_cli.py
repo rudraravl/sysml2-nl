@@ -69,7 +69,7 @@ def main() -> None:
                         help="split the frozen randomized cell plan across workers")
     parser.add_argument("--shard-index", type=int, default=0,
                         help="zero-based worker index within --shard-count")
-    parser.add_argument("--model", default="gpt-5.4")
+    parser.add_argument("--model", default="gpt-5.6-sol")
     parser.add_argument("--provider", choices=("codex", "claude"))
     parser.add_argument("--modelica-backend", choices=("auto", "local", "docker"),
                         default="docker")

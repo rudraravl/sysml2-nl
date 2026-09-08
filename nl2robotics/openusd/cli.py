@@ -32,7 +32,7 @@ def main() -> None:
     generate = commands.add_parser("generate")
     generate.add_argument("requirement")
     generate.add_argument("--mode", choices=("moe", "single"), default="moe")
-    generate.add_argument("--model", default="gpt-5.4")
+    generate.add_argument("--model", default="gpt-5.6-sol")
     generate.add_argument("--provider", choices=("codex", "claude"))
     generate.add_argument("--output-dir", type=Path, required=True)
     generate.add_argument("--max-repairs", type=int, default=2)

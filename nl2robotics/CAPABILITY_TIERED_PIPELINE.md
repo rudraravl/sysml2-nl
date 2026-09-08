@@ -102,7 +102,7 @@ without another normalization model call:
 python3 -m nl2robotics.orchestrator.cli \
   --normalized-ir outputs/broad-robotics-run/normalized_requirement_ir.json \
   --output-dir outputs/broad-robotics-frozen-ir-rerun \
-  --mode single --model gpt-5.4 --provider codex --subset full1500
+  --mode single --model gpt-5.6-sol --provider codex --subset full1500
 ```
 
 The frozen IR's task ID, source text, execution mode, mappings, and declared

@@ -163,7 +163,7 @@ Run the single-model ablation through one authenticated local CLI:
 ```bash
 python3 -m nl2robotics.modelica.cli generate \
   "Model a damped one-axis joint driven to one radian" \
-  --mode single --provider codex --model gpt-5.4 --backend docker \
+  --mode single --provider codex --model gpt-5.6-sol --backend docker \
   --subset full1500 -k 5 --output-dir results/single-001
 ```
 

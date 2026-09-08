@@ -172,7 +172,7 @@ def main() -> None:
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--manifest", type=Path, default=MANIFEST)
     parser.add_argument("--case-id", action="append", default=[])
-    parser.add_argument("--model", default="gpt-5.4")
+    parser.add_argument("--model", default="gpt-5.6-sol")
     parser.add_argument("--provider", choices=("codex", "claude"), default="codex")
     parser.add_argument("--backend", choices=("auto", "local", "docker"), default="auto")
     parser.add_argument(

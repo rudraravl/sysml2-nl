@@ -46,7 +46,7 @@ RETRIES = 3
 # Default host-CLI models when a Gemini expert id is proxied through Claude/Codex.
 # Claude Code expects hyphenated ids (claude-sonnet-4-5), not OpenRouter dots.
 _DEFAULT_PROXY_CLAUDE_MODEL = "claude-sonnet-4-5"
-_DEFAULT_PROXY_CODEX_MODEL = "gpt-5.4"
+_DEFAULT_PROXY_CODEX_MODEL = "gpt-5.6-sol"
 
 
 class CliUsageLimitError(RuntimeError):

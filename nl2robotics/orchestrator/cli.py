@@ -39,7 +39,7 @@ def main() -> None:
         default="modelica_capability",
     )
     parser.add_argument("--mode", choices=("moe", "single"), default="moe")
-    parser.add_argument("--model", default="gpt-5.4")
+    parser.add_argument("--model", default="gpt-5.6-sol")
     parser.add_argument("--provider", choices=("codex", "claude"))
     parser.add_argument("--backend", choices=("auto", "local", "docker"),
                         default="auto")

@@ -32,7 +32,7 @@ def main() -> None:
     parser.add_argument("--backend", choices=("auto", "local", "docker"),
                         default="auto")
     parser.add_argument("--llm-backend", choices=("api", "cli"), default="cli")
-    parser.add_argument("--single-model", default="openai/gpt-5.4")
+    parser.add_argument("--single-model", default="openai/gpt-5.6-sol")
     parser.add_argument(
         "--subset", choices=(
             "core24", "balanced50", "full100", "full300",

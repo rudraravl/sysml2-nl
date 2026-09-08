@@ -68,7 +68,7 @@ For concurrent workers, first freeze and inspect one shared plan:
 python3 -m nl2robotics.experiments.run_cli \
   --benchmark-manifest nl2robotics/corpus/pipeline_prompt_manifest.json \
   --profile capability --benchmark-split all --condition FULL --variant rich \
-  --repetitions 1 --randomization-seed 20260830 --model gpt-5.4 \
+  --repetitions 1 --randomization-seed 20260830 --model gpt-5.6-sol \
   --modelica-backend docker --modelica-subset full1500 \
   --shard-count 4 --output-dir outputs/robotics-corpus-full-v1 --dry-run
 ```

@@ -226,7 +226,7 @@ class BatchGenerationIntegrationTests(unittest.TestCase):
         with patch.dict(os.environ, {"CLI_PROXY_VIA": "codex"}, clear=False):
             os.environ.pop("GEMINI_CLI_VIA", None)
             self.assertEqual(provider_for_model("gemini-2.5-pro"), "codex")
-            self.assertEqual(resolve_cli_model("gemini-2.5-pro"), "gpt-5.4")
+            self.assertEqual(resolve_cli_model("gemini-2.5-pro"), "gpt-5.6-sol")
         self.assertEqual(provider_for_model("anthropic/claude-sonnet-4.5"), "claude")
         self.assertEqual(
             resolve_cli_model("anthropic/claude-sonnet-4.5"), "claude-sonnet-4-5"

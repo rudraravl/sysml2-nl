@@ -45,7 +45,7 @@ An H2 preparation exits successfully with `ready_for_gpu=true`, while
 three-run Isaac evidence gate completes. Preparation is never reported as an
 executed H2 result.
 
-Use `--mode single --model gpt-5.4 --provider codex` for a lower-cost smoke run.
+Use `--mode single --model gpt-5.6-sol --provider codex` for a single-model smoke run.
 Success means both source artifacts passed their validators and the complete H1
 bundle passed; syntax-only success is never promoted to end-to-end success.
 

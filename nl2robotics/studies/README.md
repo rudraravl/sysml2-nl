@@ -91,7 +91,7 @@ with the frozen full-1500 retrieval corpora and checkpoint after every family:
 ```bash
 python3 -m nl2robotics.studies.run_capability_smoke \
   --output-dir outputs/capability-breadth-smoke \
-  --model gpt-5.4 --provider codex --backend auto --subset full1500
+  --model gpt-5.6-sol --provider codex --backend auto --subset full1500
 ```
 
 The runner is resumable by a manifest-and-configuration fingerprint. Use
@@ -122,7 +122,7 @@ python3 -m nl2robotics.experiments.run_cli \
   --benchmark-manifest nl2robotics/studies/capability_manifest.json \
   --profile capability --variant rich \
   --condition B0 --condition B1 --condition B2 --condition B3 --condition FULL \
-  --repetitions 3 --model gpt-5.4 --provider codex \
+  --repetitions 3 --model gpt-5.6-sol --provider codex \
   --modelica-backend auto --modelica-subset full1500 \
   --output-dir outputs/capability-paper-v1 --dry-run
 ```
