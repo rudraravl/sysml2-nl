@@ -109,7 +109,9 @@ class OpenModelicaRunner:
             and executable.is_file()
             and not _has_error(build)
         )
-        if not compiled and not diagnostics:
+        if not compiled and not any(
+            item.severity == "error" for item in diagnostics
+        ):
             if checked and not executable.is_file():
                 message = (
                     "OpenModelica checked the equations but produced no executable; "

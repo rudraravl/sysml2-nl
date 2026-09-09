@@ -205,6 +205,34 @@ class PipelineTests(unittest.TestCase):
 
     @patch("nl2robotics.modelica.openmodelica.shutil.which", return_value="omc")
     @patch("nl2robotics.modelica.openmodelica.subprocess.run")
+    def test_no_executable_with_warnings_has_error_diagnostic(
+        self, run, _which
+    ):
+        def fake_run(_command, *, cwd, **_kwargs):
+            Path(cwd, "load.txt").write_text("true\n", encoding="utf-8")
+            Path(cwd, "check.txt").write_text(
+                "Check of Candidate completed successfully.\n"
+                "Warning: deprecated Real equality",
+                encoding="utf-8",
+            )
+            Path(cwd, "build.txt").write_text("", encoding="utf-8")
+            return type("Result", (), {"returncode": 0, "stdout": ""})()
+
+        run.side_effect = fake_run
+        with tempfile.TemporaryDirectory() as tmp:
+            result = OpenModelicaRunner(backend="local").compile(
+                "model Candidate end Candidate;", output_dir=Path(tmp)
+            )
+
+        self.assertFalse(result.success)
+        self.assertTrue(any(
+            item.severity == "error"
+            and "produced no executable" in item.message
+            for item in result.diagnostics
+        ))
+
+    @patch("nl2robotics.modelica.openmodelica.shutil.which", return_value="omc")
+    @patch("nl2robotics.modelica.openmodelica.subprocess.run")
     def test_silent_fmu_failure_replays_actionable_backend_diagnostic(
         self, run, _which
     ):

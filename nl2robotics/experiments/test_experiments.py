@@ -369,6 +369,10 @@ class ExperimentTests(unittest.TestCase):
             )
             self.assertEqual([], records)
             self.assertTrue(runner.last_run_control["stopped_early"])
+            self.assertEqual(
+                "provider usage limit detected; rerun the identical command to resume",
+                runner.last_run_control["stop_reason"],
+            )
             self.assertEqual([], list(root.glob("**/run.json")))
 
     def test_infrastructure_degraded_cell_is_not_resumed(self):

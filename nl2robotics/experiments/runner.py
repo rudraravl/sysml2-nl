@@ -20,6 +20,11 @@ from .records import run_fingerprint, write_json
 Execute = Callable[..., dict]
 
 
+_USAGE_LIMIT_STOP_REASON = (
+    "provider usage limit detected; rerun the identical command to resume"
+)
+
+
 class AblationRunner:
     """Run a frozen task-condition matrix and checkpoint every independent cell."""
 
@@ -101,7 +106,7 @@ class AblationRunner:
                     )
                 except Exception as exc:
                     if is_cli_usage_limit_message(str(exc)):
-                        stop_reason = str(exc)
+                        stop_reason = _USAGE_LIMIT_STOP_REASON
                         break
                     block_contexts[block_key] = None
                     block_errors[block_key] = str(exc)
@@ -124,7 +129,7 @@ class AblationRunner:
                         )
                 except Exception as exc:
                     if is_cli_usage_limit_message(str(exc)):
-                        stop_reason = str(exc)
+                        stop_reason = _USAGE_LIMIT_STOP_REASON
                         break
                     infrastructure_error = str(exc)
             if _contains_usage_limit(result):
