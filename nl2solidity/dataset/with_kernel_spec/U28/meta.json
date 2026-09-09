@@ -1,0 +1,119 @@
+{
+  "id": "U28",
+  "source_path": "sol_seed.jsonl:U28",
+  "split": "generated",
+  "quality": "B",
+  "category": "lending",
+  "created": "2026-09-02T01:10:53.950105",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "Cooler Loans",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "passed"
+    },
+    "n_tests": 38,
+    "n_passed": 38,
+    "n_failed": 0,
+    "failure_classes": {},
+    "contract_defects": 0,
+    "harness_defects": 0,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 6
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 12,
+    "n_actionable": 6,
+    "by_impact": {
+      "Medium": 6,
+      "Low": 6
+    },
+    "actionable": [
+      {
+        "detector": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 300,
+        "contract": "FixedRateLendingPool",
+        "function": "getCollateralizationRatio",
+        "description": "FixedRateLendingPool.getCollateralizationRatio(address) (Candidate.sol#300-309) performs a multiplication on the result of a division: - collateralValue = (pos.collateral * oracle.getPrice(address(collateralToken))) / PRECISION (Candidate.sol#305-306) - (collateralValue * PRECISION) / debt (Candidate.sol#308)"
+      },
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 300,
+        "contract": "FixedRateLendingPool",
+        "function": "getCollateralizationRatio",
+        "description": "FixedRateLendingPool.getCollateralizationRatio(address) (Candidate.sol#300-309) uses a dangerous strict equality: - debt == 0 (Candidate.sol#303)"
+      },
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 162,
+        "contract": "FixedRateLendingPool",
+        "function": "_pendingInterest",
+        "description": "FixedRateLendingPool._pendingInterest(address) (Candidate.sol#162-168) uses a dangerous strict equality: - timeElapsed == 0 (Candidate.sol#166)"
+      },
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 170,
+        "contract": "FixedRateLendingPool",
+        "function": "_isPositionSafe",
+        "description": "FixedRateLendingPool._isPositionSafe(address) (Candidate.sol#170-180) uses a dangerous strict equality: - debt == 0 (Candidate.sol#173)"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 219,
+        "contract": "FixedRateLendingPool",
+        "function": "repay",
+        "description": "Reentrancy in FixedRateLendingPool.repay(uint256) (Candidate.sol#219-241): External calls: - stablecoinToken.safeTransferFrom(msg.sender,address(this),repayAmount) (Candidate.sol#230) State variables written after the call(s): - pos.interestAccrued -= interestRepaid (Candidate.sol#236) FixedRateLendingPool.positions (Candidate.sol#85) can be used in cross function reentrancies: - FixedRateLendingP"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 184,
+        "contract": "FixedRateLendingPool",
+        "function": "depositCollateral",
+        "description": "Reentrancy in FixedRateLendingPool.depositCollateral(uint256) (Candidate.sol#184-196): External calls: - collateralToken.safeTransferFrom(msg.sender,address(this),amount) (Candidate.sol#189) State variables written after the call(s): - pos.collateral += amount (Candidate.sol#192) FixedRateLendingPool.positions (Candidate.sol#85) can be used in cross function reentrancies: - FixedRateLendingPool._p"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": true,
+    "similarity": 0.9775,
+    "initial_similarity": 0.9775,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.9775,
+        "delta_vs_initial": 0.0,
+        "accepted": true,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "passed",
+        "scored": 20,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

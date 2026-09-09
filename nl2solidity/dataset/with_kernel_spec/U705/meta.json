@@ -1,0 +1,88 @@
+{
+  "id": "U705",
+  "source_path": "sol_seed.jsonl:U705",
+  "split": "generated",
+  "quality": "B",
+  "category": "governance",
+  "created": "2026-09-03T18:43:51.105712",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "Neutral Trade",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "failed"
+    },
+    "n_tests": 56,
+    "n_passed": 55,
+    "n_failed": 1,
+    "failure_classes": {
+      "unexpected_revert": 1
+    },
+    "contract_defects": 0,
+    "harness_defects": 1,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 6
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 3,
+    "n_actionable": 1,
+    "by_impact": {
+      "High": 1,
+      "Low": 2
+    },
+    "actionable": [
+      {
+        "detector": "arbitrary-send-erc20",
+        "impact": "High",
+        "confidence": "High",
+        "line": 306,
+        "contract": "DecentralizedInvestmentFund",
+        "function": "divestStrategy",
+        "description": "DecentralizedInvestmentFund.divestStrategy(uint256,uint256) (Candidate.sol#306-325) uses arbitrary from in transferFrom: baseToken.safeTransferFrom(strategyContract,address(this),amount) (Candidate.sol#322)"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": true,
+    "similarity": 0.8889,
+    "initial_similarity": 0.7778,
+    "repairs": 1,
+    "repairs_kept": 1,
+    "kept_attempt": 1,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.7778,
+        "delta_vs_initial": 0.0,
+        "accepted": false,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "failed",
+        "scored": 9,
+        "domain_mismatch": false
+      },
+      {
+        "attempt": 1,
+        "similarity": 0.8889,
+        "delta_vs_initial": 0.1111,
+        "accepted": true,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "passed",
+        "scored": 9,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

@@ -1,0 +1,106 @@
+{
+  "id": "U38",
+  "source_path": "sol_seed.jsonl:U38",
+  "split": "generated",
+  "quality": "B",
+  "category": "governance",
+  "created": "2026-09-02T02:07:05.368039",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "Snowbl Capital",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "failed"
+    },
+    "n_tests": 35,
+    "n_passed": 34,
+    "n_failed": 1,
+    "failure_classes": {
+      "unexpected_revert": 1
+    },
+    "contract_defects": 0,
+    "harness_defects": 1,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 6
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 21,
+    "n_actionable": 4,
+    "by_impact": {
+      "High": 1,
+      "Medium": 3,
+      "Low": 12,
+      "Informational": 1,
+      "Optimization": 4
+    },
+    "actionable": [
+      {
+        "detector": "reentrancy-balance",
+        "impact": "High",
+        "confidence": "Medium",
+        "line": 374,
+        "contract": "StablecoinVault",
+        "function": "_ensureLiquidity",
+        "description": "Reentrancy in StablecoinVault._ensureLiquidity(uint256) (Candidate.sol#374-397): External call allowing reentrancy: - IYieldStrategy(strat).withdraw(toWithdraw) (Candidate.sol#388) Balance read before the call: - vaultBalance = stablecoin.balanceOf(address(this)) (Candidate.sol#375) Possible stale balance used after the call in a condition: - vaultBalance < amount (Candidate.sol#394) - stale varia"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 232,
+        "contract": "StablecoinVault",
+        "function": "rebalance",
+        "description": "Reentrancy in StablecoinVault.rebalance() (Candidate.sol#232-310): External calls: - yieldEarned = IYieldStrategy(strat).harvest() (Candidate.sol#243) - IYieldStrategy(strat_scope_3).withdraw(excess) (Candidate.sol#278) - stablecoin.safeIncreaseAllowance(strat_scope_5,toDeposit) (Candidate.sol#298) - IYieldStrategy(strat_scope_5).deposit(toDeposit) (Candidate.sol#299) State variables written after"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 374,
+        "contract": "StablecoinVault",
+        "function": "_ensureLiquidity",
+        "description": "Reentrancy in StablecoinVault._ensureLiquidity(uint256) (Candidate.sol#374-397): External calls: - IYieldStrategy(strat).withdraw(toWithdraw) (Candidate.sol#388) State variables written after the call(s): - strategyDeposits[strat] -= toWithdraw (Candidate.sol#386) StablecoinVault.strategyDeposits (Candidate.sol#89) can be used in cross function reentrancies: - StablecoinVault.strategyDeposits (Can"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 232,
+        "contract": "StablecoinVault",
+        "function": "rebalance",
+        "description": "Reentrancy in StablecoinVault.rebalance() (Candidate.sol#232-310): External calls: - yieldEarned = IYieldStrategy(strat).harvest() (Candidate.sol#243) - IYieldStrategy(strat_scope_3).withdraw(excess) (Candidate.sol#278) State variables written after the call(s): - strategyDeposits[strat_scope_3] = target (Candidate.sol#276) StablecoinVault.strategyDeposits (Candidate.sol#89) can be used in cross f"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": false,
+    "similarity": 1.0,
+    "initial_similarity": 1.0,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 1.0,
+        "delta_vs_initial": 0.0,
+        "accepted": false,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "failed",
+        "scored": 19,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

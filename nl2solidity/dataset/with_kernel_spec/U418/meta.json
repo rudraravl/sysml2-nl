@@ -1,0 +1,102 @@
+{
+  "id": "U418",
+  "source_path": "sol_seed.jsonl:U418",
+  "split": "generated",
+  "quality": "B",
+  "category": "launchpad",
+  "created": "2026-09-03T03:51:04.874855",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "Junoswap.trade Launchpad",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "skipped"
+    },
+    "n_tests": 43,
+    "n_passed": 43,
+    "n_failed": 0,
+    "failure_classes": {},
+    "contract_defects": 0,
+    "harness_defects": 0,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 0
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 13,
+    "n_actionable": 4,
+    "by_impact": {
+      "High": 2,
+      "Medium": 2,
+      "Low": 9
+    },
+    "actionable": [
+      {
+        "detector": "reentrancy-balance",
+        "impact": "High",
+        "confidence": "Medium",
+        "line": 240,
+        "contract": "TokenLaunchpad",
+        "function": "contribute",
+        "description": "Reentrancy in TokenLaunchpad.contribute(uint256,uint256) (Candidate.sol#240-266): External call allowing reentrancy: - ok = baseToken.transferFrom(msg.sender,address(this),amount) (Candidate.sol#257) Balance read before the call: - balBefore = baseToken.balanceOf(address(this)) (Candidate.sol#256) Possible stale balance used after the call in a condition: - received == 0 (Candidate.sol#260) - stal"
+      },
+      {
+        "detector": "reentrancy-balance",
+        "impact": "High",
+        "confidence": "Medium",
+        "line": 139,
+        "contract": "TokenLaunchpad",
+        "function": "createLaunch",
+        "description": "Reentrancy in TokenLaunchpad.createLaunch(address,address,uint256,uint256,uint64,uint64) (Candidate.sol#139-178): External call allowing reentrancy: - ok = IERC20(_projectToken).transferFrom(msg.sender,address(this),_totalOffering) (Candidate.sol#158) Balance read before the call: - balBefore = IERC20(_projectToken).balanceOf(address(this)) (Candidate.sol#157) Possible stale balance used after the"
+      },
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 240,
+        "contract": "TokenLaunchpad",
+        "function": "contribute",
+        "description": "TokenLaunchpad.contribute(uint256,uint256) (Candidate.sol#240-266) uses a dangerous strict equality: - received == 0 (Candidate.sol#260)"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 240,
+        "contract": "TokenLaunchpad",
+        "function": "contribute",
+        "description": "Reentrancy in TokenLaunchpad.contribute(uint256,uint256) (Candidate.sol#240-266): External calls: - ok = baseToken.transferFrom(msg.sender,address(this),amount) (Candidate.sol#257) State variables written after the call(s): - launch.totalRaised += received (Candidate.sol#263) TokenLaunchpad.launches (Candidate.sol#67) can be used in cross function reentrancies: - TokenLaunchpad.cancelLaunch(uint25"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": true,
+    "similarity": 0.9324,
+    "initial_similarity": 0.9324,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.9324,
+        "delta_vs_initial": 0.0,
+        "accepted": true,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "passed",
+        "scored": 17,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

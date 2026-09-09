@@ -1,0 +1,110 @@
+{
+  "id": "U176",
+  "source_path": "sol_seed.jsonl:U176",
+  "split": "generated",
+  "quality": "B",
+  "category": "derivatives",
+  "created": "2026-09-02T12:28:07.101681",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "AlphaX",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "skipped"
+    },
+    "n_tests": 68,
+    "n_passed": 68,
+    "n_failed": 0,
+    "failure_classes": {},
+    "contract_defects": 0,
+    "harness_defects": 0,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 0
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 7,
+    "n_actionable": 5,
+    "by_impact": {
+      "Medium": 5,
+      "Low": 2
+    },
+    "actionable": [
+      {
+        "detector": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 376,
+        "contract": "PerpetualFuturesExchange",
+        "function": "openPosition",
+        "description": "PerpetualFuturesExchange.openPosition(address,address,bool,uint256,uint256) (Candidate.sol#376-420) performs a multiplication on the result of a division: - notional = (size * price) / PRECISION (Candidate.sol#396) - fee = (notional * TRADING_FEE_BPS) / BPS_DENOMINATOR (Candidate.sol#398)"
+      },
+      {
+        "detector": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 422,
+        "contract": "PerpetualFuturesExchange",
+        "function": "closePosition",
+        "description": "PerpetualFuturesExchange.closePosition(address,address) (Candidate.sol#422-468) performs a multiplication on the result of a division: - notional = (position.size * currentPrice) / PRECISION (Candidate.sol#445) - fee = (notional * TRADING_FEE_BPS) / BPS_DENOMINATOR (Candidate.sol#446)"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 422,
+        "contract": "PerpetualFuturesExchange",
+        "function": "closePosition",
+        "description": "Reentrancy in PerpetualFuturesExchange.closePosition(address,address) (Candidate.sol#422-468): External calls: - IERC20(position.quoteAsset).safeTransfer(feeRecipient,fee) (Candidate.sol#454) State variables written after the call(s): - delete positions[msg.sender][pairKey] (Candidate.sol#467) PerpetualFuturesExchange.positions (Candidate.sol#147) can be used in cross function reentrancies: - Perp"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 376,
+        "contract": "PerpetualFuturesExchange",
+        "function": "openPosition",
+        "description": "Reentrancy in PerpetualFuturesExchange.openPosition(address,address,bool,uint256,uint256) (Candidate.sol#376-420): External calls: - IERC20(quoteAsset).safeTransfer(feeRecipient,fee) (Candidate.sol#406) State variables written after the call(s): - positions[msg.sender][pairKey] = Position({baseAsset:baseAsset,quoteAsset:quoteAsset,isLong:isLong,size:size,collateral:requiredMargin,entryPrice:price,"
+      },
+      {
+        "detector": "uninitialized-local",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 488,
+        "contract": null,
+        "function": null,
+        "description": "PerpetualFuturesExchange.adjustLeverage(address,address,uint256).collateralChange (Candidate.sol#488) is a local variable never initialized"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": true,
+    "similarity": 0.9324,
+    "initial_similarity": 0.9324,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.9324,
+        "delta_vs_initial": 0.0,
+        "accepted": true,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "passed",
+        "scored": 17,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

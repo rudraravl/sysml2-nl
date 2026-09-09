@@ -1,0 +1,83 @@
+{
+  "id": "U304",
+  "source_path": "sol_seed.jsonl:U304",
+  "split": "generated",
+  "quality": "B",
+  "category": "nft",
+  "created": "2026-09-02T21:31:44.980028",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "Fragment",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "passed"
+    },
+    "n_tests": 47,
+    "n_passed": 47,
+    "n_failed": 0,
+    "failure_classes": {},
+    "contract_defects": 0,
+    "harness_defects": 0,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 6
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 5,
+    "n_actionable": 2,
+    "by_impact": {
+      "High": 2,
+      "Low": 3
+    },
+    "actionable": [
+      {
+        "detector": "arbitrary-send-eth",
+        "impact": "High",
+        "confidence": "Medium",
+        "line": 276,
+        "contract": "AssetMarketplace",
+        "function": "finalizeAuction",
+        "description": "AssetMarketplace.finalizeAuction(address,uint256) (Candidate.sol#276-313) sends eth to arbitrary user Dangerous calls: - (successFee,None) = feeRecipient.call{value: fee}() (Candidate.sol#298)"
+      },
+      {
+        "detector": "arbitrary-send-eth",
+        "impact": "High",
+        "confidence": "Medium",
+        "line": 247,
+        "contract": "AssetMarketplace",
+        "function": "acceptDirectSale",
+        "description": "AssetMarketplace.acceptDirectSale(address,uint256) (Candidate.sol#247-272) sends eth to arbitrary user Dangerous calls: - (successFee,None) = feeRecipient.call{value: fee}() (Candidate.sol#265)"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": true,
+    "similarity": 0.8868,
+    "initial_similarity": 0.8868,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.8868,
+        "delta_vs_initial": 0.0,
+        "accepted": true,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "passed",
+        "scored": 19,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

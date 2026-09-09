@@ -1,0 +1,159 @@
+{
+  "id": "U197",
+  "source_path": "sol_seed.jsonl:U197",
+  "split": "generated",
+  "quality": "B",
+  "category": "lending",
+  "created": "2026-09-02T14:32:22.857078",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "Liqwid",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "skipped",
+      "properties": "skipped"
+    },
+    "n_tests": 0,
+    "n_passed": 0,
+    "n_failed": 0,
+    "failure_classes": {},
+    "contract_defects": 0,
+    "harness_defects": 0,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 0,
+    "harness_notes": [
+      "cannot deploy LendingPool: constructor takes a parameter type the harness cannot synthesize (struct/tuple or unrecognized type)"
+    ]
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 27,
+    "n_actionable": 11,
+    "by_impact": {
+      "Medium": 11,
+      "Low": 14,
+      "Informational": 2
+    },
+    "actionable": [
+      {
+        "detector": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 322,
+        "contract": "LendingPool",
+        "function": "accrueInterest",
+        "description": "LendingPool.accrueInterest() (Candidate.sol#322-341) performs a multiplication on the result of a division: - interestAccrued = (totalBorrows * interestFactor) / WAD (Candidate.sol#330) - reserveAdded = (interestAccrued * irm.reserveFactor) / WAD (Candidate.sol#331)"
+      },
+      {
+        "detector": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 428,
+        "contract": "LendingPool",
+        "function": "liquidate",
+        "description": "LendingPool.liquidate(address,uint256) (Candidate.sol#428-459) performs a multiplication on the result of a division: - collateralSeized = (repayAmount * (WAD + LIQUIDATION_PENALTY)) / WAD (Candidate.sol#442) - sharesToBurn = (collateralSeized * WAD) / rate (Candidate.sol#451)"
+      },
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 408,
+        "contract": "LendingPool",
+        "function": "repay",
+        "description": "LendingPool.repay(uint256) (Candidate.sol#408-426) uses a dangerous strict equality: - currentDebt == 0 (Candidate.sol#414)"
+      },
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 347,
+        "contract": "LendingPool",
+        "function": "deposit",
+        "description": "LendingPool.deposit(uint256) (Candidate.sol#347-360) uses a dangerous strict equality: - shares == 0 (Candidate.sol#354)"
+      },
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 280,
+        "contract": "LendingPool",
+        "function": "utilization",
+        "description": "LendingPool.utilization() (Candidate.sol#280-284) uses a dangerous strict equality: - ta == 0 (Candidate.sol#282)"
+      },
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 270,
+        "contract": "LendingPool",
+        "function": "borrowBalanceOf",
+        "description": "LendingPool.borrowBalanceOf(address) (Candidate.sol#270-274) uses a dangerous strict equality: - principal == 0 (Candidate.sol#272)"
+      },
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 428,
+        "contract": "LendingPool",
+        "function": "liquidate",
+        "description": "LendingPool.liquidate(address,uint256) (Candidate.sol#428-459) uses a dangerous strict equality: - debt == 0 (Candidate.sol#434)"
+      },
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 311,
+        "contract": "LendingPool",
+        "function": "isUnsafe",
+        "description": "LendingPool.isUnsafe(address) (Candidate.sol#311-316) uses a dangerous strict equality: - debt == 0 (Candidate.sol#313)"
+      },
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 259,
+        "contract": "LendingPool",
+        "function": "exchangeRateStored",
+        "description": "LendingPool.exchangeRateStored() (Candidate.sol#259-264) uses a dangerous strict equality: - _totalSupply == 0 (Candidate.sol#260)"
+      },
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 322,
+        "contract": "LendingPool",
+        "function": "accrueInterest",
+        "description": "LendingPool.accrueInterest() (Candidate.sol#322-341) uses a dangerous strict equality: - now_ == lastAccrualTime (Candidate.sol#324)"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": false,
+    "similarity": 0.9857,
+    "initial_similarity": 0.9857,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.9857,
+        "delta_vs_initial": 0.0,
+        "accepted": false,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "failed",
+        "scored": 21,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

@@ -1,0 +1,74 @@
+{
+  "id": "U782",
+  "source_path": "sol_seed.jsonl:U782",
+  "split": "generated",
+  "quality": "B",
+  "category": "rwa",
+  "created": "2026-09-03T21:08:29.211819",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "Solayer USD",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "passed"
+    },
+    "n_tests": 62,
+    "n_passed": 62,
+    "n_failed": 0,
+    "failure_classes": {},
+    "contract_defects": 0,
+    "harness_defects": 0,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 6
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 6,
+    "n_actionable": 1,
+    "by_impact": {
+      "Medium": 1,
+      "Low": 5
+    },
+    "actionable": [
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 238,
+        "contract": "RWAStablecoin",
+        "function": "depositCollateral",
+        "description": "Reentrancy in RWAStablecoin.depositCollateral(address,uint256) (Candidate.sol#238-277): External calls: - ! IERC20(collateralToken).transferFrom(msg.sender,address(this),collateralAmount) (Candidate.sol#251) State variables written after the call(s): - ct.totalDeposited += received (Candidate.sol#271) RWAStablecoin.collateralTypes (Candidate.sol#41) can be used in cross function reentrancies: - RW"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": true,
+    "similarity": 0.9763,
+    "initial_similarity": 0.9763,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.9763,
+        "delta_vs_initial": 0.0,
+        "accepted": true,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "passed",
+        "scored": 19,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

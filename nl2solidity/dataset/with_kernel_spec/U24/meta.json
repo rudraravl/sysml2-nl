@@ -1,0 +1,83 @@
+{
+  "id": "U24",
+  "source_path": "sol_seed.jsonl:U24",
+  "split": "generated",
+  "quality": "B",
+  "category": "stablecoin",
+  "created": "2026-09-02T00:47:04.674982",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "Beratlas Finance",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "skipped"
+    },
+    "n_tests": 42,
+    "n_passed": 42,
+    "n_failed": 0,
+    "failure_classes": {},
+    "contract_defects": 0,
+    "harness_defects": 0,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 0
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 5,
+    "n_actionable": 2,
+    "by_impact": {
+      "Medium": 2,
+      "Low": 3
+    },
+    "actionable": [
+      {
+        "detector": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 267,
+        "contract": "LiquidStakingToken",
+        "function": "withdraw",
+        "description": "LiquidStakingToken.withdraw(uint256) (Candidate.sol#267-304) performs a multiplication on the result of a division: - liquidBurned = (numerator + divisor - 1) / divisor (Candidate.sol#282) - grossNetwork = (liquidBurned * exchangeRate) / RATE_PRECISION (Candidate.sol#286)"
+      },
+      {
+        "detector": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 407,
+        "contract": "LiquidStakingToken",
+        "function": "previewWithdraw",
+        "description": "LiquidStakingToken.previewWithdraw(uint256) (Candidate.sol#407-415) performs a multiplication on the result of a division: - liquidBurned = (numerator + divisor - 1) / divisor (Candidate.sol#412) - grossNetwork = (liquidBurned * exchangeRate) / RATE_PRECISION (Candidate.sol#413)"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": true,
+    "similarity": 0.8905,
+    "initial_similarity": 0.8905,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.8905,
+        "delta_vs_initial": 0.0,
+        "accepted": true,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "passed",
+        "scored": 21,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

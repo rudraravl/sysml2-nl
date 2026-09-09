@@ -1,0 +1,130 @@
+{
+  "id": "U396",
+  "source_path": "sol_seed.jsonl:U396",
+  "split": "generated",
+  "quality": "B",
+  "category": "governance",
+  "created": "2026-09-03T02:27:43.185832",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "Orai Quant Terminal",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "passed"
+    },
+    "n_tests": 52,
+    "n_passed": 52,
+    "n_failed": 0,
+    "failure_classes": {},
+    "contract_defects": 0,
+    "harness_defects": 0,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 5
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 18,
+    "n_actionable": 7,
+    "by_impact": {
+      "High": 2,
+      "Medium": 5,
+      "Low": 10,
+      "Optimization": 1
+    },
+    "actionable": [
+      {
+        "detector": "reentrancy-balance",
+        "impact": "High",
+        "confidence": "Medium",
+        "line": 279,
+        "contract": "StrategyVault",
+        "function": "_recallFunds",
+        "description": "Reentrancy in StrategyVault._recallFunds(address,uint256) (Candidate.sol#279-303): External call allowing reentrancy: - IExternalVault(vault).withdraw(token,toPull) (Candidate.sol#295) Balance read before the call: - contractBal = IERC20(token).balanceOf(address(this)) (Candidate.sol#297) Possible stale balance used after the call in a condition: - contractBal < amount (Candidate.sol#302) - stale "
+      },
+      {
+        "detector": "reentrancy-balance",
+        "impact": "High",
+        "confidence": "Medium",
+        "line": 279,
+        "contract": "StrategyVault",
+        "function": "_recallFunds",
+        "description": "Reentrancy in StrategyVault._recallFunds(address,uint256) (Candidate.sol#279-303): External call allowing reentrancy: - IExternalVault(vault).withdraw(token,toPull) (Candidate.sol#295) Balance read before the call: - contractBal = IERC20(token).balanceOf(address(this)) (Candidate.sol#280) Possible stale balance used after the call in a condition: - contractBal < amount (Candidate.sol#302) - stale "
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 149,
+        "contract": "StrategyVault",
+        "function": "deposit",
+        "description": "Reentrancy in StrategyVault.deposit(address,uint256) (Candidate.sol#149-166): External calls: - ok = IERC20(token).transferFrom(msg.sender,address(this),amount) (Candidate.sol#155) State variables written after the call(s): - userDeposits[token][msg.sender] += amount (Candidate.sol#158) StrategyVault.userDeposits (Candidate.sol#57) can be used in cross function reentrancies: - StrategyVault.pendin"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 279,
+        "contract": "StrategyVault",
+        "function": "_recallFunds",
+        "description": "Reentrancy in StrategyVault._recallFunds(address,uint256) (Candidate.sol#279-303): External calls: - IExternalVault(vault).withdraw(token,toPull) (Candidate.sol#295) State variables written after the call(s): - deployedAmount[token] -= toPull (Candidate.sol#293) StrategyVault.deployedAmount (Candidate.sol#65) can be used in cross function reentrancies: - StrategyVault.deployedAmount (Candidate.sol"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 259,
+        "contract": "StrategyVault",
+        "function": "_deployFunds",
+        "description": "Reentrancy in StrategyVault._deployFunds(address,uint256) (Candidate.sol#259-277): External calls: - ok = IERC20(token).approve(vault,0) (Candidate.sol#270) - ok = IERC20(token).approve(vault,deployAmount) (Candidate.sol#272) - IExternalVault(vault).deposit(token,deployAmount) (Candidate.sol#275) State variables written after the call(s): - deployedAmount[token] += deployAmount (Candidate.sol#268)"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 212,
+        "contract": "StrategyVault",
+        "function": "harvest",
+        "description": "Reentrancy in StrategyVault.harvest(address) (Candidate.sol#212-234): External calls: - IExternalVault(vault).withdraw(token,yieldAmount) (Candidate.sol#224) State variables written after the call(s): - deployedAmount[token] -= yieldAmount (Candidate.sol#223) StrategyVault.deployedAmount (Candidate.sol#65) can be used in cross function reentrancies: - StrategyVault.deployedAmount (Candidate.sol#65"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 168,
+        "contract": "StrategyVault",
+        "function": "withdraw",
+        "description": "Reentrancy in StrategyVault.withdraw(address,uint256) (Candidate.sol#168-190): External calls: - _recallFunds(token,amount) (Candidate.sol#175) - IExternalVault(vault).withdraw(token,toPull) (Candidate.sol#295) State variables written after the call(s): - userDeposits[token][msg.sender] = userBal - amount (Candidate.sol#177) StrategyVault.userDeposits (Candidate.sol#57) can be used in cross functi"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": true,
+    "similarity": 1.0,
+    "initial_similarity": 1.0,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 1.0,
+        "delta_vs_initial": 0.0,
+        "accepted": true,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "passed",
+        "scored": 16,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

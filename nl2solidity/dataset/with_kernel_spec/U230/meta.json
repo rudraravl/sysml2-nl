@@ -1,0 +1,129 @@
+{
+  "id": "U230",
+  "source_path": "sol_seed.jsonl:U230",
+  "split": "generated",
+  "quality": "B",
+  "category": "yield",
+  "created": "2026-09-02T17:21:29.163099",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "Harvest Finance",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "passed"
+    },
+    "n_tests": 41,
+    "n_passed": 41,
+    "n_failed": 0,
+    "failure_classes": {},
+    "contract_defects": 0,
+    "harness_defects": 0,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 6
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 17,
+    "n_actionable": 7,
+    "by_impact": {
+      "Medium": 7,
+      "Low": 8,
+      "Informational": 2
+    },
+    "actionable": [
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 150,
+        "contract": "YieldAggregatorVault",
+        "function": "withdraw",
+        "description": "Reentrancy in YieldAggregatorVault.withdraw(uint256) (Candidate.sol#150-168): External calls: - _updateReward(msg.sender) (Candidate.sol#155) - success = token.transfer(to,amount) (Candidate.sol#19) - token.safeTransfer(user,pending) (Candidate.sol#239) - withdrawn = IStrategy(strategy).withdraw(toWithdraw) (Candidate.sol#256) State variables written after the call(s): - u.amount -= amount (Candid"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 244,
+        "contract": "YieldAggregatorVault",
+        "function": "_withdrawFromStrategies",
+        "description": "Reentrancy in YieldAggregatorVault._withdrawFromStrategies(uint256) (Candidate.sol#244-262): External calls: - withdrawn = IStrategy(strategy).withdraw(toWithdraw) (Candidate.sol#256) State variables written after the call(s): - strategyAllocated[strategy] -= toWithdraw (Candidate.sol#255) YieldAggregatorVault.strategyAllocated (Candidate.sol#76) can be used in cross function reentrancies: - Yield"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 135,
+        "contract": "YieldAggregatorVault",
+        "function": "deposit",
+        "description": "Reentrancy in YieldAggregatorVault.deposit(uint256) (Candidate.sol#135-148): External calls: - _updateReward(msg.sender) (Candidate.sol#137) - success = token.transfer(to,amount) (Candidate.sol#19) - token.safeTransfer(user,pending) (Candidate.sol#239) - withdrawn = IStrategy(strategy).withdraw(toWithdraw) (Candidate.sol#256) State variables written after the call(s): - u.amount += amount (Candida"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 308,
+        "contract": "YieldAggregatorVault",
+        "function": "adjustAllocation",
+        "description": "Reentrancy in YieldAggregatorVault.adjustAllocation(address,uint256) (Candidate.sol#308-331): External calls: - withdrawn = IStrategy(strategy).withdraw(diff_scope_0) (Candidate.sol#322) State variables written after the call(s): - strategyAllocated[strategy] = current - withdrawn (Candidate.sol#324) YieldAggregatorVault.strategyAllocated (Candidate.sol#76) can be used in cross function reentranci"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 150,
+        "contract": "YieldAggregatorVault",
+        "function": "withdraw",
+        "description": "Reentrancy in YieldAggregatorVault.withdraw(uint256) (Candidate.sol#150-168): External calls: - _updateReward(msg.sender) (Candidate.sol#155) - success = token.transfer(to,amount) (Candidate.sol#19) - token.safeTransfer(user,pending) (Candidate.sol#239) - withdrawn = IStrategy(strategy).withdraw(toWithdraw) (Candidate.sol#256) - _withdrawFromStrategies(amount - vaultBalance) (Candidate.sol#163) - "
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 179,
+        "contract": "YieldAggregatorVault",
+        "function": "_harvest",
+        "description": "Reentrancy in YieldAggregatorVault._harvest() (Candidate.sol#179-210): External calls: - withdrawn = IStrategy(strategy).withdraw(profit) (Candidate.sol#191) State variables written after the call(s): - strategyAllocated[strategy] = allocated (Candidate.sol#190) YieldAggregatorVault.strategyAllocated (Candidate.sol#76) can be used in cross function reentrancies: - YieldAggregatorVault.strategyAllo"
+      },
+      {
+        "detector": "uninitialized-local",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 180,
+        "contract": null,
+        "function": null,
+        "description": "YieldAggregatorVault._harvest().strategyProfit (Candidate.sol#180) is a local variable never initialized"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": true,
+    "similarity": 0.9917,
+    "initial_similarity": 0.9917,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.9917,
+        "delta_vs_initial": 0.0,
+        "accepted": true,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "passed",
+        "scored": 18,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

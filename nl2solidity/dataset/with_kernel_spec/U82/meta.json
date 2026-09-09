@@ -1,0 +1,74 @@
+{
+  "id": "U82",
+  "source_path": "sol_seed.jsonl:U82",
+  "split": "generated",
+  "quality": "B",
+  "category": "launchpad",
+  "created": "2026-09-02T04:29:43.173855",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "Durianfun Launchpad",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "skipped"
+    },
+    "n_tests": 40,
+    "n_passed": 40,
+    "n_failed": 0,
+    "failure_classes": {},
+    "contract_defects": 0,
+    "harness_defects": 0,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 0
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 5,
+    "n_actionable": 1,
+    "by_impact": {
+      "High": 1,
+      "Low": 4
+    },
+    "actionable": [
+      {
+        "detector": "arbitrary-send-eth",
+        "impact": "High",
+        "confidence": "Medium",
+        "line": 459,
+        "contract": "MemeLaunchpad",
+        "function": "_safeTransferKub",
+        "description": "MemeLaunchpad._safeTransferKub(address,uint256) (Candidate.sol#459-463) sends eth to arbitrary user Dangerous calls: - (ok,None) = to.call{value: amount}() (Candidate.sol#461)"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": true,
+    "similarity": 0.97,
+    "initial_similarity": 0.97,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.97,
+        "delta_vs_initial": 0.0,
+        "accepted": true,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "passed",
+        "scored": 20,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

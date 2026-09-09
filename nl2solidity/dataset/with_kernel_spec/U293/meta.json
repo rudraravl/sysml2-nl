@@ -1,0 +1,102 @@
+{
+  "id": "U293",
+  "source_path": "sol_seed.jsonl:U293",
+  "split": "generated",
+  "quality": "B",
+  "category": "lending",
+  "created": "2026-09-02T21:06:57.883273",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "Venus Core Pool",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "build_failed",
+      "properties": "skipped"
+    },
+    "n_tests": 0,
+    "n_passed": 0,
+    "n_failed": 0,
+    "failure_classes": {},
+    "contract_defects": 0,
+    "harness_defects": 3,
+    "fuzz_runs": 256,
+    "compiled": false,
+    "property_tests": 0
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 30,
+    "n_actionable": 4,
+    "by_impact": {
+      "Medium": 4,
+      "Low": 23,
+      "Optimization": 3
+    },
+    "actionable": [
+      {
+        "detector": "uninitialized-local",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 537,
+        "contract": null,
+        "function": null,
+        "description": "LendingPool._assetUSD(address,address).priceFetched (Candidate.sol#537) is a local variable never initialized"
+      },
+      {
+        "detector": "uninitialized-local",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 538,
+        "contract": null,
+        "function": null,
+        "description": "LendingPool._assetUSD(address,address).price (Candidate.sol#538) is a local variable never initialized"
+      },
+      {
+        "detector": "unused-return",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 655,
+        "contract": "LendingPool",
+        "function": "_getPrice",
+        "description": "LendingPool._getPrice(address) (Candidate.sol#655-673) ignores return value by (roundId,answer,None,updatedAt,answeredInRound) = feed.latestRoundData() (Candidate.sol#658-664)"
+      },
+      {
+        "detector": "unused-return",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 233,
+        "contract": "LendingPool",
+        "function": "addAsset",
+        "description": "LendingPool.addAsset(address,uint8,uint256,uint256,address,uint256) (Candidate.sol#233-281) ignores return value by (roundId,answer,None,updatedAt,answeredInRound) = IPriceFeed(priceFeed).latestRoundData() (Candidate.sol#252-258)"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": false,
+    "similarity": 0.9474,
+    "initial_similarity": 0.9474,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.9474,
+        "delta_vs_initial": 0.0,
+        "accepted": false,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "failed",
+        "scored": 19,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

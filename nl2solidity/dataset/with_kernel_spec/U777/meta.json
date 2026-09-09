@@ -1,0 +1,73 @@
+{
+  "id": "U777",
+  "source_path": "sol_seed.jsonl:U777",
+  "split": "generated",
+  "quality": "B",
+  "category": "privacy",
+  "created": "2026-09-03T20:58:57.488349",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "Privacy Cash",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "passed"
+    },
+    "n_tests": 26,
+    "n_passed": 26,
+    "n_failed": 0,
+    "failure_classes": {},
+    "contract_defects": 0,
+    "harness_defects": 0,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 7
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 1,
+    "n_actionable": 1,
+    "by_impact": {
+      "High": 1
+    },
+    "actionable": [
+      {
+        "detector": "arbitrary-send-eth",
+        "impact": "High",
+        "confidence": "Medium",
+        "line": 78,
+        "contract": "PrivateMixer",
+        "function": "withdraw",
+        "description": "PrivateMixer.withdraw(bytes32,bytes32,uint256,bytes) (Candidate.sol#78-104) sends eth to arbitrary user Dangerous calls: - (feeSuccess,None) = owner.call{value: fee}() (Candidate.sol#96) - (success,None) = msg.sender.call{value: amountToTransfer}() (Candidate.sol#100)"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": true,
+    "similarity": 0.9824,
+    "initial_similarity": 0.9824,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.9824,
+        "delta_vs_initial": 0.0,
+        "accepted": true,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "passed",
+        "scored": 17,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

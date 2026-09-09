@@ -1,0 +1,83 @@
+{
+  "id": "U625",
+  "source_path": "sol_seed.jsonl:U625",
+  "split": "generated",
+  "quality": "B",
+  "category": "dex",
+  "created": "2026-09-03T15:29:23.885910",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "BisonFi",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "passed"
+    },
+    "n_tests": 50,
+    "n_passed": 50,
+    "n_failed": 0,
+    "failure_classes": {},
+    "contract_defects": 0,
+    "harness_defects": 0,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 6
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 5,
+    "n_actionable": 2,
+    "by_impact": {
+      "Medium": 2,
+      "Low": 3
+    },
+    "actionable": [
+      {
+        "detector": "locked-ether",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 11,
+        "contract": "PrincipalProtectedAMM",
+        "function": "receive",
+        "description": "Contract locking ether found: Contract PrincipalProtectedAMM (Candidate.sol#11-448) has payable functions: - PrincipalProtectedAMM.receive() (Candidate.sol#148-150) But does not have a function to withdraw the ether"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 212,
+        "contract": "PrincipalProtectedAMM",
+        "function": "deposit",
+        "description": "Reentrancy in PrincipalProtectedAMM.deposit(uint256,address,uint256) (Candidate.sol#212-230): External calls: - success = IERC20(token).transferFrom(msg.sender,address(this),amount) (Candidate.sol#218) State variables written after the call(s): - pair.baseReserve += amount (Candidate.sol#223) PrincipalProtectedAMM.pairs (Candidate.sol#105) can be used in cross function reentrancies: - PrincipalPro"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": true,
+    "similarity": 0.9842,
+    "initial_similarity": 0.9842,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.9842,
+        "delta_vs_initial": 0.0,
+        "accepted": true,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "passed",
+        "scored": 19,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

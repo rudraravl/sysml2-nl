@@ -1,0 +1,95 @@
+{
+  "id": "U363",
+  "source_path": "sol_seed.jsonl:U363",
+  "split": "generated",
+  "quality": "B",
+  "category": "token",
+  "created": "2026-09-03T00:57:00.754851",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "stake.link index",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "failed",
+      "properties": "failed"
+    },
+    "n_tests": 2,
+    "n_passed": 0,
+    "n_failed": 2,
+    "failure_classes": {
+      "test_failed": 2
+    },
+    "contract_defects": 0,
+    "harness_defects": 2,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 6
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 10,
+    "n_actionable": 3,
+    "by_impact": {
+      "Medium": 3,
+      "Low": 5,
+      "Optimization": 2
+    },
+    "actionable": [
+      {
+        "detector": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 218,
+        "contract": "LSDBasket",
+        "function": "withdraw",
+        "description": "LSDBasket.withdraw(uint256) (Candidate.sol#218-253) performs a multiplication on the result of a division: - amountOut = (bal * shares) / supply (Candidate.sol#232) - fee = (amountOut * withdrawalFee) / BPS_DENOMINATOR (Candidate.sol#234)"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 191,
+        "contract": "LSDBasket",
+        "function": "deposit",
+        "description": "Reentrancy in LSDBasket.deposit(uint256) (Candidate.sol#191-216): External calls: - _safeTransferFrom(baseToken,msg.sender,address(this),amount) (Candidate.sol#198) - success = token.transferFrom(from,to,amount) (Candidate.sol#400) - _safeTransfer(baseToken,feeRecipient,fee) (Candidate.sol#200) - success = token.transfer(to,amount) (Candidate.sol#395) State variables written after the call(s): - _"
+      },
+      {
+        "detector": "uninitialized-local",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 332,
+        "contract": null,
+        "function": null,
+        "description": "LSDBasket._setComposition(address[],uint256[]).totalWeight (Candidate.sol#332) is a local variable never initialized"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": false,
+    "similarity": 0.8762,
+    "initial_similarity": 0.8762,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.8762,
+        "delta_vs_initial": 0.0,
+        "accepted": false,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "failed",
+        "scored": 21,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

@@ -1,0 +1,84 @@
+{
+  "id": "U710",
+  "source_path": "sol_seed.jsonl:U710",
+  "split": "generated",
+  "quality": "B",
+  "category": "prediction",
+  "created": "2026-09-03T18:48:54.488670",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "Moocon",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "skipped"
+    },
+    "n_tests": 25,
+    "n_passed": 25,
+    "n_failed": 0,
+    "failure_classes": {},
+    "contract_defects": 0,
+    "harness_defects": 0,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 0
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 8,
+    "n_actionable": 2,
+    "by_impact": {
+      "High": 1,
+      "Medium": 1,
+      "Low": 6
+    },
+    "actionable": [
+      {
+        "detector": "weak-prng",
+        "impact": "High",
+        "confidence": "Medium",
+        "line": 237,
+        "contract": "NoLossPrizePool",
+        "function": "_selectWinner",
+        "description": "NoLossPrizePool._selectWinner() (Candidate.sol#237-272) uses a weak PRNG: \"pick = seed % eligibleCount (Candidate.sol#258)\""
+      },
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 237,
+        "contract": "NoLossPrizePool",
+        "function": "_selectWinner",
+        "description": "NoLossPrizePool._selectWinner() (Candidate.sol#237-272) uses a dangerous strict equality: - seen == pick (Candidate.sol#263)"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": true,
+    "similarity": 0.9833,
+    "initial_similarity": 0.9833,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.9833,
+        "delta_vs_initial": 0.0,
+        "accepted": true,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "passed",
+        "scored": 18,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

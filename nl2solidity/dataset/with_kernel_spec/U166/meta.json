@@ -1,0 +1,86 @@
+{
+  "id": "U166",
+  "source_path": "sol_seed.jsonl:U166",
+  "split": "generated",
+  "quality": "B",
+  "category": "yield",
+  "created": "2026-09-02T11:37:30.863308",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "Francium",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "failed"
+    },
+    "n_tests": 54,
+    "n_passed": 50,
+    "n_failed": 4,
+    "failure_classes": {
+      "test_failed": 4
+    },
+    "contract_defects": 0,
+    "harness_defects": 4,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 6
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 5,
+    "n_actionable": 2,
+    "by_impact": {
+      "Medium": 2,
+      "Low": 1,
+      "Informational": 2
+    },
+    "actionable": [
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 327,
+        "contract": "LeveragedYieldVault",
+        "function": "closePosition",
+        "description": "Reentrancy in LeveragedYieldVault.closePosition() (Candidate.sol#327-402): External calls: - (baseReturned,quoteReturned) = IStrategy(strategy).exit(shares) (Candidate.sol#340) State variables written after the call(s): - pos.borrowedQuote -= pQuote (Candidate.sol#352) LeveragedYieldVault.positions (Candidate.sol#164) can be used in cross function reentrancies: - LeveragedYieldVault.getUserPositio"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 272,
+        "contract": "LeveragedYieldVault",
+        "function": "openPosition",
+        "description": "Reentrancy in LeveragedYieldVault.openPosition(address,uint256,uint256) (Candidate.sol#272-325): External calls: - baseToken.safeTransfer(strategy,baseAmount) (Candidate.sol#316) - quoteToken.safeTransfer(strategy,quoteAmount) (Candidate.sol#318) - shares = IStrategy(strategy).farm(baseAmount,quoteAmount) (Candidate.sol#321) State variables written after the call(s): - pos.strategyShares = shares "
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": false,
+    "similarity": 0.9395,
+    "initial_similarity": 0.9395,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.9395,
+        "delta_vs_initial": 0.0,
+        "accepted": false,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "failed",
+        "scored": 19,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

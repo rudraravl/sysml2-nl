@@ -1,0 +1,85 @@
+{
+  "id": "U698",
+  "source_path": "sol_seed.jsonl:U698",
+  "split": "generated",
+  "quality": "B",
+  "category": "yield",
+  "created": "2026-09-03T18:19:55.927108",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "Aura",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "failed"
+    },
+    "n_tests": 47,
+    "n_passed": 46,
+    "n_failed": 1,
+    "failure_classes": {
+      "unexpected_revert": 1
+    },
+    "contract_defects": 0,
+    "harness_defects": 1,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 6
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 4,
+    "n_actionable": 2,
+    "by_impact": {
+      "Medium": 2,
+      "Low": 2
+    },
+    "actionable": [
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 225,
+        "contract": "YieldAggregator",
+        "function": "stakeWrapper",
+        "description": "Reentrancy in YieldAggregator.stakeWrapper(uint256) (Candidate.sol#225-237): External calls: - ok = wrapperToken.transferFrom(msg.sender,address(this),amount) (Candidate.sol#230) State variables written after the call(s): - info.wrapperStaked += amount (Candidate.sol#233) YieldAggregator.userInfo (Candidate.sol#68) can be used in cross function reentrancies: - YieldAggregator.distributeYield(addre"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 172,
+        "contract": "YieldAggregator",
+        "function": "deposit",
+        "description": "Reentrancy in YieldAggregator.deposit(uint256) (Candidate.sol#172-185): External calls: - ok = governanceToken.transferFrom(msg.sender,address(this),amount) (Candidate.sol#178) State variables written after the call(s): - info.deposited += amount (Candidate.sol#181) YieldAggregator.userInfo (Candidate.sol#68) can be used in cross function reentrancies: - YieldAggregator.distributeYield(address,uin"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": false,
+    "similarity": 0.8722,
+    "initial_similarity": 0.8722,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.8722,
+        "delta_vs_initial": 0.0,
+        "accepted": false,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "failed",
+        "scored": 18,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

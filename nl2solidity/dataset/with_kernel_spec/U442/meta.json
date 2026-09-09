@@ -1,0 +1,85 @@
+{
+  "id": "U442",
+  "source_path": "sol_seed.jsonl:U442",
+  "split": "generated",
+  "quality": "B",
+  "category": "rwa",
+  "created": "2026-09-03T05:09:56.257463",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "Byzanlink RWA Markets",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "skipped"
+    },
+    "n_tests": 8,
+    "n_passed": 8,
+    "n_failed": 0,
+    "failure_classes": {},
+    "contract_defects": 0,
+    "harness_defects": 0,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 0,
+    "harness_notes": [
+      "skipped fuzzing addStrategy(address,address,uint64): parameter 'token': user-defined type contract IERC20 the harness cannot construct",
+      "skipped fuzzing claimFees(address): parameter 'token': user-defined type contract IERC20 the harness cannot construct",
+      "skipped fuzzing claimYield(address): parameter 'token': user-defined type contract IERC20 the harness cannot construct",
+      "skipped fuzzing deposit(address,uint256): parameter 'token': user-defined type contract IERC20 the harness cannot construct",
+      "skipped fuzzing rebalance(address,uint256,uint256): parameter 'token': user-defined type contract IERC20 the harness cannot construct",
+      "skipped fuzzing reportYield(address,uint256): parameter 'token': user-defined type contract IERC20 the harness cannot construct",
+      "skipped fuzzing updateStrategy(address,uint64,bool,address): parameter 'token': user-defined type contract IERC20 the harness cannot construct",
+      "skipped fuzzing withdraw(address,uint256): parameter 'token': user-defined type contract IERC20 the harness cannot construct"
+    ]
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 7,
+    "n_actionable": 1,
+    "by_impact": {
+      "High": 1,
+      "Low": 5,
+      "Optimization": 1
+    },
+    "actionable": [
+      {
+        "detector": "weak-prng",
+        "impact": "High",
+        "confidence": "Medium",
+        "line": 312,
+        "contract": "RWAVault",
+        "function": "_enforceMonthlyLimit",
+        "description": "RWAVault._enforceMonthlyLimit() (Candidate.sol#312-320) uses a weak PRNG: \"monthStartTimestamp = block.timestamp - ((block.timestamp - monthStartTimestamp) % MONTH_DURATION) (Candidate.sol#315)\""
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": true,
+    "similarity": 1.0,
+    "initial_similarity": 1.0,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 1.0,
+        "delta_vs_initial": 0.0,
+        "accepted": true,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "passed",
+        "scored": 19,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

@@ -1,0 +1,74 @@
+{
+  "id": "U788",
+  "source_path": "sol_seed.jsonl:U788",
+  "split": "generated",
+  "quality": "B",
+  "category": "lending",
+  "created": "2026-09-03T21:20:13.715126",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "Homora V2",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "passed"
+    },
+    "n_tests": 58,
+    "n_passed": 58,
+    "n_failed": 0,
+    "failure_classes": {},
+    "contract_defects": 0,
+    "harness_defects": 0,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 5
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 4,
+    "n_actionable": 1,
+    "by_impact": {
+      "Medium": 1,
+      "Low": 3
+    },
+    "actionable": [
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 260,
+        "contract": "LeveragedYieldVault",
+        "function": "closePosition",
+        "description": "Reentrancy in LeveragedYieldVault.closePosition(uint256) (Candidate.sol#260-305): External calls: - (returnedBase,returnedBorrowed) = IFarm(strat.farm).withdraw(pos.collateral,pos.borrowed) (Candidate.sol#269) - baseToken.safeTransfer(feeRecipient,fee) (Candidate.sol#284) State variables written after the call(s): - availableBalance[msg.sender] -= deficit (Candidate.sol#292) LeveragedYieldVault.av"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": true,
+    "similarity": 1.0,
+    "initial_similarity": 1.0,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 1.0,
+        "delta_vs_initial": 0.0,
+        "accepted": true,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "passed",
+        "scored": 9,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

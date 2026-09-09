@@ -1,0 +1,74 @@
+{
+  "id": "U510",
+  "source_path": "sol_seed.jsonl:U510",
+  "split": "generated",
+  "quality": "B",
+  "category": "governance",
+  "created": "2026-09-03T09:34:41.621328",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "T3tris Finance",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "skipped"
+    },
+    "n_tests": 28,
+    "n_passed": 28,
+    "n_failed": 0,
+    "failure_classes": {},
+    "contract_defects": 0,
+    "harness_defects": 0,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 0
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 2,
+    "n_actionable": 1,
+    "by_impact": {
+      "Medium": 1,
+      "Low": 1
+    },
+    "actionable": [
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 146,
+        "contract": "VaultInfrastructure",
+        "function": "deposit",
+        "description": "Reentrancy in VaultInfrastructure.deposit(uint256,uint256) (Candidate.sol#146-168): External calls: - ! asset.transferFrom(msg.sender,address(this),amount) (Candidate.sol#159) State variables written after the call(s): - vault.totalTokens += amount (Candidate.sol#162) VaultInfrastructure.vaults (Candidate.sol#52) can be used in cross function reentrancies: - VaultInfrastructure.createVault(address"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": true,
+    "similarity": 0.9763,
+    "initial_similarity": 0.9763,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.9763,
+        "delta_vs_initial": 0.0,
+        "accepted": true,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "passed",
+        "scored": 19,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

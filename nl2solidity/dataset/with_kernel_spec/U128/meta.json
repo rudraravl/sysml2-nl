@@ -1,0 +1,132 @@
+{
+  "id": "U128",
+  "source_path": "sol_seed.jsonl:U128",
+  "split": "generated",
+  "quality": "B",
+  "category": "nft",
+  "created": "2026-09-02T08:17:12.073814",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "Morkie",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "failed",
+      "properties": "failed"
+    },
+    "n_tests": 2,
+    "n_passed": 0,
+    "n_failed": 2,
+    "failure_classes": {
+      "test_failed": 2
+    },
+    "contract_defects": 0,
+    "harness_defects": 2,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 6
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 16,
+    "n_actionable": 7,
+    "by_impact": {
+      "High": 1,
+      "Medium": 6,
+      "Low": 8,
+      "Informational": 1
+    },
+    "actionable": [
+      {
+        "detector": "arbitrary-send-erc20",
+        "impact": "High",
+        "confidence": "High",
+        "line": 38,
+        "contract": "SafeERC20",
+        "function": "safeTransferFrom",
+        "description": "SafeERC20.safeTransferFrom(IERC20,address,address,uint256) (Candidate.sol#38-40) uses arbitrary from in transferFrom: require(bool,string)(token.transferFrom(from,to,value),SafeERC20: transferFrom failed) (Candidate.sol#39)"
+      },
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 396,
+        "contract": "NFTVault",
+        "function": "_accrueInterest",
+        "description": "NFTVault._accrueInterest(NFTVault.LoanPosition) (Candidate.sol#396-406) uses a dangerous strict equality: - elapsed == 0 (Candidate.sol#402)"
+      },
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 368,
+        "contract": "NFTVault",
+        "function": "getLTV",
+        "description": "NFTVault.getLTV(address,uint256) (Candidate.sol#368-375) uses a dangerous strict equality: - debt == 0 (Candidate.sol#371)"
+      },
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 377,
+        "contract": "NFTVault",
+        "function": "isLiquidatable",
+        "description": "NFTVault.isLiquidatable(address,uint256) (Candidate.sol#377-385) uses a dangerous strict equality: - debt == 0 (Candidate.sol#380)"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 193,
+        "contract": "NFTVault",
+        "function": "depositNFT",
+        "description": "Reentrancy in NFTVault.depositNFT(address,uint256) (Candidate.sol#193-214): External calls: - IERC721(collection).safeTransferFrom(msg.sender,address(this),tokenId) (Candidate.sol#201) State variables written after the call(s): - isDeposited[collection][tokenId] = true (Candidate.sol#203) NFTVault.isDeposited (Candidate.sol#132) can be used in cross function reentrancies: - NFTVault.getLTV(address"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 285,
+        "contract": "NFTVault",
+        "function": "liquidate",
+        "description": "Reentrancy in NFTVault.liquidate(address,uint256) (Candidate.sol#285-315): External calls: - loanToken.safeTransferFrom(msg.sender,address(this),totalDebt) (Candidate.sol#301) State variables written after the call(s): - loan.active = false (Candidate.sol#306) NFTVault.loans (Candidate.sol#131) can be used in cross function reentrancies: - NFTVault.getDebt(address,uint256) (Candidate.sol#349-356) "
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 241,
+        "contract": "NFTVault",
+        "function": "repay",
+        "description": "Reentrancy in NFTVault.repay(address,uint256,uint256) (Candidate.sol#241-264): External calls: - loanToken.safeTransferFrom(msg.sender,address(this),repayAmount) (Candidate.sol#257) State variables written after the call(s): - loan.accruedInterest -= interestPart (Candidate.sol#259) NFTVault.loans (Candidate.sol#131) can be used in cross function reentrancies: - NFTVault.getDebt(address,uint256) ("
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": false,
+    "similarity": 0.9361,
+    "initial_similarity": 0.9361,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.9361,
+        "delta_vs_initial": 0.0,
+        "accepted": false,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "failed",
+        "scored": 18,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

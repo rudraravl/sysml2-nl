@@ -1,0 +1,83 @@
+{
+  "id": "U231",
+  "source_path": "sol_seed.jsonl:U231",
+  "split": "generated",
+  "quality": "B",
+  "category": "nft",
+  "created": "2026-09-02T17:07:29.348638",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "Chapool",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "passed"
+    },
+    "n_tests": 35,
+    "n_passed": 35,
+    "n_failed": 0,
+    "failure_classes": {},
+    "contract_defects": 0,
+    "harness_defects": 0,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 6
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 8,
+    "n_actionable": 2,
+    "by_impact": {
+      "Medium": 2,
+      "Low": 6
+    },
+    "actionable": [
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 182,
+        "contract": "TieredNFTStaking",
+        "function": "unstake",
+        "description": "Reentrancy in TieredNFTStaking.unstake(uint256[]) (Candidate.sol#182-246): External calls: - collection.transferFrom(address(this),msg.sender,tokenId) (Candidate.sol#229) State variables written after the call(s): - delete stakedNFTs[tokenId] (Candidate.sol#226) TieredNFTStaking.stakedNFTs (Candidate.sol#74) can be used in cross function reentrancies: - TieredNFTStaking.getStakedNFT(uint256) (Cand"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 142,
+        "contract": "TieredNFTStaking",
+        "function": "stake",
+        "description": "Reentrancy in TieredNFTStaking.stake(uint256[]) (Candidate.sol#142-177): External calls: - collection.transferFrom(msg.sender,address(this),tokenId) (Candidate.sol#170) State variables written after the call(s): - stakedNFTs[tokenId] = StakedNFT({staker:msg.sender,stakedAt:now96,lastUpdate:now96,accumulatedRewards:0}) (Candidate.sol#159-164) TieredNFTStaking.stakedNFTs (Candidate.sol#74) can be us"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": true,
+    "similarity": 0.9316,
+    "initial_similarity": 0.9316,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.9316,
+        "delta_vs_initial": 0.0,
+        "accepted": true,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "passed",
+        "scored": 19,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

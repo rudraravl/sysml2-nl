@@ -1,0 +1,157 @@
+{
+  "id": "U517",
+  "source_path": "sol_seed.jsonl:U517",
+  "split": "generated",
+  "quality": "B",
+  "category": "yield",
+  "created": "2026-09-03T09:54:33.640670",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "GrowiHF",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "passed"
+    },
+    "n_tests": 49,
+    "n_passed": 49,
+    "n_failed": 0,
+    "failure_classes": {},
+    "contract_defects": 0,
+    "harness_defects": 0,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 6
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 23,
+    "n_actionable": 14,
+    "by_impact": {
+      "High": 5,
+      "Medium": 9,
+      "Low": 6,
+      "Optimization": 3
+    },
+    "actionable": [
+      {
+        "detector": "reentrancy-balance",
+        "impact": "High",
+        "confidence": "Medium",
+        "line": 248,
+        "contract": "YieldVault",
+        "function": "harvest",
+        "description": "Reentrancy in YieldVault.harvest(address) (Candidate.sol#248-263): External call allowing reentrancy: - reported = IStrategy(strategy).harvest() (Candidate.sol#253) Balance read before the call: - before = stablecoin.balanceOf(address(this)) (Candidate.sol#252) Possible stale balance used after the call in a condition: - distributed == 0 (Candidate.sol#258) - stale variable `distributed`"
+      },
+      {
+        "detector": "unchecked-transfer",
+        "impact": "High",
+        "confidence": "Medium",
+        "line": 284,
+        "contract": "YieldVault",
+        "function": "withdraw",
+        "description": "YieldVault.withdraw(uint256) (Candidate.sol#284-305) ignores return value by stablecoin.transfer(treasury,fee) (Candidate.sol#301)"
+      },
+      {
+        "detector": "unchecked-transfer",
+        "impact": "High",
+        "confidence": "Medium",
+        "line": 268,
+        "contract": "YieldVault",
+        "function": "deposit",
+        "description": "YieldVault.deposit(uint256) (Candidate.sol#268-282) ignores return value by stablecoin.transferFrom(msg.sender,address(this),amount) (Candidate.sol#273)"
+      },
+      {
+        "detector": "unchecked-transfer",
+        "impact": "High",
+        "confidence": "Medium",
+        "line": 284,
+        "contract": "YieldVault",
+        "function": "withdraw",
+        "description": "YieldVault.withdraw(uint256) (Candidate.sol#284-305) ignores return value by stablecoin.transfer(msg.sender,toUser) (Candidate.sol#299)"
+      },
+      {
+        "detector": "unchecked-transfer",
+        "impact": "High",
+        "confidence": "Medium",
+        "line": 307,
+        "contract": "YieldVault",
+        "function": "claimRewards",
+        "description": "YieldVault.claimRewards() (Candidate.sol#307-317) ignores return value by stablecoin.transfer(msg.sender,amount) (Candidate.sol#315)"
+      },
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 352,
+        "contract": "YieldVault",
+        "function": "_pullFromStrategies",
+        "description": "YieldVault._pullFromStrategies(uint256) (Candidate.sol#352-390) uses a dangerous strict equality: - toPull == 0 (Candidate.sol#379)"
+      },
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 248,
+        "contract": "YieldVault",
+        "function": "harvest",
+        "description": "YieldVault.harvest(address) (Candidate.sol#248-263) uses a dangerous strict equality: - distributed == 0 (Candidate.sol#258)"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 268,
+        "contract": "YieldVault",
+        "function": "deposit",
+        "description": "Reentrancy in YieldVault.deposit(uint256) (Candidate.sol#268-282): External calls: - stablecoin.transferFrom(msg.sender,address(this),amount) (Candidate.sol#273) State variables written after the call(s): - accountBalance[msg.sender] += amount (Candidate.sol#275) YieldVault.accountBalance (Candidate.sol#87) can be used in cross function reentrancies: - YieldVault.accountBalance (Candidate.sol#87) "
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 171,
+        "contract": "YieldVault",
+        "function": "revokeStrategy",
+        "description": "Reentrancy in YieldVault.revokeStrategy(address) (Candidate.sol#171-200): External calls: - returned = IStrategy(strategy).withdraw(invested) (Candidate.sol#180) State variables written after the call(s): - s.invested = 0 (Candidate.sol#182) YieldVault.strategies (Candidate.sol#85) can be used in cross function reentrancies: - YieldVault.approveStrategy(address,string) (Candidate.sol#158-169) - Yi"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 352,
+        "contract": "YieldVault",
+        "function": "_pullFromStrategies",
+        "description": "Reentrancy in YieldVault._pullFromStrategies(uint256) (Candidate.sol#352-390): External calls: - returned = IStrategy(s_scope_1).withdraw(toPull) (Candidate.sol#381) State variables written after the call(s): - strat.invested = 0 (Candidate.sol#383) YieldVault.strategies (Candidate.sol#85) can be used in cross function reentrancies: - YieldVault.approveStrategy(address,string) (Candidate.sol#158-1"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": true,
+    "similarity": 0.8889,
+    "initial_similarity": 0.8889,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.8889,
+        "delta_vs_initial": 0.0,
+        "accepted": true,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "passed",
+        "scored": 9,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

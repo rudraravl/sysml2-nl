@@ -1,0 +1,158 @@
+{
+  "id": "U784",
+  "source_path": "sol_seed.jsonl:U784",
+  "split": "generated",
+  "quality": "B",
+  "category": "yield",
+  "created": "2026-09-03T21:17:19.320887",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "Yield Yak Aggregator",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "failed"
+    },
+    "n_tests": 41,
+    "n_passed": 38,
+    "n_failed": 3,
+    "failure_classes": {
+      "unexpected_revert": 3
+    },
+    "contract_defects": 0,
+    "harness_defects": 3,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 6
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 26,
+    "n_actionable": 10,
+    "by_impact": {
+      "Medium": 10,
+      "Low": 14,
+      "Optimization": 2
+    },
+    "actionable": [
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 104,
+        "contract": "YieldAggregator",
+        "function": "deposit",
+        "description": "Reentrancy in YieldAggregator.deposit(uint256) (Candidate.sol#104-120): External calls: - _harvest() (Candidate.sol#108) - got = IStrategy(strat).withdraw(yieldAmount) (Candidate.sol#292) - _settleYield(msg.sender) (Candidate.sol#109) - require(bool,string)(baseToken.transfer(user,pending),settle yield transfer failed) (Candidate.sol#279) State variables written after the call(s): - _settleYield(m"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 122,
+        "contract": "YieldAggregator",
+        "function": "withdraw",
+        "description": "Reentrancy in YieldAggregator.withdraw(uint256) (Candidate.sol#122-144): External calls: - _harvest() (Candidate.sol#126) - got = IStrategy(strat).withdraw(yieldAmount) (Candidate.sol#292) - _settleYield(msg.sender) (Candidate.sol#127) - require(bool,string)(baseToken.transfer(user,pending),settle yield transfer failed) (Candidate.sol#279) - _deallocate(amount) (Candidate.sol#129) - got = IStrateg"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 122,
+        "contract": "YieldAggregator",
+        "function": "withdraw",
+        "description": "Reentrancy in YieldAggregator.withdraw(uint256) (Candidate.sol#122-144): External calls: - _harvest() (Candidate.sol#126) - got = IStrategy(strat).withdraw(yieldAmount) (Candidate.sol#292) - _settleYield(msg.sender) (Candidate.sol#127) - require(bool,string)(baseToken.transfer(user,pending),settle yield transfer failed) (Candidate.sol#279) State variables written after the call(s): - _settleYield("
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 208,
+        "contract": "YieldAggregator",
+        "function": "removeStrategy",
+        "description": "Reentrancy in YieldAggregator.removeStrategy(address) (Candidate.sol#208-232): External calls: - IStrategy(strategy).withdraw(deposited) (Candidate.sol#215) State variables written after the call(s): - strategies[strategy].active = false (Candidate.sol#219) YieldAggregator.strategies (Candidate.sol#37) can be used in cross function reentrancies: - YieldAggregator.addStrategy(address,uint256) (Cand"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 104,
+        "contract": "YieldAggregator",
+        "function": "deposit",
+        "description": "Reentrancy in YieldAggregator.deposit(uint256) (Candidate.sol#104-120): External calls: - _harvest() (Candidate.sol#108) - got = IStrategy(strat).withdraw(yieldAmount) (Candidate.sol#292) - _settleYield(msg.sender) (Candidate.sol#109) - require(bool,string)(baseToken.transfer(user,pending),settle yield transfer failed) (Candidate.sol#279) - require(bool,string)(baseToken.transferFrom(msg.sender,ad"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 305,
+        "contract": "YieldAggregator",
+        "function": "_allocate",
+        "description": "Reentrancy in YieldAggregator._allocate(uint256) (Candidate.sol#305-320): External calls: - require(bool,string)(baseToken.approve(strat,stratAmount),approve failed) (Candidate.sol#315) - IStrategy(strat).deposit(stratAmount) (Candidate.sol#316) State variables written after the call(s): - strategies[strat].totalDeposited += stratAmount (Candidate.sol#317) YieldAggregator.strategies (Candidate.sol"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 322,
+        "contract": "YieldAggregator",
+        "function": "_deallocate",
+        "description": "Reentrancy in YieldAggregator._deallocate(uint256) (Candidate.sol#322-358): External calls: - got = IStrategy(strat).withdraw(stratWithdraw) (Candidate.sol#339) State variables written after the call(s): - strategies[strat].totalDeposited -= got (Candidate.sol#340) YieldAggregator.strategies (Candidate.sol#37) can be used in cross function reentrancies: - YieldAggregator.addStrategy(address,uint25"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 322,
+        "contract": "YieldAggregator",
+        "function": "_deallocate",
+        "description": "Reentrancy in YieldAggregator._deallocate(uint256) (Candidate.sol#322-358): External calls: - got = IStrategy(strat).withdraw(stratWithdraw) (Candidate.sol#339) - gotRemainder = IStrategy(lastStrat).withdraw(remainder) (Candidate.sol#350) State variables written after the call(s): - strategies[lastStrat].totalDeposited -= gotRemainder (Candidate.sol#351) YieldAggregator.strategies (Candidate.sol#3"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 146,
+        "contract": "YieldAggregator",
+        "function": "claimYield",
+        "description": "Reentrancy in YieldAggregator.claimYield() (Candidate.sol#146-156): External calls: - _harvest() (Candidate.sol#147) - got = IStrategy(strat).withdraw(yieldAmount) (Candidate.sol#292) State variables written after the call(s): - yieldReserve -= pending (Candidate.sol#152) YieldAggregator.yieldReserve (Candidate.sol#43) can be used in cross function reentrancies: - YieldAggregator.yieldReserve (Can"
+      },
+      {
+        "detector": "unused-return",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 208,
+        "contract": "YieldAggregator",
+        "function": "removeStrategy",
+        "description": "YieldAggregator.removeStrategy(address) (Candidate.sol#208-232) ignores return value by IStrategy(strategy).withdraw(deposited) (Candidate.sol#215)"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": false,
+    "similarity": 0.9425,
+    "initial_similarity": 0.9425,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.9425,
+        "delta_vs_initial": 0.0,
+        "accepted": false,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "failed",
+        "scored": 20,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

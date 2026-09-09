@@ -1,0 +1,159 @@
+{
+  "id": "U405",
+  "source_path": "sol_seed.jsonl:U405",
+  "split": "generated",
+  "quality": "B",
+  "category": "derivatives",
+  "created": "2026-09-03T03:15:07.301952",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "Deri V4",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "failed"
+    },
+    "n_tests": 74,
+    "n_passed": 69,
+    "n_failed": 5,
+    "failure_classes": {
+      "unexpected_revert": 5
+    },
+    "contract_defects": 0,
+    "harness_defects": 5,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 5
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 23,
+    "n_actionable": 13,
+    "by_impact": {
+      "High": 1,
+      "Medium": 12,
+      "Low": 8,
+      "Informational": 2
+    },
+    "actionable": [
+      {
+        "detector": "arbitrary-send-erc20",
+        "impact": "High",
+        "confidence": "High",
+        "line": 22,
+        "contract": "SafeERC20",
+        "function": "safeTransferFrom",
+        "description": "SafeERC20.safeTransferFrom(IERC20,address,address,uint256) (Candidate.sol#22-25) uses arbitrary from in transferFrom: success = token.transferFrom(from,to,amount) (Candidate.sol#23)"
+      },
+      {
+        "detector": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 402,
+        "contract": "PerpetualFutures",
+        "function": "openPosition",
+        "description": "PerpetualFutures.openPosition(bytes32,bool,uint256,uint256) (Candidate.sol#402-448) performs a multiplication on the result of a division: - notional = size * pair.price / PRECISION (Candidate.sol#423) - fee = notional * TRADING_FEE / PRECISION (Candidate.sol#424)"
+      },
+      {
+        "detector": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 402,
+        "contract": "PerpetualFutures",
+        "function": "openPosition",
+        "description": "PerpetualFutures.openPosition(bytes32,bool,uint256,uint256) (Candidate.sol#402-448) performs a multiplication on the result of a division: - totalNotional = pos.size * pair.price / PRECISION (Candidate.sol#437) - requiredMargin = totalNotional * PRECISION / MAX_LEVERAGE (Candidate.sol#438)"
+      },
+      {
+        "detector": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 630,
+        "contract": "PerpetualFutures",
+        "function": "getHealthFactor",
+        "description": "PerpetualFutures.getHealthFactor(address,bytes32) (Candidate.sol#630-647) performs a multiplication on the result of a division: - notional = pos.size * pair.price / PRECISION (Candidate.sol#639) - maintenanceMargin = notional * MAINTENANCE_MARGIN_RATIO / PRECISION (Candidate.sol#640)"
+      },
+      {
+        "detector": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 334,
+        "contract": "PerpetualFutures",
+        "function": "liquidate",
+        "description": "PerpetualFutures.liquidate(address,bytes32) (Candidate.sol#334-377) performs a multiplication on the result of a division: - notional = pos.size * pair.price / PRECISION (Candidate.sol#351) - bounty = notional * LIQUIDATION_PENALTY / PRECISION (Candidate.sol#355)"
+      },
+      {
+        "detector": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 525,
+        "contract": "PerpetualFutures",
+        "function": "removeMargin",
+        "description": "PerpetualFutures.removeMargin(bytes32,uint256) (Candidate.sol#525-556) performs a multiplication on the result of a division: - notional = pos.size * pair.price / PRECISION (Candidate.sol#545) - maintenanceMargin = notional * MAINTENANCE_MARGIN_RATIO / PRECISION (Candidate.sol#547)"
+      },
+      {
+        "detector": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 649,
+        "contract": "PerpetualFutures",
+        "function": "isLiquidatable",
+        "description": "PerpetualFutures.isLiquidatable(address,bytes32) (Candidate.sol#649-663) performs a multiplication on the result of a division: - notional = pos.size * pair.price / PRECISION (Candidate.sol#658) - maintenanceMargin = notional * MAINTENANCE_MARGIN_RATIO / PRECISION (Candidate.sol#659)"
+      },
+      {
+        "detector": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 450,
+        "contract": "PerpetualFutures",
+        "function": "closePosition",
+        "description": "PerpetualFutures.closePosition(bytes32,uint256) (Candidate.sol#450-499) performs a multiplication on the result of a division: - closeNotional = sizeToClose * pair.price / PRECISION (Candidate.sol#472) - fee = closeNotional * TRADING_FEE / PRECISION (Candidate.sol#473)"
+      },
+      {
+        "detector": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 334,
+        "contract": "PerpetualFutures",
+        "function": "liquidate",
+        "description": "PerpetualFutures.liquidate(address,bytes32) (Candidate.sol#334-377) performs a multiplication on the result of a division: - notional = pos.size * pair.price / PRECISION (Candidate.sol#351) - maintenanceMargin = notional * MAINTENANCE_MARGIN_RATIO / PRECISION (Candidate.sol#352)"
+      },
+      {
+        "detector": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 525,
+        "contract": "PerpetualFutures",
+        "function": "removeMargin",
+        "description": "PerpetualFutures.removeMargin(bytes32,uint256) (Candidate.sol#525-556) performs a multiplication on the result of a division: - notional = pos.size * pair.price / PRECISION (Candidate.sol#545) - requiredMargin = notional * PRECISION / MAX_LEVERAGE (Candidate.sol#546)"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": false,
+    "similarity": 0.9925,
+    "initial_similarity": 0.9925,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.9925,
+        "delta_vs_initial": 0.0,
+        "accepted": false,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "failed",
+        "scored": 20,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

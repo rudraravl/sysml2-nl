@@ -1,0 +1,76 @@
+{
+  "id": "U500",
+  "source_path": "sol_seed.jsonl:U500",
+  "split": "generated",
+  "quality": "B",
+  "category": "lending",
+  "created": "2026-09-03T09:00:47.207660",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "cSigma Finance",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "failed",
+      "properties": "skipped"
+    },
+    "n_tests": 1,
+    "n_passed": 0,
+    "n_failed": 1,
+    "failure_classes": {
+      "test_failed": 1
+    },
+    "contract_defects": 0,
+    "harness_defects": 1,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 0
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 4,
+    "n_actionable": 1,
+    "by_impact": {
+      "Medium": 1,
+      "Low": 3
+    },
+    "actionable": [
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 175,
+        "contract": "StableLendingPool",
+        "function": "withdraw",
+        "description": "Reentrancy in StableLendingPool.withdraw(uint256) (Candidate.sol#175-191): External calls: - _safeTransfer(address(stablecoin),msg.sender,amount) (Candidate.sol#187) - (success,data) = token.call(abi.encodeWithSelector(IERC20.transfer.selector,to,amount)) (Candidate.sol#125) State variables written after the call(s): - l.pendingWithdrawal = 0 (Candidate.sol#189) StableLendingPool.lenders (Candidat"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": false,
+    "similarity": 0.9474,
+    "initial_similarity": 0.9474,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.9474,
+        "delta_vs_initial": 0.0,
+        "accepted": false,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "failed",
+        "scored": 19,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

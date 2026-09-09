@@ -1,0 +1,74 @@
+{
+  "id": "U673",
+  "source_path": "sol_seed.jsonl:U673",
+  "split": "generated",
+  "quality": "B",
+  "category": "yield",
+  "created": "2026-09-03T17:32:26.245451",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "Katana Pre-Launch",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "build_failed"
+    },
+    "n_tests": 48,
+    "n_passed": 48,
+    "n_failed": 0,
+    "failure_classes": {},
+    "contract_defects": 0,
+    "harness_defects": 1,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 6
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 2,
+    "n_actionable": 1,
+    "by_impact": {
+      "Medium": 1,
+      "Low": 1
+    },
+    "actionable": [
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 155,
+        "contract": "PreLaunchDistribution",
+        "function": "recoverETH",
+        "description": "PreLaunchDistribution.recoverETH() (Candidate.sol#155-161) uses a dangerous strict equality: - balance == 0 (Candidate.sol#157)"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": true,
+    "similarity": 0.9237,
+    "initial_similarity": 0.9237,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.9237,
+        "delta_vs_initial": 0.0,
+        "accepted": true,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "passed",
+        "scored": 19,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

@@ -1,0 +1,76 @@
+{
+  "id": "U783",
+  "source_path": "sol_seed.jsonl:U783",
+  "split": "generated",
+  "quality": "B",
+  "category": "token",
+  "created": "2026-09-03T21:08:38.273131",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "Follows",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "failed"
+    },
+    "n_tests": 40,
+    "n_passed": 37,
+    "n_failed": 3,
+    "failure_classes": {
+      "test_failed": 3
+    },
+    "contract_defects": 0,
+    "harness_defects": 3,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 6
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 8,
+    "n_actionable": 1,
+    "by_impact": {
+      "High": 1,
+      "Low": 7
+    },
+    "actionable": [
+      {
+        "detector": "arbitrary-send-eth",
+        "impact": "High",
+        "confidence": "Medium",
+        "line": 185,
+        "contract": "FanSubscription",
+        "function": "_distributePayment",
+        "description": "FanSubscription._distributePayment(address,uint256) (Candidate.sol#185-202) sends eth to arbitrary user Dangerous calls: - (ok,None) = feeRecipient.call{value: amount}() (Candidate.sol#190) - (okFee,None) = feeRecipient.call{value: feeAmount}() (Candidate.sol#194) - (okCreator,None) = creator.call{value: creatorAmount}() (Candidate.sol#198)"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": false,
+    "similarity": 0.9786,
+    "initial_similarity": 0.9786,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.9786,
+        "delta_vs_initial": 0.0,
+        "accepted": false,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "failed",
+        "scored": 21,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

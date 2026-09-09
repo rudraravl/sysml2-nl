@@ -1,0 +1,75 @@
+{
+  "id": "U742",
+  "source_path": "sol_seed.jsonl:U742",
+  "split": "generated",
+  "quality": "B",
+  "category": "stablecoin",
+  "created": "2026-09-03T19:55:21.742495",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "Fei Protocol",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "passed"
+    },
+    "n_tests": 49,
+    "n_passed": 49,
+    "n_failed": 0,
+    "failure_classes": {},
+    "contract_defects": 0,
+    "harness_defects": 0,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 6
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 5,
+    "n_actionable": 1,
+    "by_impact": {
+      "Medium": 1,
+      "Low": 3,
+      "Informational": 1
+    },
+    "actionable": [
+      {
+        "detector": "locked-ether",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 17,
+        "contract": "StablecoinSystem",
+        "function": "receive",
+        "description": "Contract locking ether found: Contract StablecoinSystem (Candidate.sol#17-279) has payable functions: - StablecoinSystem.receive() (Candidate.sol#275-277) But does not have a function to withdraw the ether"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": true,
+    "similarity": 0.9452,
+    "initial_similarity": 0.9452,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.9452,
+        "delta_vs_initial": 0.0,
+        "accepted": true,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "passed",
+        "scored": 21,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

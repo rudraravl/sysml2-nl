@@ -1,0 +1,85 @@
+{
+  "id": "U479",
+  "source_path": "sol_seed.jsonl:U479",
+  "split": "generated",
+  "quality": "B",
+  "category": "yield",
+  "created": "2026-09-03T07:33:59.731240",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "Noon",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "failed",
+      "properties": "failed"
+    },
+    "n_tests": 2,
+    "n_passed": 0,
+    "n_failed": 2,
+    "failure_classes": {
+      "test_failed": 2
+    },
+    "contract_defects": 0,
+    "harness_defects": 2,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 6
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 3,
+    "n_actionable": 2,
+    "by_impact": {
+      "Medium": 2,
+      "Low": 1
+    },
+    "actionable": [
+      {
+        "detector": "unused-return",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 416,
+        "contract": "YieldOptimizationVault",
+        "function": "_ensureStablecoinLiquidity",
+        "description": "YieldOptimizationVault._ensureStablecoinLiquidity(uint256) (Candidate.sol#416-438) ignores return value by yieldSource.withdraw(sharesNeeded) (Candidate.sol#433)"
+      },
+      {
+        "detector": "unused-return",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 333,
+        "contract": "YieldOptimizationVault",
+        "function": "emergencyWithdraw",
+        "description": "YieldOptimizationVault.emergencyWithdraw(address,uint256) (Candidate.sol#333-351) ignores return value by yieldSource.withdraw(amount) (Candidate.sol#345)"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": false,
+    "similarity": 0.9237,
+    "initial_similarity": 0.9237,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.9237,
+        "delta_vs_initial": 0.0,
+        "accepted": false,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "failed",
+        "scored": 19,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

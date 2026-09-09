@@ -1,0 +1,120 @@
+{
+  "id": "U819",
+  "source_path": "sol_seed.jsonl:U819",
+  "split": "generated",
+  "quality": "B",
+  "category": "yield",
+  "created": "2026-09-03T22:00:13.158557",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "Concentrator",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "build_failed"
+    },
+    "n_tests": 45,
+    "n_passed": 45,
+    "n_failed": 0,
+    "failure_classes": {},
+    "contract_defects": 0,
+    "harness_defects": 1,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 6
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 14,
+    "n_actionable": 6,
+    "by_impact": {
+      "Medium": 6,
+      "Low": 7,
+      "Optimization": 1
+    },
+    "actionable": [
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 291,
+        "contract": "YieldAggregator",
+        "function": "rewardPerToken",
+        "description": "YieldAggregator.rewardPerToken(address) (Candidate.sol#291-300) uses a dangerous strict equality: - totalSupply == 0 (Candidate.sol#293)"
+      },
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 235,
+        "contract": "YieldAggregator",
+        "function": "harvest",
+        "description": "YieldAggregator.harvest(address,address) (Candidate.sol#235-253) uses a dangerous strict equality: - reportedReward > 0 && actualReward == 0 (Candidate.sol#250)"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 323,
+        "contract": "YieldAggregator",
+        "function": "_withdrawFromStrategies",
+        "description": "Reentrancy in YieldAggregator._withdrawFromStrategies(address,uint256) (Candidate.sol#323-364): External calls: - withdrawn = IStrategy(strategy).withdraw(token,toWithdraw) (Candidate.sol#340) State variables written after the call(s): - strategyInvested[strategy][token] -= toWithdraw (Candidate.sol#332) YieldAggregator.strategyInvested (Candidate.sol#55) can be used in cross function reentrancies"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 122,
+        "contract": "YieldAggregator",
+        "function": "deposit",
+        "description": "Reentrancy in YieldAggregator.deposit(address,uint256) (Candidate.sol#122-143): External calls: - _safeTransferFrom(token,msg.sender,address(this),amount) (Candidate.sol#131) - (success,data) = token.call(abi.encodeWithSelector(IERC20.transferFrom.selector,from,to,amount)) (Candidate.sol#384) State variables written after the call(s): - totalBalances[token] -= amount (Candidate.sol#137) YieldAggre"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 200,
+        "contract": "YieldAggregator",
+        "function": "withdrawFromStrategy",
+        "description": "Reentrancy in YieldAggregator.withdrawFromStrategy(address,address,uint256) (Candidate.sol#200-233): External calls: - withdrawn = IStrategy(strategy).withdraw(token,amount) (Candidate.sol#210) State variables written after the call(s): - strategyInvested[strategy][token] += diff (Candidate.sol#215) YieldAggregator.strategyInvested (Candidate.sol#55) can be used in cross function reentrancies: - Y"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 255,
+        "contract": "YieldAggregator",
+        "function": "emergencyWithdraw",
+        "description": "Reentrancy in YieldAggregator.emergencyWithdraw(address) (Candidate.sol#255-285): External calls: - withdrawn = IStrategy(strategy).withdraw(token,invested) (Candidate.sol#269) State variables written after the call(s): - strategyInvested[strategy][token] = 0 (Candidate.sol#261) YieldAggregator.strategyInvested (Candidate.sol#55) can be used in cross function reentrancies: - YieldAggregator.strate"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": true,
+    "similarity": 1.0,
+    "initial_similarity": 1.0,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 1.0,
+        "delta_vs_initial": 0.0,
+        "accepted": true,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "passed",
+        "scored": 17,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

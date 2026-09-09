@@ -1,0 +1,157 @@
+{
+  "id": "U340",
+  "source_path": "sol_seed.jsonl:U340",
+  "split": "generated",
+  "quality": "B",
+  "category": "token",
+  "created": "2026-09-02T23:54:24.935184",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "Arbitrove",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "skipped"
+    },
+    "n_tests": 69,
+    "n_passed": 69,
+    "n_failed": 0,
+    "failure_classes": {},
+    "contract_defects": 0,
+    "harness_defects": 0,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 0
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 27,
+    "n_actionable": 16,
+    "by_impact": {
+      "High": 5,
+      "Medium": 11,
+      "Low": 10,
+      "Informational": 1
+    },
+    "actionable": [
+      {
+        "detector": "reentrancy-balance",
+        "impact": "High",
+        "confidence": "Medium",
+        "line": 267,
+        "contract": "YieldIndexToken",
+        "function": "redeem",
+        "description": "Reentrancy in YieldIndexToken.redeem(uint256) (Candidate.sol#267-308): External call allowing reentrancy: - _safeTransfer(IERC20(token),msg.sender,net) (Candidate.sol#293) - (success,returndata) = address(token).call(abi.encodeWithSelector(IERC20.transfer.selector,to,amount)) (Candidate.sol#165-167) Balance read before the call: - idle = IERC20(token).balanceOf(address(this)) (Candidate.sol#285) P"
+      },
+      {
+        "detector": "reentrancy-balance",
+        "impact": "High",
+        "confidence": "Medium",
+        "line": 267,
+        "contract": "YieldIndexToken",
+        "function": "redeem",
+        "description": "Reentrancy in YieldIndexToken.redeem(uint256) (Candidate.sol#267-308): External call allowing reentrancy: - _safeTransfer(IERC20(token),treasury,fee) (Candidate.sol#296) - (success,returndata) = address(token).call(abi.encodeWithSelector(IERC20.transfer.selector,to,amount)) (Candidate.sol#165-167) Balance read before the call: - idle = IERC20(token).balanceOf(address(this)) (Candidate.sol#285) Pos"
+      },
+      {
+        "detector": "reentrancy-balance",
+        "impact": "High",
+        "confidence": "Medium",
+        "line": 267,
+        "contract": "YieldIndexToken",
+        "function": "redeem",
+        "description": "Reentrancy in YieldIndexToken.redeem(uint256) (Candidate.sol#267-308): External call allowing reentrancy: - _safeTransfer(IERC20(token),treasury,fee) (Candidate.sol#296) - (success,returndata) = address(token).call(abi.encodeWithSelector(IERC20.transfer.selector,to,amount)) (Candidate.sol#165-167) Balance read before the call: - portfolioShare = tokenPortfolioValue(token) (Candidate.sol#281) Possi"
+      },
+      {
+        "detector": "reentrancy-balance",
+        "impact": "High",
+        "confidence": "Medium",
+        "line": 428,
+        "contract": "YieldIndexToken",
+        "function": "withdrawFromStrategy",
+        "description": "Reentrancy in YieldIndexToken.withdrawFromStrategy(address,uint256) (Candidate.sol#428-443): External call allowing reentrancy: - IYieldStrategy(strategy).withdraw(amount) (Candidate.sol#437) Balance read before the call: - balBefore = IERC20(info.baseToken).balanceOf(address(this)) (Candidate.sol#436) Possible stale balance used after the call in a condition: - balAfter <= balBefore (Candidate.so"
+      },
+      {
+        "detector": "reentrancy-balance",
+        "impact": "High",
+        "confidence": "Medium",
+        "line": 267,
+        "contract": "YieldIndexToken",
+        "function": "redeem",
+        "description": "Reentrancy in YieldIndexToken.redeem(uint256) (Candidate.sol#267-308): External call allowing reentrancy: - _safeTransfer(IERC20(token),msg.sender,net) (Candidate.sol#293) - (success,returndata) = address(token).call(abi.encodeWithSelector(IERC20.transfer.selector,to,amount)) (Candidate.sol#165-167) Balance read before the call: - portfolioShare = tokenPortfolioValue(token) (Candidate.sol#281) Pos"
+      },
+      {
+        "detector": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 267,
+        "contract": "YieldIndexToken",
+        "function": "redeem",
+        "description": "YieldIndexToken.redeem(uint256) (Candidate.sol#267-308) performs a multiplication on the result of a division: - grossShare = (indexAmount * portfolioShare) / currentTotalSupply (Candidate.sol#283) - fee = (grossShare * REDEMPTION_FEE_BPS) / BPS_DENOMINATOR (Candidate.sol#289)"
+      },
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 242,
+        "contract": "YieldIndexToken",
+        "function": "mint",
+        "description": "YieldIndexToken.mint(address,uint256) (Candidate.sol#242-264) uses a dangerous strict equality: - totalSupply == 0 || valueBefore == 0 (Candidate.sol#252)"
+      },
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 242,
+        "contract": "YieldIndexToken",
+        "function": "mint",
+        "description": "YieldIndexToken.mint(address,uint256) (Candidate.sol#242-264) uses a dangerous strict equality: - indexToMint == 0 (Candidate.sol#257)"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 428,
+        "contract": "YieldIndexToken",
+        "function": "withdrawFromStrategy",
+        "description": "Reentrancy in YieldIndexToken.withdrawFromStrategy(address,uint256) (Candidate.sol#428-443): External calls: - IYieldStrategy(strategy).withdraw(amount) (Candidate.sol#437) State variables written after the call(s): - info.sharesHeld -= sharesNeeded (Candidate.sol#441) YieldIndexToken.strategies (Candidate.sol#103) can be used in cross function reentrancies: - YieldIndexToken.addStrategy(address,a"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 446,
+        "contract": "YieldIndexToken",
+        "function": "rebalance",
+        "description": "Reentrancy in YieldIndexToken.rebalance(address,address,uint256) (Candidate.sol#446-486): External calls: - IYieldStrategy(fromStrategy).withdraw(amount) (Candidate.sol#460) - _safeApprove(IERC20(baseToken),toStrategy,amount) (Candidate.sol#479) - (success,returndata) = address(token).call(abi.encodeWithSelector(IERC20.approve.selector,spender,amount)) (Candidate.sol#199-201) - sharesReceived = IY"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": true,
+    "similarity": 0.8925,
+    "initial_similarity": 0.8925,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.8925,
+        "delta_vs_initial": 0.0,
+        "accepted": true,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "passed",
+        "scored": 20,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

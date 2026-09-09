@@ -1,0 +1,120 @@
+{
+  "id": "U457",
+  "source_path": "sol_seed.jsonl:U457",
+  "split": "generated",
+  "quality": "B",
+  "category": "governance",
+  "created": "2026-09-03T06:06:59.951781",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "Grove Finance",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "build_failed"
+    },
+    "n_tests": 59,
+    "n_passed": 59,
+    "n_failed": 0,
+    "failure_classes": {},
+    "contract_defects": 0,
+    "harness_defects": 5,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 6
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 7,
+    "n_actionable": 6,
+    "by_impact": {
+      "High": 3,
+      "Medium": 3,
+      "Low": 1
+    },
+    "actionable": [
+      {
+        "detector": "arbitrary-send-erc20",
+        "impact": "High",
+        "confidence": "High",
+        "line": 315,
+        "contract": "CapitalAllocationVault",
+        "function": "redeemStrategy",
+        "description": "CapitalAllocationVault.redeemStrategy(uint256,uint256) (Candidate.sol#315-327) uses arbitrary from in transferFrom: IERC20(s.asset).safeTransferFrom(s.provider,address(this),amountReturned) (Candidate.sol#322)"
+      },
+      {
+        "detector": "reentrancy-balance",
+        "impact": "High",
+        "confidence": "Medium",
+        "line": 175,
+        "contract": "CapitalAllocationVault",
+        "function": "deposit",
+        "description": "Reentrancy in CapitalAllocationVault.deposit(address,uint256) (Candidate.sol#175-195): External call allowing reentrancy: - IERC20(token).safeTransferFrom(msg.sender,address(this),amount) (Candidate.sol#180) Balance read before the call: - balanceBefore = IERC20(token).balanceOf(address(this)) (Candidate.sol#179) Possible stale balance used after the call in a condition: - received == 0 (Candidate"
+      },
+      {
+        "detector": "reentrancy-balance",
+        "impact": "High",
+        "confidence": "Medium",
+        "line": 315,
+        "contract": "CapitalAllocationVault",
+        "function": "redeemStrategy",
+        "description": "Reentrancy in CapitalAllocationVault.redeemStrategy(uint256,uint256) (Candidate.sol#315-327): External call allowing reentrancy: - IERC20(s.asset).safeTransferFrom(s.provider,address(this),amountReturned) (Candidate.sol#322) Balance read before the call: - balanceBefore = IERC20(s.asset).balanceOf(address(this)) (Candidate.sol#321) Possible stale balance used after the call in a condition: - recei"
+      },
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 175,
+        "contract": "CapitalAllocationVault",
+        "function": "deposit",
+        "description": "CapitalAllocationVault.deposit(address,uint256) (Candidate.sol#175-195) uses a dangerous strict equality: - received == 0 (Candidate.sol#182)"
+      },
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 255,
+        "contract": "CapitalAllocationVault",
+        "function": "vote",
+        "description": "CapitalAllocationVault.vote(uint256,bool) (Candidate.sol#255-278) uses a dangerous strict equality: - weight == 0 (Candidate.sol#262)"
+      },
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 315,
+        "contract": "CapitalAllocationVault",
+        "function": "redeemStrategy",
+        "description": "CapitalAllocationVault.redeemStrategy(uint256,uint256) (Candidate.sol#315-327) uses a dangerous strict equality: - received == 0 (Candidate.sol#324)"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": true,
+    "similarity": 0.9361,
+    "initial_similarity": 0.9361,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.9361,
+        "delta_vs_initial": 0.0,
+        "accepted": true,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "passed",
+        "scored": 18,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

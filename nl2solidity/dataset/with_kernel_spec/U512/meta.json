@@ -1,0 +1,155 @@
+{
+  "id": "U512",
+  "source_path": "sol_seed.jsonl:U512",
+  "split": "generated",
+  "quality": "B",
+  "category": "lending",
+  "created": "2026-09-03T09:51:22.037189",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "Benqi Lending",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "build_failed"
+    },
+    "n_tests": 36,
+    "n_passed": 36,
+    "n_failed": 0,
+    "failure_classes": {},
+    "contract_defects": 0,
+    "harness_defects": 1,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 6
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 18,
+    "n_actionable": 10,
+    "by_impact": {
+      "Medium": 10,
+      "Low": 8
+    },
+    "actionable": [
+      {
+        "detector": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 129,
+        "contract": "SingleAssetLendingPool",
+        "function": "accrueInterest",
+        "description": "SingleAssetLendingPool.accrueInterest() (Candidate.sol#129-152) performs a multiplication on the result of a division: - utilization = (totalBorrows * WAD) / totalDeposits (Candidate.sol#136) - borrowRatePerSecond = (baseRatePerYear + (multiplierPerYear * utilization) / WAD) / SECONDS_PER_YEAR (Candidate.sol#139-140)"
+      },
+      {
+        "detector": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 129,
+        "contract": "SingleAssetLendingPool",
+        "function": "accrueInterest",
+        "description": "SingleAssetLendingPool.accrueInterest() (Candidate.sol#129-152) performs a multiplication on the result of a division: - borrowRatePerSecond = (baseRatePerYear + (multiplierPerYear * utilization) / WAD) / SECONDS_PER_YEAR (Candidate.sol#139-140) - borrowInterestFactor = borrowRatePerSecond * timeDelta (Candidate.sol#142)"
+      },
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 129,
+        "contract": "SingleAssetLendingPool",
+        "function": "accrueInterest",
+        "description": "SingleAssetLendingPool.accrueInterest() (Candidate.sol#129-152) uses a dangerous strict equality: - currentTimestamp == lastAccrualTimestamp (Candidate.sol#131)"
+      },
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 159,
+        "contract": "SingleAssetLendingPool",
+        "function": "isLiquidatable",
+        "description": "SingleAssetLendingPool.isLiquidatable(address) (Candidate.sol#159-164) uses a dangerous strict equality: - userCollateral == 0 (Candidate.sol#161)"
+      },
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 154,
+        "contract": "SingleAssetLendingPool",
+        "function": "getBorrowBalance",
+        "description": "SingleAssetLendingPool.getBorrowBalance(address) (Candidate.sol#154-157) uses a dangerous strict equality: - borrowPrincipal[user] == 0 (Candidate.sol#155)"
+      },
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 225,
+        "contract": "SingleAssetLendingPool",
+        "function": "repay",
+        "description": "SingleAssetLendingPool.repay(uint256) (Candidate.sol#225-241) uses a dangerous strict equality: - currentDebt == 0 (Candidate.sol#230)"
+      },
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 243,
+        "contract": "SingleAssetLendingPool",
+        "function": "liquidate",
+        "description": "SingleAssetLendingPool.liquidate(address) (Candidate.sol#243-271) uses a dangerous strict equality: - currentDebt == 0 (Candidate.sol#249)"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 243,
+        "contract": "SingleAssetLendingPool",
+        "function": "liquidate",
+        "description": "Reentrancy in SingleAssetLendingPool.liquidate(address) (Candidate.sol#243-271): External calls: - asset.safeTransferFrom(msg.sender,address(this),currentDebt) (Candidate.sol#259) State variables written after the call(s): - borrowPrincipal[borrower] = 0 (Candidate.sol#261) SingleAssetLendingPool.borrowPrincipal (Candidate.sol#79) can be used in cross function reentrancies: - SingleAssetLendingPoo"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 170,
+        "contract": "SingleAssetLendingPool",
+        "function": "deposit",
+        "description": "Reentrancy in SingleAssetLendingPool.deposit(uint256) (Candidate.sol#170-180): External calls: - asset.safeTransferFrom(msg.sender,address(this),amount) (Candidate.sol#174) State variables written after the call(s): - totalDeposits += amount (Candidate.sol#177) SingleAssetLendingPool.totalDeposits (Candidate.sol#70) can be used in cross function reentrancies: - SingleAssetLendingPool.accrueInteres"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 225,
+        "contract": "SingleAssetLendingPool",
+        "function": "repay",
+        "description": "Reentrancy in SingleAssetLendingPool.repay(uint256) (Candidate.sol#225-241): External calls: - asset.safeTransferFrom(msg.sender,address(this),repayAmount) (Candidate.sol#234) State variables written after the call(s): - borrowPrincipal[msg.sender] = currentDebt - repayAmount (Candidate.sol#236) SingleAssetLendingPool.borrowPrincipal (Candidate.sol#79) can be used in cross function reentrancies: -"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": true,
+    "similarity": 1.0,
+    "initial_similarity": 1.0,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 1.0,
+        "delta_vs_initial": 0.0,
+        "accepted": true,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "passed",
+        "scored": 18,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

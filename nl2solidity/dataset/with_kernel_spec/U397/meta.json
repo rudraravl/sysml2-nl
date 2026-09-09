@@ -1,0 +1,111 @@
+{
+  "id": "U397",
+  "source_path": "sol_seed.jsonl:U397",
+  "split": "generated",
+  "quality": "B",
+  "category": "governance",
+  "created": "2026-09-03T02:36:28.376171",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "Brink",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "passed"
+    },
+    "n_tests": 58,
+    "n_passed": 58,
+    "n_failed": 0,
+    "failure_classes": {},
+    "contract_defects": 0,
+    "harness_defects": 0,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 6
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 15,
+    "n_actionable": 5,
+    "by_impact": {
+      "High": 2,
+      "Medium": 3,
+      "Low": 10
+    },
+    "actionable": [
+      {
+        "detector": "arbitrary-send-erc20",
+        "impact": "High",
+        "confidence": "High",
+        "line": 27,
+        "contract": "SafeERC20",
+        "function": "safeTransferFrom",
+        "description": "SafeERC20.safeTransferFrom(IERC20,address,address,uint256) (Candidate.sol#27-30) uses arbitrary from in transferFrom: ok = token.transferFrom(from,to,amount) (Candidate.sol#28)"
+      },
+      {
+        "detector": "reentrancy-balance",
+        "impact": "High",
+        "confidence": "Medium",
+        "line": 565,
+        "contract": "YieldOptimizationVault",
+        "function": "_ensureIdleLiquidity",
+        "description": "Reentrancy in YieldOptimizationVault._ensureIdleLiquidity(uint256) (Candidate.sol#565-591): External call allowing reentrancy: - withdrawn = IStrategy(strat).withdraw(toWithdraw) (Candidate.sol#582) Balance read before the call: - idle = asset.balanceOf(address(this)) (Candidate.sol#566) Possible stale balance used after the call in a condition: - remaining > 0 (Candidate.sol#590) - stale variable"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 270,
+        "contract": "YieldOptimizationVault",
+        "function": "revokeStrategy",
+        "description": "Reentrancy in YieldOptimizationVault.revokeStrategy(address) (Candidate.sol#270-304): External calls: - withdrawn = IStrategy(strategy).withdraw(currentlyAllocated) (Candidate.sol#279) State variables written after the call(s): - info.active = false (Candidate.sol#288) YieldOptimizationVault.strategies (Candidate.sol#168) can be used in cross function reentrancies: - YieldOptimizationVault.approve"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 565,
+        "contract": "YieldOptimizationVault",
+        "function": "_ensureIdleLiquidity",
+        "description": "Reentrancy in YieldOptimizationVault._ensureIdleLiquidity(uint256) (Candidate.sol#565-591): External calls: - withdrawn = IStrategy(strat).withdraw(toWithdraw) (Candidate.sol#582) State variables written after the call(s): - info.allocated -= toWithdraw (Candidate.sol#581) YieldOptimizationVault.strategies (Candidate.sol#168) can be used in cross function reentrancies: - YieldOptimizationVault.app"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 325,
+        "contract": "YieldOptimizationVault",
+        "function": "rebalance",
+        "description": "Reentrancy in YieldOptimizationVault.rebalance() (Candidate.sol#325-361): External calls: - IStrategy(strat).deposit(toDeposit) (Candidate.sol#346) - withdrawn = IStrategy(strat).withdraw(toWithdraw) (Candidate.sol#353) State variables written after the call(s): - info.allocated += toDeposit (Candidate.sol#344) YieldOptimizationVault.strategies (Candidate.sol#168) can be used in cross function ree"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": false,
+    "similarity": 0.935,
+    "initial_similarity": 0.935,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.935,
+        "delta_vs_initial": 0.0,
+        "accepted": false,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "failed",
+        "scored": 20,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

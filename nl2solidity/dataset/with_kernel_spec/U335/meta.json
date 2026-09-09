@@ -1,0 +1,128 @@
+{
+  "id": "U335",
+  "source_path": "sol_seed.jsonl:U335",
+  "split": "generated",
+  "quality": "B",
+  "category": "lending",
+  "created": "2026-09-02T23:43:18.070843",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "Echelon Market",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "skipped"
+    },
+    "n_tests": 66,
+    "n_passed": 66,
+    "n_failed": 0,
+    "failure_classes": {},
+    "contract_defects": 0,
+    "harness_defects": 0,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 0
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 24,
+    "n_actionable": 7,
+    "by_impact": {
+      "Medium": 7,
+      "Low": 17
+    },
+    "actionable": [
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 532,
+        "contract": "MoneyMarket",
+        "function": "liquidate",
+        "description": "MoneyMarket.liquidate(address,address,address,uint256) (Candidate.sol#532-567) uses a dangerous strict equality: - debt == 0 (Candidate.sol#547)"
+      },
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 509,
+        "contract": "MoneyMarket",
+        "function": "repay",
+        "description": "MoneyMarket.repay(address,uint256) (Candidate.sol#509-530) uses a dangerous strict equality: - debt == 0 (Candidate.sol#518)"
+      },
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 348,
+        "contract": "MoneyMarket",
+        "function": "currentBorrowIndex",
+        "description": "MoneyMarket.currentBorrowIndex(address) (Candidate.sol#348-364) uses a dangerous strict equality: - p.totalBorrows == 0 || p.lastAccrual == block.timestamp (Candidate.sol#350)"
+      },
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 532,
+        "contract": "MoneyMarket",
+        "function": "liquidate",
+        "description": "MoneyMarket.liquidate(address,address,address,uint256) (Candidate.sol#532-567) uses a dangerous strict equality: - actualRepay == 0 (Candidate.sol#559)"
+      },
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 306,
+        "contract": "MoneyMarket",
+        "function": "accrueInterest",
+        "description": "MoneyMarket.accrueInterest(address) (Candidate.sol#306-346) uses a dangerous strict equality: - p.totalBorrows == 0 (Candidate.sol#313)"
+      },
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 306,
+        "contract": "MoneyMarket",
+        "function": "accrueInterest",
+        "description": "MoneyMarket.accrueInterest(address) (Candidate.sol#306-346) uses a dangerous strict equality: - p.lastAccrual == block.timestamp (Candidate.sol#308)"
+      },
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 366,
+        "contract": "MoneyMarket",
+        "function": "currentDepositIndex",
+        "description": "MoneyMarket.currentDepositIndex(address) (Candidate.sol#366-388) uses a dangerous strict equality: - p.totalBorrows == 0 || p.lastAccrual == block.timestamp || p.totalDepositShares == 0 (Candidate.sol#368)"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": true,
+    "similarity": 0.8824,
+    "initial_similarity": 0.8824,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.8824,
+        "delta_vs_initial": 0.0,
+        "accepted": true,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "passed",
+        "scored": 17,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

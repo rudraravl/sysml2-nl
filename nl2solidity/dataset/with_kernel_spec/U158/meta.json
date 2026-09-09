@@ -1,0 +1,96 @@
+{
+  "id": "U158",
+  "source_path": "sol_seed.jsonl:U158",
+  "split": "generated",
+  "quality": "B",
+  "category": "yield",
+  "created": "2026-09-02T10:28:09.317596",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "BitFi Basis",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "failed"
+    },
+    "n_tests": 61,
+    "n_passed": 60,
+    "n_failed": 1,
+    "failure_classes": {
+      "expected_revert_not_raised": 1
+    },
+    "contract_defects": 1,
+    "harness_defects": 0,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 6
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 6,
+    "n_actionable": 3,
+    "by_impact": {
+      "High": 1,
+      "Medium": 2,
+      "Low": 2,
+      "Informational": 1
+    },
+    "actionable": [
+      {
+        "detector": "arbitrary-send-erc20",
+        "impact": "High",
+        "confidence": "High",
+        "line": 19,
+        "contract": "SafeERC20",
+        "function": "safeTransferFrom",
+        "description": "SafeERC20.safeTransferFrom(IERC20,address,address,uint256) (Candidate.sol#19-22) uses arbitrary from in transferFrom: ok = token.transferFrom(from,to,amount) (Candidate.sol#20)"
+      },
+      {
+        "detector": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 129,
+        "contract": "YieldStablecoin",
+        "function": "previewRedeem",
+        "description": "YieldStablecoin.previewRedeem(uint256) (Candidate.sol#129-137) performs a multiplication on the result of a division: - gross = (stablecoinAmount * exchangeRate) / EXCHANGE_RATE_PRECISION (Candidate.sol#134) - fee = (gross * redemptionFee) / FEE_PRECISION (Candidate.sol#135)"
+      },
+      {
+        "detector": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 222,
+        "contract": "YieldStablecoin",
+        "function": "_redeem",
+        "description": "YieldStablecoin._redeem(address,address,uint256) (Candidate.sol#222-246) performs a multiplication on the result of a division: - grossCollateral = (stablecoinAmount * exchangeRate) / EXCHANGE_RATE_PRECISION (Candidate.sol#233) - fee = (grossCollateral * redemptionFee) / FEE_PRECISION (Candidate.sol#234)"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": false,
+    "similarity": 0.9714,
+    "initial_similarity": 0.9714,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.9714,
+        "delta_vs_initial": 0.0,
+        "accepted": false,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "failed",
+        "scored": 21,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

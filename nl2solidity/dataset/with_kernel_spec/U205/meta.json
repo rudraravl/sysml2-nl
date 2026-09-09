@@ -1,0 +1,111 @@
+{
+  "id": "U205",
+  "source_path": "sol_seed.jsonl:U205",
+  "split": "generated",
+  "quality": "B",
+  "category": "gaming",
+  "created": "2026-09-02T15:05:45.754561",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "Robots.Farm",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "passed"
+    },
+    "n_tests": 84,
+    "n_passed": 84,
+    "n_failed": 0,
+    "failure_classes": {},
+    "contract_defects": 0,
+    "harness_defects": 0,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 6
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 10,
+    "n_actionable": 5,
+    "by_impact": {
+      "High": 4,
+      "Medium": 1,
+      "Low": 5
+    },
+    "actionable": [
+      {
+        "detector": "unchecked-transfer",
+        "impact": "High",
+        "confidence": "Medium",
+        "line": 317,
+        "contract": "GameExchangeFarm",
+        "function": "claimReward",
+        "description": "GameExchangeFarm.claimReward(address) (Candidate.sol#317-333) ignores return value by IERC20(rewardToken).transfer(msg.sender,reward) (Candidate.sol#331)"
+      },
+      {
+        "detector": "unchecked-transfer",
+        "impact": "High",
+        "confidence": "Medium",
+        "line": 213,
+        "contract": "GameExchangeFarm",
+        "function": "deposit",
+        "description": "GameExchangeFarm.deposit(address,uint256) (Candidate.sol#213-218) ignores return value by IERC20(token).transferFrom(msg.sender,address(this),amount) (Candidate.sol#215)"
+      },
+      {
+        "detector": "unchecked-transfer",
+        "impact": "High",
+        "confidence": "Medium",
+        "line": 220,
+        "contract": "GameExchangeFarm",
+        "function": "withdraw",
+        "description": "GameExchangeFarm.withdraw(address,uint256) (Candidate.sol#220-226) ignores return value by IERC20(token).transfer(msg.sender,amount) (Candidate.sol#224)"
+      },
+      {
+        "detector": "unchecked-transfer",
+        "impact": "High",
+        "confidence": "Medium",
+        "line": 205,
+        "contract": "GameExchangeFarm",
+        "function": "depositRewards",
+        "description": "GameExchangeFarm.depositRewards(address,uint256) (Candidate.sol#205-209) ignores return value by IERC20(token).transferFrom(msg.sender,address(this),amount) (Candidate.sol#207)"
+      },
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 337,
+        "contract": "GameExchangeFarm",
+        "function": "_updateReward",
+        "description": "GameExchangeFarm._updateReward(address,address) (Candidate.sol#337-347) uses a dangerous strict equality: - timeElapsed == 0 (Candidate.sol#342)"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": true,
+    "similarity": 0.9028,
+    "initial_similarity": 0.9028,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.9028,
+        "delta_vs_initial": 0.0,
+        "accepted": true,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "passed",
+        "scored": 18,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

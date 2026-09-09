@@ -1,0 +1,158 @@
+{
+  "id": "U617",
+  "source_path": "sol_seed.jsonl:U617",
+  "split": "generated",
+  "quality": "B",
+  "category": "dex",
+  "created": "2026-09-03T15:17:27.808339",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "PulseX V1",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "failed",
+      "properties": "skipped"
+    },
+    "n_tests": 1,
+    "n_passed": 0,
+    "n_failed": 1,
+    "failure_classes": {
+      "test_failed": 1
+    },
+    "contract_defects": 0,
+    "harness_defects": 1,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 0
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 24,
+    "n_actionable": 13,
+    "by_impact": {
+      "High": 1,
+      "Medium": 12,
+      "Low": 11
+    },
+    "actionable": [
+      {
+        "detector": "weak-prng",
+        "impact": "High",
+        "confidence": "Medium",
+        "line": 161,
+        "contract": "TrustlessExchange",
+        "function": "_update",
+        "description": "TrustlessExchange._update(uint256,uint256,uint112,uint112) (Candidate.sol#161-178) uses a weak PRNG: \"blockTimestamp = uint32(block.timestamp % 2 ** 32) (Candidate.sol#165)\""
+      },
+      {
+        "detector": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 161,
+        "contract": "TrustlessExchange",
+        "function": "_update",
+        "description": "TrustlessExchange._update(uint256,uint256,uint112,uint112) (Candidate.sol#161-178) performs a multiplication on the result of a division: - price1CumulativeLast += (uint256(_reserve0) * 1e18 / uint256(_reserve1)) * timeElapsed (Candidate.sol#172)"
+      },
+      {
+        "detector": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 282,
+        "contract": "TrustlessExchange",
+        "function": "swap",
+        "description": "TrustlessExchange.swap(address,uint256,uint256,address) (Candidate.sol#282-318) performs a multiplication on the result of a division: - amountInWithFee = (amountIn * (FEE_DENOMINATOR - feeRate)) / FEE_DENOMINATOR (Candidate.sol#303) - amountOut = (amountInWithFee * reserveOut) / (reserveIn * FEE_DENOMINATOR + amountInWithFee) (Candidate.sol#304)"
+      },
+      {
+        "detector": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 161,
+        "contract": "TrustlessExchange",
+        "function": "_update",
+        "description": "TrustlessExchange._update(uint256,uint256,uint112,uint112) (Candidate.sol#161-178) performs a multiplication on the result of a division: - price0CumulativeLast += (uint256(_reserve1) * 1e18 / uint256(_reserve0)) * timeElapsed (Candidate.sol#171)"
+      },
+      {
+        "detector": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 193,
+        "contract": "TrustlessExchange",
+        "function": "addLiquidity",
+        "description": "TrustlessExchange.addLiquidity(uint256,uint256,uint256,uint256) (Candidate.sol#193-249) performs a multiplication on the result of a division: - amount0 = (amount1Desired * _reserve0) / _reserve1 (Candidate.sol#215) - initialLiquidity = _sqrt(amount0 * amount1) (Candidate.sol#227)"
+      },
+      {
+        "detector": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 193,
+        "contract": "TrustlessExchange",
+        "function": "addLiquidity",
+        "description": "TrustlessExchange.addLiquidity(uint256,uint256,uint256,uint256) (Candidate.sol#193-249) performs a multiplication on the result of a division: - amount0 = (amount1Desired * _reserve0) / _reserve1 (Candidate.sol#215) - l0 = (amount0 * _totalSupply) / _reserve0 (Candidate.sol#232)"
+      },
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 251,
+        "contract": "TrustlessExchange",
+        "function": "removeLiquidity",
+        "description": "TrustlessExchange.removeLiquidity(uint256,uint256,uint256) (Candidate.sol#251-280) uses a dangerous strict equality: - amount0 == 0 || amount1 == 0 (Candidate.sol#264)"
+      },
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 193,
+        "contract": "TrustlessExchange",
+        "function": "addLiquidity",
+        "description": "TrustlessExchange.addLiquidity(uint256,uint256,uint256,uint256) (Candidate.sol#193-249) uses a dangerous strict equality: - _reserve0 == 0 && _reserve1 == 0 (Candidate.sol#206)"
+      },
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 282,
+        "contract": "TrustlessExchange",
+        "function": "swap",
+        "description": "TrustlessExchange.swap(address,uint256,uint256,address) (Candidate.sol#282-318) uses a dangerous strict equality: - amountOut == 0 || amountOut < minAmountOut (Candidate.sol#306)"
+      },
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 282,
+        "contract": "TrustlessExchange",
+        "function": "swap",
+        "description": "TrustlessExchange.swap(address,uint256,uint256,address) (Candidate.sol#282-318) uses a dangerous strict equality: - reserveIn == 0 || reserveOut == 0 (Candidate.sol#299)"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": false,
+    "similarity": 0.97,
+    "initial_similarity": 0.97,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.97,
+        "delta_vs_initial": 0.0,
+        "accepted": false,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "failed",
+        "scored": 20,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

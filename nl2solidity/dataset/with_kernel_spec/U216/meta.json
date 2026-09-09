@@ -1,0 +1,74 @@
+{
+  "id": "U216",
+  "source_path": "sol_seed.jsonl:U216",
+  "split": "generated",
+  "quality": "B",
+  "category": "token",
+  "created": "2026-09-02T15:49:04.537284",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "Sanko GameCorp",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "passed"
+    },
+    "n_tests": 23,
+    "n_passed": 23,
+    "n_failed": 0,
+    "failure_classes": {},
+    "contract_defects": 0,
+    "harness_defects": 0,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 6
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 2,
+    "n_actionable": 1,
+    "by_impact": {
+      "Medium": 1,
+      "Low": 1
+    },
+    "actionable": [
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 128,
+        "contract": "GameTokenDistribution",
+        "function": "withdrawEther",
+        "description": "GameTokenDistribution.withdrawEther(address) (Candidate.sol#128-137) uses a dangerous strict equality: - amount == 0 (Candidate.sol#131)"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": true,
+    "similarity": 0.8639,
+    "initial_similarity": 0.8639,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.8639,
+        "delta_vs_initial": 0.0,
+        "accepted": true,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "passed",
+        "scored": 18,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

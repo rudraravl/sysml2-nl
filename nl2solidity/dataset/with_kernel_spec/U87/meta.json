@@ -1,0 +1,111 @@
+{
+  "id": "U87",
+  "source_path": "sol_seed.jsonl:U87",
+  "split": "generated",
+  "quality": "B",
+  "category": "gaming",
+  "created": "2026-09-02T05:23:11.325005",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "Gensokishi",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "skipped"
+    },
+    "n_tests": 70,
+    "n_passed": 70,
+    "n_failed": 0,
+    "failure_classes": {},
+    "contract_defects": 0,
+    "harness_defects": 0,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 0
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 12,
+    "n_actionable": 5,
+    "by_impact": {
+      "High": 1,
+      "Medium": 4,
+      "Low": 7
+    },
+    "actionable": [
+      {
+        "detector": "arbitrary-send-erc20",
+        "impact": "High",
+        "confidence": "High",
+        "line": 96,
+        "contract": "SafeERC20",
+        "function": "safeTransferFrom",
+        "description": "SafeERC20.safeTransferFrom(IERC20,address,address,uint256) (Candidate.sol#96-99) uses arbitrary from in transferFrom: success = token.transferFrom(from,to,amount) (Candidate.sol#97)"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 647,
+        "contract": "CraftingSystem",
+        "function": "craft",
+        "description": "Reentrancy in CraftingSystem.craft(uint256) (Candidate.sol#647-692): External calls: - IERC721(nftReq.collection).safeTransferFrom(address(this),owner(),nftReq.tokenId) (Candidate.sol#680) State variables written after the call(s): - depositedNFTs[msg.sender][nftReq.collection][nftReq.tokenId] = false (Candidate.sol#678) CraftingSystem.depositedNFTs (Candidate.sol#425) can be used in cross functio"
+      },
+      {
+        "detector": "unused-return",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 647,
+        "contract": "CraftingSystem",
+        "function": "craft",
+        "description": "CraftingSystem.craft(uint256) (Candidate.sol#647-692) ignores return value by _depositedNFTSets[msg.sender][nftReq.collection].remove(nftReq.tokenId) (Candidate.sol#679)"
+      },
+      {
+        "detector": "unused-return",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 619,
+        "contract": "CraftingSystem",
+        "function": "withdrawNFT",
+        "description": "CraftingSystem.withdrawNFT(address,uint256) (Candidate.sol#619-627) ignores return value by _depositedNFTSets[msg.sender][collection].remove(tokenId) (Candidate.sol#624)"
+      },
+      {
+        "detector": "unused-return",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 597,
+        "contract": "CraftingSystem",
+        "function": "depositNFT",
+        "description": "CraftingSystem.depositNFT(address,uint256) (Candidate.sol#597-604) ignores return value by _depositedNFTSets[msg.sender][collection].add(tokenId) (Candidate.sol#602)"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": true,
+    "similarity": 0.9842,
+    "initial_similarity": 0.9842,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.9842,
+        "delta_vs_initial": 0.0,
+        "accepted": true,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "passed",
+        "scored": 19,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

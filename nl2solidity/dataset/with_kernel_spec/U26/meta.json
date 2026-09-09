@@ -1,0 +1,94 @@
+{
+  "id": "U26",
+  "source_path": "sol_seed.jsonl:U26",
+  "split": "generated",
+  "quality": "B",
+  "category": "stablecoin",
+  "created": "2026-09-02T00:59:47.050018",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "Gamblefi",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "failed",
+      "properties": "failed"
+    },
+    "n_tests": 2,
+    "n_passed": 0,
+    "n_failed": 2,
+    "failure_classes": {
+      "test_failed": 2
+    },
+    "contract_defects": 0,
+    "harness_defects": 2,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 9
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 5,
+    "n_actionable": 3,
+    "by_impact": {
+      "Medium": 3,
+      "Low": 2
+    },
+    "actionable": [
+      {
+        "detector": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 241,
+        "contract": "TreasuryDistributor",
+        "function": "distribute",
+        "description": "TreasuryDistributor.distribute() (Candidate.sol#241-271) performs a multiplication on the result of a division: - increment = (balance * rate * ACC_PRECISION) / (BPS_DENOMINATOR * totalStaked) (Candidate.sol#256) - toDistribute = (increment * totalStaked) / ACC_PRECISION (Candidate.sol#259)"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 195,
+        "contract": "TreasuryDistributor",
+        "function": "withdrawRewards",
+        "description": "Reentrancy in TreasuryDistributor.withdrawRewards() (Candidate.sol#195-211): External calls: - IERC20(token).safeTransfer(msg.sender,pending) (Candidate.sol#207) State variables written after the call(s): - tokenBalances[token] -= pending (Candidate.sol#204) TreasuryDistributor.tokenBalances (Candidate.sol#72) can be used in cross function reentrancies: - TreasuryDistributor.tokenBalances (Candida"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 213,
+        "contract": "TreasuryDistributor",
+        "function": "exit",
+        "description": "Reentrancy in TreasuryDistributor.exit() (Candidate.sol#213-239): External calls: - IERC20(stakingToken).safeTransfer(msg.sender,amount) (Candidate.sol#223) - IERC20(token).safeTransfer(msg.sender,pending) (Candidate.sol#236) State variables written after the call(s): - tokenBalances[token] -= pending (Candidate.sol#235) TreasuryDistributor.tokenBalances (Candidate.sol#72) can be used in cross fun"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": false,
+    "similarity": 0.96,
+    "initial_similarity": 0.96,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.96,
+        "delta_vs_initial": 0.0,
+        "accepted": false,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "failed",
+        "scored": 15,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

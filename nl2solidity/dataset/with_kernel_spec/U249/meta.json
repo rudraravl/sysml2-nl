@@ -1,0 +1,156 @@
+{
+  "id": "U249",
+  "source_path": "sol_seed.jsonl:U249",
+  "split": "generated",
+  "quality": "B",
+  "category": "dex",
+  "created": "2026-09-02T19:05:00.005261",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "SushiSwap V3",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "skipped"
+    },
+    "n_tests": 37,
+    "n_passed": 37,
+    "n_failed": 0,
+    "failure_classes": {},
+    "contract_defects": 0,
+    "harness_defects": 0,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 0
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 12,
+    "n_actionable": 10,
+    "by_impact": {
+      "High": 1,
+      "Medium": 9,
+      "Informational": 2
+    },
+    "actionable": [
+      {
+        "detector": "incorrect-exp",
+        "impact": "High",
+        "confidence": "Medium",
+        "line": 12,
+        "contract": "FullMath",
+        "function": "mulDiv",
+        "description": "FullMath.mulDiv(uint256,uint256,uint256) (Candidate.sol#12-59) has bitwise-xor operator ^ instead of the exponentiation operator **: - inv = 3 * d_mulDiv_asm_3 ^ 2 (Candidate.sol#42)"
+      },
+      {
+        "detector": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 12,
+        "contract": "FullMath",
+        "function": "mulDiv",
+        "description": "FullMath.mulDiv(uint256,uint256,uint256) (Candidate.sol#12-59) performs a multiplication on the result of a division: - d_mulDiv_asm_3 = denominator / twos (Candidate.sol#41) - inv = inv * 2 - d_mulDiv_asm_3 * inv (Candidate.sol#49)"
+      },
+      {
+        "detector": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 12,
+        "contract": "FullMath",
+        "function": "mulDiv",
+        "description": "FullMath.mulDiv(uint256,uint256,uint256) (Candidate.sol#12-59) performs a multiplication on the result of a division: - d_mulDiv_asm_3 = denominator / twos (Candidate.sol#41) - inv = inv * 2 - d_mulDiv_asm_3 * inv (Candidate.sol#46)"
+      },
+      {
+        "detector": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 12,
+        "contract": "FullMath",
+        "function": "mulDiv",
+        "description": "FullMath.mulDiv(uint256,uint256,uint256) (Candidate.sol#12-59) performs a multiplication on the result of a division: - d_mulDiv_asm_3 = denominator / twos (Candidate.sol#41) - inv = inv * 2 - d_mulDiv_asm_3 * inv (Candidate.sol#45)"
+      },
+      {
+        "detector": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 12,
+        "contract": "FullMath",
+        "function": "mulDiv",
+        "description": "FullMath.mulDiv(uint256,uint256,uint256) (Candidate.sol#12-59) performs a multiplication on the result of a division: - d_mulDiv_asm_3 = denominator / twos (Candidate.sol#41) - inv = 3 * d_mulDiv_asm_3 ^ 2 (Candidate.sol#42)"
+      },
+      {
+        "detector": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 12,
+        "contract": "FullMath",
+        "function": "mulDiv",
+        "description": "FullMath.mulDiv(uint256,uint256,uint256) (Candidate.sol#12-59) performs a multiplication on the result of a division: - d_mulDiv_asm_3 = denominator / twos (Candidate.sol#41) - inv = inv * 2 - d_mulDiv_asm_3 * inv (Candidate.sol#44)"
+      },
+      {
+        "detector": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 78,
+        "contract": "TickMath",
+        "function": "getSqrtRatioAtTick",
+        "description": "TickMath.getSqrtRatioAtTick(int24) (Candidate.sol#78-116) performs a multiplication on the result of a division: - ratio = (ratio * 0x48a170391f7dc42444e8fa2) >> 128 (Candidate.sol#105) - ratio = ~ 0 / ratio (Candidate.sol#109)"
+      },
+      {
+        "detector": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 12,
+        "contract": "FullMath",
+        "function": "mulDiv",
+        "description": "FullMath.mulDiv(uint256,uint256,uint256) (Candidate.sol#12-59) performs a multiplication on the result of a division: - d_mulDiv_asm_3 = denominator / twos (Candidate.sol#41) - inv = inv * 2 - d_mulDiv_asm_3 * inv (Candidate.sol#47)"
+      },
+      {
+        "detector": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 12,
+        "contract": "FullMath",
+        "function": "mulDiv",
+        "description": "FullMath.mulDiv(uint256,uint256,uint256) (Candidate.sol#12-59) performs a multiplication on the result of a division: - d_mulDiv_asm_3 = denominator / twos (Candidate.sol#41) - inv = inv * 2 - d_mulDiv_asm_3 * inv (Candidate.sol#43)"
+      },
+      {
+        "detector": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 12,
+        "contract": "FullMath",
+        "function": "mulDiv",
+        "description": "FullMath.mulDiv(uint256,uint256,uint256) (Candidate.sol#12-59) performs a multiplication on the result of a division: - d_mulDiv_asm_3 = denominator / twos (Candidate.sol#41) - inv = inv * 2 - d_mulDiv_asm_3 * inv (Candidate.sol#48)"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": true,
+    "similarity": 0.9921,
+    "initial_similarity": 0.9921,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.9921,
+        "delta_vs_initial": 0.0,
+        "accepted": true,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "passed",
+        "scored": 19,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

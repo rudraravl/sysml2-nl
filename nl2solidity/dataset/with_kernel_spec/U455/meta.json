@@ -1,0 +1,84 @@
+{
+  "id": "U455",
+  "source_path": "sol_seed.jsonl:U455",
+  "split": "generated",
+  "quality": "B",
+  "category": "governance",
+  "created": "2026-09-03T06:00:09.864504",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "Aera V3",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "passed"
+    },
+    "n_tests": 51,
+    "n_passed": 51,
+    "n_failed": 0,
+    "failure_classes": {},
+    "contract_defects": 0,
+    "harness_defects": 0,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 6
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 13,
+    "n_actionable": 2,
+    "by_impact": {
+      "High": 1,
+      "Medium": 1,
+      "Low": 11
+    },
+    "actionable": [
+      {
+        "detector": "reentrancy-balance",
+        "impact": "High",
+        "confidence": "Medium",
+        "line": 317,
+        "contract": "DAOTreasury",
+        "function": "withdrawFromStrategy",
+        "description": "Reentrancy in DAOTreasury.withdrawFromStrategy(uint256,uint256) (Candidate.sol#317-357): External call allowing reentrancy: - received = IStrategy(strategy).redeem(sharesBurned,address(this),address(this)) (Candidate.sol#353) Balance read before the call: - held = IStrategy(strategy).balanceOf(address(this)) (Candidate.sol#334) Possible stale balance used after the call in a condition: - received "
+      },
+      {
+        "detector": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 317,
+        "contract": "DAOTreasury",
+        "function": "withdrawFromStrategy",
+        "description": "DAOTreasury.withdrawFromStrategy(uint256,uint256) (Candidate.sol#317-357) performs a multiplication on the result of a division: - sharesBurned = (amount * ts + ta - 1) / ta (Candidate.sol#338) - assetsReceived = (sharesBurned * ta) / ts (Candidate.sol#344)"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": true,
+    "similarity": 1.0,
+    "initial_similarity": 1.0,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 1.0,
+        "delta_vs_initial": 0.0,
+        "accepted": true,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "passed",
+        "scored": 19,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

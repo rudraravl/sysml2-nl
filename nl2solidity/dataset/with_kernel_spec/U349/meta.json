@@ -1,0 +1,101 @@
+{
+  "id": "U349",
+  "source_path": "sol_seed.jsonl:U349",
+  "split": "generated",
+  "quality": "B",
+  "category": "payments",
+  "created": "2026-09-03T00:17:51.905334",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "Telcoin",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "build_failed"
+    },
+    "n_tests": 28,
+    "n_passed": 28,
+    "n_failed": 0,
+    "failure_classes": {},
+    "contract_defects": 0,
+    "harness_defects": 1,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 6
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 11,
+    "n_actionable": 4,
+    "by_impact": {
+      "Medium": 4,
+      "Low": 7
+    },
+    "actionable": [
+      {
+        "detector": "erc20-interface",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 17,
+        "contract": "MobileMoneyTransfer",
+        "function": "transfer",
+        "description": "MobileMoneyTransfer (Candidate.sol#17-303) has incorrect ERC20 function interface:MobileMoneyTransfer.transfer(address,uint256) (Candidate.sol#134-158)"
+      },
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 251,
+        "contract": "MobileMoneyTransfer",
+        "function": "remainingDailyWithdrawal",
+        "description": "MobileMoneyTransfer.remainingDailyWithdrawal(address) (Candidate.sol#251-256) uses a dangerous strict equality: - (u.lastWithdrawalDay == block.timestamp / 86400) (Candidate.sol#253)"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 160,
+        "contract": "MobileMoneyTransfer",
+        "function": "withdraw",
+        "description": "Reentrancy in MobileMoneyTransfer.withdraw(address,uint256) (Candidate.sol#160-189): External calls: - ok = stablecoin.transfer(to,amount) (Candidate.sol#183) State variables written after the call(s): - _recordTransaction(msg.sender,TxType.Withdrawal,amount,to) (Candidate.sol#186) - u.transactions[index] = Transaction({txType:txType,amount:amount,counterparty:counterparty,timestamp:block.timestam"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 119,
+        "contract": "MobileMoneyTransfer",
+        "function": "deposit",
+        "description": "Reentrancy in MobileMoneyTransfer.deposit(uint256) (Candidate.sol#119-132): External calls: - ok = stablecoin.transferFrom(msg.sender,address(this),amount) (Candidate.sol#122) State variables written after the call(s): - user.balance += amount (Candidate.sol#126) MobileMoneyTransfer.users (Candidate.sol#73) can be used in cross function reentrancies: - MobileMoneyTransfer._recordTransaction(addres"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": true,
+    "similarity": 1.0,
+    "initial_similarity": 1.0,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 1.0,
+        "delta_vs_initial": 0.0,
+        "accepted": true,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "passed",
+        "scored": 18,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

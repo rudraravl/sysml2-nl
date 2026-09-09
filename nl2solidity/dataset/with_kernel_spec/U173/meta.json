@@ -1,0 +1,75 @@
+{
+  "id": "U173",
+  "source_path": "sol_seed.jsonl:U173",
+  "split": "generated",
+  "quality": "B",
+  "category": "governance",
+  "created": "2026-09-02T12:14:01.741502",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "Arkonix",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "passed"
+    },
+    "n_tests": 50,
+    "n_passed": 50,
+    "n_failed": 0,
+    "failure_classes": {},
+    "contract_defects": 0,
+    "harness_defects": 0,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 6
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 3,
+    "n_actionable": 1,
+    "by_impact": {
+      "Medium": 1,
+      "Low": 1,
+      "Informational": 1
+    },
+    "actionable": [
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 326,
+        "contract": "StrategyVaultManager",
+        "function": "executeStrategy",
+        "description": "Reentrancy in StrategyVaultManager.executeStrategy(uint256) (Candidate.sol#326-364): External calls: - pnlDelta = IStrategy(v.strategy).executeStrategy(vaultId) (Candidate.sol#341) State variables written after the call(s): - sp.totalAllocated += gain (Candidate.sol#348) StrategyVaultManager.strategyRegistry (Candidate.sol#128) can be used in cross function reentrancies: - StrategyVaultManager.app"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": true,
+    "similarity": 0.9474,
+    "initial_similarity": 0.9474,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.9474,
+        "delta_vs_initial": 0.0,
+        "accepted": true,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "passed",
+        "scored": 19,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

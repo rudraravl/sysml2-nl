@@ -1,0 +1,111 @@
+{
+  "id": "U774",
+  "source_path": "sol_seed.jsonl:U774",
+  "split": "generated",
+  "quality": "B",
+  "category": "derivatives",
+  "created": "2026-09-03T20:53:12.136374",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "Strike Finance Perpetuals",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "skipped"
+    },
+    "n_tests": 72,
+    "n_passed": 72,
+    "n_failed": 0,
+    "failure_classes": {},
+    "contract_defects": 0,
+    "harness_defects": 0,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 0
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 7,
+    "n_actionable": 5,
+    "by_impact": {
+      "High": 1,
+      "Medium": 4,
+      "Low": 2
+    },
+    "actionable": [
+      {
+        "detector": "arbitrary-send-erc20",
+        "impact": "High",
+        "confidence": "High",
+        "line": 18,
+        "contract": "SafeERC20",
+        "function": "safeTransferFrom",
+        "description": "SafeERC20.safeTransferFrom(IERC20,address,address,uint256) (Candidate.sol#18-20) uses arbitrary from in transferFrom: require(bool,string)(token.transferFrom(from,to,value),SafeERC20: transferFrom failed) (Candidate.sol#19)"
+      },
+      {
+        "detector": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 391,
+        "contract": "PerpetualFutures",
+        "function": "closePosition",
+        "description": "PerpetualFutures.closePosition(bytes32,bool) (Candidate.sol#391-434) performs a multiplication on the result of a division: - notional = (pos.size * price) / PRECISION (Candidate.sol#404) - fee = (notional * FEE_RATE) / PRECISION (Candidate.sol#405)"
+      },
+      {
+        "detector": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 351,
+        "contract": "PerpetualFutures",
+        "function": "openPosition",
+        "description": "PerpetualFutures.openPosition(bytes32,bool,uint256,uint256) (Candidate.sol#351-389) performs a multiplication on the result of a division: - notional = (size * price) / PRECISION (Candidate.sol#366) - fee = (notional * FEE_RATE) / PRECISION (Candidate.sol#369)"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 391,
+        "contract": "PerpetualFutures",
+        "function": "closePosition",
+        "description": "Reentrancy in PerpetualFutures.closePosition(bytes32,bool) (Candidate.sol#391-434): External calls: - collateralToken.safeTransfer(feeRecipient,fee) (Candidate.sol#410) - collateralToken.safeTransfer(feeRecipient,availableFee) (Candidate.sol#416) State variables written after the call(s): - p.totalLongSize -= pos.size (Candidate.sol#426) PerpetualFutures.pairs (Candidate.sol#185) can be used in cr"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 351,
+        "contract": "PerpetualFutures",
+        "function": "openPosition",
+        "description": "Reentrancy in PerpetualFutures.openPosition(bytes32,bool,uint256,uint256) (Candidate.sol#351-389): External calls: - collateralToken.safeTransfer(feeRecipient,fee) (Candidate.sol#374) State variables written after the call(s): - p.totalLongSize += size (Candidate.sol#383) PerpetualFutures.pairs (Candidate.sol#185) can be used in cross function reentrancies: - PerpetualFutures._updateFundingIndex(b"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": true,
+    "similarity": 0.9056,
+    "initial_similarity": 0.9056,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.9056,
+        "delta_vs_initial": 0.0,
+        "accepted": true,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "passed",
+        "scored": 18,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

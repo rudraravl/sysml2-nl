@@ -1,0 +1,86 @@
+{
+  "id": "U96",
+  "source_path": "sol_seed.jsonl:U96",
+  "split": "generated",
+  "quality": "B",
+  "category": "governance",
+  "created": "2026-09-02T05:41:45.836973",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "D2 Finance",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "failed"
+    },
+    "n_tests": 67,
+    "n_passed": 65,
+    "n_failed": 2,
+    "failure_classes": {
+      "assertion_failed": 1,
+      "test_failed": 1
+    },
+    "contract_defects": 1,
+    "harness_defects": 1,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 6
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 15,
+    "n_actionable": 2,
+    "by_impact": {
+      "High": 2,
+      "Low": 13
+    },
+    "actionable": [
+      {
+        "detector": "weak-prng",
+        "impact": "High",
+        "confidence": "Medium",
+        "line": 244,
+        "contract": "DerivativesStrategyVault",
+        "function": "_convertToAssets",
+        "description": "DerivativesStrategyVault._convertToAssets(uint256,bool) (Candidate.sol#244-253) uses a weak PRNG: \"roundUp && numerator % supply != 0 (Candidate.sol#249)\""
+      },
+      {
+        "detector": "weak-prng",
+        "impact": "High",
+        "confidence": "Medium",
+        "line": 233,
+        "contract": "DerivativesStrategyVault",
+        "function": "_convertToShares",
+        "description": "DerivativesStrategyVault._convertToShares(uint256,bool) (Candidate.sol#233-242) uses a weak PRNG: \"roundUp && numerator % ta != 0 (Candidate.sol#238)\""
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": false,
+    "similarity": 0.95,
+    "initial_similarity": 0.95,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.95,
+        "delta_vs_initial": 0.0,
+        "accepted": false,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "failed",
+        "scored": 20,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

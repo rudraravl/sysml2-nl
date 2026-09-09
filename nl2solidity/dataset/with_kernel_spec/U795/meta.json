@@ -1,0 +1,74 @@
+{
+  "id": "U795",
+  "source_path": "sol_seed.jsonl:U795",
+  "split": "generated",
+  "quality": "B",
+  "category": "derivatives",
+  "created": "2026-09-03T21:28:22.203995",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "Lighter Robinhood Perps",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "passed"
+    },
+    "n_tests": 51,
+    "n_passed": 51,
+    "n_failed": 0,
+    "failure_classes": {},
+    "contract_defects": 0,
+    "harness_defects": 0,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 6
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 5,
+    "n_actionable": 1,
+    "by_impact": {
+      "Medium": 1,
+      "Low": 4
+    },
+    "actionable": [
+      {
+        "detector": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 185,
+        "contract": "PerpetualFutures",
+        "function": "openPosition",
+        "description": "PerpetualFutures.openPosition(bytes32,bool,uint256,uint256) (Candidate.sol#185-227) performs a multiplication on the result of a division: - size = (margin * leverage) / BPS_DENOMINATOR (Candidate.sol#202) - fee = (size * FEE_BPS) / BPS_DENOMINATOR (Candidate.sol#203)"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": true,
+    "similarity": 0.8559,
+    "initial_similarity": 0.8559,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.8559,
+        "delta_vs_initial": 0.0,
+        "accepted": true,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "passed",
+        "scored": 17,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

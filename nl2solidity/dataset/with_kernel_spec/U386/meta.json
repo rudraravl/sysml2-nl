@@ -1,0 +1,76 @@
+{
+  "id": "U386",
+  "source_path": "sol_seed.jsonl:U386",
+  "split": "generated",
+  "quality": "B",
+  "category": "staking",
+  "created": "2026-09-03T01:57:31.912676",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "CatFee Staking Vault",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "failed",
+      "properties": "failed"
+    },
+    "n_tests": 2,
+    "n_passed": 0,
+    "n_failed": 2,
+    "failure_classes": {
+      "test_failed": 2
+    },
+    "contract_defects": 0,
+    "harness_defects": 2,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 6
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 8,
+    "n_actionable": 1,
+    "by_impact": {
+      "Medium": 1,
+      "Low": 7
+    },
+    "actionable": [
+      {
+        "detector": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 159,
+        "contract": "LiquidStakingVault",
+        "function": "distributeRewards",
+        "description": "LiquidStakingVault.distributeRewards() (Candidate.sol#159-184) performs a multiplication on the result of a division: - rewardPerTokenIncrement = (rewardRate * elapsed * REWARD_PRECISION) / (BPS_DENOMINATOR * SECONDS_PER_DAY) (Candidate.sol#168-169) - rewardAmount = (totalStaked * rewardPerTokenIncrement) / REWARD_PRECISION (Candidate.sol#172)"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": false,
+    "similarity": 0.9278,
+    "initial_similarity": 0.9278,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.9278,
+        "delta_vs_initial": 0.0,
+        "accepted": false,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "failed",
+        "scored": 18,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

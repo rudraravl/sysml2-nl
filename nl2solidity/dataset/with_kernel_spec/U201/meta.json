@@ -1,0 +1,84 @@
+{
+  "id": "U201",
+  "source_path": "sol_seed.jsonl:U201",
+  "split": "generated",
+  "quality": "B",
+  "category": "gaming",
+  "created": "2026-09-02T14:48:34.569371",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "PepeDex",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "passed"
+    },
+    "n_tests": 99,
+    "n_passed": 99,
+    "n_failed": 0,
+    "failure_classes": {},
+    "contract_defects": 0,
+    "harness_defects": 0,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 6
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 4,
+    "n_actionable": 2,
+    "by_impact": {
+      "High": 1,
+      "Medium": 1,
+      "Low": 2
+    },
+    "actionable": [
+      {
+        "detector": "weak-prng",
+        "impact": "High",
+        "confidence": "Medium",
+        "line": 358,
+        "contract": "CollectibleCardGame",
+        "function": "_drawCardType",
+        "description": "CollectibleCardGame._drawCardType(uint256) (Candidate.sol#358-380) uses a weak PRNG: \"weightedRandom = random % totalWeight (Candidate.sol#371)\""
+      },
+      {
+        "detector": "uninitialized-local",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 403,
+        "contract": null,
+        "function": null,
+        "description": "CollectibleCardGame.buyCardPacks(uint256).idx (Candidate.sol#403) is a local variable never initialized"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": true,
+    "similarity": 0.9225,
+    "initial_similarity": 0.9225,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.9225,
+        "delta_vs_initial": 0.0,
+        "accepted": true,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "passed",
+        "scored": 20,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

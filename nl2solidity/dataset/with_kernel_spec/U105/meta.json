@@ -1,0 +1,96 @@
+{
+  "id": "U105",
+  "source_path": "sol_seed.jsonl:U105",
+  "split": "generated",
+  "quality": "B",
+  "category": "derivatives",
+  "created": "2026-09-02T06:31:36.638877",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "IntentX",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "failed"
+    },
+    "n_tests": 72,
+    "n_passed": 68,
+    "n_failed": 4,
+    "failure_classes": {
+      "test_failed": 4
+    },
+    "contract_defects": 0,
+    "harness_defects": 4,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 5
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 8,
+    "n_actionable": 3,
+    "by_impact": {
+      "High": 1,
+      "Medium": 2,
+      "Low": 2,
+      "Informational": 3
+    },
+    "actionable": [
+      {
+        "detector": "arbitrary-send-erc20",
+        "impact": "High",
+        "confidence": "High",
+        "line": 21,
+        "contract": "SafeERC20",
+        "function": "safeTransferFrom",
+        "description": "SafeERC20.safeTransferFrom(IERC20,address,address,uint256) (Candidate.sol#21-27) uses arbitrary from in transferFrom: ok = token.transferFrom(from,to,amount) (Candidate.sol#25)"
+      },
+      {
+        "detector": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 414,
+        "contract": "PerpetualsExchange",
+        "function": "openPosition",
+        "description": "PerpetualsExchange.openPosition(bytes32,PerpetualsExchange.Side,uint256,uint256) (Candidate.sol#414-478) performs a multiplication on the result of a division: - notional = (marginAmount * leverage) / WAD (Candidate.sol#427) - fee = (notional * tradingFeeBps) / BPS_DENOMINATOR (Candidate.sol#439)"
+      },
+      {
+        "detector": "locked-ether",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 139,
+        "contract": "PerpetualsExchange",
+        "function": "receive",
+        "description": "Contract locking ether found: Contract PerpetualsExchange (Candidate.sol#139-663) has payable functions: - PerpetualsExchange.receive() (Candidate.sol#659-661) But does not have a function to withdraw the ether"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": false,
+    "similarity": 0.8925,
+    "initial_similarity": 0.8925,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.8925,
+        "delta_vs_initial": 0.0,
+        "accepted": false,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "failed",
+        "scored": 20,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

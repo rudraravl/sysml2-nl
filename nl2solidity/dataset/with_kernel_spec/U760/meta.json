@@ -1,0 +1,93 @@
+{
+  "id": "U760",
+  "source_path": "sol_seed.jsonl:U760",
+  "split": "generated",
+  "quality": "B",
+  "category": "governance",
+  "created": "2026-09-03T20:40:23.916781",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "Spectra MetaVaults Outside V2",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "passed"
+    },
+    "n_tests": 68,
+    "n_passed": 68,
+    "n_failed": 0,
+    "failure_classes": {},
+    "contract_defects": 0,
+    "harness_defects": 0,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 6
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 6,
+    "n_actionable": 3,
+    "by_impact": {
+      "High": 1,
+      "Medium": 2,
+      "Low": 3
+    },
+    "actionable": [
+      {
+        "detector": "arbitrary-send-erc20",
+        "impact": "High",
+        "confidence": "High",
+        "line": 25,
+        "contract": "SafeERC20",
+        "function": "safeTransferFrom",
+        "description": "SafeERC20.safeTransferFrom(IERC20,address,address,uint256) (Candidate.sol#25-28) uses arbitrary from in transferFrom: require(bool,string)(token.transferFrom(from,to,amount),SafeERC20: transferFrom failed) (Candidate.sol#27)"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 208,
+        "contract": "CuratedVaultManager",
+        "function": "harvest",
+        "description": "Reentrancy in CuratedVaultManager.harvest(uint256) (Candidate.sol#208-222): External calls: - rewardAmount = strat.harvest() (Candidate.sol#212) State variables written after the call(s): - vault.rewardBalance += rewardAmount (Candidate.sol#215) CuratedVaultManager.vaults (Candidate.sol#101) can be used in cross function reentrancies: - CuratedVaultManager.addVault(address,address,uint256) (Candid"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 232,
+        "contract": "CuratedVaultManager",
+        "function": "rollover",
+        "description": "Reentrancy in CuratedVaultManager.rollover(uint256,address) (Candidate.sol#232-256): External calls: - rewardAmount = oldStrategy.harvest() (Candidate.sol#238) State variables written after the call(s): - vault.rewardBalance += rewardAmount (Candidate.sol#240) CuratedVaultManager.vaults (Candidate.sol#101) can be used in cross function reentrancies: - CuratedVaultManager.addVault(address,address,u"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": true,
+    "similarity": 0.8333,
+    "initial_similarity": 0.8333,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.8333,
+        "delta_vs_initial": 0.0,
+        "accepted": true,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "passed",
+        "scored": 18,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

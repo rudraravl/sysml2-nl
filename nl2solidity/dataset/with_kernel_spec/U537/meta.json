@@ -1,0 +1,100 @@
+{
+  "id": "U537",
+  "source_path": "sol_seed.jsonl:U537",
+  "split": "generated",
+  "quality": "B",
+  "category": "launchpad",
+  "created": "2026-09-03T11:06:34.679809",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "Mixpad",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "failed",
+      "properties": "failed"
+    },
+    "n_tests": 2,
+    "n_passed": 0,
+    "n_failed": 2,
+    "failure_classes": {
+      "test_failed": 2
+    },
+    "contract_defects": 0,
+    "harness_defects": 2,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 6,
+    "harness_notes": [
+      "skipped fuzzing initiateLaunch(address): parameter 'depositToken': user-defined type contract IERC20 the harness cannot construct",
+      "skipped fuzzing setProjectToken(uint256,address,uint256): parameter 'projectToken': user-defined type contract IERC20 the harness cannot construct"
+    ]
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 8,
+    "n_actionable": 3,
+    "by_impact": {
+      "High": 1,
+      "Medium": 2,
+      "Low": 3,
+      "Informational": 2
+    },
+    "actionable": [
+      {
+        "detector": "arbitrary-send-erc20",
+        "impact": "High",
+        "confidence": "High",
+        "line": 23,
+        "contract": "SafeERC20",
+        "function": "safeTransferFrom",
+        "description": "SafeERC20.safeTransferFrom(IERC20,address,address,uint256) (Candidate.sol#23-28) uses arbitrary from in transferFrom: success = token.transferFrom(from,to,amount) (Candidate.sol#24)"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 224,
+        "contract": "TokenLaunch",
+        "function": "deposit",
+        "description": "Reentrancy in TokenLaunch.deposit(uint256,uint256) (Candidate.sol#224-247): External calls: - IERC20(launch.depositToken).safeTransferFrom(msg.sender,address(this),amount) (Candidate.sol#233) - IERC20(launch.depositToken).safeTransfer(treasury,fee) (Candidate.sol#235) State variables written after the call(s): - launch.totalDeposited += netAmount (Candidate.sol#244) TokenLaunch.launches (Candidate"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 185,
+        "contract": "TokenLaunch",
+        "function": "advancePhase",
+        "description": "Reentrancy in TokenLaunch.advancePhase(uint256) (Candidate.sol#185-221): External calls: - IERC20(launch.projectToken).safeTransferFrom(msg.sender,address(this),launch.totalProjectTokens) (Candidate.sol#193) State variables written after the call(s): - launch.totalAllocated = totalAlloc (Candidate.sol#209) TokenLaunch.launches (Candidate.sol#90) can be used in cross function reentrancies: - TokenL"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": false,
+    "similarity": 0.8579,
+    "initial_similarity": 0.8579,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.8579,
+        "delta_vs_initial": 0.0,
+        "accepted": false,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "failed",
+        "scored": 19,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

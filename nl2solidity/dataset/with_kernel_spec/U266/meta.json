@@ -1,0 +1,83 @@
+{
+  "id": "U266",
+  "source_path": "sol_seed.jsonl:U266",
+  "split": "generated",
+  "quality": "B",
+  "category": "launchpad",
+  "created": "2026-09-02T19:02:18.207029",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "four.meme",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "passed"
+    },
+    "n_tests": 36,
+    "n_passed": 36,
+    "n_failed": 0,
+    "failure_classes": {},
+    "contract_defects": 0,
+    "harness_defects": 0,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 6
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 2,
+    "n_actionable": 2,
+    "by_impact": {
+      "High": 1,
+      "Medium": 1
+    },
+    "actionable": [
+      {
+        "detector": "arbitrary-send-erc20",
+        "impact": "High",
+        "confidence": "High",
+        "line": 20,
+        "contract": "SafeERC20",
+        "function": "safeTransferFrom",
+        "description": "SafeERC20.safeTransferFrom(IERC20,address,address,uint256) (Candidate.sol#20-23) uses arbitrary from in transferFrom: success = token.transferFrom(from,to,value) (Candidate.sol#21)"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 189,
+        "contract": "TokenLaunchpad",
+        "function": "finalizeCampaign",
+        "description": "Reentrancy in TokenLaunchpad.finalizeCampaign(uint256) (Candidate.sol#189-203): External calls: - IERC20(c.projectToken).safeTransferFrom(msg.sender,address(this),totalTokens) (Candidate.sol#196) State variables written after the call(s): - c.projectTokensDeposited = true (Candidate.sol#198) TokenLaunchpad.s_campaigns (Candidate.sol#101) can be used in cross function reentrancies: - TokenLaunchpad"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": true,
+    "similarity": 0.9921,
+    "initial_similarity": 0.9921,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.9921,
+        "delta_vs_initial": 0.0,
+        "accepted": true,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "passed",
+        "scored": 19,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

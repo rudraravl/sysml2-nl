@@ -1,0 +1,76 @@
+{
+  "id": "U697",
+  "source_path": "sol_seed.jsonl:U697",
+  "split": "generated",
+  "quality": "B",
+  "category": "token",
+  "created": "2026-09-03T18:23:30.110598",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "Neutrino",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "failed",
+      "properties": "skipped"
+    },
+    "n_tests": 1,
+    "n_passed": 0,
+    "n_failed": 1,
+    "failure_classes": {
+      "test_failed": 1
+    },
+    "contract_defects": 0,
+    "harness_defects": 1,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 0
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 7,
+    "n_actionable": 1,
+    "by_impact": {
+      "High": 1,
+      "Low": 6
+    },
+    "actionable": [
+      {
+        "detector": "reentrancy-balance",
+        "impact": "High",
+        "confidence": "Medium",
+        "line": 288,
+        "contract": "SyntheticAsset",
+        "function": "addRewards",
+        "description": "Reentrancy in SyntheticAsset.addRewards(uint256,uint256) (Candidate.sol#288-300): External call allowing reentrancy: - ok = rewardToken.transferFrom(msg.sender,address(this),amount) (Candidate.sol#291) Balance read before the call: - balBefore = rewardToken.balanceOf(address(this)) (Candidate.sol#290) Possible stale balance used after the call in a condition: - received < amount (Candidate.sol#294"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": false,
+    "similarity": 0.9147,
+    "initial_similarity": 0.9147,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.9147,
+        "delta_vs_initial": 0.0,
+        "accepted": false,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "failed",
+        "scored": 17,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

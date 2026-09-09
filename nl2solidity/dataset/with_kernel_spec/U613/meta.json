@@ -1,0 +1,92 @@
+{
+  "id": "U613",
+  "source_path": "sol_seed.jsonl:U613",
+  "split": "generated",
+  "quality": "B",
+  "category": "yield",
+  "created": "2026-09-03T15:05:58.737610",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "StableHodl",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "skipped"
+    },
+    "n_tests": 33,
+    "n_passed": 33,
+    "n_failed": 0,
+    "failure_classes": {},
+    "contract_defects": 0,
+    "harness_defects": 0,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 0
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 4,
+    "n_actionable": 3,
+    "by_impact": {
+      "Medium": 3,
+      "Low": 1
+    },
+    "actionable": [
+      {
+        "detector": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 160,
+        "contract": "StablecoinYieldVault",
+        "function": "_updatePool",
+        "description": "StablecoinYieldVault._updatePool() (Candidate.sol#160-172) performs a multiplication on the result of a division: - accrued = (totalDeposited * yieldRate * blocksElapsed) / (BPS_DENOMINATOR * BLOCKS_PER_YEAR) (Candidate.sol#167-168) - accYieldPerShare += (accrued * ACC_PRECISION) / totalDeposited (Candidate.sol#170)"
+      },
+      {
+        "detector": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 174,
+        "contract": "StablecoinYieldVault",
+        "function": "_pendingYield",
+        "description": "StablecoinYieldVault._pendingYield(address) (Candidate.sol#174-187) performs a multiplication on the result of a division: - accrued = (totalDeposited * yieldRate * blocksElapsed) / (BPS_DENOMINATOR * BLOCKS_PER_YEAR) (Candidate.sol#180-181) - currentAccPerShare = accYieldPerShare + (accrued * ACC_PRECISION) / totalDeposited (Candidate.sol#182-183)"
+      },
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 251,
+        "contract": "StablecoinYieldVault",
+        "function": "claimYield",
+        "description": "StablecoinYieldVault.claimYield() (Candidate.sol#251-273) uses a dangerous strict equality: - claimable == 0 (Candidate.sol#258)"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": true,
+    "similarity": 0.9111,
+    "initial_similarity": 0.9111,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.9111,
+        "delta_vs_initial": 0.0,
+        "accepted": true,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "passed",
+        "scored": 18,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

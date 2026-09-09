@@ -1,0 +1,93 @@
+{
+  "id": "U420",
+  "source_path": "sol_seed.jsonl:U420",
+  "split": "generated",
+  "quality": "B",
+  "category": "token",
+  "created": "2026-09-03T03:56:05.497008",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "Velvet V2",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "skipped"
+    },
+    "n_tests": 55,
+    "n_passed": 55,
+    "n_failed": 0,
+    "failure_classes": {},
+    "contract_defects": 0,
+    "harness_defects": 0,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 0
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 5,
+    "n_actionable": 3,
+    "by_impact": {
+      "High": 2,
+      "Medium": 1,
+      "Low": 2
+    },
+    "actionable": [
+      {
+        "detector": "weak-prng",
+        "impact": "High",
+        "confidence": "Medium",
+        "line": 331,
+        "contract": "PortfolioManager",
+        "function": "_accrueManagementFee",
+        "description": "PortfolioManager._accrueManagementFee(address) (Candidate.sol#331-364) uses a weak PRNG: \"newLast = block.timestamp - (elapsed % MONTHLY_INTERVAL) (Candidate.sol#344)\""
+      },
+      {
+        "detector": "reentrancy-balance",
+        "impact": "High",
+        "confidence": "Medium",
+        "line": 174,
+        "contract": "PortfolioManager",
+        "function": "_executeSwap",
+        "description": "Reentrancy in PortfolioManager._executeSwap(address,address,address,uint256,bytes) (Candidate.sol#174-197): External call allowing reentrancy: - (success,None) = router.call(swapData) (Candidate.sol#187) Balance read before the call: - balanceBefore = IERC20(tokenOut).balanceOf(address(this)) (Candidate.sol#186) Possible stale balance used after the call in a condition: - balanceAfter < balanceBef"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 140,
+        "contract": "PortfolioManager",
+        "function": "rebalance",
+        "description": "Reentrancy in PortfolioManager.rebalance(address,address,uint256,uint256,address,bytes) (Candidate.sol#140-172): External calls: - amountOut = _executeSwap(tokenIn,tokenOut,router,swapAmount,swapData) (Candidate.sol#164) - (success,data) = token.call(abi.encodeWithSelector(IERC20.approve.selector,spender,amount)) (Candidate.sol#404-406) - (success,None) = router.call(swapData) (Candidate.sol#187) "
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": true,
+    "similarity": 0.9361,
+    "initial_similarity": 0.9361,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.9361,
+        "delta_vs_initial": 0.0,
+        "accepted": true,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "passed",
+        "scored": 18,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

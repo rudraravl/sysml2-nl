@@ -1,0 +1,129 @@
+{
+  "id": "U724",
+  "source_path": "sol_seed.jsonl:U724",
+  "split": "generated",
+  "quality": "B",
+  "category": "governance",
+  "created": "2026-09-03T19:11:34.862573",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "Theoriq Gold Vault",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "skipped"
+    },
+    "n_tests": 59,
+    "n_passed": 59,
+    "n_failed": 0,
+    "failure_classes": {},
+    "contract_defects": 0,
+    "harness_defects": 0,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 0
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 13,
+    "n_actionable": 7,
+    "by_impact": {
+      "High": 3,
+      "Medium": 4,
+      "Low": 6
+    },
+    "actionable": [
+      {
+        "detector": "arbitrary-send-erc20",
+        "impact": "High",
+        "confidence": "High",
+        "line": 25,
+        "contract": "SafeERC20",
+        "function": "safeTransferFrom",
+        "description": "SafeERC20.safeTransferFrom(IERC20,address,address,uint256) (Candidate.sol#25-33) uses arbitrary from in transferFrom: success = token.transferFrom(from,to,amount) (Candidate.sol#26)"
+      },
+      {
+        "detector": "reentrancy-balance",
+        "impact": "High",
+        "confidence": "Medium",
+        "line": 337,
+        "contract": "GoldVault",
+        "function": "deployToStrategy",
+        "description": "Reentrancy in GoldVault.deployToStrategy(address,uint256) (Candidate.sol#337-363): External call allowing reentrancy: - goldToken.safeTransfer(strategy,amount) (Candidate.sol#350) Balance read before the call: - sharesBefore = IYieldStrategy(strategy).balanceOf(address(this)) (Candidate.sol#348) Possible stale balance used after the call in a condition: - sharesAfter != sharesBefore + sharesReceiv"
+      },
+      {
+        "detector": "reentrancy-balance",
+        "impact": "High",
+        "confidence": "Medium",
+        "line": 337,
+        "contract": "GoldVault",
+        "function": "deployToStrategy",
+        "description": "Reentrancy in GoldVault.deployToStrategy(address,uint256) (Candidate.sol#337-363): External call allowing reentrancy: - sharesReceived = IYieldStrategy(strategy).deploy(amount) (Candidate.sol#351) Balance read before the call: - sharesBefore = IYieldStrategy(strategy).balanceOf(address(this)) (Candidate.sol#348) Possible stale balance used after the call in a condition: - sharesAfter != sharesBefo"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 239,
+        "contract": "GoldVault",
+        "function": "deposit",
+        "description": "Reentrancy in GoldVault.deposit(uint256) (Candidate.sol#239-254): External calls: - _claimYieldInternal(msg.sender) (Candidate.sol#242) - success = token.transfer(to,amount) (Candidate.sol#15) - goldToken.safeTransfer(user,pending) (Candidate.sol#504) State variables written after the call(s): - userDeposits[msg.sender] += amount (Candidate.sol#244) GoldVault.userDeposits (Candidate.sol#173) can b"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 258,
+        "contract": "GoldVault",
+        "function": "withdraw",
+        "description": "Reentrancy in GoldVault.withdraw(uint256) (Candidate.sol#258-283): External calls: - _claimYieldInternal(msg.sender) (Candidate.sol#264) - success = token.transfer(to,amount) (Candidate.sol#15) - goldToken.safeTransfer(user,pending) (Candidate.sol#504) State variables written after the call(s): - userDeposits[msg.sender] = balance - amount (Candidate.sol#273) GoldVault.userDeposits (Candidate.sol#"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 368,
+        "contract": "GoldVault",
+        "function": "redeemFromStrategy",
+        "description": "Reentrancy in GoldVault.redeemFromStrategy(address,uint256) (Candidate.sol#368-400): External calls: - amountReturned = IYieldStrategy(strategy).redeem(shares) (Candidate.sol#382) State variables written after the call(s): - strategyPrincipal[strategy] -= principalPortion (Candidate.sol#388) GoldVault.strategyPrincipal (Candidate.sol#188) can be used in cross function reentrancies: - GoldVault.str"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 337,
+        "contract": "GoldVault",
+        "function": "deployToStrategy",
+        "description": "Reentrancy in GoldVault.deployToStrategy(address,uint256) (Candidate.sol#337-363): External calls: - goldToken.safeTransfer(strategy,amount) (Candidate.sol#350) - sharesReceived = IYieldStrategy(strategy).deploy(amount) (Candidate.sol#351) State variables written after the call(s): - totalDeployed += amount (Candidate.sol#360) GoldVault.totalDeployed (Candidate.sol#170) can be used in cross functi"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": true,
+    "similarity": 0.8925,
+    "initial_similarity": 0.8925,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.8925,
+        "delta_vs_initial": 0.0,
+        "accepted": true,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "passed",
+        "scored": 20,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

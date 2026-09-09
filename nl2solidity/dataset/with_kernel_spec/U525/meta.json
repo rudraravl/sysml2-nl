@@ -1,0 +1,102 @@
+{
+  "id": "U525",
+  "source_path": "sol_seed.jsonl:U525",
+  "split": "generated",
+  "quality": "B",
+  "category": "lending",
+  "created": "2026-09-03T10:29:27.626326",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "USD AI",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "skipped"
+    },
+    "n_tests": 46,
+    "n_passed": 46,
+    "n_failed": 0,
+    "failure_classes": {},
+    "contract_defects": 0,
+    "harness_defects": 0,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 0
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 15,
+    "n_actionable": 4,
+    "by_impact": {
+      "Medium": 4,
+      "Low": 9,
+      "Informational": 2
+    },
+    "actionable": [
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 294,
+        "contract": "SyntheticDollar",
+        "function": "_checkCollateralization",
+        "description": "SyntheticDollar._checkCollateralization(address) (Candidate.sol#294-304) uses a dangerous strict equality: - positions[user].principalDebt == 0 (Candidate.sol#295)"
+      },
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 435,
+        "contract": "SyntheticDollar",
+        "function": "isSafe",
+        "description": "SyntheticDollar.isSafe(address) (Candidate.sol#435-439) uses a dangerous strict equality: - positions[user].principalDebt == 0 (Candidate.sol#436)"
+      },
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 401,
+        "contract": "SyntheticDollar",
+        "function": "rescueEther",
+        "description": "SyntheticDollar.rescueEther(address) (Candidate.sol#401-408) uses a dangerous strict equality: - balance == 0 (Candidate.sol#404)"
+      },
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 414,
+        "contract": "SyntheticDollar",
+        "function": "getCollateralizationRatio",
+        "description": "SyntheticDollar.getCollateralizationRatio(address) (Candidate.sol#414-418) uses a dangerous strict equality: - positions[user].principalDebt == 0 (Candidate.sol#415)"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": true,
+    "similarity": 0.95,
+    "initial_similarity": 0.95,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.95,
+        "delta_vs_initial": 0.0,
+        "accepted": true,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "passed",
+        "scored": 18,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

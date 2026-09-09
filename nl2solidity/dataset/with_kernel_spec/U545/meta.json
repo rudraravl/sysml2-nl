@@ -1,0 +1,94 @@
+{
+  "id": "U545",
+  "source_path": "sol_seed.jsonl:U545",
+  "split": "generated",
+  "quality": "B",
+  "category": "governance",
+  "created": "2026-09-03T11:36:56.354180",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "LobbyFi",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "failed",
+      "properties": "failed"
+    },
+    "n_tests": 2,
+    "n_passed": 0,
+    "n_failed": 2,
+    "failure_classes": {
+      "test_failed": 2
+    },
+    "contract_defects": 0,
+    "harness_defects": 2,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 6
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 6,
+    "n_actionable": 3,
+    "by_impact": {
+      "Medium": 3,
+      "Low": 3
+    },
+    "actionable": [
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 194,
+        "contract": "GovernanceDelegation",
+        "function": "withdraw",
+        "description": "Reentrancy in GovernanceDelegation.withdraw(uint256) (Candidate.sol#194-214): External calls: - _distributeYield() (Candidate.sol#200) - ! yieldToken.transfer(owner,feeAmount) (Candidate.sol#132) - _claimYield(msg.sender) (Candidate.sol#201) - ! yieldToken.transfer(_to,_amount) (Candidate.sol#157) State variables written after the call(s): - totalDeposited -= _amount (Candidate.sol#205) Governance"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 216,
+        "contract": "GovernanceDelegation",
+        "function": "claimYield",
+        "description": "Reentrancy in GovernanceDelegation.claimYield() (Candidate.sol#216-228): External calls: - _distributeYield() (Candidate.sol#217) - ! yieldToken.transfer(owner,feeAmount) (Candidate.sol#132) State variables written after the call(s): - totalYieldPending -= pending (Candidate.sol#223) GovernanceDelegation.totalYieldPending (Candidate.sol#51) can be used in cross function reentrancies: - GovernanceD"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 168,
+        "contract": "GovernanceDelegation",
+        "function": "deposit",
+        "description": "Reentrancy in GovernanceDelegation.deposit(uint256) (Candidate.sol#168-192): External calls: - ! governanceToken.transferFrom(msg.sender,address(this),_amount) (Candidate.sol#172) - _distributeYield() (Candidate.sol#177) - ! yieldToken.transfer(owner,feeAmount) (Candidate.sol#132) - _claimYield(msg.sender) (Candidate.sol#178) - ! yieldToken.transfer(_to,_amount) (Candidate.sol#157) State variables"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": false,
+    "similarity": 1.0,
+    "initial_similarity": 1.0,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 1.0,
+        "delta_vs_initial": 0.0,
+        "accepted": false,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "failed",
+        "scored": 19,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

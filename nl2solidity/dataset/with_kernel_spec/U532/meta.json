@@ -1,0 +1,113 @@
+{
+  "id": "U532",
+  "source_path": "sol_seed.jsonl:U532",
+  "split": "generated",
+  "quality": "B",
+  "category": "derivatives",
+  "created": "2026-09-03T10:43:08.849659",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "Extended Perps",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "failed"
+    },
+    "n_tests": 49,
+    "n_passed": 44,
+    "n_failed": 5,
+    "failure_classes": {
+      "unexpected_revert": 4,
+      "assertion_failed": 1
+    },
+    "contract_defects": 1,
+    "harness_defects": 4,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 7
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 6,
+    "n_actionable": 5,
+    "by_impact": {
+      "Medium": 5,
+      "Low": 1
+    },
+    "actionable": [
+      {
+        "detector": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 289,
+        "contract": "PerpetualFutures",
+        "function": "openPosition",
+        "description": "PerpetualFutures.openPosition(uint256,uint256,bool) (Candidate.sol#289-320) performs a multiplication on the result of a division: - notional = (size * oraclePrice) / WAD (Candidate.sol#301) - fee = (notional * FEE_RATE) / WAD (Candidate.sol#303)"
+      },
+      {
+        "detector": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 323,
+        "contract": "PerpetualFutures",
+        "function": "closePosition",
+        "description": "PerpetualFutures.closePosition() (Candidate.sol#323-352) performs a multiplication on the result of a division: - notional = (p.size * currentPrice) / WAD (Candidate.sol#332) - fee = (notional * FEE_RATE) / WAD (Candidate.sol#333)"
+      },
+      {
+        "detector": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 382,
+        "contract": "PerpetualFutures",
+        "function": "liquidate",
+        "description": "PerpetualFutures.liquidate(address) (Candidate.sol#382-417) performs a multiplication on the result of a division: - notional = (p.size * currentPrice) / WAD (Candidate.sol#392) - maintenance = (notional * maintenanceMarginRatio) / WAD (Candidate.sol#393)"
+      },
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 425,
+        "contract": "PerpetualFutures",
+        "function": "_applyFunding",
+        "description": "PerpetualFutures._applyFunding(address) (Candidate.sol#425-455) uses a dangerous strict equality: - elapsed == 0 (Candidate.sol#430)"
+      },
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 425,
+        "contract": "PerpetualFutures",
+        "function": "_applyFunding",
+        "description": "PerpetualFutures._applyFunding(address) (Candidate.sol#425-455) uses a dangerous strict equality: - fundingPayment == 0 (Candidate.sol#433)"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": false,
+    "similarity": 0.9632,
+    "initial_similarity": 0.9632,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.9632,
+        "delta_vs_initial": 0.0,
+        "accepted": false,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "failed",
+        "scored": 19,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

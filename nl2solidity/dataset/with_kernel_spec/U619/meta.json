@@ -1,0 +1,73 @@
+{
+  "id": "U619",
+  "source_path": "sol_seed.jsonl:U619",
+  "split": "generated",
+  "quality": "B",
+  "category": "gaming",
+  "created": "2026-09-03T15:18:29.036955",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "Bitmap Game",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "passed"
+    },
+    "n_tests": 41,
+    "n_passed": 41,
+    "n_failed": 0,
+    "failure_classes": {},
+    "contract_defects": 0,
+    "harness_defects": 0,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 6
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 1,
+    "n_actionable": 1,
+    "by_impact": {
+      "Medium": 1
+    },
+    "actionable": [
+      {
+        "detector": "locked-ether",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 4,
+        "contract": "MetaverseLandRegistry",
+        "function": "claimParcel",
+        "description": "Contract locking ether found: Contract MetaverseLandRegistry (Candidate.sol#4-203) has payable functions: - MetaverseLandRegistry.claimParcel(uint256) (Candidate.sol#119-128) But does not have a function to withdraw the ether"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": true,
+    "similarity": 0.9,
+    "initial_similarity": 0.9,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.9,
+        "delta_vs_initial": 0.0,
+        "accepted": true,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "passed",
+        "scored": 20,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

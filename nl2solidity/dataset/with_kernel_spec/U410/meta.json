@@ -1,0 +1,114 @@
+{
+  "id": "U410",
+  "source_path": "sol_seed.jsonl:U410",
+  "split": "generated",
+  "quality": "B",
+  "category": "lending",
+  "created": "2026-09-03T03:23:34.215503",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "Maple",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "failed"
+    },
+    "n_tests": 59,
+    "n_passed": 55,
+    "n_failed": 4,
+    "failure_classes": {
+      "test_failed": 3,
+      "expected_revert_not_raised": 1
+    },
+    "contract_defects": 1,
+    "harness_defects": 3,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 6
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 8,
+    "n_actionable": 5,
+    "by_impact": {
+      "High": 1,
+      "Medium": 4,
+      "Low": 3
+    },
+    "actionable": [
+      {
+        "detector": "arbitrary-send-erc20",
+        "impact": "High",
+        "confidence": "High",
+        "line": 22,
+        "contract": "SafeERC20",
+        "function": "safeTransferFrom",
+        "description": "SafeERC20.safeTransferFrom(IERC20,address,address,uint256) (Candidate.sol#22-24) uses arbitrary from in transferFrom: require(bool,string)(_callOptionalReturn(token.transferFrom(from,to,value)),SafeERC20: transferFrom failed) (Candidate.sol#23)"
+      },
+      {
+        "detector": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 471,
+        "contract": "InstitutionalLending",
+        "function": "collateralizationRatio",
+        "description": "InstitutionalLending.collateralizationRatio(address) (Candidate.sol#471-480) performs a multiplication on the result of a division: - collateralValue = (p.collateral * _collateralPrice()) / WAD (Candidate.sol#476) - (collateralValue * WAD) / debtValue (Candidate.sol#479)"
+      },
+      {
+        "detector": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 367,
+        "contract": "InstitutionalLending",
+        "function": "liquidate",
+        "description": "InstitutionalLending.liquidate(address,uint256) (Candidate.sol#367-414) performs a multiplication on the result of a division: - debtValueUsd = repayAmount * _loanPrice() / WAD (Candidate.sol#385) - seizeValueUsd = (debtValueUsd * (WAD + LIQUIDATION_BONUS)) / WAD (Candidate.sol#386)"
+      },
+      {
+        "detector": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 367,
+        "contract": "InstitutionalLending",
+        "function": "liquidate",
+        "description": "InstitutionalLending.liquidate(address,uint256) (Candidate.sol#367-414) performs a multiplication on the result of a division: - seizeValueUsd = (debtValueUsd * (WAD + LIQUIDATION_BONUS)) / WAD (Candidate.sol#386) - collateralToSeize = (seizeValueUsd * WAD) / _collateralPrice() (Candidate.sol#387)"
+      },
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 514,
+        "contract": "InstitutionalLending",
+        "function": "_accrueInterest",
+        "description": "InstitutionalLending._accrueInterest(InstitutionalLending.Position) (Candidate.sol#514-525) uses a dangerous strict equality: - elapsed == 0 (Candidate.sol#517)"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": false,
+    "similarity": 0.9474,
+    "initial_similarity": 0.9474,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.9474,
+        "delta_vs_initial": 0.0,
+        "accepted": false,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "failed",
+        "scored": 19,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

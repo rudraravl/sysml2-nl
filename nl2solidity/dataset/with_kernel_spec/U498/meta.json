@@ -1,0 +1,158 @@
+{
+  "id": "U498",
+  "source_path": "sol_seed.jsonl:U498",
+  "split": "generated",
+  "quality": "B",
+  "category": "yield",
+  "created": "2026-09-03T09:03:27.339824",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "Harmonix Finance",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "failed",
+      "properties": "failed"
+    },
+    "n_tests": 2,
+    "n_passed": 0,
+    "n_failed": 2,
+    "failure_classes": {
+      "test_failed": 2
+    },
+    "contract_defects": 0,
+    "harness_defects": 2,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 6
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 38,
+    "n_actionable": 16,
+    "by_impact": {
+      "High": 6,
+      "Medium": 10,
+      "Low": 22
+    },
+    "actionable": [
+      {
+        "detector": "reentrancy-balance",
+        "impact": "High",
+        "confidence": "Medium",
+        "line": 306,
+        "contract": "StableYieldVault",
+        "function": "rebalance",
+        "description": "Reentrancy in StableYieldVault.rebalance() (Candidate.sol#306-341): External call allowing reentrancy: - _forceApprove(asset,strategies[i_scope_0].adapter,diff) (Candidate.sol#335) - (ok,data) = address(token).call(abi.encodeWithSelector(IERC20.approve.selector,spender,amount)) (Candidate.sol#512-514) Balance read before the call: - total_scope_2 = totalAssets() (Candidate.sol#329) Possible stale "
+      },
+      {
+        "detector": "reentrancy-balance",
+        "impact": "High",
+        "confidence": "Medium",
+        "line": 306,
+        "contract": "StableYieldVault",
+        "function": "rebalance",
+        "description": "Reentrancy in StableYieldVault.rebalance() (Candidate.sol#306-341): External call allowing reentrancy: - _forceApprove(asset,strategies[i_scope_0].adapter,diff) (Candidate.sol#335) - (ok,data) = address(token).call(abi.encodeWithSelector(IERC20.approve.selector,spender,amount)) (Candidate.sol#512-514) Balance read before the call: - current_scope_1 = IStrategy(strategies[i_scope_0].adapter).balanc"
+      },
+      {
+        "detector": "reentrancy-balance",
+        "impact": "High",
+        "confidence": "Medium",
+        "line": 306,
+        "contract": "StableYieldVault",
+        "function": "rebalance",
+        "description": "Reentrancy in StableYieldVault.rebalance() (Candidate.sol#306-341): External call allowing reentrancy: - IStrategy(strategies[i_scope_0].adapter).deposit(diff) (Candidate.sol#336) Balance read before the call: - total_scope_2 = totalAssets() (Candidate.sol#329) Possible stale balance used after the call in a condition: - idle < diff (Candidate.sol#334) - stale variable `diff`"
+      },
+      {
+        "detector": "reentrancy-balance",
+        "impact": "High",
+        "confidence": "Medium",
+        "line": 306,
+        "contract": "StableYieldVault",
+        "function": "rebalance",
+        "description": "Reentrancy in StableYieldVault.rebalance() (Candidate.sol#306-341): External call allowing reentrancy: - IStrategy(strategies[i_scope_0].adapter).deposit(diff) (Candidate.sol#336) Balance read before the call: - idle = asset.balanceOf(address(this)) (Candidate.sol#333) Possible stale balance used after the call in a condition: - idle < diff (Candidate.sol#334) - stale variable `idle`"
+      },
+      {
+        "detector": "reentrancy-balance",
+        "impact": "High",
+        "confidence": "Medium",
+        "line": 306,
+        "contract": "StableYieldVault",
+        "function": "rebalance",
+        "description": "Reentrancy in StableYieldVault.rebalance() (Candidate.sol#306-341): External call allowing reentrancy: - IStrategy(strategies[i_scope_0].adapter).deposit(diff) (Candidate.sol#336) Balance read before the call: - current_scope_1 = IStrategy(strategies[i_scope_0].adapter).balanceOf(address(this)) (Candidate.sol#328) Possible stale balance used after the call in a condition: - idle < diff (Candidate."
+      },
+      {
+        "detector": "reentrancy-balance",
+        "impact": "High",
+        "confidence": "Medium",
+        "line": 306,
+        "contract": "StableYieldVault",
+        "function": "rebalance",
+        "description": "Reentrancy in StableYieldVault.rebalance() (Candidate.sol#306-341): External call allowing reentrancy: - _forceApprove(asset,strategies[i_scope_0].adapter,diff) (Candidate.sol#335) - (ok,data) = address(token).call(abi.encodeWithSelector(IERC20.approve.selector,spender,amount)) (Candidate.sol#512-514) Balance read before the call: - idle = asset.balanceOf(address(this)) (Candidate.sol#333) Possibl"
+      },
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 160,
+        "contract": "StableYieldVault",
+        "function": "deposit",
+        "description": "StableYieldVault.deposit(uint256) (Candidate.sol#160-187) uses a dangerous strict equality: - sharesMinted == 0 (Candidate.sol#172)"
+      },
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 455,
+        "contract": "StableYieldVault",
+        "function": "convertToAssets",
+        "description": "StableYieldVault.convertToAssets(uint256) (Candidate.sol#455-458) uses a dangerous strict equality: - totalShares == 0 (Candidate.sol#456)"
+      },
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 460,
+        "contract": "StableYieldVault",
+        "function": "availableToWithdraw",
+        "description": "StableYieldVault.availableToWithdraw(address) (Candidate.sol#460-468) uses a dangerous strict equality: - shares[user] == 0 || totalShares == 0 (Candidate.sol#462)"
+      },
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 189,
+        "contract": "StableYieldVault",
+        "function": "withdraw",
+        "description": "StableYieldVault.withdraw(uint256) (Candidate.sol#189-219) uses a dangerous strict equality: - amount == 0 (Candidate.sol#199)"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": false,
+    "similarity": 1.0,
+    "initial_similarity": 1.0,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 1.0,
+        "delta_vs_initial": 0.0,
+        "accepted": false,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "failed",
+        "scored": 20,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

@@ -1,0 +1,85 @@
+{
+  "id": "U747",
+  "source_path": "sol_seed.jsonl:U747",
+  "split": "generated",
+  "quality": "B",
+  "category": "dex",
+  "created": "2026-09-03T20:10:14.284409",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "Kamino Liquidity",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "failed",
+      "properties": "failed"
+    },
+    "n_tests": 2,
+    "n_passed": 0,
+    "n_failed": 2,
+    "failure_classes": {
+      "test_failed": 2
+    },
+    "contract_defects": 0,
+    "harness_defects": 2,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 8
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 4,
+    "n_actionable": 2,
+    "by_impact": {
+      "Medium": 2,
+      "Low": 2
+    },
+    "actionable": [
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 314,
+        "contract": "ConcentratedLiquidityVault",
+        "function": "claimRewards",
+        "description": "ConcentratedLiquidityVault.claimRewards() (Candidate.sol#314-326) uses a dangerous strict equality: - claimed == 0 (Candidate.sol#318)"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 334,
+        "contract": "ConcentratedLiquidityVault",
+        "function": "openPosition",
+        "description": "Reentrancy in ConcentratedLiquidityVault.openPosition(address,uint256,uint256,int24,int24) (Candidate.sol#334-377): External calls: - ! IERC20(token0).approve(pool,amount0) (Candidate.sol#355) - ! IERC20(token1).approve(pool,amount1) (Candidate.sol#358) - (positionId,liquidity) = IConcentratedLiquidityPool(pool).deposit(amount0,amount1,tickLower,tickUpper) (Candidate.sol#362) State variables writt"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": false,
+    "similarity": 0.9775,
+    "initial_similarity": 0.9775,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.9775,
+        "delta_vs_initial": 0.0,
+        "accepted": false,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "failed",
+        "scored": 20,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

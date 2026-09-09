@@ -1,0 +1,83 @@
+{
+  "id": "U822",
+  "source_path": "sol_seed.jsonl:U822",
+  "split": "generated",
+  "quality": "B",
+  "category": "gaming",
+  "created": "2026-09-03T22:03:43.502217",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "Axie Infinity",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "passed"
+    },
+    "n_tests": 60,
+    "n_passed": 60,
+    "n_failed": 0,
+    "failure_classes": {},
+    "contract_defects": 0,
+    "harness_defects": 0,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 7
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 3,
+    "n_actionable": 2,
+    "by_impact": {
+      "High": 2,
+      "Low": 1
+    },
+    "actionable": [
+      {
+        "detector": "weak-prng",
+        "impact": "High",
+        "confidence": "Medium",
+        "line": 241,
+        "contract": "CreatureVerse",
+        "function": "breed",
+        "description": "CreatureVerse.breed(uint256,uint256) (Candidate.sol#241-289) uses a weak PRNG: \"variance = uint16(uint256(keccak256(bytes)(abi.encodePacked(block.timestamp,_nextTokenId))) % 20) (Candidate.sol#264)\""
+      },
+      {
+        "detector": "weak-prng",
+        "impact": "High",
+        "confidence": "Medium",
+        "line": 317,
+        "contract": "CreatureVerse",
+        "function": "_roll",
+        "description": "CreatureVerse._roll(CreatureVerse.Creature,uint256,uint256,bool) (Candidate.sol#317-332) uses a weak PRNG: \"base + (salt % 1000) (Candidate.sol#331)\""
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": true,
+    "similarity": 0.9864,
+    "initial_similarity": 0.9864,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.9864,
+        "delta_vs_initial": 0.0,
+        "accepted": true,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "passed",
+        "scored": 11,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

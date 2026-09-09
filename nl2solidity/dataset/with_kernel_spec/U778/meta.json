@@ -1,0 +1,74 @@
+{
+  "id": "U778",
+  "source_path": "sol_seed.jsonl:U778",
+  "split": "generated",
+  "quality": "B",
+  "category": "governance",
+  "created": "2026-09-03T21:03:00.149812",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "Superfund",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "skipped"
+    },
+    "n_tests": 25,
+    "n_passed": 25,
+    "n_failed": 0,
+    "failure_classes": {},
+    "contract_defects": 0,
+    "harness_defects": 0,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 0
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 2,
+    "n_actionable": 1,
+    "by_impact": {
+      "Medium": 1,
+      "Low": 1
+    },
+    "actionable": [
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 150,
+        "contract": "PooledInvestmentFund",
+        "function": "redeem",
+        "description": "Reentrancy in PooledInvestmentFund.redeem(uint256) (Candidate.sol#150-187): External calls: - _safeTransfer(IERC20(token),msg.sender,userAmount) (Candidate.sol#178) - success = token.transfer(to,amount) (Candidate.sol#40) - _safeTransfer(IERC20(token),fundManager,feeAmount) (Candidate.sol#181) - success = token.transfer(to,amount) (Candidate.sol#40) State variables written after the call(s): - tok"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": true,
+    "similarity": 1.0,
+    "initial_similarity": 1.0,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 1.0,
+        "delta_vs_initial": 0.0,
+        "accepted": true,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "passed",
+        "scored": 17,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

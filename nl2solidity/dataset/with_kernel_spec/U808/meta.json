@@ -1,0 +1,74 @@
+{
+  "id": "U808",
+  "source_path": "sol_seed.jsonl:U808",
+  "split": "generated",
+  "quality": "B",
+  "category": "nft",
+  "created": "2026-09-03T21:45:22.503727",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "Immutable Orderbook",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "passed"
+    },
+    "n_tests": 50,
+    "n_passed": 50,
+    "n_failed": 0,
+    "failure_classes": {},
+    "contract_defects": 0,
+    "harness_defects": 0,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 6
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 2,
+    "n_actionable": 1,
+    "by_impact": {
+      "High": 1,
+      "Informational": 1
+    },
+    "actionable": [
+      {
+        "detector": "arbitrary-send-erc20",
+        "impact": "High",
+        "confidence": "High",
+        "line": 240,
+        "contract": "NFTOrderbook",
+        "function": "executeTrade",
+        "description": "NFTOrderbook.executeTrade(address,uint256,uint256,uint256) (Candidate.sol#240-308) uses arbitrary from in transferFrom: IERC721(collection).transferFrom(seller,buyer,tokenId) (Candidate.sol#289)"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": true,
+    "similarity": 0.9395,
+    "initial_similarity": 0.9395,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.9395,
+        "delta_vs_initial": 0.0,
+        "accepted": true,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "passed",
+        "scored": 19,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

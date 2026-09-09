@@ -1,0 +1,82 @@
+{
+  "id": "U739",
+  "source_path": "sol_seed.jsonl:U739",
+  "split": "generated",
+  "quality": "B",
+  "category": "derivatives",
+  "created": "2026-09-03T19:46:51.761896",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "SOFA.org",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "passed"
+    },
+    "n_tests": 69,
+    "n_passed": 69,
+    "n_failed": 0,
+    "failure_classes": {},
+    "contract_defects": 0,
+    "harness_defects": 0,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 6
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 2,
+    "n_actionable": 2,
+    "by_impact": {
+      "Medium": 2
+    },
+    "actionable": [
+      {
+        "detector": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 389,
+        "contract": "CDPManager",
+        "function": "liquidate",
+        "description": "CDPManager.liquidate(address,address,address,uint256) (Candidate.sol#389-440) performs a multiplication on the result of a division: - collateralToSeize = (debtToRepay * PRICE_PRECISION * (RATIO_PRECISION + cfg.liquidationFee)) / (price * RATIO_PRECISION) (Candidate.sol#410-411) - feeCollected = (collateralToSeize * cfg.liquidationFee) / (RATIO_PRECISION + cfg.liquidationFee) (Candidate.sol#413)"
+      },
+      {
+        "detector": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 509,
+        "contract": "CDPManager",
+        "function": "maxBorrowable",
+        "description": "CDPManager.maxBorrowable(address,address,address) (Candidate.sol#509-523) performs a multiplication on the result of a division: - collateralValue = (pos.collateral * price) / PRICE_PRECISION (Candidate.sol#519) - maxDebt = (collateralValue * RATIO_PRECISION) / cfg.minCollateralRatio (Candidate.sol#520)"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": true,
+    "similarity": 0.9444,
+    "initial_similarity": 0.9444,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.9444,
+        "delta_vs_initial": 0.0,
+        "accepted": true,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "passed",
+        "scored": 18,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

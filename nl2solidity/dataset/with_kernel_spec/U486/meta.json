@@ -1,0 +1,92 @@
+{
+  "id": "U486",
+  "source_path": "sol_seed.jsonl:U486",
+  "split": "generated",
+  "quality": "B",
+  "category": "token",
+  "created": "2026-09-03T08:01:49.481870",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "DiversiFi",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "skipped"
+    },
+    "n_tests": 37,
+    "n_passed": 37,
+    "n_failed": 0,
+    "failure_classes": {},
+    "contract_defects": 0,
+    "harness_defects": 0,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 0
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 6,
+    "n_actionable": 3,
+    "by_impact": {
+      "Medium": 3,
+      "Low": 3
+    },
+    "actionable": [
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 201,
+        "contract": "PortfolioVaultManager",
+        "function": "_applyRebalanceMovements",
+        "description": "Reentrancy in PortfolioVaultManager._applyRebalanceMovements(uint256,address[],uint256[],address) (Candidate.sol#201-227): External calls: - _safeTransferFrom(IERC20(token),rebalancer,address(this),diff) (Candidate.sol#217) - (success,data) = address(token).call(abi.encodeWithSelector(token.transferFrom.selector,from,to,amount)) (Candidate.sol#157-159) - _safeTransfer(IERC20(token),rebalancer,diff"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 229,
+        "contract": "PortfolioVaultManager",
+        "function": "_collectRebalanceFee",
+        "description": "Reentrancy in PortfolioVaultManager._collectRebalanceFee(uint256,address[],uint256[],uint256,uint256) (Candidate.sol#229-254): External calls: - _safeTransfer(IERC20(token),owner,tokenFee) (Candidate.sol#249) - (success,data) = address(token).call(abi.encodeWithSelector(token.transfer.selector,to,amount)) (Candidate.sol#150-152) State variables written after the call(s): - vaultBalances[vaultId][t"
+      },
+      {
+        "detector": "reentrancy-no-eth",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 337,
+        "contract": "PortfolioVaultManager",
+        "function": "rebalance",
+        "description": "Reentrancy in PortfolioVaultManager.rebalance(uint256,address[],uint256[]) (Candidate.sol#337-355): External calls: - totalMoved = _applyRebalanceMovements(vaultId,tokens,newAmounts,msg.sender) (Candidate.sol#344) - (success,data) = address(token).call(abi.encodeWithSelector(token.transfer.selector,to,amount)) (Candidate.sol#150-152) - (success,data) = address(token).call(abi.encodeWithSelector(to"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": true,
+    "similarity": 1.0,
+    "initial_similarity": 1.0,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 1.0,
+        "delta_vs_initial": 0.0,
+        "accepted": true,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "passed",
+        "scored": 17,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

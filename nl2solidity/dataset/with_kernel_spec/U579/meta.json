@@ -1,0 +1,112 @@
+{
+  "id": "U579",
+  "source_path": "sol_seed.jsonl:U579",
+  "split": "generated",
+  "quality": "B",
+  "category": "nft",
+  "created": "2026-09-03T13:52:45.641738",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "NextRare",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "failed",
+      "properties": "passed"
+    },
+    "n_tests": 39,
+    "n_passed": 38,
+    "n_failed": 1,
+    "failure_classes": {
+      "panic_arithmetic": 1
+    },
+    "contract_defects": 1,
+    "harness_defects": 0,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 6
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 7,
+    "n_actionable": 5,
+    "by_impact": {
+      "High": 5,
+      "Low": 2
+    },
+    "actionable": [
+      {
+        "detector": "weak-prng",
+        "impact": "High",
+        "confidence": "Medium",
+        "line": 258,
+        "contract": "CollectibleDrawing",
+        "function": "_generateAttributes",
+        "description": "CollectibleDrawing._generateAttributes(uint256,uint8) (Candidate.sol#258-270) uses a weak PRNG: \"power = uint8(base + (uint256(keccak256(bytes)(abi.encodePacked(baseHash,power))) % 96)) (Candidate.sol#266)\""
+      },
+      {
+        "detector": "weak-prng",
+        "impact": "High",
+        "confidence": "Medium",
+        "line": 233,
+        "contract": "CollectibleDrawing",
+        "function": "_rollRarity",
+        "description": "CollectibleDrawing._rollRarity(address) (Candidate.sol#233-256) uses a weak PRNG: \"roll = seed % totalWeight (Candidate.sol#249)\""
+      },
+      {
+        "detector": "weak-prng",
+        "impact": "High",
+        "confidence": "Medium",
+        "line": 258,
+        "contract": "CollectibleDrawing",
+        "function": "_generateAttributes",
+        "description": "CollectibleDrawing._generateAttributes(uint256,uint8) (Candidate.sol#258-270) uses a weak PRNG: \"speed = uint8(base + (uint256(keccak256(bytes)(abi.encodePacked(baseHash,speed))) % 96)) (Candidate.sol#267)\""
+      },
+      {
+        "detector": "weak-prng",
+        "impact": "High",
+        "confidence": "Medium",
+        "line": 258,
+        "contract": "CollectibleDrawing",
+        "function": "_generateAttributes",
+        "description": "CollectibleDrawing._generateAttributes(uint256,uint8) (Candidate.sol#258-270) uses a weak PRNG: \"luck = uint8(base + (uint256(keccak256(bytes)(abi.encodePacked(baseHash,luck))) % 96)) (Candidate.sol#269)\""
+      },
+      {
+        "detector": "weak-prng",
+        "impact": "High",
+        "confidence": "Medium",
+        "line": 258,
+        "contract": "CollectibleDrawing",
+        "function": "_generateAttributes",
+        "description": "CollectibleDrawing._generateAttributes(uint256,uint8) (Candidate.sol#258-270) uses a weak PRNG: \"intelligence = uint8(base + (uint256(keccak256(bytes)(abi.encodePacked(baseHash,intelligence))) % 96)) (Candidate.sol#268)\""
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": false,
+    "similarity": 0.9763,
+    "initial_similarity": 0.9763,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.9763,
+        "delta_vs_initial": 0.0,
+        "accepted": false,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "failed",
+        "scored": 19,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

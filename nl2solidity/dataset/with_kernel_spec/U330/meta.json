@@ -1,0 +1,101 @@
+{
+  "id": "U330",
+  "source_path": "sol_seed.jsonl:U330",
+  "split": "generated",
+  "quality": "B",
+  "category": "stablecoin",
+  "created": "2026-09-02T23:08:48.959466",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "SamoDAO",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "skipped"
+    },
+    "n_tests": 56,
+    "n_passed": 56,
+    "n_failed": 0,
+    "failure_classes": {},
+    "contract_defects": 0,
+    "harness_defects": 0,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 0
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 23,
+    "n_actionable": 4,
+    "by_impact": {
+      "Medium": 4,
+      "Low": 19
+    },
+    "actionable": [
+      {
+        "detector": "uninitialized-local",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 498,
+        "contract": null,
+        "function": null,
+        "description": "ReserveCurrency.redeem(uint256).totalFee (Candidate.sol#498) is a local variable never initialized"
+      },
+      {
+        "detector": "unused-return",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 368,
+        "contract": "ReserveCurrency",
+        "function": "addCollateral",
+        "description": "ReserveCurrency.addCollateral(address,uint256) (Candidate.sol#368-389) ignores return value by _approvedTokens.remove(token) (Candidate.sol#384)"
+      },
+      {
+        "detector": "unused-return",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 368,
+        "contract": "ReserveCurrency",
+        "function": "addCollateral",
+        "description": "ReserveCurrency.addCollateral(address,uint256) (Candidate.sol#368-389) ignores return value by _approvedTokens.add(token) (Candidate.sol#378)"
+      },
+      {
+        "detector": "unused-return",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 391,
+        "contract": "ReserveCurrency",
+        "function": "removeCollateral",
+        "description": "ReserveCurrency.removeCollateral(address) (Candidate.sol#391-403) ignores return value by _approvedTokens.remove(token) (Candidate.sol#398)"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": true,
+    "similarity": 0.9921,
+    "initial_similarity": 0.9921,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 0.9921,
+        "delta_vs_initial": 0.0,
+        "accepted": true,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "passed",
+        "scored": 19,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}

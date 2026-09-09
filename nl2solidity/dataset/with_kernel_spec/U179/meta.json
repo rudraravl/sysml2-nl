@@ -1,0 +1,101 @@
+{
+  "id": "U179",
+  "source_path": "sol_seed.jsonl:U179",
+  "split": "generated",
+  "quality": "B",
+  "category": "payments",
+  "created": "2026-09-02T12:47:22.572206",
+  "nl_prompt_source": "sol_seed_long",
+  "provenance": "defillama-harvest",
+  "source_title": "GrowStreams",
+  "validation": {
+    "is_valid": true,
+    "error_count": 0
+  },
+  "execution": {
+    "tier_status": {
+      "fuzz": "passed",
+      "properties": "passed"
+    },
+    "n_tests": 42,
+    "n_passed": 42,
+    "n_failed": 0,
+    "failure_classes": {},
+    "contract_defects": 0,
+    "harness_defects": 0,
+    "fuzz_runs": 256,
+    "compiled": true,
+    "property_tests": 6
+  },
+  "security": {
+    "tool": "slither",
+    "n_findings": 7,
+    "n_actionable": 4,
+    "by_impact": {
+      "Medium": 4,
+      "Low": 3
+    },
+    "actionable": [
+      {
+        "detector": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 237,
+        "contract": "StreamEscrow",
+        "function": "previewSettle",
+        "description": "StreamEscrow.previewSettle(address) (Candidate.sol#237-257) performs a multiplication on the result of a division: - maxStreamable = (bal * FEE_DENOMINATOR) / (FEE_DENOMINATOR + feeBps) (Candidate.sol#253) - fee = (streamAmount * feeBps) / FEE_DENOMINATOR (Candidate.sol#255) - streamAmount = maxStreamable (Candidate.sol#254)"
+      },
+      {
+        "detector": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "line": 266,
+        "contract": "StreamEscrow",
+        "function": "_settle",
+        "description": "StreamEscrow._settle(address) (Candidate.sol#266-296) performs a multiplication on the result of a division: - maxStreamable = (bal * FEE_DENOMINATOR) / (FEE_DENOMINATOR + feeBps) (Candidate.sol#283) - streamAmount = maxStreamable (Candidate.sol#288) - fee = (streamAmount * feeBps) / FEE_DENOMINATOR (Candidate.sol#290)"
+      },
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 266,
+        "contract": "StreamEscrow",
+        "function": "_settle",
+        "description": "StreamEscrow._settle(address) (Candidate.sol#266-296) uses a dangerous strict equality: - elapsed == 0 (Candidate.sol#274)"
+      },
+      {
+        "detector": "incorrect-equality",
+        "impact": "Medium",
+        "confidence": "High",
+        "line": 237,
+        "contract": "StreamEscrow",
+        "function": "previewSettle",
+        "description": "StreamEscrow.previewSettle(address) (Candidate.sol#237-257) uses a dangerous strict equality: - elapsed == 0 || bal == 0 (Candidate.sol#249)"
+      }
+    ]
+  },
+  "spec_alignment": {
+    "accepted": true,
+    "similarity": 1.0,
+    "initial_similarity": 1.0,
+    "repairs": 0,
+    "repairs_kept": 0,
+    "kept_attempt": 0,
+    "threshold": 0.8,
+    "error": null,
+    "attempts": [
+      {
+        "attempt": 0,
+        "similarity": 1.0,
+        "delta_vs_initial": 0.0,
+        "accepted": true,
+        "kept": true,
+        "rejected_reason": null,
+        "validation_status": "passed",
+        "execution_status": "passed",
+        "scored": 19,
+        "domain_mismatch": false
+      }
+    ]
+  }
+}
