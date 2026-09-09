@@ -35,6 +35,16 @@ balance, six-member lineages, profile routing, minimum grounding, and leakage
 against the 65 held-out evaluation prompts, 13 development prompts, and all
 3,000 retrieval entries.
 
+## Canonical full-corpus procedure
+
+Run these commands from the repository root. Before starting, make sure Docker
+is running, the `codex` CLI is installed and authenticated for `gpt-5.6-sol`,
+and `OPENROUTER_API_KEY` and `GEMINI_API_KEY` are available in the repository
+`.env` file. The runner checks those dependencies, probes the primary model,
+and preflights native Modelica-to-FMU execution before spending calls on the
+corpus. A failed preflight stops the batch as infrastructure rather than
+recording false model failures.
+
 Preview one input without making model calls:
 
 ```bash
@@ -68,13 +78,22 @@ For concurrent workers, first freeze and inspect one shared plan:
 python3 -m nl2robotics.experiments.run_cli \
   --benchmark-manifest nl2robotics/corpus/pipeline_prompt_manifest.json \
   --profile capability --benchmark-split all --condition FULL --variant rich \
-  --repetitions 1 --randomization-seed 20260830 --model gpt-5.6-sol \
+  --repetitions 1 --randomization-seed 20260830 \
+  --model gpt-5.6-sol --provider codex \
   --modelica-backend docker --modelica-subset full1500 \
+  --max-tool-repairs 2 \
   --shard-count 4 --output-dir outputs/robotics-corpus-full-v1 --dry-run
 ```
 
-Then launch shard indices `0` through `3` with that exact command, remove
-`--dry-run`, and add the matching `--shard-index`. Shards share the frozen
-protocol and write disjoint cell directories plus separate run-control and
-summary files. Aggregate all completed records from the shared output root with
-`python3 -m nl2robotics.experiments.cli outputs/robotics-corpus-full-v1`.
+Inspect the printed count and frozen plan. Then launch four copies of that exact
+command, one per worker: remove `--dry-run` and append `--shard-index 0`, `1`,
+`2`, or `3`. Re-running the same shard command resumes it safely. Shards share
+the frozen protocol and write disjoint cell directories plus separate
+run-control and summary files.
+
+After all workers stop, aggregate every completed record from the shared output
+root:
+
+```bash
+python3 -m nl2robotics.experiments.cli outputs/robotics-corpus-full-v1
+```

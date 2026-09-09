@@ -112,6 +112,7 @@ tool-repair conditions, FMU export, interface, initialization, execution, or
 trace-survival failures may trigger the frozen bounded runtime-repair loop.
 Each candidate must preserve the top-level model identity, recompile, retain
 the required FMU interface, advance farther through real execution, and (for
-FULL) pass pre-execution alignment again. Behavioral requirement violations and
-unevaluable qualitative requirements remain experimental outcomes and never
-trigger this repair loop.
+FULL) pass pre-execution alignment again. Deterministically evaluated behavioral
+violations may trigger the same bounded, monotonic repair loop. Qualitative
+requirements without an implemented evaluator remain unevaluable experimental
+outcomes and never trigger repair.
