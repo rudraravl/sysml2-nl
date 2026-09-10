@@ -476,7 +476,7 @@ def _openrouter_invoke(model: str, system_msg: str, human_msg: str, key: str) ->
     req = _req.Request(url, data=data, headers=headers)
     attempts = 3
     response_timeout = _positive_timeout(
-        os.getenv("OPENROUTER_RESPONSE_TIMEOUT", "300"), default=300.0
+        os.getenv("OPENROUTER_RESPONSE_TIMEOUT", "180"), default=180.0
     )
     for attempt in range(attempts):
         try:
