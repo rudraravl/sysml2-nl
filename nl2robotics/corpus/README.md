@@ -73,6 +73,10 @@ This corpus path does not claim Newton, PhysX, OpenUSD, CUDA, or GPU execution
 and does not require a GPU. Every generated-model failure remains an
 experimental outcome. The runner randomizes task order with the frozen seed and
 preflights the exact OpenModelica-to-FMU behavior path before any model calls.
+The B0 arm is intentionally narrower: its one-shot raw-NL artifact is compiled,
+exported, initialized, executed, and checked for a finite trace without being
+penalized for pipeline-internal FMU names it was never shown. It receives no
+RAG, MoE, repair, semantic judge, or deterministic property verdict.
 For concurrent workers, first freeze and inspect one shared plan:
 
 ```bash

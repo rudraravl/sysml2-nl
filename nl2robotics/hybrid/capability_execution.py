@@ -295,6 +295,121 @@ class CapabilityExecutionPipeline:
         report["trace"] = str(execution.result_file)
         return report
 
+    def run_compiler_execution_baseline(
+        self, modelica: str, requirement_ir: dict, contract: dict, *,
+        output_dir: Path,
+    ) -> dict:
+        """Export and execute a one-shot baseline without an undisclosed ABI.
+
+        The direct baseline sees only the raw NL request, so it cannot fairly be
+        required to emit pipeline-internal ``trace_<IR id>`` names. This path
+        still executes the exact generated FMU over the grounded study clock
+        and validates the resulting numeric trace. Interface, property, and
+        semantic judgments are deliberately left unevaluated.
+        """
+        output_dir.mkdir(parents=True, exist_ok=True)
+        report = {
+            "stage": "baseline_fmu_execution",
+            "schema_version": "1.0",
+            "task_id": requirement_ir.get("task_id"),
+            "execution_mode": "compiler_fmu_execution_only",
+            "passed": False,
+            "execution_completed": False,
+            "behavior_evaluated": False,
+            "behavior_passed": None,
+            "claim_eligible_h2": False,
+            "claim_eligible_newton_h2": False,
+            "claim_eligible_deltaai_h2": False,
+            "properties": [],
+            "property_summary": {
+                "total": 0, "passed": 0, "violated": 0, "unevaluable": 0,
+            },
+            "contract": {
+                "success": None,
+                "not_applicable": True,
+                "reason": "one-shot baseline has no pipeline-internal FMU ABI",
+            },
+        }
+        clock = _execution_clock(contract.get("clock"))
+        if clock is None:
+            report["failure_stage"] = "execution_clock"
+            report["error"] = "a grounded duration/range and frequency are required"
+            return report
+        report["clock"] = clock
+
+        fmu = self.modelica_runner.export_fmu(
+            modelica, output_dir=output_dir / "export"
+        )
+        report["fmu"] = fmu.to_dict()
+        if not fmu.success or not fmu.fmu_path:
+            report["failure_stage"] = "fmu_export"
+            return report
+
+        outputs: list[str] = []
+        try:
+            metadata = inspect_fmu(fmu.fmu_path)
+            outputs = sorted({
+                item.name for item in metadata["variables"]
+                if item.causality == "output" and item.scalar_type == "real"
+            })
+            report["fmu_metadata"] = {
+                "fmi_version": metadata.get("fmi_version"),
+                "interface_type": metadata.get("interface_type"),
+                "model_name": metadata.get("model_name"),
+                "selected_real_outputs": outputs,
+            }
+        except FMUInspectionError as exc:
+            # Metadata selection is observational on this baseline arm; the
+            # runtime can still execute an FMU and record its time column.
+            report["fmu_metadata"] = {"inspection_error": str(exc)}
+
+        execution = self.fmi_runner.run(
+            fmu.fmu_path,
+            start_time=clock["start_time"],
+            stop_time=clock["stop_time"],
+            step_size=clock["step_size"],
+            outputs=outputs,
+            output_dir=output_dir / "execution",
+        )
+        report["execution"] = execution.to_dict()
+        if not execution.success or not execution.result_file:
+            report["failure_stage"] = "fmu_execution"
+            return report
+
+        try:
+            trace = read_trace(execution.result_file)
+        except (OSError, ValueError) as exc:
+            report["failure_stage"] = "runtime_trace"
+            report["error"] = str(exc)
+            return report
+        finite = all(
+            math.isfinite(value) for values in trace.values() for value in values
+        )
+        expected_steps = round(
+            (clock["stop_time"] - clock["start_time"]) / clock["step_size"]
+        )
+        trace_gate = {
+            "success": bool(
+                finite
+                and execution.sample_count >= expected_steps
+                and all(name in trace for name in outputs)
+            ),
+            "finite": finite,
+            "sample_count": execution.sample_count,
+            "minimum_expected_samples": expected_steps,
+            "recorded_outputs": outputs,
+            "missing_outputs": [name for name in outputs if name not in trace],
+        }
+        report["trace_gate"] = trace_gate
+        if not trace_gate["success"]:
+            report["failure_stage"] = "runtime_trace"
+            return report
+        report["execution_completed"] = True
+        report["passed"] = True
+        report["failure_stage"] = None
+        report["trace"] = str(execution.result_file)
+        return report
+
 
 def _execution_clock(clock: object) -> dict | None:
     if not isinstance(clock, dict):

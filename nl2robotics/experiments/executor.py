@@ -250,6 +250,8 @@ class PipelineExperimentExecutor:
                     self.json_ask if condition.alignment else None
                 ),
                 enable_specification_alignment=condition.alignment,
+                enforce_model_identity=condition.validated_contract,
+                compiler_execution_only=condition.id == "B0",
                 precomputed_normalization=(
                     block_context.get("normalization")
                     if block_context is not None else None

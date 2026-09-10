@@ -80,9 +80,13 @@ MoE expert makes the cell infrastructure-ineligible and forces an identical
 rerun; it is never compared as a smaller accidental ensemble. Provider usage
 limits stop the batch without writing a false failed cell.
 
-For capability ablations, use Modelica artifact validity, FMU interface
-validity, runtime execution, behavior evaluation, and property-pass rates for
-paired B0-to-FULL comparisons.
+For capability ablations, B0 is the compiler/execution baseline: one raw-NL
+generation call, native Modelica compilation, FMI export, FMU initialization,
+simulation, and finite-trace validation. Because B0 is not shown the pipeline's
+internal FMU variable ABI, interface-, property-, and semantic-alignment fields
+are unevaluated rather than false. Use artifact validity, FMU export, runtime
+execution, and finite-trace survival for paired B0-to-FULL comparisons; report
+FULL's stricter interface, behavior, and specification results separately.
 `configured_pipeline_success` records whether each condition completed its own
 enabled stages. `end_to_end` is intentionally unavailable when semantic
 alignment is disabled, so the headline full-funnel comparison cannot become a

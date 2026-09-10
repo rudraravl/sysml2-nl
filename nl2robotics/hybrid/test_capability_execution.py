@@ -111,6 +111,24 @@ class CapabilityExecutionTests(unittest.TestCase):
         self.assertEqual("fmu_interface", report["failure_stage"])
         self.assertEqual("missing_fmu_output", report["contract"]["issues"][0]["code"])
 
+    def test_one_shot_baseline_executes_without_internal_trace_abi(self):
+        undisclosed = contract()
+        undisclosed["mappings"][0]["fmu_variable"] = "trace_internal_name"
+        with tempfile.TemporaryDirectory() as tmp:
+            report = CapabilityExecutionPipeline(
+                modelica_runner=Exporter(), fmi_runner=Executor()
+            ).run_compiler_execution_baseline(
+                "model Behavior end Behavior;", requirement_ir(), undisclosed,
+                output_dir=Path(tmp),
+            )
+        self.assertTrue(report["passed"], report)
+        self.assertTrue(report["execution_completed"])
+        self.assertTrue(report["trace_gate"]["success"])
+        self.assertTrue(report["contract"]["not_applicable"])
+        self.assertIsNone(report["contract"]["success"])
+        self.assertFalse(report["behavior_evaluated"])
+        self.assertEqual([], report["properties"])
+
     def test_qualitative_property_is_never_silently_passed(self):
         ir = requirement_ir()
         ir["properties"] = [{"id": "looks_good", "kind": "custom"}]

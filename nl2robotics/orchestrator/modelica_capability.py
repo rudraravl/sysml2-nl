@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 import hashlib
 import json
 from pathlib import Path
@@ -45,6 +46,8 @@ class ModelicaCapabilityOrchestrator:
             max_runtime_repairs: int = 1,
             specification_ask: Ask | None = None,
             enable_specification_alignment: bool = True,
+            enforce_model_identity: bool = True,
+            compiler_execution_only: bool = False,
             precomputed_normalization: NormalizationResult | None = None) -> dict:
         output_dir.mkdir(parents=True, exist_ok=True)
         (output_dir / "request.txt").write_text(
@@ -136,7 +139,8 @@ class ModelicaCapabilityOrchestrator:
             result["error"] = str(exc)
             result["stage_trace"] = _stage_trace(result)
             return _finish(output_dir, result)
-        if actual_model_name != plan.model_name:
+        identity_preserved = actual_model_name == plan.model_name
+        if not identity_preserved and enforce_model_identity:
             result["failure_stage"] = "modelica_identity"
             result["error"] = (
                 f"generated top-level model {actual_model_name!r} does not match "
@@ -144,11 +148,35 @@ class ModelicaCapabilityOrchestrator:
             )
             result["stage_trace"] = _stage_trace(result)
             return _finish(output_dir, result)
-        result["modelica"]["model_name"] = actual_model_name
-        result["modelica"]["identity_preserved"] = True
+        execution_contract = plan.contract
+        if not identity_preserved:
+            # Raw-prompt baselines are never told the pipeline's internal
+            # RobotTask_<id> wrapper name. Execute their exact generated model
+            # by adapting only the evaluator's expected FMU identity; do not
+            # rewrite the candidate or relax any observable/value/unit checks.
+            execution_contract = deepcopy(plan.contract)
+            execution_contract["model_name"] = actual_model_name
+            _write_json(output_dir / "execution-contract.json", execution_contract)
+        result["modelica"].update({
+            "model_name": actual_model_name,
+            "expected_model_name": plan.model_name,
+            "identity_preserved": identity_preserved,
+            "identity_accepted": identity_preserved or not enforce_model_identity,
+            "identity_policy": (
+                "enforced_contract_name" if enforce_model_identity else
+                "generated_name_accepted_for_posthoc_execution"
+            ),
+            "execution_contract": (
+                "contract.json" if identity_preserved else "execution-contract.json"
+            ),
+        })
 
-        execution = self.execution_pipeline.run(
-            modelica, plan.requirement_ir, plan.contract,
+        execute = (
+            self.execution_pipeline.run_compiler_execution_baseline
+            if compiler_execution_only else self.execution_pipeline.run
+        )
+        execution = execute(
+            modelica, plan.requirement_ir, execution_contract,
             output_dir=output_dir / "execution",
         )
         runtime_enabled = runtime_repair_ask is not None and max_runtime_repairs > 0
@@ -306,6 +334,7 @@ def _profile_summary(report: dict) -> dict:
         "passed": report.get("passed") is True,
         "repairs": report.get("repairs"),
         "generation_mode": report.get("generation_mode"),
+        "generation_model": report.get("generation_model"),
         "retrieved_examples": list(report.get("retrieved_examples", [])),
         "attempt_0_valid": attempt_zero,
         "expert_models": list(report.get("expert_models", [])),
@@ -349,7 +378,7 @@ def _stage_trace(result: dict) -> list[dict]:
         ("modelica_validation", "modelica" in result,
          result.get("modelica", {}).get("passed") is True),
         ("modelica_identity", "modelica" in result,
-         result.get("modelica", {}).get("identity_preserved") is True),
+         result.get("modelica", {}).get("identity_accepted") is True),
         ("fmu_export", bool(execution.get("fmu")),
          execution.get("fmu", {}).get("success") is True),
         ("fmu_interface_contract", bool(execution.get("contract")),

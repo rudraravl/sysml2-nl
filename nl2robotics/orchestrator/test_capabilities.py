@@ -268,6 +268,8 @@ class CapabilityOrchestratorTests(unittest.TestCase):
                     },
                 }
 
+            run_compiler_execution_baseline = run
+
         with tempfile.TemporaryDirectory() as tmp:
             result = ModelicaCapabilityOrchestrator(
                 modelica_pipeline=Pipeline(),
@@ -282,6 +284,85 @@ class CapabilityOrchestratorTests(unittest.TestCase):
         self.assertEqual("modelica_only", result["artifact_mode"])
         self.assertNotIn("openusd", result)
         self.assertTrue(result["hybrid"]["execution_completed"])
+
+    def test_raw_baseline_name_is_adapted_only_in_execution_contract(self):
+        ir = CapabilityPlanningTests().modelica_ir()
+        plan = build_modelica_capability_plan(ir)
+        generated = "model BaselineRobot end BaselineRobot;"
+
+        def generated_modelica(requirement: str, output_dir: Path):
+            return generated, {
+                "passed": True, "repairs": 0, "generation_mode": "direct",
+                "generation_model": "z-ai/glm-5.2",
+                "attempts": [{"passed": True}],
+            }
+
+        class Pipeline:
+            runner = object()
+            fmi_runner = object()
+
+        class Execution:
+            def run(self, modelica, requirement_ir, contract, *, output_dir):
+                self_outer.assertEqual(generated, modelica)
+                self_outer.assertEqual("BaselineRobot", contract["model_name"])
+                return {
+                    "passed": True,
+                    "execution_mode": "integrated_fmu_behavior",
+                    "execution_completed": True,
+                    "behavior_evaluated": True,
+                    "behavior_passed": True,
+                    "clock": {
+                        "start_time": 0.0, "stop_time": 2.0,
+                        "frequency_hz": 100.0, "step_size": 0.01,
+                    },
+                    "fmu": {"success": True},
+                    "contract": {
+                        "success": True,
+                        "resolved_mappings": contract["mappings"],
+                        "resolved_parameter_mappings": contract["parameter_mappings"],
+                    },
+                    "execution": {"success": True, "initialized": True},
+                    "trace_gate": {"success": True},
+                    "properties": [{
+                        "id": "bounded_angular_rate", "passed": True,
+                        "status": "satisfied",
+                    }],
+                    "property_summary": {
+                        "total": 1, "passed": 1, "violated": 0,
+                        "unevaluable": 0,
+                    },
+                }
+
+            run_compiler_execution_baseline = run
+
+        self_outer = self
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            result = ModelicaCapabilityOrchestrator(
+                modelica_pipeline=Pipeline(),
+                modelica_generator=generated_modelica,
+                execution_pipeline=Execution(),
+            ).run(
+                ir["source_text"], lambda _: json.dumps(ir),
+                output_dir=root, task_id=ir["task_id"], max_ir_repairs=0,
+                enable_specification_alignment=False,
+                enforce_model_identity=False,
+                compiler_execution_only=True,
+            )
+            execution_contract = json.loads(
+                (root / "execution-contract.json").read_text(encoding="utf-8")
+            )
+            frozen_contract = json.loads(
+                (root / "contract.json").read_text(encoding="utf-8")
+            )
+
+        self.assertTrue(result["passed"], result)
+        self.assertEqual("BaselineRobot", result["modelica"]["model_name"])
+        self.assertFalse(result["modelica"]["identity_preserved"])
+        self.assertTrue(result["modelica"]["identity_accepted"])
+        self.assertEqual("z-ai/glm-5.2", result["modelica"]["generation_model"])
+        self.assertEqual("BaselineRobot", execution_contract["model_name"])
+        self.assertEqual(plan.model_name, frozen_contract["model_name"])
 
     def test_artifact_validation_without_a_grounded_clock_cannot_pass(self):
         ir = broad_ir()
