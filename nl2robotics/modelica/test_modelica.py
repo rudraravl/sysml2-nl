@@ -544,6 +544,37 @@ class MoETests(unittest.TestCase):
                     openrouter_key="key", max_repairs=0,
                 )
 
+    def test_openrouter_body_reader_enforces_total_deadline(self):
+        class TrickledResponse:
+            def read(self, _size):
+                return b"x"
+
+        with patch.object(
+            moe.sysml_moe.time, "monotonic", side_effect=[10.0, 10.1, 11.1]
+        ):
+            with self.assertRaisesRegex(TimeoutError, "total timeout"):
+                moe.sysml_moe._read_response_with_deadline(
+                    TrickledResponse(), timeout=1.0
+                )
+
+    def test_openrouter_body_reader_returns_complete_payload(self):
+        class CompleteResponse:
+            def __init__(self):
+                self.chunks = iter((b'{"choices":', b"[]}", b""))
+
+            def read(self, _size):
+                return next(self.chunks)
+
+        with patch.object(
+            moe.sysml_moe.time,
+            "monotonic",
+            side_effect=[10.0, 10.1, 10.2, 10.3],
+        ):
+            body = moe.sysml_moe._read_response_with_deadline(
+                CompleteResponse(), timeout=1.0
+            )
+        self.assertEqual(b'{"choices":[]}', body)
+
 
 class EvaluationHarnessTests(unittest.TestCase):
     def test_baseline_is_rag_free_and_rag_condition_records_examples(self):

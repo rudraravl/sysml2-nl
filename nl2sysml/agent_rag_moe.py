@@ -475,10 +475,15 @@ def _openrouter_invoke(model: str, system_msg: str, human_msg: str, key: str) ->
     }
     req = _req.Request(url, data=data, headers=headers)
     attempts = 3
+    response_timeout = _positive_timeout(
+        os.getenv("OPENROUTER_RESPONSE_TIMEOUT", "300"), default=300.0
+    )
     for attempt in range(attempts):
         try:
             with _req.urlopen(req, timeout=120) as resp:
-                raw = resp.read().decode("utf-8", errors="ignore")
+                raw = _read_response_with_deadline(
+                    resp, timeout=response_timeout
+                ).decode("utf-8", errors="ignore")
                 obj = json.loads(raw)
             break
         except Exception as e:
@@ -507,6 +512,57 @@ def _openrouter_invoke(model: str, system_msg: str, human_msg: str, key: str) ->
     if not str(text).strip():
         raise RuntimeError(f"OpenRouter returned empty content for {model}")
     return str(text)
+
+
+def _positive_timeout(raw: str, *, default: float) -> float:
+    """Parse a positive timeout without allowing a disabled batch guard."""
+    try:
+        timeout = float(raw)
+    except (TypeError, ValueError):
+        return default
+    return timeout if timeout > 0 else default
+
+
+def _read_response_with_deadline(resp: Any, *, timeout: float) -> bytes:
+    """Read a response with a wall-clock deadline, including trickled bodies.
+
+    ``urlopen(..., timeout=...)`` only bounds individual socket operations.  A
+    provider can keep a chunked response alive indefinitely by periodically
+    sending bytes.  Corpus studies need a bound on the entire response body so
+    a single incomplete request cannot strand a shard.
+    """
+    deadline = time.monotonic() + timeout
+    chunks: list[bytes] = []
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError(
+                f"OpenRouter response exceeded {timeout:g}s total timeout"
+            )
+        _set_response_read_timeout(resp, min(120.0, remaining))
+        try:
+            chunk = resp.read(64 * 1024)
+        except TypeError:
+            # Preserve compatibility with lightweight response doubles and
+            # file-like transports whose ``read`` accepts no size argument;
+            # that form is defined here as a one-shot, complete-body read.
+            return b"".join(chunks) + resp.read()
+        if not chunk:
+            return b"".join(chunks)
+        chunks.append(chunk)
+
+
+def _set_response_read_timeout(resp: Any, timeout: float) -> None:
+    """Best-effort socket deadline update for urllib HTTPResponse objects."""
+    candidates = [
+        getattr(resp, "fp", None),
+        getattr(getattr(resp, "fp", None), "raw", None),
+    ]
+    for candidate in candidates:
+        sock = getattr(candidate, "_sock", None)
+        if sock is not None and hasattr(sock, "settimeout"):
+            sock.settimeout(timeout)
+            return
 
 
 def _is_transient_openrouter_error(exc: Exception) -> bool:
