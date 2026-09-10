@@ -138,6 +138,11 @@ class PipelineExperimentExecutor:
                 "generation_and_validation" if condition.validated_contract
                 else "paired_evaluation_only"
             ),
+            "semantic_evaluation_role": (
+                "common_posthoc_measurement"
+                if task.profile == "capability" else
+                "pipeline_stage" if condition.alignment else "disabled"
+            ),
         }
         validity = _study_validity(result, condition, self.require_complete_moe)
         result["study_validity"] = validity
@@ -246,10 +251,10 @@ class PipelineExperimentExecutor:
                 max_runtime_repairs=(
                     self.max_tool_repairs if condition.tool_repair else 0
                 ),
-                specification_ask=(
-                    self.json_ask if condition.alignment else None
-                ),
-                enable_specification_alignment=condition.alignment,
+                # Specification scoring belongs to the common measurement
+                # harness. It is never fed back into one-shot generation.
+                specification_ask=self.json_ask,
+                enable_specification_alignment=True,
                 precomputed_normalization=(
                     block_context.get("normalization")
                     if block_context is not None else None
@@ -531,10 +536,15 @@ def _study_validity(result: dict, condition: AblationCondition,
         and result.get("openusd", {}).get("passed") is True
     )
     alignment = result.get("alignment")
-    if condition.alignment and pair_valid:
+    common_specification_measurement = artifact_mode == "modelica_only"
+    execution_reached = isinstance(result.get("hybrid"), dict)
+    if common_specification_measurement and execution_reached:
+        if not isinstance(alignment, dict) or alignment.get("enabled") is not True:
+            issues.append("common specification evaluation did not execute")
+    elif condition.alignment and pair_valid:
         if not isinstance(alignment, dict) or alignment.get("enabled") is not True:
             issues.append("alignment was required but did not execute")
-    if not condition.alignment and isinstance(alignment, dict):
+    elif not condition.alignment and isinstance(alignment, dict):
         if alignment.get("enabled") is True:
             issues.append("alignment executed while disabled")
     runtime_repair = result.get("runtime_repair")
@@ -564,6 +574,7 @@ def _study_validity(result: dict, condition: AblationCondition,
         "alignment_observed": (
             alignment.get("enabled") if isinstance(alignment, dict) else None
         ),
+        "common_specification_measurement": common_specification_measurement,
         "runtime_repair_observed": runtime_repair_observed,
         "contract_created": result.get("plan", {}).get("success") is True,
         "issues": issues,

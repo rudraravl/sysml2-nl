@@ -83,10 +83,14 @@ limits stop the batch without writing a false failed cell.
 For capability ablations, use Modelica artifact validity, FMU interface
 validity, runtime execution, behavior evaluation, and property-pass rates for
 paired B0-to-FULL comparisons.
-`configured_pipeline_success` records whether each condition completed its own
-enabled stages. `end_to_end` is intentionally unavailable when semantic
-alignment is disabled, so the headline full-funnel comparison cannot become a
-tautology.
+The complete post-generation measurement harness is identical across
+conditions: Modelica compilation, FMI 2.0 export, FMU interface/identity
+validation, real FMU execution, finite-trace validation, deterministic property
+monitoring, and post-execution specification alignment. In particular, B0 is
+one generation call with no RAG, MoE, or repair, but its resulting artifact is
+still scored by every downstream check. Evaluation output is never fed back to
+B0. `configured_pipeline_success` and `end_to_end` therefore remain directly
+comparable across B0 through FULL.
 
 Summarize archived capability comparisons with a common outcome metric:
 

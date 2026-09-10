@@ -71,6 +71,33 @@ class ExperimentTests(unittest.TestCase):
         orchestrator.assert_called_once()
         orchestrator.return_value.run.assert_called_once()
 
+    def test_one_shot_baseline_receives_common_posthoc_evaluation_only(self):
+        task, prompt = _load_suite(CAPABILITY_MANIFEST).select(
+            profile="capability", variant="rich"
+        )[0]
+        executor = object.__new__(PipelineExperimentExecutor)
+        executor.modelica = object()
+        executor.normalizer = object()
+        executor.text_ask = lambda _: "support"
+        executor.json_ask = lambda _: "{}"
+        executor.max_tool_repairs = 2
+        executor.k = 5
+        executor._generate_modelica = lambda *args, **kwargs: (
+            "model X end X;", {}
+        )
+        with tempfile.TemporaryDirectory() as tmp, patch(
+            "nl2robotics.experiments.executor.ModelicaCapabilityOrchestrator"
+        ) as orchestrator:
+            orchestrator.return_value.run.return_value = {
+                "artifact_mode": "modelica_only", "passed": False,
+            }
+            executor._run_hybrid(task, CONDITIONS["B0"], prompt, Path(tmp))
+        kwargs = orchestrator.return_value.run.call_args.kwargs
+        self.assertIs(kwargs["specification_ask"], executor.json_ask)
+        self.assertTrue(kwargs["enable_specification_alignment"])
+        self.assertIsNone(kwargs["runtime_repair_ask"])
+        self.assertEqual(0, kwargs["max_runtime_repairs"])
+
     def test_frozen_conditions_map_to_distinct_generation_strategies(self):
         self.assertEqual("direct", generation_strategy(CONDITIONS["B0"]))
         self.assertEqual("rag_single", generation_strategy(CONDITIONS["B1"]))
@@ -787,19 +814,20 @@ class ExperimentTests(unittest.TestCase):
         self.assertTrue(metrics["runtime_trace_valid"])
         self.assertTrue(metrics["post_execution_semantic"])
 
-    def test_disabled_alignment_is_not_counted_as_full_funnel_success(self):
+    def test_baseline_common_semantic_measurement_is_comparable_end_to_end(self):
         metrics = extract_metrics("capability", {
             "passed": True,
             "ablation": {"condition": {"alignment": False}},
             "stage_trace": [
                 {"index": 8, "stage": "runtime_execution", "reached": True,
                  "passed": True, "status": "passed"},
-                {"index": 11, "stage": "post_execution_semantic_alignment",
-                 "reached": False, "passed": None, "status": "disabled"},
+                {"index": 9, "stage": "modelica_specification_alignment",
+                 "reached": True, "passed": True, "status": "passed"},
             ],
         })
         self.assertTrue(metrics["configured_pipeline_success"])
-        self.assertIsNone(metrics["end_to_end"])
+        self.assertTrue(metrics["post_execution_semantic"])
+        self.assertTrue(metrics["end_to_end"])
 
     def test_h2_handoff_result_replaces_preparation_for_metrics(self):
         isaac = {
