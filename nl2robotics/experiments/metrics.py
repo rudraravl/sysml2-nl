@@ -129,6 +129,19 @@ def extract_metrics(profile: str, result: dict, *,
         item.get("stage"): item.get("passed")
         for item in result.get("stage_trace", []) if isinstance(item, dict)
     }
+    if profile == "capability" and result.get("stage_trace"):
+        alignment_enabled = result.get("ablation", {}).get(
+            "condition", {}
+        ).get("alignment")
+        if alignment_enabled is None:
+            alignment_enabled = result.get(
+                "pre_execution_alignment", {}
+            ).get("enabled")
+        if alignment_enabled is not True:
+            # A configured pipeline can finish with the semantic stage disabled,
+            # but that is not a comparable full-funnel outcome.
+            end_to_end = None
+
     summary = alignment.get("summary", alignment)
     return {
         "infrastructure_available": True,
