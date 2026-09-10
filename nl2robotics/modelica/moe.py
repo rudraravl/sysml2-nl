@@ -146,3 +146,8 @@ def routing() -> dict:
         else:
             routes[model] = "openrouter" if "gemini" not in model.lower() else "gemini"
     return {"backend": sysml_moe._llm_backend(), "routes": routes}
+
+
+def openrouter_transport_config() -> dict:
+    """Expose the shared, resolved provider limits for frozen protocols."""
+    return sysml_moe.openrouter_transport_config()

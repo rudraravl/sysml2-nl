@@ -20,6 +20,7 @@ from nl2robotics.modelica.moe import (
     COMBINER_MODEL,
     EXPERT_MODELS,
     invoke_model as invoke_modelica_model,
+    openrouter_transport_config,
     routing as modelica_moe_routing,
 )
 from nl2robotics.modelica.openmodelica import OpenModelicaRunner
@@ -267,6 +268,7 @@ def main() -> None:
         "support_provider": "openrouter",
         "baseline_model": args.baseline_model,
         "baseline_provider": "openrouter",
+        "openrouter_transport": openrouter_transport_config(),
         "model_policy": "frozen_open_model_roster_only",
         "moe_configuration": "shared_with_sysml_pipeline",
         "modelica_backend": args.modelica_backend,

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -574,6 +575,38 @@ class MoETests(unittest.TestCase):
                 CompleteResponse(), timeout=1.0
             )
         self.assertEqual(b'{"choices":[]}', body)
+
+    def test_openrouter_request_freezes_completion_and_transport_limits(self):
+        payload = b'{"choices":[{"message":{"content":"model Ok end Ok;"}}]}'
+
+        class Response:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+            def read(self):
+                return payload
+
+        env = {
+            "OPENROUTER_MAX_TOKENS": "4096",
+            "OPENROUTER_RESPONSE_TIMEOUT": "90",
+        }
+        with patch.dict(os.environ, env), patch.object(
+            moe.sysml_moe._req, "urlopen", return_value=Response()
+        ) as urlopen:
+            result = moe.sysml_moe._openrouter_invoke(
+                "z-ai/glm-5.2", "system", "human", "key"
+            )
+            transport = moe.openrouter_transport_config()
+
+        request = urlopen.call_args.args[0]
+        request_payload = json.loads(request.data.decode("utf-8"))
+        self.assertEqual("model Ok end Ok;", result)
+        self.assertEqual(4096, request_payload["max_tokens"])
+        self.assertEqual(4096, transport["max_completion_tokens"])
+        self.assertEqual(90.0, transport["response_timeout_seconds"])
 
 
 class EvaluationHarnessTests(unittest.TestCase):

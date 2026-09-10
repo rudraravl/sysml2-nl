@@ -454,13 +454,15 @@ def _openrouter_invoke(model: str, system_msg: str, human_msg: str, key: str) ->
         raise RuntimeError(f"OPENROUTER_API_KEY missing for model {model}")
     base = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
     url = f"{base}/chat/completions"
+    transport = openrouter_transport_config()
     payload = {
         "model": model,
         "messages": [
             {"role": "system", "content": system_msg},
             {"role": "user", "content": human_msg},
         ],
-        "temperature": 0.2,
+        "temperature": transport["temperature"],
+        "max_tokens": transport["max_completion_tokens"],
     }
     data = json.dumps(payload).encode("utf-8")
     headers = {
@@ -474,13 +476,13 @@ def _openrouter_invoke(model: str, system_msg: str, human_msg: str, key: str) ->
         "User-Agent": os.getenv("APP_TITLE", "Creatix Agent"),
     }
     req = _req.Request(url, data=data, headers=headers)
-    attempts = 3
-    response_timeout = _positive_timeout(
-        os.getenv("OPENROUTER_RESPONSE_TIMEOUT", "180"), default=180.0
-    )
+    attempts = transport["attempts"]
+    response_timeout = transport["response_timeout_seconds"]
     for attempt in range(attempts):
         try:
-            with _req.urlopen(req, timeout=120) as resp:
+            with _req.urlopen(
+                req, timeout=transport["socket_timeout_seconds"]
+            ) as resp:
                 raw = _read_response_with_deadline(
                     resp, timeout=response_timeout
                 ).decode("utf-8", errors="ignore")
@@ -514,6 +516,21 @@ def _openrouter_invoke(model: str, system_msg: str, human_msg: str, key: str) ->
     return str(text)
 
 
+def openrouter_transport_config() -> dict[str, Any]:
+    """Return the resolved transport/generation limits used by every call."""
+    return {
+        "attempts": 3,
+        "socket_timeout_seconds": 120.0,
+        "response_timeout_seconds": _positive_timeout(
+            os.getenv("OPENROUTER_RESPONSE_TIMEOUT", "180"), default=180.0
+        ),
+        "max_completion_tokens": _positive_int(
+            os.getenv("OPENROUTER_MAX_TOKENS", "8192"), default=8192
+        ),
+        "temperature": 0.2,
+    }
+
+
 def _positive_timeout(raw: str, *, default: float) -> float:
     """Parse a positive timeout without allowing a disabled batch guard."""
     try:
@@ -521,6 +538,14 @@ def _positive_timeout(raw: str, *, default: float) -> float:
     except (TypeError, ValueError):
         return default
     return timeout if timeout > 0 else default
+
+
+def _positive_int(raw: str, *, default: int) -> int:
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return default
+    return value if value > 0 else default
 
 
 def _read_response_with_deadline(resp: Any, *, timeout: float) -> bytes:
