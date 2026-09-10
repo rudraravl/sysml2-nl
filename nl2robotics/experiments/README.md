@@ -12,12 +12,12 @@ The five frozen stagewise conditions are:
 
 The frozen B0 one-shot baseline is `z-ai/glm-5.2` through OpenRouter, which is
 also the MoE combiner. B1 uses the same model with RAG so the B0-to-B1 contrast
-changes retrieval rather than model identity. The separate `--model` setting
-(default `gpt-5.6-sol` through Codex) is the support model used for normalized
-IR, semantic alignment, and runtime repair; it is not the B0 generator. MoE
-compiler repair continues to use the frozen GLM combiner. Every condition is
-evaluated by the same native compilation, FMU execution, trace, and behavior
-harness.
+changes retrieval rather than model identity. GLM-5.2 is also the support model
+used for normalized IR, semantic alignment, and runtime repair. MoE compiler
+repair uses the same frozen GLM combiner. The paper-facing runner restricts all
+LLM roles to the frozen open-model roster and records the selected model and
+provider in the protocol. Every condition is evaluated by the same native
+compilation, FMU execution, trace, and behavior harness.
 
 `AblationRunner` blocks by task and repetition, then randomizes condition order
 within each block using the recorded `--randomization-seed`. One normalized and

@@ -38,12 +38,13 @@ against the 65 held-out evaluation prompts, 13 development prompts, and all
 ## Canonical full-corpus procedure
 
 Run these commands from the repository root. Before starting, make sure Docker
-is running, the `codex` CLI is installed and authenticated for `gpt-5.6-sol`,
-and `OPENROUTER_API_KEY` and `GEMINI_API_KEY` are available in the repository
-`.env` file. The runner checks those dependencies, probes the primary model,
-and preflights native Modelica-to-FMU execution before spending calls on the
-corpus. A failed preflight stops the batch as infrastructure rather than
-recording false model failures.
+is running and `OPENROUTER_API_KEY` is available in the repository `.env` file.
+The paper-facing runner permits only the frozen open-model roster; it does not
+use Codex, Claude, or other proprietary generation models. The runner checks
+the credential, probes the GLM-5.2 support model, and preflights native
+Modelica-to-FMU execution before spending calls on the corpus. A failed
+preflight stops the batch as infrastructure rather than recording false model
+failures.
 
 Preview one input without making model calls:
 
@@ -79,7 +80,7 @@ python3 -m nl2robotics.experiments.run_cli \
   --benchmark-manifest nl2robotics/corpus/pipeline_prompt_manifest.json \
   --profile capability --benchmark-split all --condition FULL --variant rich \
   --repetitions 1 --randomization-seed 20260830 \
-  --model gpt-5.6-sol --provider codex \
+  --support-model z-ai/glm-5.2 --provider openrouter \
   --baseline-model z-ai/glm-5.2 \
   --modelica-backend docker --modelica-subset full1500 \
   --max-tool-repairs 2 \

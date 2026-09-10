@@ -18,6 +18,7 @@ from nl2robotics.hybrid.newton_cli import run_newton_bundle
 from nl2robotics.modelica.corpus import ExampleCorpus
 from nl2robotics.modelica.moe import (
     COMBINER_MODEL,
+    EXPERT_MODELS,
     invoke_model as invoke_modelica_model,
     routing as modelica_moe_routing,
 )
@@ -28,7 +29,6 @@ from nl2robotics.studies.capability_benchmark import CapabilityBenchmarkSuite
 from spec_aligner.llm import (
     JSON_PREFIX,
     TEXT_PREFIX,
-    ask_completion,
     probe_completion,
     provider_for_model,
 )
@@ -73,8 +73,16 @@ def main() -> None:
                         help="split the frozen randomized cell plan across workers")
     parser.add_argument("--shard-index", type=int, default=0,
                         help="zero-based worker index within --shard-count")
-    parser.add_argument("--model", default="gpt-5.6-sol")
-    parser.add_argument("--provider", choices=("codex", "claude"))
+    parser.add_argument(
+        "--model", "--support-model", dest="model",
+        default=COMBINER_MODEL, choices=EXPERT_MODELS,
+        help=("frozen open-model support role used for normalization, "
+              "alignment, and runtime repair"),
+    )
+    parser.add_argument(
+        "--provider", choices=("openrouter",), default="openrouter",
+        help="paper-facing robotics experiments use the frozen OpenRouter roster",
+    )
     parser.add_argument(
         "--baseline-model", default=COMBINER_MODEL, choices=(COMBINER_MODEL,),
         help=("frozen direct/RAG-single comparison model; kept separate from "
@@ -173,13 +181,13 @@ def main() -> None:
     if not selected:
         parser.error("no benchmark tasks selected")
 
-    text_ask = lambda prompt: ask_completion(  # noqa: E731
-        prompt, model=args.model, provider=args.provider, prefix=TEXT_PREFIX
-    )
-    json_ask = lambda prompt: ask_completion(  # noqa: E731
-        prompt, model=args.model, provider=args.provider, prefix=JSON_PREFIX
-    )
     load_dotenv(Path(__file__).resolve().parents[2] / ".env")
+    text_ask = lambda prompt: invoke_modelica_model(  # noqa: E731
+        args.model, TEXT_PREFIX, prompt, os.getenv("OPENROUTER_API_KEY")
+    )
+    json_ask = lambda prompt: invoke_modelica_model(  # noqa: E731
+        args.model, JSON_PREFIX, prompt, os.getenv("OPENROUTER_API_KEY")
+    )
     baseline_ask = lambda prompt: invoke_modelica_model(  # noqa: E731
         args.baseline_model,
         TEXT_PREFIX,
@@ -256,9 +264,10 @@ def main() -> None:
         "single_model": args.baseline_model,
         "single_provider": "openrouter",
         "support_model": args.model,
-        "support_provider": args.provider or provider_for_model(args.model),
+        "support_provider": "openrouter",
         "baseline_model": args.baseline_model,
         "baseline_provider": "openrouter",
+        "model_policy": "frozen_open_model_roster_only",
         "moe_configuration": "shared_with_sysml_pipeline",
         "modelica_backend": args.modelica_backend,
         "modelica_subset": args.modelica_subset,
@@ -269,7 +278,7 @@ def main() -> None:
         ),
         "max_runtime_repairs": args.max_tool_repairs,
         "runtime_repair_model": args.model,
-        "runtime_repair_provider": args.provider or provider_for_model(args.model),
+        "runtime_repair_provider": "openrouter",
         "rag_routing": (
             "family_preferred_4_of_5_with_global_fallback"
             if any(task.oracle.get("rag_route") for task, _ in selected)
@@ -523,25 +532,32 @@ def _preflight_llm_environment(*, model: str, provider: str | None,
     """Validate credentials and make one bounded model-compatibility request."""
     load_dotenv(repository / ".env")
     diagnostics = []
-    inferred_provider = None
-    try:
-        inferred_provider = provider_for_model(model)
-    except RuntimeError as exc:
-        diagnostics.append(str(exc))
+    routes = modelica_moe_routing()
+    inferred_provider = routes["routes"].get(model)
+    if inferred_provider is None:
+        try:
+            inferred_provider = provider_for_model(model)
+        except RuntimeError as exc:
+            diagnostics.append(str(exc))
     selected_provider = provider or inferred_provider
     if provider and inferred_provider and provider != inferred_provider:
         diagnostics.append(
             f"provider {provider!r} is incompatible with model {model!r}; "
             f"expected {inferred_provider!r}"
         )
-    cli_present = bool(selected_provider and shutil.which(selected_provider))
-    if selected_provider and not cli_present:
-        diagnostics.append(f"{selected_provider} CLI is not available on PATH")
+    cli_present = None
+    if selected_provider in {"codex", "claude"}:
+        cli_present = bool(shutil.which(selected_provider))
+        if not cli_present:
+            diagnostics.append(f"{selected_provider} CLI is not available on PATH")
 
-    routes = modelica_moe_routing()
     route_values = set(routes["routes"].values())
     openrouter_ready = bool(os.getenv("OPENROUTER_API_KEY"))
     gemini_ready = bool(os.getenv("GEMINI_API_KEY"))
+    if selected_provider == "openrouter" and not openrouter_ready:
+        diagnostics.append("OPENROUTER_API_KEY is required by the support model")
+    if selected_provider == "gemini" and not gemini_ready:
+        diagnostics.append("GEMINI_API_KEY is required by the support model")
     if require_moe and "openrouter" in route_values and not openrouter_ready:
         diagnostics.append("OPENROUTER_API_KEY is required by the frozen MoE roster")
     if require_moe and "gemini" in route_values and not gemini_ready:
@@ -567,7 +583,17 @@ def _preflight_llm_environment(*, model: str, provider: str | None,
     if not diagnostics and selected_provider:
         model_probe_attempted = True
         try:
-            probe_completion(model=model, provider=selected_provider, timeout=120)
+            if selected_provider in {"openrouter", "gemini"}:
+                invoke_modelica_model(
+                    model,
+                    TEXT_PREFIX,
+                    "Reply with exactly READY and nothing else.",
+                    os.getenv("OPENROUTER_API_KEY"),
+                )
+            else:
+                probe_completion(
+                    model=model, provider=selected_provider, timeout=120
+                )
             model_probe_passed = True
         except Exception as exc:  # surfaced as infrastructure, never a model outcome
             diagnostics.append(

@@ -389,6 +389,25 @@ class ExperimentTests(unittest.TestCase):
             "baseline model" in item for item in report["diagnostics"]
         ))
 
+    def test_open_model_support_preflight_uses_openrouter(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch(
+                "nl2robotics.experiments.run_cli.invoke_modelica_model",
+                return_value="READY",
+            ) as invoke, patch.dict(
+                "os.environ", {"OPENROUTER_API_KEY": "present"}, clear=True,
+            ):
+                report = _preflight_llm_environment(
+                    model="z-ai/glm-5.2", provider="openrouter",
+                    repository=Path(tmp), require_moe=False,
+                    baseline_model="z-ai/glm-5.2", require_baseline=True,
+                )
+        self.assertTrue(report["success"])
+        self.assertEqual("openrouter", report["support_provider"])
+        self.assertIsNone(report["provider_cli_present"])
+        self.assertTrue(report["model_probe_passed"])
+        invoke.assert_called_once()
+
     def test_llm_preflight_rejects_unusable_model_before_cells(self):
         with tempfile.TemporaryDirectory() as tmp:
             with patch(
