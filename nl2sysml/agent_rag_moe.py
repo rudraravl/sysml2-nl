@@ -463,10 +463,6 @@ def _openrouter_invoke(model: str, system_msg: str, human_msg: str, key: str) ->
         ],
         "temperature": transport["temperature"],
         "max_completion_tokens": transport["max_completion_tokens"],
-        "reasoning": {
-            "effort": transport["reasoning_effort"],
-            "exclude": transport["reasoning_exclude"],
-        },
         "provider": {
             "sort": transport["provider_sort"],
             "allow_fallbacks": True,
@@ -539,8 +535,7 @@ def openrouter_transport_config() -> dict[str, Any]:
             os.getenv("OPENROUTER_MAX_TOKENS", "32768"), default=32768
         ),
         "temperature": 0.2,
-        "reasoning_effort": "high",
-        "reasoning_exclude": True,
+        "reasoning_policy": "provider_default",
         "provider_sort": "throughput",
     }
 

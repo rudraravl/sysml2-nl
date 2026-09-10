@@ -607,8 +607,8 @@ class MoETests(unittest.TestCase):
         self.assertEqual(4096, request_payload["max_completion_tokens"])
         self.assertEqual(4096, transport["max_completion_tokens"])
         self.assertEqual(90.0, transport["response_timeout_seconds"])
-        self.assertEqual("high", request_payload["reasoning"]["effort"])
-        self.assertTrue(request_payload["reasoning"]["exclude"])
+        self.assertNotIn("reasoning", request_payload)
+        self.assertEqual("provider_default", transport["reasoning_policy"])
         self.assertEqual("throughput", request_payload["provider"]["sort"])
 
     def test_openrouter_null_content_is_an_empty_model_candidate(self):
