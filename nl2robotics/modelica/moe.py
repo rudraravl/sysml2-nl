@@ -38,7 +38,7 @@ def generate_modelica_moe(
     backend = sysml_moe._llm_backend()
     if invoke is None:
         _, openrouter_key = sysml_moe._load_env()
-        invoke = _invoke
+        invoke = invoke_model
 
     system, human, hits = pipeline.build_messages(
         requirement, k=k, preferred_categories=preferred_categories
@@ -118,8 +118,8 @@ def _candidate_block(candidates: list[tuple[str, str]]) -> str:
     return "\n".join(blocks)
 
 
-def _invoke(model: str, system: str, human: str,
-            openrouter_key: str | None) -> str:
+def invoke_model(model: str, system: str, human: str,
+                 openrouter_key: str | None) -> str:
     """Use the exact provider routing and transport selected by the SysML MoE."""
     if sysml_moe._model_uses_cli(model):
         return sysml_moe._cli_invoke(model, system, human, mode="text")
@@ -128,6 +128,11 @@ def _invoke(model: str, system: str, human: str,
     if not openrouter_key:
         raise RuntimeError(f"OPENROUTER_API_KEY missing for model {model}")
     return sysml_moe._openrouter_invoke(model, system, human, openrouter_key)
+
+
+# Backward-compatible private alias for callers/tests written before the
+# experiment runner exposed a separately frozen direct-baseline model.
+_invoke = invoke_model
 
 
 def routing() -> dict:

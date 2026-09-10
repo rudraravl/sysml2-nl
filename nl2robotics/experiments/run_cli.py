@@ -16,7 +16,11 @@ from nl2robotics.hybrid.capability_execution import CapabilityExecutionPipeline
 from nl2robotics.hybrid.gpu_handoff import run_handoff
 from nl2robotics.hybrid.newton_cli import run_newton_bundle
 from nl2robotics.modelica.corpus import ExampleCorpus
-from nl2robotics.modelica.moe import routing as modelica_moe_routing
+from nl2robotics.modelica.moe import (
+    COMBINER_MODEL,
+    invoke_model as invoke_modelica_model,
+    routing as modelica_moe_routing,
+)
 from nl2robotics.modelica.openmodelica import OpenModelicaRunner
 from nl2robotics.modelica.pipeline import ModelicaPipeline
 from nl2robotics.openusd.pipeline import OpenUSDPipeline
@@ -71,6 +75,11 @@ def main() -> None:
                         help="zero-based worker index within --shard-count")
     parser.add_argument("--model", default="gpt-5.6-sol")
     parser.add_argument("--provider", choices=("codex", "claude"))
+    parser.add_argument(
+        "--baseline-model", default=COMBINER_MODEL, choices=(COMBINER_MODEL,),
+        help=("frozen direct/RAG-single comparison model; kept separate from "
+              "the normalization, alignment, and repair --model"),
+    )
     parser.add_argument("--modelica-backend", choices=("auto", "local", "docker"),
                         default="docker")
     parser.add_argument("--modelica-subset",
@@ -170,6 +179,13 @@ def main() -> None:
     json_ask = lambda prompt: ask_completion(  # noqa: E731
         prompt, model=args.model, provider=args.provider, prefix=JSON_PREFIX
     )
+    load_dotenv(Path(__file__).resolve().parents[2] / ".env")
+    baseline_ask = lambda prompt: invoke_modelica_model(  # noqa: E731
+        args.baseline_model,
+        TEXT_PREFIX,
+        prompt,
+        os.getenv("OPENROUTER_API_KEY"),
+    )
     omc = OpenModelicaRunner(backend=args.modelica_backend)
     modelica = ModelicaPipeline(
         corpus=ExampleCorpus(subset=args.modelica_subset), runner=omc
@@ -214,6 +230,8 @@ def main() -> None:
     executor = PipelineExperimentExecutor(
         text_ask=text_ask,
         json_ask=json_ask,
+        baseline_ask=baseline_ask,
+        baseline_model=args.baseline_model,
         suite=suite,
         modelica_pipeline=modelica,
         openusd_pipeline=OpenUSDPipeline(),
@@ -234,8 +252,13 @@ def main() -> None:
             if all(task.profile == "capability" for task, _ in selected)
             else "legacy_profile_dispatch"
         ),
-        "single_model": args.model,
-        "single_provider": args.provider,
+        # Backward-compatible names now refer to the single-generator arm.
+        "single_model": args.baseline_model,
+        "single_provider": "openrouter",
+        "support_model": args.model,
+        "support_provider": args.provider or provider_for_model(args.model),
+        "baseline_model": args.baseline_model,
+        "baseline_provider": "openrouter",
         "moe_configuration": "shared_with_sysml_pipeline",
         "modelica_backend": args.modelica_backend,
         "modelica_subset": args.modelica_subset,
@@ -344,6 +367,8 @@ def main() -> None:
         model=args.model, provider=args.provider,
         repository=Path(__file__).resolve().parents[2],
         require_moe=any(condition.moe for condition in conditions),
+        baseline_model=args.baseline_model,
+        require_baseline=any(not condition.moe for condition in conditions),
     )
     preflight = {
         "stage": "robotics_experiment_runtime_preflight",
@@ -492,7 +517,9 @@ end NL2RoboticsFMIPreflight;
 
 def _preflight_llm_environment(*, model: str, provider: str | None,
                                repository: Path,
-                               require_moe: bool = True) -> dict:
+                               require_moe: bool = True,
+                               baseline_model: str | None = None,
+                               require_baseline: bool = False) -> dict:
     """Validate credentials and make one bounded model-compatibility request."""
     load_dotenv(repository / ".env")
     diagnostics = []
@@ -519,6 +546,21 @@ def _preflight_llm_environment(*, model: str, provider: str | None,
         diagnostics.append("OPENROUTER_API_KEY is required by the frozen MoE roster")
     if require_moe and "gemini" in route_values and not gemini_ready:
         diagnostics.append("GEMINI_API_KEY is required by the frozen MoE roster")
+    baseline_route = None
+    if require_baseline:
+        baseline_route = routes["routes"].get(baseline_model)
+        if baseline_route is None:
+            diagnostics.append(
+                f"baseline model {baseline_model!r} is not in the frozen roster"
+            )
+        elif baseline_route == "openrouter" and not openrouter_ready:
+            diagnostics.append(
+                "OPENROUTER_API_KEY is required by the frozen baseline model"
+            )
+        elif baseline_route == "gemini" and not gemini_ready:
+            diagnostics.append(
+                "GEMINI_API_KEY is required by the frozen baseline model"
+            )
 
     model_probe_attempted = False
     model_probe_passed = False
@@ -534,12 +576,18 @@ def _preflight_llm_environment(*, model: str, provider: str | None,
     return {
         "stage": "llm_transport_preflight",
         "success": not diagnostics,
-        "single_model": model,
+        "single_model": baseline_model if require_baseline else None,
+        "single_provider": baseline_route if require_baseline else None,
+        "support_model": model,
+        "support_provider": selected_provider,
         "requested_provider": provider,
         "resolved_provider": selected_provider,
         "provider_cli_present": cli_present,
         "model_probe_attempted": model_probe_attempted,
         "model_probe_passed": model_probe_passed,
+        "baseline_required": require_baseline,
+        "baseline_model": baseline_model,
+        "baseline_route": baseline_route,
         "moe_required": require_moe,
         "moe_backend": routes["backend"],
         "moe_routes": routes["routes"],

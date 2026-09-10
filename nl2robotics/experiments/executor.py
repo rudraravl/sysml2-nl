@@ -32,7 +32,8 @@ from .conditions import AblationCondition
 class PipelineExperimentExecutor:
     """Execute B0-FULL using one frozen transport and tool configuration."""
 
-    def __init__(self, *, text_ask, json_ask,
+    def __init__(self, *, text_ask, json_ask, baseline_ask=None,
+                 baseline_model: str | None = None,
                  suite: BenchmarkSuite | None = None,
                  modelica_pipeline: ModelicaPipeline | None = None,
                  openusd_pipeline: OpenUSDPipeline | None = None,
@@ -48,6 +49,8 @@ class PipelineExperimentExecutor:
                  require_complete_moe: bool = True):
         self.text_ask = text_ask
         self.json_ask = json_ask
+        self.baseline_ask = baseline_ask or text_ask
+        self.baseline_model = baseline_model
         self.suite = suite or BenchmarkSuite()
         self.modelica = modelica_pipeline or ModelicaPipeline()
         self.openusd = openusd_pipeline or OpenUSDPipeline()
@@ -343,22 +346,24 @@ class PipelineExperimentExecutor:
         strategy = generation_strategy(condition)
         if strategy == "direct":
             system, human = self.modelica.build_baseline_messages(requirement)
-            candidate = clean_code(self.text_ask(f"{system}\n\n{human}"))
+            candidate = clean_code(self.baseline_ask(f"{system}\n\n{human}"))
             report = self.modelica.refine_layer1(
-                requirement, candidate, self.text_ask, hits=[], max_repairs=0,
+                requirement, candidate, self.baseline_ask, hits=[], max_repairs=0,
                 output_dir=output_dir,
             )
             report["generation_mode"] = "direct"
+            report["generation_model"] = self.baseline_model
             _annotate_generation_report(report, condition, self.k,
                                         self.max_tool_repairs)
             return report["final_modelica"], report
         if strategy == "rag_single":
             report = self.modelica.generate(
-                requirement, self.text_ask, k=self.k, max_repairs=0,
+                requirement, self.baseline_ask, k=self.k, max_repairs=0,
                 output_dir=output_dir,
                 preferred_categories=preferred_categories,
             )
             report["generation_mode"] = "rag_single"
+            report["generation_model"] = self.baseline_model
             _annotate_generation_report(report, condition, self.k,
                                         self.max_tool_repairs)
             return report["final_modelica"], report
@@ -470,6 +475,7 @@ def _study_validity(result: dict, condition: AblationCondition,
         row = {
             "owner": owner,
             "generation_mode": mode,
+            "generation_model": report.get("generation_model"),
             "retrieval_count": len(retrieved) if isinstance(retrieved, list) else None,
             "expert_candidate_count": (
                 len(candidates) if isinstance(candidates, list) else None

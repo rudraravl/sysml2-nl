@@ -77,6 +77,41 @@ class ExperimentTests(unittest.TestCase):
         self.assertEqual("rag_moe", generation_strategy(CONDITIONS["B2"]))
         self.assertEqual("rag_moe", generation_strategy(CONDITIONS["FULL"]))
 
+    def test_direct_baseline_uses_separate_frozen_model_transport(self):
+        calls = []
+
+        class Pipeline:
+            @staticmethod
+            def build_baseline_messages(requirement):
+                return "system", requirement
+
+            @staticmethod
+            def refine_layer1(requirement, candidate, ask, **kwargs):
+                self.assertEqual("model Baseline end Baseline;", candidate)
+                return {
+                    "final_modelica": candidate,
+                    "retrieved_examples": [],
+                    "passed": True,
+                }
+
+        executor = PipelineExperimentExecutor(
+            text_ask=lambda _: self.fail("support model generated B0"),
+            json_ask=lambda _: "{}",
+            baseline_ask=lambda prompt: (
+                calls.append(prompt) or "model Baseline end Baseline;"
+            ),
+            baseline_model="z-ai/glm-5.2",
+            modelica_pipeline=Pipeline(),
+            portable_pipeline=object(),
+        )
+        code, report = executor._generate_modelica(
+            "requirement", CONDITIONS["B0"], Path("unused")
+        )
+        self.assertEqual("model Baseline end Baseline;", code)
+        self.assertEqual(1, len(calls))
+        self.assertEqual("z-ai/glm-5.2", report["generation_model"])
+        self.assertEqual("direct", report["generation_mode"])
+
     def test_contract_prompt_is_hidden_from_non_contract_baselines(self):
         for condition_id in ("B0", "B1", "B2"):
             self.assertEqual(
@@ -333,6 +368,26 @@ class ExperimentTests(unittest.TestCase):
         self.assertFalse(report["moe_required"])
         self.assertTrue(report["model_probe_attempted"])
         self.assertTrue(report["model_probe_passed"])
+
+    def test_glm_baseline_preflight_requires_openrouter(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch(
+                "nl2robotics.experiments.run_cli.shutil.which",
+                return_value="/usr/bin/codex",
+            ), patch(
+                "nl2robotics.experiments.run_cli.probe_completion",
+                return_value="READY",
+            ), patch.dict("os.environ", {}, clear=True):
+                report = _preflight_llm_environment(
+                    model="gpt-5.4", provider="codex",
+                    repository=Path(tmp), require_moe=False,
+                    baseline_model="z-ai/glm-5.2", require_baseline=True,
+                )
+        self.assertFalse(report["success"])
+        self.assertEqual("openrouter", report["baseline_route"])
+        self.assertTrue(any(
+            "baseline model" in item for item in report["diagnostics"]
+        ))
 
     def test_llm_preflight_rejects_unusable_model_before_cells(self):
         with tempfile.TemporaryDirectory() as tmp:

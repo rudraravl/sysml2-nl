@@ -80,6 +80,7 @@ python3 -m nl2robotics.experiments.run_cli \
   --profile capability --benchmark-split all --condition FULL --variant rich \
   --repetitions 1 --randomization-seed 20260830 \
   --model gpt-5.6-sol --provider codex \
+  --baseline-model z-ai/glm-5.2 \
   --modelica-backend docker --modelica-subset full1500 \
   --max-tool-repairs 2 \
   --shard-count 4 --output-dir outputs/robotics-corpus-full-v1 --dry-run
