@@ -22,6 +22,7 @@ from nl2robotics.experiments.executor import (
 from nl2robotics.experiments.metrics import (
     extract_metrics,
     paired_binary_comparison,
+    paired_continuous_comparison,
     summarize_records,
 )
 from nl2robotics.experiments.protocol import freeze_protocol
@@ -787,6 +788,32 @@ class ExperimentTests(unittest.TestCase):
         self.assertEqual(1, paired["paired_count"])
         self.assertEqual(1, paired["b_only_success"])
 
+    def test_paired_runtime_survival_reports_effect_and_excludes_infrastructure(self):
+        records = []
+        for task, baseline, full in (("T1", 0.2, 1.0), ("T2", 0.5, 0.75)):
+            for condition, value in (("B0", baseline), ("FULL", full)):
+                records.append({
+                    "task_id": task, "variant": "rich", "repetition": 0,
+                    "condition": {"id": condition}, "metrics": {
+                        "infrastructure_available": True,
+                        "runtime_survival_fraction": value,
+                    },
+                })
+        records.append({
+            "task_id": "T3", "variant": "rich", "repetition": 0,
+            "condition": {"id": "FULL"}, "metrics": {
+                "infrastructure_available": False,
+                "runtime_survival_fraction": 1.0,
+            },
+        })
+        paired = paired_continuous_comparison(
+            records, "B0", "FULL", "runtime_survival_fraction",
+            bootstrap_samples=100,
+        )
+        self.assertEqual(2, paired["paired_count"])
+        self.assertEqual(2, paired["improved"])
+        self.assertAlmostEqual(0.525, paired["mean_difference_b_minus_a"])
+
     def test_isaac_result_populates_headline_metrics(self):
         result = {
             "stage": "isaac_closed_loop",
@@ -874,6 +901,33 @@ class ExperimentTests(unittest.TestCase):
         self.assertTrue(metrics["fmu_interface_valid"])
         self.assertTrue(metrics["runtime_trace_valid"])
         self.assertTrue(metrics["post_execution_semantic"])
+
+    def test_runtime_failure_progress_is_reported_without_becoming_success(self):
+        metrics = extract_metrics("capability", {
+            "artifact_mode": "modelica_only", "passed": False,
+            "failure_stage": "fmu_execution",
+            "hybrid": {
+                "clock": {"start_time": 0.0, "stop_time": 8.0},
+                "fmu": {"success": True},
+                "execution": {
+                    "success": False,
+                    "initialized": True,
+                    "failure_class": "nonfinite_dynamics",
+                    "failure_time": 6.0,
+                },
+            },
+        })
+        self.assertFalse(metrics["fmu_execution"])
+        self.assertEqual("nonfinite_dynamics", metrics["runtime_failure_class"])
+        self.assertEqual(0.75, metrics["runtime_survival_fraction"])
+
+        summary = summarize_records([{
+            "condition": {"id": "FULL"}, "metrics": metrics,
+        }], bootstrap_samples=10)
+        self.assertEqual(
+            {"nonfinite_dynamics": 1},
+            summary["conditions"]["FULL"]["runtime_failure_classes"],
+        )
 
     def test_disabled_alignment_is_not_counted_as_full_funnel_success(self):
         metrics = extract_metrics("capability", {

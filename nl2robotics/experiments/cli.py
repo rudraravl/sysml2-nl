@@ -6,7 +6,12 @@ import argparse
 import json
 from pathlib import Path
 
-from .metrics import paired_binary_comparison, summarize_records
+from .metrics import (
+    CONTINUOUS_METRICS,
+    paired_binary_comparison,
+    paired_continuous_comparison,
+    summarize_records,
+)
 from .records import load_records, write_json
 
 
@@ -20,9 +25,12 @@ def main() -> None:
     records = load_records(args.runs)
     report = summarize_records(records)
     if args.pair:
-        report["paired_comparison"] = paired_binary_comparison(
-            records, args.pair[0], args.pair[1], args.metric
+        compare = (
+            paired_continuous_comparison
+            if args.metric in CONTINUOUS_METRICS else paired_binary_comparison
         )
+        report["paired_comparison"] = compare(
+            records, args.pair[0], args.pair[1], args.metric)
     if args.output:
         write_json(args.output, report)
     print(json.dumps(report, indent=2, allow_nan=False))

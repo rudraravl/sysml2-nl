@@ -104,6 +104,30 @@ class CapabilityRuntimeRepairTests(unittest.TestCase):
         self.assertEqual(0, report["repairs_accepted"])
         self.assertIs(baseline, report["final"])
 
+    def test_accepts_same_stage_candidate_that_runs_farther(self):
+        baseline = candidate(
+            "model Broken end Broken;", failure_stage="fmu_execution"
+        )
+        improved = candidate(
+            "model Improved end Improved;", failure_stage="fmu_execution"
+        )
+        for item, failure_time in ((baseline, 0.1), (improved, 4.0)):
+            item["execution"]["fmu"]["success"] = True
+            item["execution"]["contract"]["success"] = True
+            item["execution"]["execution"].update({
+                "initialized": True,
+                "success": False,
+                "failure_time": failure_time,
+            })
+        report = guarded_capability_runtime_repair(
+            "Execute the model.", baseline,
+            lambda _: improved["modelica"],
+            lambda *_: improved,
+            max_repairs=1,
+        )
+        self.assertEqual(1, report["repairs_accepted"])
+        self.assertIs(improved, report["final"])
+
     def test_rejects_renamed_model_even_if_it_executes(self):
         baseline = candidate(
             "model RequiredName end RequiredName;", failure_stage="fmu_export"
@@ -129,6 +153,8 @@ class CapabilityRuntimeRepairTests(unittest.TestCase):
         self.assertIn("Preserve\nevery grounded numeric requirement", prompt)
         self.assertIn("delete dynamics or checks", prompt)
         self.assertIn("Never replace a dynamic signal with", prompt)
+        self.assertIn("observable non-terminating monitor variables", prompt)
+        self.assertIn("Do not turn a violated monitor into a constant pass", prompt)
         self.assertIn("fmu_execution", prompt)
 
     def test_provider_usage_limit_propagates_without_becoming_model_failure(self):

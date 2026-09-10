@@ -450,6 +450,7 @@ def _execution_summary(report: dict) -> dict:
         "behavior_passed": report.get("behavior_passed") is True,
         "execution_mode": report.get("execution_mode"),
         "failure_stage": report.get("failure_stage"),
+        "clock": report.get("clock", {}),
         "report": "execution.json",
         "fmu": report.get("fmu", {}),
         "contract": report.get("contract", {}),

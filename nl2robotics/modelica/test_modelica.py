@@ -19,13 +19,16 @@ from nl2robotics.modelica.models import (
     ModelicaFMU,
 )
 from nl2robotics.modelica.fmu import FMUInspectionError, inspect_fmu
-from nl2robotics.modelica.fmu_runtime import FMIContainerRunner
+from nl2robotics.modelica.fmu_runtime import (
+    FMIContainerRunner,
+    _classify_fmi_failure,
+)
 from nl2robotics.modelica.openmodelica import (
     OpenModelicaRunner,
     _build_script,
     _fmu_script,
 )
-from nl2robotics.modelica.pipeline import ModelicaPipeline, clean_code
+from nl2robotics.modelica.pipeline import ModelicaPipeline, SYSTEM_PROMPT, clean_code
 from nl2robotics.modelica.properties import evaluate_properties, read_trace
 
 
@@ -42,6 +45,10 @@ class CorpusTests(unittest.TestCase):
             self.assertIn("model ", item.code)
         self.assertEqual(10, len(categories))
         self.assertTrue(all(count == 150 for count in categories.values()))
+
+    def test_baseline_prompt_does_not_disclose_contract_runtime_policy(self):
+        self.assertNotIn("external trace evaluator", SYSTEM_PROMPT)
+        self.assertNotIn("anti-windup", SYSTEM_PROMPT)
 
     def test_named_ablation_subsets(self):
         self.assertEqual(24, len(ExampleCorpus(subset="core24").examples))
@@ -115,6 +122,18 @@ class PropertyTests(unittest.TestCase):
             [{"id": "p", "kind": "final", "signal": "speed", "lower": 0}],
         )[0]
         self.assertFalse(result.passed)
+
+    def test_bound_roundoff_is_not_a_behavioral_violation(self):
+        result = evaluate_properties(
+            {"time": [0.0], "pressure": [0.1 - 1.4e-17]},
+            [{
+                "id": "p", "kind": "always", "signal": "pressure",
+                "lower": 0.1, "upper": 18.0,
+            }],
+        )[0]
+        self.assertTrue(result.passed)
+        self.assertLess(result.robustness, 0.0)
+        self.assertIn("tolerance=", result.detail)
 
 
 class PipelineTests(unittest.TestCase):
@@ -465,6 +484,25 @@ class FMUTests(unittest.TestCase):
         self.assertIn("FMICallException", message)
         self.assertIn("Native runtime log", message)
         self.assertIn("division by zero", message)
+        self.assertEqual("nonfinite_dynamics", result.failure_class)
+        self.assertEqual(0.0, result.failure_time)
+
+    def test_runtime_failure_classifier_recovers_phase_reason_and_time(self):
+        failure_class, failure_time, initialized = _classify_fmi_failure(
+            "FMICallException: fmi2DoStep failed; The following assertion has "
+            "been violated at time 4.25: tracking bound violated"
+        )
+        self.assertEqual("behavioral_assertion", failure_class)
+        self.assertEqual(4.25, failure_time)
+        self.assertTrue(initialized)
+
+        failure_class, failure_time, initialized = _classify_fmi_failure(
+            "FMICallException: fmi2ExitInitializationMode failed during "
+            "initialization at time 0.000000"
+        )
+        self.assertEqual("initialization_failure", failure_class)
+        self.assertEqual(0.0, failure_time)
+        self.assertFalse(initialized)
 
 
 class MoETests(unittest.TestCase):

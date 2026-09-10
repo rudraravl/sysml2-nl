@@ -80,6 +80,22 @@ MoE expert makes the cell infrastructure-ineligible and forces an identical
 rerun; it is never compared as a smaller accidental ensemble. Provider usage
 limits stop the batch without writing a false failed cell.
 
+FMU runtime failures also retain a stable failure class and the native failure
+time when available. `runtime_survival_fraction` reports the fraction of the
+grounded requested horizon completed by every FMU execution attempt (successful
+runs equal 1.0). It is a secondary progress metric, never a substitute for FMU
+execution, finite-trace, behavior, or end-to-end pass rates.
+
+Compare that progress on paired runtime-eligible cells with:
+
+```bash
+python3 -m nl2robotics.experiments.cli outputs/robotics-ablations \
+  --pair B0 FULL --metric runtime_survival_fraction
+```
+
+The report includes the paired mean/median effect, seeded bootstrap confidence
+interval, improved/tied/regressed counts, and an exact paired sign test.
+
 For capability ablations, B0 is the compiler/execution baseline: one raw-NL
 generation call, native Modelica compilation, FMI export, FMU initialization,
 simulation, and finite-trace validation. Because B0 is not shown the pipeline's

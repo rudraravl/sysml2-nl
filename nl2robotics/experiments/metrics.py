@@ -26,7 +26,7 @@ CONTINUOUS_METRICS = (
     "maximum_stage_reached", "repairs", "property_total",
     "property_evaluable", "property_satisfied", "property_violated",
     "property_unevaluable", "property_evaluability_rate",
-    "property_satisfaction_rate_evaluable",
+    "property_satisfaction_rate_evaluable", "runtime_survival_fraction",
 )
 
 
@@ -75,6 +75,12 @@ def extract_metrics(profile: str, result: dict, *,
     )
     fmu_export = _truth(fmu.get("success"))
     fmu_execution = _truth(execution.get("success"))
+    runtime_failure_class = execution.get("failure_class")
+    if not isinstance(runtime_failure_class, str) or not runtime_failure_class:
+        runtime_failure_class = None
+    runtime_survival_fraction = _runtime_survival_fraction(
+        execution, hybrid.get("clock", result.get("clock", {}))
+    )
     contract_valid = _truth(contract.get("success"))
     property_pass = (
         all(item.get("passed") is True for item in properties)
@@ -146,6 +152,7 @@ def extract_metrics(profile: str, result: dict, *,
     return {
         "infrastructure_available": True,
         "failure_stage": result.get("failure_stage"),
+        "runtime_failure_class": runtime_failure_class,
         "normalization_valid": normalization_valid,
         "ir_valid": ir_valid,
         "artifact_valid": artifact_valid,
@@ -200,6 +207,7 @@ def extract_metrics(profile: str, result: dict, *,
         "property_satisfaction_rate_evaluable": (
             property_satisfaction_rate_evaluable
         ),
+        "runtime_survival_fraction": runtime_survival_fraction,
         "semantic_score": summary.get("weighted_semantic_score"),
         "semantic_coverage": summary.get("evidence_coverage"),
         "blocking_violations": summary.get("blocking_violations"),
@@ -240,6 +248,14 @@ def summarize_records(records: list[dict], *, bootstrap_samples: int = 2000,
             "failure_stages": dict(sorted(Counter(
                 item["metrics"].get("failure_stage") or "none" for item in rows
             ).items())),
+            "runtime_failure_classes": dict(sorted(Counter(
+                item["metrics"].get("runtime_failure_class") or (
+                    "none" if item["metrics"].get("fmu_execution") is True
+                    else "unclassified"
+                )
+                for item in rows
+                if isinstance(item["metrics"].get("fmu_execution"), bool)
+            ).items())),
         }
     return {
         "schema_version": "1.0",
@@ -260,6 +276,30 @@ def _maximum_stage_reached(rows: list[dict]) -> int | None:
         and isinstance(item.get("index"), int)
     ]
     return max(reached) if reached else None
+
+
+def _runtime_survival_fraction(execution: dict, clock: object) -> float | None:
+    """Return completed requested simulation time, without treating it as pass."""
+    if not isinstance(execution, dict) or not isinstance(clock, dict):
+        return None
+    success = execution.get("success")
+    if not isinstance(success, bool):
+        return None
+    try:
+        start = float(clock["start_time"])
+        stop = float(clock["stop_time"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    if not math.isfinite(start) or not math.isfinite(stop) or stop <= start:
+        return None
+    if success:
+        return 1.0
+    failure_time = execution.get("failure_time")
+    if not isinstance(failure_time, (int, float)) or isinstance(failure_time, bool):
+        return 0.0
+    if not math.isfinite(float(failure_time)):
+        return 0.0
+    return min(1.0, max(0.0, (float(failure_time) - start) / (stop - start)))
 
 
 def paired_binary_comparison(records: list[dict], condition_a: str,
@@ -287,6 +327,72 @@ def paired_binary_comparison(records: list[dict], condition_a: str,
         "a_only_success": a_only,
         "b_only_success": b_only,
         "exact_mcnemar_p_value": p_value,
+    }
+
+
+def paired_continuous_comparison(
+    records: list[dict], condition_a: str, condition_b: str, metric: str, *,
+    bootstrap_samples: int = 10000, seed: int = 20260817,
+) -> dict:
+    """Compare paired numeric outcomes with an effect size and paired CI."""
+    keyed: dict[tuple, dict[str, float]] = {}
+    for row in records:
+        if row.get("metrics", {}).get("infrastructure_available") is not True:
+            continue
+        value = row.get("metrics", {}).get(metric)
+        condition = row.get("condition", {}).get("id")
+        if condition not in {condition_a, condition_b}:
+            continue
+        if not isinstance(value, (int, float)) or isinstance(value, bool):
+            continue
+        numeric = float(value)
+        if not math.isfinite(numeric):
+            continue
+        key = (row.get("task_id"), row.get("variant"), row.get("repetition"))
+        keyed.setdefault(key, {})[condition] = numeric
+    pairs = [value for value in keyed.values()
+             if condition_a in value and condition_b in value]
+    differences = [item[condition_b] - item[condition_a] for item in pairs]
+    if not differences:
+        return {
+            "condition_a": condition_a, "condition_b": condition_b,
+            "metric": metric, "paired_count": 0,
+            "mean_a": None, "mean_b": None, "mean_difference_b_minus_a": None,
+            "median_difference_b_minus_a": None,
+            "mean_difference_ci95": None, "improved": 0, "tied": 0,
+            "regressed": 0, "paired_sign_test_p_value": None,
+        }
+    mean_a = sum(item[condition_a] for item in pairs) / len(pairs)
+    mean_b = sum(item[condition_b] for item in pairs) / len(pairs)
+    ordered = sorted(differences)
+    middle = len(ordered) // 2
+    median_difference = ordered[middle] if len(ordered) % 2 else (
+        ordered[middle - 1] + ordered[middle]
+    ) / 2
+    rng = random.Random(seed + sum(map(ord, condition_a + condition_b + metric)))
+    bootstrapped = sorted(
+        sum(rng.choice(differences) for _ in differences) / len(differences)
+        for _ in range(bootstrap_samples)
+    )
+    low = bootstrapped[int(0.025 * (bootstrap_samples - 1))]
+    high = bootstrapped[int(0.975 * (bootstrap_samples - 1))]
+    improved = sum(value > 0 for value in differences)
+    regressed = sum(value < 0 for value in differences)
+    tied = len(differences) - improved - regressed
+    discordant = improved + regressed
+    sign_p = (
+        min(1.0, 2.0 * _binomial_cdf(min(improved, regressed), discordant, 0.5))
+        if discordant else 1.0
+    )
+    return {
+        "condition_a": condition_a, "condition_b": condition_b,
+        "metric": metric, "paired_count": len(pairs),
+        "mean_a": mean_a, "mean_b": mean_b,
+        "mean_difference_b_minus_a": sum(differences) / len(differences),
+        "median_difference_b_minus_a": median_difference,
+        "mean_difference_ci95": [low, high],
+        "improved": improved, "tied": tied, "regressed": regressed,
+        "paired_sign_test_p_value": sign_p,
     }
 
 

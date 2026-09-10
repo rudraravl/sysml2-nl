@@ -47,12 +47,13 @@ def _evaluate(trace: dict[str, list[float]], spec: dict) -> PropertyResult:
         robustness = margins[-1]
     else:
         raise ValueError(f"unsupported property kind {kind!r}")
+    tolerance = _comparison_tolerance(spec)
     return PropertyResult(
         prop_id,
         _formula(spec),
-        robustness >= 0,
+        robustness >= -tolerance,
         robustness,
-        f"{kind} robustness={robustness:.6g}",
+        f"{kind} robustness={robustness:.6g}; tolerance={tolerance:.6g}",
     )
 
 
@@ -65,6 +66,14 @@ def _margin(value: float, spec: dict) -> float:
     if not margins:
         raise ValueError("property requires lower and/or upper bound")
     return min(margins)
+
+
+def _comparison_tolerance(spec: dict) -> float:
+    """Absorb only floating-point noise relative to the frozen bounds."""
+    bounds = [
+        abs(float(spec[key])) for key in ("lower", "upper") if key in spec
+    ]
+    return 1e-9 * max([1.0, *bounds])
 
 
 def _formula(spec: dict) -> str:

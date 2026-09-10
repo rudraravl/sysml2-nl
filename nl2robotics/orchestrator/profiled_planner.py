@@ -322,12 +322,18 @@ MODELICA-ONLY EXECUTABLE ROBOTICS OBLIGATIONS
 - Every output must be computed by executed equations; constant placeholders
   are not behavioral evidence. Use finite, non-singular initial conditions and
   explicit zero-error branches for divisors and normalized vectors.
+- Initialize every dynamic state explicitly. Use bounded controller states with
+  anti-windup, smooth or noEvent regularizations for switching/contact equations,
+  strictly positive protected denominators, and numerically moderate compliant
+  contact parameters appropriate for the requested integration step.
 - Preserve genuinely missing facts as `UNRESOLVED_ASSUMPTION` comments. Do not
   invent a value or leave an unbound parameter merely to make code compile.
 {chr(10).join(output_lines) if output_lines else '- No observable trace output was grounded.'}
 {chr(10).join(parameter_lines) if parameter_lines else '- No scalar physical parameter obligation was grounded.'}
-- External monitors—not assertions authored by the generator—own the property
-  thresholds below. Do not alter or weaken them.
+- Keep every thresholded physical quantity observable through its required Real
+  trace output. External monitors—not assert(), terminate(), or another fatal
+  event authored by the generator—own the property thresholds below and must
+  receive the complete trace. Do not alter or weaken any threshold.
 
 GROUNDED REQUIREMENT IR
 {json.dumps(ir, indent=2, sort_keys=True)}

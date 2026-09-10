@@ -232,6 +232,8 @@ class CapabilityOrchestratorTests(unittest.TestCase):
 
         def generated_modelica(requirement: str, output_dir: Path):
             self.assertIn("MODELICA-ONLY EXECUTABLE", requirement)
+            self.assertIn("bounded controller states", requirement)
+            self.assertIn("External monitors—not assert()", requirement)
             return f"model {plan.model_name} end {plan.model_name};", {
                 "passed": True, "repairs": 0, "generation_mode": "test",
                 "attempts": [{"passed": True}],
@@ -282,6 +284,7 @@ class CapabilityOrchestratorTests(unittest.TestCase):
         self.assertEqual("modelica_only", result["artifact_mode"])
         self.assertNotIn("openusd", result)
         self.assertTrue(result["hybrid"]["execution_completed"])
+        self.assertEqual(2.0, result["hybrid"]["clock"]["stop_time"])
 
     def test_raw_baseline_bypasses_normalization_and_executes_generated_model(self):
         ir = CapabilityPlanningTests().modelica_ir()

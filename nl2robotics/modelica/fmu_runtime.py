@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import tempfile
@@ -90,6 +91,7 @@ class FMIContainerRunner:
         except subprocess.TimeoutExpired:
             return FMUExecution(
                 True,
+                failure_class="runtime_timeout",
                 duration_seconds=time.monotonic() - started,
                 diagnostics=[Diagnostic(
                     "fmi_execution", "error",
@@ -117,19 +119,65 @@ class FMIContainerRunner:
             else:
                 message = report_error or runtime_log or "FMU execution failed"
             diagnostics.append(Diagnostic("fmi_execution", "error", message))
+        else:
+            message = ""
         simulated = (
             process.returncode == 0
             and report.get("success") is True
             and trace_path.is_file()
         )
+        failure_class, failure_time, initialized_by_call = (
+            _classify_fmi_failure(message)
+        )
         return FMUExecution(
             True,
-            initialized=bool(report.get("initialized")),
+            # A reported fmi2DoStep failure proves initialization completed,
+            # even though fmpy's all-or-nothing helper returns no partial array.
+            initialized=bool(report.get("initialized")) or initialized_by_call,
             simulated=simulated,
             result_file=trace_path if trace_path.is_file() else None,
             report_file=report_path if report_path.is_file() else None,
             columns=list(report.get("columns", [])),
             sample_count=int(report.get("sample_count", 0)),
+            failure_class=failure_class,
+            failure_time=failure_time,
             diagnostics=diagnostics,
             duration_seconds=duration,
         )
+
+
+_TIME_PATTERN = re.compile(
+    r"(?:at\s+time(?:=|\s+)|during\s+initialization\s+at\s+time\s+)"
+    r"([-+]?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?)",
+    re.IGNORECASE,
+)
+
+
+def _classify_fmi_failure(message: str) -> tuple[str | None, float | None, bool]:
+    """Return a stable failure class, failure time, and proven init status."""
+    if not message:
+        return None, None, False
+    lowered = message.lower()
+    match = _TIME_PATTERN.search(message)
+    failure_time = float(match.group(1)) if match else None
+    initialized = "fmi2dostep" in lowered
+    if (
+        "fmi2exitinitializationmode" in lowered
+        or "during initialization" in lowered
+    ):
+        failure_class = "initialization_failure"
+    elif any(token in lowered for token in (
+        "inf or nan", "nan or infinite", "division by zero", "non-finite",
+    )):
+        failure_class = "nonfinite_dynamics"
+    elif "assertion has been violated" in lowered:
+        failure_class = "behavioral_assertion"
+    elif any(token in lowered for token in (
+        "non-linear system", "nonlinear system", "solver failed",
+    )):
+        failure_class = "solver_failure"
+    elif "fmi2dostep" in lowered:
+        failure_class = "integration_step_failure"
+    else:
+        failure_class = "runtime_error"
+    return failure_class, failure_time, initialized

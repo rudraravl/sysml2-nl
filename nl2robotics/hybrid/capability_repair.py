@@ -122,13 +122,19 @@ def capability_runtime_infrastructure_error(execution: dict) -> str | None:
     return None
 
 
-def capability_runtime_quality(candidate: dict) -> tuple[int, ...]:
+def capability_runtime_quality(candidate: dict) -> tuple[int | float, ...]:
     """Order candidates only by structural progress through real execution."""
     report = candidate.get("execution", {})
     fmu = report.get("fmu", {})
     contract = report.get("contract", {})
     runtime = report.get("execution", {})
     trace = report.get("trace_gate", {})
+    failure_time = runtime.get("failure_time")
+    runtime_progress = (
+        float(failure_time)
+        if isinstance(failure_time, (int, float))
+        else 0.0
+    )
     return (
         int(candidate.get("modelica_passed") is True),
         int(candidate.get("identity_preserved") is True),
@@ -137,6 +143,7 @@ def capability_runtime_quality(candidate: dict) -> tuple[int, ...]:
         int(contract.get("success") is True),
         int(runtime.get("initialized") is True),
         int(runtime.get("success") is True),
+        runtime_progress,
         int(trace.get("success") is True),
         int(report.get("execution_completed") is True),
         sum(item.get("status") != "unevaluable"
@@ -168,6 +175,12 @@ def build_capability_runtime_repair_prompt(
         "runtime_diagnostics": execution.get("execution", {}).get(
             "diagnostics", []
         ),
+        "runtime_failure_class": execution.get("execution", {}).get(
+            "failure_class"
+        ),
+        "runtime_failure_time": execution.get("execution", {}).get(
+            "failure_time"
+        ),
         "trace_gate": execution.get("trace_gate", {}),
         "property_results": execution.get("properties", []),
     }
@@ -180,8 +193,12 @@ property threshold, and intended behavior. Never replace a dynamic signal with
 a constant chosen to satisfy a monitor, delete dynamics or checks, clamp an
 output solely to hide a violation, or modify the grounded execution contract.
 Prefer simple FMI-compatible equations, explicit non-singular initial
-conditions, and physically justified numerical regularization. Return one
-complete Modelica model and no prose.
+conditions, bounded controller states, and physically justified numerical
+regularization. Task-performance and safety thresholds must remain unchanged,
+but express them as observable non-terminating monitor variables for external
+trace evaluation instead of assert(), terminate(), or another fatal event.
+Do not turn a violated monitor into a constant pass. Return one complete
+Modelica model and no prose.
 
 Requirement:
 {requirement}

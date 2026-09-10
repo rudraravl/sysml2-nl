@@ -133,6 +133,8 @@ class FMUExecution:
     report_file: Path | None = None
     columns: list[str] = field(default_factory=list)
     sample_count: int = 0
+    failure_class: str | None = None
+    failure_time: float | None = None
     diagnostics: list[Diagnostic] = field(default_factory=list)
     duration_seconds: float = 0.0
 
