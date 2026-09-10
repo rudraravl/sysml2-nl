@@ -604,9 +604,33 @@ class MoETests(unittest.TestCase):
         request = urlopen.call_args.args[0]
         request_payload = json.loads(request.data.decode("utf-8"))
         self.assertEqual("model Ok end Ok;", result)
-        self.assertEqual(4096, request_payload["max_tokens"])
+        self.assertEqual(4096, request_payload["max_completion_tokens"])
         self.assertEqual(4096, transport["max_completion_tokens"])
         self.assertEqual(90.0, transport["response_timeout_seconds"])
+        self.assertEqual("high", request_payload["reasoning"]["effort"])
+        self.assertTrue(request_payload["reasoning"]["exclude"])
+        self.assertEqual("throughput", request_payload["provider"]["sort"])
+
+    def test_openrouter_null_content_is_an_empty_model_candidate(self):
+        payload = b'{"choices":[{"message":{"content":null}}]}'
+
+        class Response:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+            def read(self):
+                return payload
+
+        with patch.object(
+            moe.sysml_moe._req, "urlopen", return_value=Response()
+        ):
+            result = moe.sysml_moe._openrouter_invoke(
+                "z-ai/glm-5.2", "system", "human", "key"
+            )
+        self.assertEqual("", result)
 
 
 class EvaluationHarnessTests(unittest.TestCase):

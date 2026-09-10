@@ -586,12 +586,16 @@ def _preflight_llm_environment(*, model: str, provider: str | None,
         model_probe_attempted = True
         try:
             if selected_provider in {"openrouter", "gemini"}:
-                invoke_modelica_model(
+                probe_text = invoke_modelica_model(
                     model,
                     TEXT_PREFIX,
                     "Reply with exactly READY and nothing else.",
                     os.getenv("OPENROUTER_API_KEY"),
                 )
+                if probe_text.strip() != "READY":
+                    raise RuntimeError(
+                        "model probe returned no exact READY completion"
+                    )
             else:
                 probe_completion(
                     model=model, provider=selected_provider, timeout=120

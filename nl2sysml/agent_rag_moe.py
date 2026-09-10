@@ -462,7 +462,15 @@ def _openrouter_invoke(model: str, system_msg: str, human_msg: str, key: str) ->
             {"role": "user", "content": human_msg},
         ],
         "temperature": transport["temperature"],
-        "max_tokens": transport["max_completion_tokens"],
+        "max_completion_tokens": transport["max_completion_tokens"],
+        "reasoning": {
+            "effort": transport["reasoning_effort"],
+            "exclude": transport["reasoning_exclude"],
+        },
+        "provider": {
+            "sort": transport["provider_sort"],
+            "allow_fallbacks": True,
+        },
     }
     data = json.dumps(payload).encode("utf-8")
     headers = {
@@ -511,8 +519,11 @@ def _openrouter_invoke(model: str, system_msg: str, human_msg: str, key: str) ->
         raise RuntimeError(
             f"OpenRouter returned unexpected payload for {model}: {obj!r}"
         ) from e
-    if not str(text).strip():
-        raise RuntimeError(f"OpenRouter returned empty content for {model}")
+    if text is None or not str(text).strip():
+        # A successful provider response with no final answer is a model-output
+        # failure.  Return an empty candidate so the normal artifact gate—not
+        # the infrastructure exclusion path—records it faithfully.
+        return ""
     return str(text)
 
 
@@ -522,12 +533,15 @@ def openrouter_transport_config() -> dict[str, Any]:
         "attempts": 3,
         "socket_timeout_seconds": 120.0,
         "response_timeout_seconds": _positive_timeout(
-            os.getenv("OPENROUTER_RESPONSE_TIMEOUT", "180"), default=180.0
+            os.getenv("OPENROUTER_RESPONSE_TIMEOUT", "300"), default=300.0
         ),
         "max_completion_tokens": _positive_int(
-            os.getenv("OPENROUTER_MAX_TOKENS", "8192"), default=8192
+            os.getenv("OPENROUTER_MAX_TOKENS", "32768"), default=32768
         ),
         "temperature": 0.2,
+        "reasoning_effort": "high",
+        "reasoning_exclude": True,
+        "provider_sort": "throughput",
     }
 
 
