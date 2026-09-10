@@ -58,6 +58,7 @@ class CapabilityBenchmarkSuite:
                 "lineage_id": case.get("lineage_id"),
                 "configuration_variant": case.get("configuration_variant"),
                 "provenance": case.get("provenance"),
+                "design_axes": dict(case.get("design_axes", {})),
                 "rag_route": dict(routes[family]),
             },
             prompt_variants={"rich": str(case["request"])},

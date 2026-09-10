@@ -40,6 +40,105 @@ class ModelicaCapabilityOrchestrator:
             fmi_runner=modelica_pipeline.fmi_runner,
         )
 
+    def run_compiler_execution_baseline(
+        self, source_text: str, *, output_dir: Path, task_id: str,
+        clock: dict,
+    ) -> dict:
+        """Run raw-NL B0 without normalization, contracts, or semantic scoring."""
+        output_dir.mkdir(parents=True, exist_ok=True)
+        (output_dir / "request.txt").write_text(
+            source_text.strip() + "\n", encoding="utf-8"
+        )
+        result = {
+            "stage": "modelica_compiler_execution_baseline",
+            "schema_version": "1.0",
+            "artifact_mode": "modelica_only",
+            "evaluation_scope": "compile_export_execute_finite_trace",
+            "task_id": task_id,
+            "passed": False,
+            "failure_stage": "modelica_generation",
+            "source_text_sha256": hashlib.sha256(
+                source_text.strip().encode("utf-8")
+            ).hexdigest(),
+            "normalization": {
+                "applicable": False,
+                "success": None,
+                "reason": "B0 consumes the raw NL request directly",
+            },
+            "claim_eligible_h2": False,
+            "claim_eligible_newton_h2": False,
+            "claim_eligible_deltaai_h2": False,
+        }
+        modelica_dir = output_dir / "modelica"
+        modelica_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            modelica, generation = self.modelica_generator(
+                source_text, modelica_dir / "generation"
+            )
+        except Exception as exc:
+            result["error"] = str(exc)
+            return _finish(output_dir, result)
+        (modelica_dir / "model.mo").write_text(modelica, encoding="utf-8")
+        _write_json(modelica_dir / "generation.json", generation)
+        result["modelica"] = _profile_summary(generation)
+        if generation.get("passed") is not True:
+            result["failure_stage"] = "modelica_validation"
+            result["stage_trace"] = _baseline_stage_trace(result)
+            return _finish(output_dir, result)
+        try:
+            actual_model_name = find_model_name(modelica)
+        except ValueError as exc:
+            result["failure_stage"] = "modelica_identity"
+            result["error"] = str(exc)
+            result["stage_trace"] = _baseline_stage_trace(result)
+            return _finish(output_dir, result)
+        result["modelica"].update({
+            "model_name": actual_model_name,
+            "identity_accepted": True,
+            "identity_policy": "generated_top_level_model",
+        })
+        execution_ir = {
+            "schema_version": "1.0",
+            "task_id": task_id,
+            "source_text": source_text.strip(),
+            "properties": [],
+        }
+        execution_contract = {
+            "schema_version": "1.0",
+            "contract_kind": "baseline_compiler_execution",
+            "task_id": task_id,
+            "model_name": actual_model_name,
+            "clock": clock,
+            "mappings": [],
+            "parameter_mappings": [],
+            "evaluation_scope": "compile_export_execute_finite_trace",
+        }
+        _write_json(output_dir / "baseline-execution-ir.json", execution_ir)
+        _write_json(output_dir / "execution-contract.json", execution_contract)
+        execution = self.execution_pipeline.run_compiler_execution_baseline(
+            modelica, execution_ir, execution_contract,
+            output_dir=output_dir / "execution",
+        )
+        _write_json(output_dir / "execution.json", execution)
+        result["hybrid"] = _execution_summary(execution)
+        alignment = skipped_modelica_specification(task_id)
+        _write_json(output_dir / "alignment.json", alignment)
+        result["alignment"] = {
+            "enabled": False,
+            "passed": True,
+            "skipped": True,
+            "not_run": False,
+            "claim_ready": False,
+            "report": "alignment.json",
+            **alignment["summary"],
+        }
+        result["passed"] = execution.get("passed") is True
+        result["failure_stage"] = (
+            None if result["passed"] else execution.get("failure_stage")
+        )
+        result["stage_trace"] = _baseline_stage_trace(result)
+        return _finish(output_dir, result)
+
     def run(self, source_text: str, ask_ir: Ask, *, output_dir: Path,
             task_id: str | None = None, max_ir_repairs: int = 1,
             runtime_repair_ask: Ask | None = None,
@@ -47,7 +146,6 @@ class ModelicaCapabilityOrchestrator:
             specification_ask: Ask | None = None,
             enable_specification_alignment: bool = True,
             enforce_model_identity: bool = True,
-            compiler_execution_only: bool = False,
             precomputed_normalization: NormalizationResult | None = None) -> dict:
         output_dir.mkdir(parents=True, exist_ok=True)
         (output_dir / "request.txt").write_text(
@@ -171,11 +269,7 @@ class ModelicaCapabilityOrchestrator:
             ),
         })
 
-        execute = (
-            self.execution_pipeline.run_compiler_execution_baseline
-            if compiler_execution_only else self.execution_pipeline.run
-        )
-        execution = execute(
+        execution = self.execution_pipeline.run(
             modelica, plan.requirement_ir, execution_contract,
             output_dir=output_dir / "execution",
         )
@@ -398,6 +492,34 @@ def _stage_trace(result: dict) -> list[dict]:
         "reached": reached,
         "passed": passed if reached else None,
         "status": "passed" if reached and passed else "failed" if reached else "not_reached",
+    } for index, (stage, reached, passed) in enumerate(values)]
+
+
+def _baseline_stage_trace(result: dict) -> list[dict]:
+    execution = result.get("hybrid", {})
+    values = (
+        ("modelica_validation", "modelica" in result,
+         result.get("modelica", {}).get("passed") is True),
+        ("modelica_identity", "modelica" in result,
+         result.get("modelica", {}).get("identity_accepted") is True),
+        ("fmu_export", bool(execution.get("fmu")),
+         execution.get("fmu", {}).get("success") is True),
+        ("runtime_initialization", bool(execution.get("execution")),
+         execution.get("execution", {}).get("initialized") is True),
+        ("runtime_execution", bool(execution.get("execution")),
+         execution.get("execution_completed") is True),
+        ("runtime_trace", bool(execution.get("trace_gate")),
+         execution.get("trace_gate", {}).get("success") is True),
+    )
+    return [{
+        "index": index,
+        "stage": stage,
+        "reached": reached,
+        "passed": passed if reached else None,
+        "status": (
+            "passed" if reached and passed else
+            "failed" if reached else "not_reached"
+        ),
     } for index, (stage, reached, passed) in enumerate(values)]
 
 

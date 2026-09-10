@@ -94,7 +94,12 @@ class AblationRunner:
                     records.append(cached)
                     continue
             block_key = (task.id, repetition)
-            if block_key not in block_contexts:
+            requires_context = getattr(execute, "requires_block_context", None)
+            needs_block_context = (
+                requires_context(task, condition)
+                if callable(requires_context) else True
+            )
+            if needs_block_context and block_key not in block_contexts:
                 prepare = getattr(execute, "prepare_block", None)
                 try:
                     block_contexts[block_key] = (
@@ -112,20 +117,26 @@ class AblationRunner:
                     block_errors[block_key] = str(exc)
                 else:
                     block_errors[block_key] = None
-            block_prepare_error = block_errors.get(block_key)
+            block_prepare_error = (
+                block_errors.get(block_key) if needs_block_context else None
+            )
             started = time.monotonic()
             infrastructure_error = block_prepare_error
             result: dict = {}
             if infrastructure_error is None:
                 try:
-                    if block_contexts[block_key] is None:
+                    block_context = (
+                        block_contexts.get(block_key)
+                        if needs_block_context else None
+                    )
+                    if block_context is None:
                         result = execute(
                             task, condition, prompt, run_dir / "artifacts"
                         )
                     else:
                         result = execute(
                             task, condition, prompt, run_dir / "artifacts",
-                            block_context=block_contexts[block_key],
+                            block_context=block_context,
                         )
                 except Exception as exc:
                     if is_cli_usage_limit_message(str(exc)):

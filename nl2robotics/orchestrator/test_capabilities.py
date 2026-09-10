@@ -268,8 +268,6 @@ class CapabilityOrchestratorTests(unittest.TestCase):
                     },
                 }
 
-            run_compiler_execution_baseline = run
-
         with tempfile.TemporaryDirectory() as tmp:
             result = ModelicaCapabilityOrchestrator(
                 modelica_pipeline=Pipeline(),
@@ -285,9 +283,8 @@ class CapabilityOrchestratorTests(unittest.TestCase):
         self.assertNotIn("openusd", result)
         self.assertTrue(result["hybrid"]["execution_completed"])
 
-    def test_raw_baseline_name_is_adapted_only_in_execution_contract(self):
+    def test_raw_baseline_bypasses_normalization_and_executes_generated_model(self):
         ir = CapabilityPlanningTests().modelica_ir()
-        plan = build_modelica_capability_plan(ir)
         generated = "model BaselineRobot end BaselineRobot;"
 
         def generated_modelica(requirement: str, output_dir: Path):
@@ -342,27 +339,21 @@ class CapabilityOrchestratorTests(unittest.TestCase):
                 modelica_pipeline=Pipeline(),
                 modelica_generator=generated_modelica,
                 execution_pipeline=Execution(),
-            ).run(
-                ir["source_text"], lambda _: json.dumps(ir),
-                output_dir=root, task_id=ir["task_id"], max_ir_repairs=0,
-                enable_specification_alignment=False,
-                enforce_model_identity=False,
-                compiler_execution_only=True,
+            ).run_compiler_execution_baseline(
+                ir["source_text"], output_dir=root, task_id=ir["task_id"],
+                clock={"duration": 2.0, "frequency_hz": 100.0},
             )
             execution_contract = json.loads(
                 (root / "execution-contract.json").read_text(encoding="utf-8")
             )
-            frozen_contract = json.loads(
-                (root / "contract.json").read_text(encoding="utf-8")
-            )
 
         self.assertTrue(result["passed"], result)
+        self.assertFalse(result["normalization"]["applicable"])
         self.assertEqual("BaselineRobot", result["modelica"]["model_name"])
-        self.assertFalse(result["modelica"]["identity_preserved"])
         self.assertTrue(result["modelica"]["identity_accepted"])
         self.assertEqual("z-ai/glm-5.2", result["modelica"]["generation_model"])
         self.assertEqual("BaselineRobot", execution_contract["model_name"])
-        self.assertEqual(plan.model_name, frozen_contract["model_name"])
+        self.assertFalse((root / "contract.json").exists())
 
     def test_artifact_validation_without_a_grounded_clock_cannot_pass(self):
         ir = broad_ir()

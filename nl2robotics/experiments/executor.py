@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+import re
 
 from nl2robotics.benchmark.suite import BenchmarkSuite, BenchmarkTask
 from nl2robotics.hybrid.portable import PortableHybridPipeline
@@ -67,6 +68,12 @@ class PipelineExperimentExecutor:
         self.k = k
         self.max_tool_repairs = max_tool_repairs
         self.require_complete_moe = require_complete_moe
+
+    @staticmethod
+    def requires_block_context(task: BenchmarkTask,
+                               condition: AblationCondition) -> bool:
+        """B0 must generate even when the FULL pipeline's normalizer fails."""
+        return not (task.profile == "capability" and condition.id == "B0")
 
     def prepare_block(self, task: BenchmarkTask, prompt: str, repetition: int,
                       output_dir: Path) -> dict:
@@ -234,6 +241,13 @@ class PipelineExperimentExecutor:
                 modelica_generator=modelica_generator,
                 normalizer=self.normalizer,
             )
+            if condition.id == "B0":
+                return orchestrator.run_compiler_execution_baseline(
+                    prompt,
+                    output_dir=output_dir,
+                    task_id=task.id,
+                    clock=_baseline_execution_clock(task, prompt),
+                )
             return orchestrator.run(
                 prompt,
                 self.json_ask,
@@ -251,7 +265,6 @@ class PipelineExperimentExecutor:
                 ),
                 enable_specification_alignment=condition.alignment,
                 enforce_model_identity=condition.validated_contract,
-                compiler_execution_only=condition.id == "B0",
                 precomputed_normalization=(
                     block_context.get("normalization")
                     if block_context is not None else None
@@ -441,6 +454,53 @@ def _execution_mode(task: BenchmarkTask) -> str:
         "capability_tier2": "capability_tiered",  # legacy manifests
         "capability_execution": "modelica_capability",
     }.get(task.target_level, "portable_fmu_kinematic")
+
+
+def _baseline_execution_clock(task: BenchmarkTask, prompt: str) -> dict:
+    """Read B0 timing from frozen metadata, with deterministic text fallback."""
+    axes = task.oracle.get("design_axes", {})
+    frequency = axes.get("control_rate_hz") if isinstance(axes, dict) else None
+    duration = axes.get("duration_s") if isinstance(axes, dict) else None
+    source = "frozen_manifest_design_axes"
+    if not isinstance(frequency, (int, float)) or not isinstance(
+        duration, (int, float)
+    ):
+        frequency_match = re.search(
+            r"\b(?:at|use|using)\s+(?:a\s+)?([0-9]+(?:\.[0-9]+)?)\s*"
+            r"(k?hz)\b",
+            prompt,
+            flags=re.IGNORECASE,
+        )
+        duration_match = re.search(
+            r"\bfor\s+([0-9]+(?:\.[0-9]+)?)\s*"
+            r"(milliseconds?|ms|seconds?|secs?|s|minutes?|mins?)\b",
+            prompt,
+            flags=re.IGNORECASE,
+        )
+        if frequency_match is None or duration_match is None:
+            raise ValueError(
+                f"B0 execution clock is absent for task {task.id}; "
+                "the one-shot baseline cannot call an LLM normalizer"
+            )
+        frequency = float(frequency_match.group(1))
+        if frequency_match.group(2).lower() == "khz":
+            frequency *= 1000.0
+        duration = float(duration_match.group(1))
+        duration_unit = duration_match.group(2).lower()
+        if duration_unit in {"millisecond", "milliseconds", "ms"}:
+            duration /= 1000.0
+        elif duration_unit in {"minute", "minutes", "min", "mins"}:
+            duration *= 60.0
+        source = "deterministic_prompt_timing"
+    frequency = float(frequency)
+    duration = float(duration)
+    if frequency <= 0.0 or duration <= 0.0:
+        raise ValueError(f"invalid B0 execution clock for task {task.id}")
+    return {
+        "duration": duration,
+        "frequency_hz": frequency,
+        "source": source,
+    }
 
 
 def _annotate_generation_report(report: dict, condition: AblationCondition,

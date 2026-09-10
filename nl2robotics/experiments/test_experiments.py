@@ -12,6 +12,7 @@ from nl2robotics.experiments.executor import (
     COMBINER_MODEL,
     EXPERT_MODELS,
     PipelineExperimentExecutor,
+    _baseline_execution_clock,
     _one_shot_outcomes,
     _study_validity,
     _execution_mode,
@@ -70,6 +71,47 @@ class ExperimentTests(unittest.TestCase):
         self.assertEqual("modelica_only", result["artifact_mode"])
         orchestrator.assert_called_once()
         orchestrator.return_value.run.assert_called_once()
+
+    def test_b0_capability_bypasses_normalizer_and_contract_planner(self):
+        task, prompt = _load_suite(
+            Path("nl2robotics/corpus/pipeline_prompt_manifest.json")
+        ).select(profile="capability", variant="rich")[0]
+        executor = object.__new__(PipelineExperimentExecutor)
+        executor.modelica = object()
+        executor.normalizer = object()
+        executor.text_ask = lambda _: ""
+        executor.json_ask = lambda _: self.fail("B0 invoked normalizer")
+        executor.max_tool_repairs = 2
+        executor.k = 5
+        executor._generate_modelica = lambda *args, **kwargs: ("model X end X;", {})
+        with tempfile.TemporaryDirectory() as tmp, patch(
+            "nl2robotics.experiments.executor.ModelicaCapabilityOrchestrator"
+        ) as orchestrator:
+            orchestrator.return_value.run_compiler_execution_baseline.return_value = {
+                "artifact_mode": "modelica_only", "passed": True,
+            }
+            result = executor._run_hybrid(
+                task, CONDITIONS["B0"], prompt, Path(tmp)
+            )
+        self.assertTrue(result["passed"])
+        orchestrator.return_value.run.assert_not_called()
+        call = orchestrator.return_value.run_compiler_execution_baseline.call_args
+        self.assertEqual(task.id, call.kwargs["task_id"])
+        self.assertEqual(
+            task.oracle["design_axes"]["control_rate_hz"],
+            call.kwargs["clock"]["frequency_hz"],
+        )
+        self.assertEqual("frozen_manifest_design_axes",
+                         call.kwargs["clock"]["source"])
+
+    def test_b0_clock_has_deterministic_text_fallback(self):
+        task, prompt = _load_suite(CAPABILITY_MANIFEST).select(
+            profile="capability", variant="rich"
+        )[0]
+        clock = _baseline_execution_clock(task, prompt)
+        self.assertEqual(100.0, clock["frequency_hz"])
+        self.assertEqual(5.0, clock["duration"])
+        self.assertEqual("deterministic_prompt_timing", clock["source"])
 
     def test_frozen_conditions_map_to_distinct_generation_strategies(self):
         self.assertEqual("direct", generation_strategy(CONDITIONS["B0"]))
@@ -202,6 +244,33 @@ class ExperimentTests(unittest.TestCase):
         self.assertEqual(1, execute.prepares)
         self.assertEqual(2, len(execute.contexts))
         self.assertIs(execute.contexts[0], execute.contexts[1])
+
+    def test_runner_does_not_prepare_context_for_b0_when_executor_opts_out(self):
+        task = BenchmarkSuite().select(profile="hybrid")[0]
+
+        class Executor:
+            def __init__(self):
+                self.prepares = 0
+
+            @staticmethod
+            def requires_block_context(task, condition):
+                return condition.id != "B0"
+
+            def prepare_block(self, task, prompt, repetition, output_dir):
+                self.prepares += 1
+                raise AssertionError("B0 normalization should not run")
+
+            def __call__(self, task, condition, prompt, output_dir):
+                return {"passed": True, "study_validity": {"eligible": True}}
+
+        execute = Executor()
+        with tempfile.TemporaryDirectory() as tmp:
+            records = AblationRunner(Path(tmp)).run(
+                [task], [CONDITIONS["B0"]], execute, variant="rich"
+            )
+        self.assertEqual(0, execute.prepares)
+        self.assertEqual(1, len(records))
+        self.assertIsNone(records[0]["infrastructure_error"])
 
     def test_shards_are_disjoint_and_cover_the_global_randomized_plan(self):
         tasks = BenchmarkSuite().select(profile="hybrid")[:5]
