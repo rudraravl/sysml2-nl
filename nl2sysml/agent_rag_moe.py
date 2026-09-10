@@ -463,10 +463,6 @@ def _openrouter_invoke(model: str, system_msg: str, human_msg: str, key: str) ->
         ],
         "temperature": transport["temperature"],
         "max_completion_tokens": transport["max_completion_tokens"],
-        "provider": {
-            "sort": transport["provider_sort"],
-            "allow_fallbacks": True,
-        },
     }
     data = json.dumps(payload).encode("utf-8")
     headers = {
@@ -536,7 +532,7 @@ def openrouter_transport_config() -> dict[str, Any]:
         ),
         "temperature": 0.2,
         "reasoning_policy": "provider_default",
-        "provider_sort": "throughput",
+        "provider_routing": "openrouter_default_balanced_with_fallback",
     }
 
 

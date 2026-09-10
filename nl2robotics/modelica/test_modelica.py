@@ -609,7 +609,11 @@ class MoETests(unittest.TestCase):
         self.assertEqual(90.0, transport["response_timeout_seconds"])
         self.assertNotIn("reasoning", request_payload)
         self.assertEqual("provider_default", transport["reasoning_policy"])
-        self.assertEqual("throughput", request_payload["provider"]["sort"])
+        self.assertNotIn("provider", request_payload)
+        self.assertEqual(
+            "openrouter_default_balanced_with_fallback",
+            transport["provider_routing"],
+        )
 
     def test_openrouter_null_content_is_an_empty_model_candidate(self):
         payload = b'{"choices":[{"message":{"content":null}}]}'
