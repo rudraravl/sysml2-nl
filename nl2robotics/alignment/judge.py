@@ -72,6 +72,14 @@ satisfied, violated, unknown, or not_applicable. `violated` requires direct
 contradictory artifact evidence. Missing or ambiguous evidence is `unknown`.
 Evidence must be one exact, compact substring copied from the artifact.
 
+For Modelica artifacts, an IR dynamics `state` means a modeled semantic
+variable or signal; it need not be a differential state with a `der(...)`
+equation. A declared variable governed by an equation or algorithm, including
+an algebraic bounded command, can satisfy that fact. Do not label implementing
+evidence as contradictory. Use `violated` only when the quoted substring itself
+shows a value, bound, type, connection, or behavior that conflicts with the
+expected fact; otherwise use `unknown` when satisfaction cannot be established.
+
 Return strict JSON only:
 {{"answers":[{{"qid":"...","status":"satisfied|violated|unknown|not_applicable","evidence":"exact substring","confidence":0.0}}]}}
 

@@ -67,6 +67,23 @@ def execution(property_status: str = "satisfied") -> dict:
 
 
 class ModelicaSpecificationTests(unittest.TestCase):
+    def test_semantic_prompt_defines_ir_state_without_requiring_derivative(self):
+        prompts = []
+
+        def ask(prompt: str) -> str:
+            prompts.append(prompt)
+            return json.dumps({"answers": []})
+
+        evaluate_modelica_specification(
+            requirement_ir(), "model Robot end Robot;", contract(),
+            execution(), ask=ask,
+        )
+        self.assertTrue(prompts)
+        self.assertIn("it need not be a differential state", prompts[0])
+        self.assertIn("with a `der(...)`", prompts[0])
+        self.assertIn("Do not label implementing", prompts[0])
+        self.assertIn("evidence as contradictory", prompts[0])
+
     def test_native_trace_and_contract_checks_are_fail_closed(self):
         report = evaluate_modelica_specification(
             requirement_ir(), "model Robot end Robot;", contract(),
