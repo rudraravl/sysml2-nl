@@ -6,6 +6,7 @@ without modifying the core generation loop in agent_rag_moe.py.
 """
 
 import os
+import subprocess
 import tempfile
 import threading
 from pathlib import Path
@@ -91,6 +92,21 @@ def _compiler_gate() -> threading.BoundedSemaphore:
 _compiler_init_done = False
 
 
+def _java_runtime_available() -> bool:
+    """Return true only when the configured Java launcher actually runs."""
+    try:
+        result = subprocess.run(
+            ["java", "-version"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=10,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return result.returncode == 0
+
+
 def _get_compiler():
     """Get or initialize the compiler instance (thread-safe, init once)."""
     global _compiler_init_done
@@ -127,6 +143,12 @@ def _init_compiler():
         java_bin = Path(java_home) / "bin"
         if java_bin.exists():
             os.environ["PATH"] = f"{java_bin}{os.pathsep}{os.environ.get('PATH', '')}"
+
+    # The bundled Python wrapper historically treated a failed `java` launch
+    # as an empty diagnostic list. That makes an absent/broken runtime look
+    # like a successful compilation, so fail closed before constructing it.
+    if not _java_runtime_available():
+        return None
     
     try:
         # Import the checker from sysml2-compiler
@@ -185,21 +207,28 @@ def is_compiler_available() -> bool:
     if compiler is None:
         return False
     
-    # Test with a simple check
+    # Require both a valid positive control and an invalid negative control.
+    # The negative control catches parser/JVM failures that are incorrectly
+    # surfaced by legacy wrappers as an empty (therefore "valid") result.
     try:
         with tempfile.NamedTemporaryFile(mode='w', suffix='.sysml', delete=False) as f:
             f.write("package Test {}")
-            test_file = f.name
+            valid_file = f.name
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.sysml', delete=False) as f:
+            f.write("package Test {")
+            invalid_file = f.name
         try:
-            compiler.check_file(test_file, syntax_only=False)
-            return True
+            valid_errors = compiler.check_file(valid_file, syntax_only=False)
+            invalid_errors = compiler.check_file(invalid_file, syntax_only=False)
+            return len(valid_errors) == 0 and len(invalid_errors) > 0
         except Exception:
             return False
         finally:
-            try:
-                os.unlink(test_file)
-            except Exception:
-                pass
+            for test_file in (valid_file, invalid_file):
+                try:
+                    os.unlink(test_file)
+                except Exception:
+                    pass
     except Exception:
         return False
 
@@ -217,7 +246,7 @@ def check_code(code: str, syntax_only: bool = False) -> CompilerResult:
     """
     compiler = _get_compiler()
     
-    if compiler is None:
+    if compiler is None or not _java_runtime_available():
         # Compiler not available, return invalid result
         return CompilerResult(
             errors=[CompilerError("error", 0, 0, "Compiler not available")],
