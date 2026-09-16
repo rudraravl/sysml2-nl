@@ -40,6 +40,14 @@ else
   PYTHON_BIN="python3"
 fi
 
+# Prefer the kernel installed in this frozen worktree. An explicitly exported
+# override still wins, but a stale path inside a dotenv file cannot silently
+# replace the runtime whose resources are fingerprinted in protocol.json.
+if [[ -z "${SYSML_JUPYTER_PATH:-}" ]] && \
+   [[ -d "$REPO_ROOT/.venv/share/jupyter/kernels/sysml" ]]; then
+  export SYSML_JUPYTER_PATH="$REPO_ROOT/.venv/share/jupyter"
+fi
+
 PIDS=()
 cleanup() {
   for pid in "${PIDS[@]:-}"; do

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -12,7 +13,7 @@ from nl2sysml.sysml_execution.models import ExecutionResult
 from .conditions import CONDITIONS
 from .compare import paired_comparison
 from .pipeline import StagewiseSysMLPipeline, compiler_report
-from .run_study import assigned_rows, load_seed
+from .run_study import apply_jupyter_path_override, assigned_rows, load_seed
 
 
 def _compiler(valid: bool, count: int = 0) -> CompilerResult:
@@ -40,6 +41,17 @@ def _execution(success: bool) -> ExecutionResult:
 
 
 class StagewiseTests(unittest.TestCase):
+    def test_jupyter_override_is_applied_before_protocol_fingerprinting(self):
+        with patch.dict(
+            "os.environ",
+            {"SYSML_JUPYTER_PATH": "/frozen/kernel", "JUPYTER_PATH": "/other"},
+            clear=False,
+        ):
+            apply_jupyter_path_override()
+            self.assertEqual(
+                "/frozen/kernel:/other", os.environ["JUPYTER_PATH"]
+            )
+
     def test_compiler_report_handles_diagnostics_without_codes(self):
         result = CompilerResult(
             errors=[CompilerError("error", 1, 1, "unclassified", None)],

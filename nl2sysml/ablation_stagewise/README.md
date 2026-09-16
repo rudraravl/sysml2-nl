@@ -112,6 +112,9 @@ or native-runtime failures stop the affected shard and remain infrastructure
 exclusions. Ordinary compiler/kernel failures are retained as experimental
 outcomes. Use 4 workers first; 5--6 are supported but create 20--24 concurrent
 processes and should only be used after observing memory and provider limits.
+When the worktree-local `.venv` contains a `sysml` kernel, launchers prefer it
+over any stale `SYSML_JUPYTER_PATH` value loaded later from a dotenv file. The
+resolved path and kernel resource hashes are frozen in `protocol.json`.
 
 Outputs default to `outputs/sysml-ablation-<UTC>-<commit>/<condition>/`.
 After completion, `run_all_local.sh` produces adjacent paired comparisons and

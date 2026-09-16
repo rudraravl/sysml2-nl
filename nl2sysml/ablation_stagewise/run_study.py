@@ -114,6 +114,21 @@ def tracked_worktree_dirty(repository: Path) -> bool:
     return bool(output.strip())
 
 
+def apply_jupyter_path_override() -> None:
+    """Make kernel discovery and later execution use the same frozen path."""
+    override = os.environ.get("SYSML_JUPYTER_PATH")
+    if not override:
+        return
+    current = os.environ.get("JUPYTER_PATH", "")
+    entries = [override]
+    if current:
+        entries.extend(
+            item for item in current.split(os.pathsep)
+            if item and item not in entries
+        )
+    os.environ["JUPYTER_PATH"] = os.pathsep.join(entries)
+
+
 def build_protocol(*, condition, dataset: Path, rows: list[dict],
                    shard_count: int, seed: int, commit: str,
                    max_compiler_repairs: int,
@@ -217,6 +232,7 @@ def runtime_environment(repository: Path) -> dict:
         "platform": platform.platform(),
         "java": java_version,
         "compiler_submodule_commit": compiler_commit,
+        "sysml_jupyter_path_override": os.environ.get("SYSML_JUPYTER_PATH"),
         "sysml_kernel": kernel,
         "python_packages": packages,
     }
@@ -354,6 +370,7 @@ def main() -> None:
         except ImportError as exc:
             parser.error(f"python-dotenv is required for --env-file: {exc}")
         load_dotenv(args.env_file, override=False)
+    apply_jupyter_path_override()
     if tracked_worktree_dirty(REPOSITORY) and not args.allow_dirty:
         parser.error("tracked worktree is dirty; commit the frozen study code first")
 
