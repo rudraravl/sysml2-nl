@@ -290,13 +290,77 @@ def _model_uses_cli(model: str) -> bool:
 
 
 def _active_expert_models() -> List[str]:
-    """Same expert set for API and CLI backends."""
+    """Same expert set for API and CLI backends.
+
+    Ablation knobs, both defaulting to the full pipeline's behaviour:
+      MOE_ENABLED=false             drop the experts entirely, so the combiner
+                                    answers the prompt directly (arms A0/A1)
+      ABLATION_EXPERT_MODELS=a,b    override the roster
+    """
+    if not _env_flag("MOE_ENABLED", True):
+        return []
+    override = (os.getenv("ABLATION_EXPERT_MODELS") or "").strip()
+    if override:
+        return [m.strip() for m in override.split(",") if m.strip()]
     return list(EXPERT_MODELS)
 
 
 def _active_combiner_model() -> str:
-    """Same combiner for API and CLI; only the transport differs."""
-    return COMBINER_MODEL
+    """Same combiner for API and CLI; only the transport differs.
+
+    With MOE_ENABLED=false this is the single model that answers the prompt, so
+    it is also the knob that names the one-shot baseline's model.
+    """
+    return (os.getenv("COMBINER_MODEL") or "").strip() or COMBINER_MODEL
+
+
+def _repair_iterations(enabled_env: str, count_env: str, default: int) -> int:
+    """Repair passes a feedback stage may spend.
+
+    Zero is meaningful and is what the ablation arms use: every _refine_* helper
+    still runs its checker once and reports, it just never asks the model to fix
+    what it found. That keeps a disabled stage *measured* rather than invisible,
+    so arms stay comparable on the same metrics.
+    """
+    if not _env_flag(enabled_env, True):
+        return 0
+    raw = os.getenv(count_env)
+    if raw is None:
+        return default
+    try:
+        return max(0, int(raw))
+    except ValueError:
+        return default
+
+
+def active_stage_config() -> dict:
+    """The stage wiring this process will actually use, for meta.json.
+
+    Recorded per sample so an ablation arm's outputs carry their own provenance
+    and cannot be mixed up after the fact.
+    """
+    return {
+        "ablation": os.getenv("ABLATION_ID") or None,
+        "rag": _env_flag("RAG_ENABLED", True),
+        "moe": _env_flag("MOE_ENABLED", True),
+        "experts": _active_expert_models(),
+        "combiner": _active_combiner_model(),
+        "compiler_repair_iterations": _repair_iterations(
+            "COMPILER_FEEDBACK_ENABLED", "MAX_REFINEMENT_ITERATIONS",
+            MAX_REFINEMENT_ITERATIONS),
+        "execution_enabled": _env_flag("KERNEL_FEEDBACK_ENABLED", True),
+        "execution_repair_iterations": _repair_iterations(
+            "KERNEL_FEEDBACK_ENABLED", "MAX_KERNEL_REFINEMENT_ITERATIONS",
+            MAX_KERNEL_REFINEMENT_ITERATIONS),
+        "property_tests": PROPERTY_TESTS_ENABLED,
+        "security_enabled": SECURITY_ANALYSIS_ENABLED,
+        "security_repair_iterations": _repair_iterations(
+            "SECURITY_ANALYSIS_ENABLED", "MAX_SECURITY_REFINEMENT_ITERATIONS",
+            MAX_SECURITY_REFINEMENT_ITERATIONS),
+        "spec_alignment_enabled": _env_flag("SPEC_ALIGNMENT_ENABLED", True),
+        "spec_alignment_max_repairs": int(
+            os.getenv("SPEC_ALIGNMENT_MAX_REPAIRS", str(SPEC_ALIGNMENT_MAX_REPAIRS))),
+    }
 
 
 def _load_env():
@@ -395,6 +459,11 @@ def _collect_examples(root: Path, limit: int = 1500) -> List[Tuple[str, str]]:
 
 
 def _rag_context(nl_prompt: str, root: Path, k: int = 3) -> str:
+    # RAG_ENABLED=false removes retrieval entirely: no dataset exemplars and no
+    # Solidity-spec chunks, leaving the bare requirement (ablation arm A0).
+    if not _env_flag("RAG_ENABLED", True):
+        return ""
+
     # Dataset examples
     blocks = []
     examples = _collect_examples(root)
@@ -1427,13 +1496,19 @@ def generate_solidity_moe(prompt_text: str) -> Tuple[str, dict]:
 
     # Compiler validation and refinement after synthesis.
     final_result = CompilerResult(errors=[], is_valid=False)
+    compiler_repairs = _repair_iterations(
+        "COMPILER_FEEDBACK_ENABLED", "MAX_REFINEMENT_ITERATIONS",
+        MAX_REFINEMENT_ITERATIONS)
     if is_compiler_available() and final:
-        print(f"  Validating and refining final output (up to {MAX_REFINEMENT_ITERATIONS} iterations)...", flush=True)
+        if compiler_repairs:
+            print(f"  Validating and refining final output (up to {compiler_repairs} iterations)...", flush=True)
+        else:
+            print("  Validating final output (compiler repair disabled)...", flush=True)
         final, final_result = _refine_with_compiler(
-            final, combiner, synth_sys_msg, synth_human_msg, ok, MAX_REFINEMENT_ITERATIONS
+            final, combiner, synth_sys_msg, synth_human_msg, ok, compiler_repairs
         )
         status = "✓ Valid" if final_result.is_valid else f"✗ {final_result.error_count} errors"
-        print(f"  {status} after refinement", flush=True)
+        print(f"  {status}", flush=True)
 
     # Tier B: author requirement-derived properties once, against the candidate
     # that is about to be executed, and freeze them for the rest of the run.
@@ -1451,10 +1526,13 @@ def generate_solidity_moe(prompt_text: str) -> Tuple[str, dict]:
 
     # Execution and refinement after compiler refinement (combined contract only).
     kernel_result: Optional[ExecutionResult] = None
+    kernel_repairs = _repair_iterations(
+        "KERNEL_FEEDBACK_ENABLED", "MAX_KERNEL_REFINEMENT_ITERATIONS",
+        MAX_KERNEL_REFINEMENT_ITERATIONS)
     if kernel_enabled and KERNEL_EXECUTION_AVAILABLE and final:
         print(
-            f"  Executing and refining final output with Foundry "
-            f"(fuzz_runs={FUZZ_RUNS}, up to {MAX_KERNEL_REFINEMENT_ITERATIONS} iterations)...",
+            f"  Executing final output with Foundry "
+            f"(fuzz_runs={FUZZ_RUNS}, up to {kernel_repairs} repair iterations)...",
             flush=True,
         )
         final, kernel_result = _refine_with_kernel(
@@ -1463,7 +1541,7 @@ def generate_solidity_moe(prompt_text: str) -> Tuple[str, dict]:
             synth_sys_msg,
             synth_human_msg,
             ok,
-            MAX_KERNEL_REFINEMENT_ITERATIONS,
+            kernel_repairs,
             property_tests=property_tests or None,
         )
         if kernel_result is None:
@@ -1500,7 +1578,9 @@ def generate_solidity_moe(prompt_text: str) -> Tuple[str, dict]:
             print("  Running static security analysis...", flush=True)
             final, security_result = _refine_with_security(
                 final, combiner, synth_sys_msg, synth_human_msg, ok,
-                MAX_SECURITY_REFINEMENT_ITERATIONS)
+                _repair_iterations("SECURITY_ANALYSIS_ENABLED",
+                                   "MAX_SECURITY_REFINEMENT_ITERATIONS",
+                                   MAX_SECURITY_REFINEMENT_ITERATIONS))
             if security_result is None or not security_result.available:
                 print("  ✗ Static analysis unavailable", flush=True)
             elif security_result.tool_error:
@@ -1547,6 +1627,8 @@ def generate_solidity_moe(prompt_text: str) -> Tuple[str, dict]:
     )
 
     prompt_record = {
+        "ablation": os.getenv("ABLATION_ID") or None,
+        "ablation_stages": active_stage_config(),
         "llm_backend": backend,
         "expert_models": experts,
         "combiner_model": combiner,

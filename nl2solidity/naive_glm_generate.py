@@ -4,6 +4,13 @@
 Generates Solidity for the same seed prompts used by batch_generate.py's default
 --prompt-source seed_long (description_long in sol_seed.jsonl).
 Output: dataset/naive_glm/{ID}/{ID}.sol, {ID}.txt, meta.json
+
+For the ablation study, prefer arm A0 (nl2solidity/ablation/) over this script.
+A0 is the same one-shot GLM-5.2 baseline, but it runs through the shared
+generator, so its system prompt and post-processing are identical to A1's and the
+A0 -> A1 delta isolates RAG alone. This script uses its own prompt template, which
+would confound that comparison. It is kept for the standalone naive-vs-pipeline
+comparison in compare_naive_vs_pipeline.py, and it is sequential and unsharded.
 """
 
 import json

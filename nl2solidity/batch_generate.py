@@ -202,11 +202,16 @@ def print_preflight() -> None:
     except ImportError:
         pass
 
+    stages = moe.active_stage_config()
+
     print("-" * 70)
     print("Preflight:")
+    print(f"  Ablation:          {stages['ablation'] or 'none (full pipeline)'}")
     print(f"  Python:            {sys.executable}")
     print(f"  LLM backend:       {moe._llm_backend()}")
-    print(f"  Experts:           {', '.join(moe._active_expert_models())}")
+    print(f"  RAG retrieval:     {'enabled' if stages['rag'] else 'DISABLED'}")
+    print(f"  MoE experts:       {'enabled' if stages['moe'] else 'DISABLED (combiner only)'}")
+    print(f"  Experts:           {', '.join(moe._active_expert_models()) or '(none)'}")
     print(f"  Expert parallelism:{moe.EXPERT_PARALLELISM}")
     print(f"  API concurrency:   {os.getenv('OPENROUTER_MAX_CONCURRENCY', '8')} "
           f"(min interval {os.getenv('OPENROUTER_MIN_INTERVAL', '0')}s, "
@@ -227,13 +232,16 @@ def print_preflight() -> None:
     else:
         compiler_state = "UNAVAILABLE — compiler refine WILL BE SKIPPED"
     print(f"  Compiler (solc):   {compiler_state}")
+    print(f"  Compiler repair:   {stages['compiler_repair_iterations']} iteration(s)")
     print(f"  Execution (forge): {_kernel_status()}")
+    print(f"  Execution repair:  {stages['execution_repair_iterations']} iteration(s)")
     try:
         from nl2solidity.agent_rag_moe import PROPERTY_TESTS_ENABLED
     except ModuleNotFoundError:
         PROPERTY_TESTS_ENABLED = True  # type: ignore[assignment]
     print(f"  Property tests:    {'enabled' if PROPERTY_TESTS_ENABLED else 'disabled'} (Tier B)")
     print(f"  Security analysis: {_security_status()}")
+    print(f"  Security repair:   {stages['security_repair_iterations']} iteration(s)")
 
     alignment_on = os.getenv("SPEC_ALIGNMENT_ENABLED", "true").strip().lower() not in (
         "0", "false", "no", "off"
@@ -253,6 +261,25 @@ def create_meta_json(entry: Dict[str, Any], solidity_code: str, prompt_record: D
     security_stats = prompt_record.get("security_analysis") or {}
     security_ok = not security_stats.get("n_actionable")
 
+    # Which gates actually ran. An ablation arm with a stage switched off must not
+    # collect grade A for clearing gates that were never applied to it - that would
+    # make the weakest arm look like the strongest. A sample missing any gate is
+    # graded "U" (ungraded) and the components are published so an analysis can
+    # compare arms on whatever subset of gates they all share.
+    gates = {
+        "validation": ("final_valid" in prompt_record, validation_ok),
+        "execution": (prompt_record.get("execution_tests") is not None, execution_ok),
+        "security": (bool(prompt_record.get("security_analysis")), security_ok),
+        "alignment": (alignment_enabled, alignment_ok),
+    }
+    ungraded = sorted(name for name, (ran, _) in gates.items() if not ran)
+    if ungraded:
+        quality = "U"
+    elif all(passed for _, passed in gates.values()):
+        quality = "A"
+    else:
+        quality = "B"
+
     entry_id = entry.get("id", "UNKNOWN")
     source_path = entry.get("nl_source_path") or f"sol_seed.jsonl:{entry_id}"
 
@@ -260,14 +287,25 @@ def create_meta_json(entry: Dict[str, Any], solidity_code: str, prompt_record: D
         "id": entry_id,
         "source_path": source_path,
         "split": "generated",
-        # A requires every wired stage to be clean: compiles, no contract-level
-        # execution defect, no actionable finding, and semantically aligned.
-        "quality": "A" if (validation_ok and alignment_ok and execution_ok
-                           and security_ok) else "B",
+        # A requires every gate to have run and come back clean: compiles, no
+        # contract-level execution defect, no actionable finding, and semantically
+        # aligned. B is a gate that ran and failed; U is a gate that never ran.
+        "quality": quality,
+        "quality_gates": {
+            name: (None if not ran else bool(passed))
+            for name, (ran, passed) in sorted(gates.items())
+        },
         "category": entry.get("domain", "unknown"),
         "created": datetime.now().isoformat(),
         "nl_prompt_source": entry.get("nl_prompt_source", "sol_seed"),
     }
+    # Provenance for the ablation: which arm produced this sample and which
+    # stages were actually wired in when it did.
+    ablation = prompt_record.get("ablation") or os.getenv("ABLATION_ID")
+    if ablation:
+        meta["ablation"] = ablation
+    if prompt_record.get("ablation_stages"):
+        meta["ablation_stages"] = prompt_record["ablation_stages"]
     if entry.get("dataset_data_id"):
         meta["dataset_data_id"] = entry["dataset_data_id"]
         meta["seed_id"] = entry_id
@@ -646,6 +684,9 @@ def generate_batch(
     prompt_source: str = "dataset",
     require_dataset_nl: bool = False,
     workers: int = 4,
+    shard_index: int = 0,
+    shard_count: int = 1,
+    dry_run: bool = False,
 ):
     """
     Generate Solidity contracts for entries in sol_seed.jsonl.
@@ -660,6 +701,12 @@ def generate_batch(
         dataset_data_dir: Path to dataset/data with rich XXXXXX.txt prompts
         prompt_source: "dataset" (rich NL) or "seed" (short seeds)
         require_dataset_nl: If True, skip seeds with no dataset/data NL
+        shard_index/shard_count: Deterministic, non-overlapping partition of the
+            seed list by seed position (position % shard_count == shard_index).
+            Every seed belongs to exactly one shard, so concurrent shards never
+            contend; the atomic .claim directories remain as a second line of
+            defence for reruns and overlapping submissions.
+        dry_run: Resolve and print the worklist, then exit without calling a model
     """
     try:
         from nl2solidity.agent_rag_moe import generate_solidity_moe
@@ -695,6 +742,13 @@ def generate_batch(
             )
             sys.exit(1)
 
+    if shard_count < 1:
+        print("Error: shard_count must be >= 1")
+        sys.exit(1)
+    if not 0 <= shard_index < shard_count:
+        print(f"Error: shard_index must be in [0, {shard_count - 1}]")
+        sys.exit(1)
+
     entries_to_process = entries[:num_entries]
     total = len(entries_to_process)
 
@@ -703,6 +757,7 @@ def generate_batch(
     print(f"Prompt source: {prompt_source}")
     print(f"Output directory: {output_dir}")
     print(f"Starting from index {start_from}")
+    print(f"Shard: {shard_index + 1}/{shard_count}")
     print(f"Workers: {workers}")
     print_preflight()
     print("=" * 70)
@@ -745,6 +800,11 @@ def generate_batch(
     # ---- Build the worklist ------------------------------------------------
     jobs: List[Tuple[int, str, Dict[str, Any]]] = []
     for idx, entry in enumerate(entries_to_process[start_from:], start=start_from):
+        # Position in the seed file decides the shard, so the partition is the
+        # same for every arm and every rerun regardless of what has completed.
+        if idx % shard_count != shard_index:
+            continue
+
         entry_id = entry.get("id", f"UNKNOWN_{idx}")
         entry_dir = output_dir / entry_id
 
@@ -777,7 +837,18 @@ def generate_batch(
 
         jobs.append((idx, entry_id, working))
 
-    log(f"Worklist: {len(jobs)} entries to generate with {workers} worker(s)")
+    log(
+        f"Worklist: {len(jobs)} entries to generate with {workers} worker(s) "
+        f"(shard {shard_index + 1}/{shard_count})"
+    )
+
+    if dry_run:
+        print("-" * 70)
+        print(f"DRY RUN — shard {shard_index + 1}/{shard_count}: "
+              f"{len(jobs)} entries, no model calls made")
+        for idx, entry_id, working in jobs:
+            print(f"  [{idx}] {entry_id}  {working.get('description', '')[:70]}")
+        return
 
     # ---- Parallel execution -------------------------------------------------
     stop_event = threading.Event()
@@ -1057,6 +1128,32 @@ def main():
         help="Deprecated alias: enable execution feedback (same as default)",
     )
     parser.add_argument(
+        "--shard-index",
+        type=int,
+        default=int(os.getenv("BATCH_SHARD_INDEX", "0")),
+        help=(
+            "0-based index of this shard (default: 0, env BATCH_SHARD_INDEX). "
+            "Shards partition the seed list by position and never overlap"
+        ),
+    )
+    parser.add_argument(
+        "--shard-count",
+        type=int,
+        default=int(os.getenv("BATCH_SHARD_COUNT", "1")),
+        help="Total number of shards running in parallel (default: 1, env BATCH_SHARD_COUNT)",
+    )
+    parser.add_argument(
+        "--ablation",
+        type=str,
+        default=os.getenv("ABLATION_ID") or None,
+        help="Ablation arm label recorded in each meta.json (e.g. A3)",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Resolve and print this shard's worklist, then exit without calling a model",
+    )
+    parser.add_argument(
         "--llm-backend",
         choices=("api", "cli", "codex"),
         default=None,
@@ -1067,6 +1164,14 @@ def main():
     if args.workers < 1:
         print("Error: --workers must be >= 1")
         sys.exit(1)
+    if args.shard_count < 1:
+        print("Error: --shard-count must be >= 1")
+        sys.exit(1)
+    if not 0 <= args.shard_index < args.shard_count:
+        print(f"Error: --shard-index must be in [0, {args.shard_count - 1}]")
+        sys.exit(1)
+    if args.ablation:
+        os.environ["ABLATION_ID"] = args.ablation
     if args.max_api_concurrency is not None:
         os.environ["OPENROUTER_MAX_CONCURRENCY"] = str(max(1, args.max_api_concurrency))
     if args.min_api_interval is not None:
@@ -1114,6 +1219,9 @@ def main():
         prompt_source=args.prompt_source,
         require_dataset_nl=args.require_dataset_nl,
         workers=args.workers,
+        shard_index=args.shard_index,
+        shard_count=args.shard_count,
+        dry_run=args.dry_run,
     )
 
 

@@ -59,6 +59,13 @@ class SampleRecord:
     alignment_ok: bool
     execution_ok: bool
     security_ok: bool
+    # Whether each gate was evaluated at all. An ablation arm with a stage
+    # switched off produces no block for it, and scoring a missing gate as
+    # "clean" would report an arm that never ran Slither as 100% security-clean.
+    validation_evaluated: bool
+    alignment_evaluated: bool
+    execution_evaluated: bool
+    security_evaluated: bool
 
 
 def load_records(directory: Path) -> List[SampleRecord]:
@@ -79,6 +86,15 @@ def load_records(directory: Path) -> List[SampleRecord]:
         alignment_ok = bool(sa.get("accepted", False)) if sa else True
         execution_ok = not ex.get("contract_defects")
         security_ok = not sec.get("n_actionable")
+
+        # New-style meta.json states this outright; for older corpora, presence
+        # of the block is the only signal available.
+        gates = d.get("quality_gates") or {}
+
+        def _evaluated(name: str, block: dict) -> bool:
+            if name in gates:
+                return gates[name] is not None
+            return bool(block)
 
         records.append(SampleRecord(
             sid=sid,
@@ -104,6 +120,10 @@ def load_records(directory: Path) -> List[SampleRecord]:
             alignment_ok=alignment_ok,
             execution_ok=execution_ok,
             security_ok=security_ok,
+            validation_evaluated=_evaluated("validation", v),
+            alignment_evaluated=_evaluated("alignment", sa),
+            execution_evaluated=_evaluated("execution", ex),
+            security_evaluated=_evaluated("security", sec),
         ))
     return records
 
@@ -111,6 +131,22 @@ def load_records(directory: Path) -> List[SampleRecord]:
 def rate(flags) -> float:
     flags = list(flags)
     return (sum(1 for f in flags if f) / len(flags) * 100) if flags else 0.0
+
+
+def gated_rate(records, gate: str) -> Optional[float]:
+    """Pass rate over the samples where this gate ran; None when it never did.
+
+    None is the honest answer for an ablation arm with the stage switched off,
+    and reads as "n/a" rather than as a perfect score.
+    """
+    scored = [r for r in records if getattr(r, f"{gate}_evaluated")]
+    if not scored:
+        return None
+    return rate(getattr(r, f"{gate}_ok") for r in scored)
+
+
+def _pct(value: Optional[float], width: int = 5) -> str:
+    return "n/a".rjust(width) if value is None else f"{value:>{width}.1f}%"
 
 
 def overview(records: List[SampleRecord]) -> Dict[str, Any]:
@@ -123,20 +159,35 @@ def overview(records: List[SampleRecord]) -> Dict[str, Any]:
         "quality_counts": dict(quality_counts),
         "valid_rate": rate(r.validation_ok for r in records),
         "mean_errors": statistics.mean([r.error_count for r in records]) if n else 0,
-        "fuzz_pass_rate": rate(r.fuzz_status == "passed" for r in records),
+        "fuzz_pass_rate": (
+            rate(r.fuzz_status == "passed" for r in records if r.fuzz_status is not None)
+            if any(r.fuzz_status is not None for r in records) else None
+        ),
         "fuzz_status_counts": dict(Counter(r.fuzz_status for r in records)),
         "properties_status_counts": dict(Counter(r.properties_status for r in records)),
-        "execution_clean_rate": rate(r.execution_ok for r in records),
+        "execution_clean_rate": gated_rate(records, "execution"),
         "mean_contract_defects": statistics.mean([r.contract_defects for r in records]) if n else 0,
-        "security_clean_rate": rate(r.security_ok for r in records),
+        "security_clean_rate": gated_rate(records, "security"),
         "mean_findings": statistics.mean([r.n_findings for r in records]) if n else 0,
         "mean_actionable": statistics.mean([r.n_actionable for r in records]) if n else 0,
-        "alignment_accepted_rate": rate(r.alignment_ok for r in records),
+        "alignment_accepted_rate": gated_rate(records, "alignment"),
+        "gates_evaluated": {
+            gate: sum(1 for r in records if getattr(r, f"{gate}_evaluated"))
+            for gate in ("validation", "execution", "security", "alignment")
+        },
         "mean_similarity": statistics.mean(sims) if sims else None,
         "median_similarity": statistics.median(sims) if sims else None,
-        "all_four_gates_clean_rate": rate(
-            (r.validation_ok and r.alignment_ok and r.execution_ok and r.security_ok)
-            for r in records
+        # Only samples that faced all four gates can be scored on all four.
+        "all_four_gates_clean_rate": (
+            gated_rate(
+                [r for r in records
+                 if r.validation_evaluated and r.alignment_evaluated
+                 and r.execution_evaluated and r.security_evaluated],
+                "validation",
+            ) if any(
+                r.validation_evaluated and r.alignment_evaluated
+                and r.execution_evaluated and r.security_evaluated for r in records
+            ) else None
         ),
     }
 
@@ -149,12 +200,19 @@ def gate_funnel(records: List[SampleRecord]) -> Dict[str, Any]:
     step2 = [r for r in step1 if r.alignment_ok]
     step3 = [r for r in step2 if r.execution_ok]
     step4 = [r for r in step3 if r.security_ok]
+
+    def label(name: str, gate: str) -> str:
+        # A gate no sample faced filters nothing; say so rather than let the
+        # step look like a pass everyone survived.
+        ran = any(getattr(r, f"{gate}_evaluated") for r in records)
+        return name if ran else f"{name} [not evaluated]"
+
     return {
         "generated": n,
-        "compiles": len(step1),
-        "+ spec_aligned": len(step2),
-        "+ execution_clean": len(step3),
-        "+ security_clean (= quality A)": len(step4),
+        label("compiles", "validation"): len(step1),
+        label("+ spec_aligned", "alignment"): len(step2),
+        label("+ execution_clean", "execution"): len(step3),
+        label("+ security_clean (= quality A)", "security"): len(step4),
     }
 
 
@@ -169,9 +227,12 @@ def by_category(records: List[SampleRecord]) -> Dict[str, Dict[str, Any]]:
             "n": len(rows),
             "quality_A_rate": rate(r.quality == "A" for r in rows),
             "valid_rate": rate(r.validation_ok for r in rows),
-            "fuzz_pass_rate": rate(r.fuzz_status == "passed" for r in rows),
-            "security_clean_rate": rate(r.security_ok for r in rows),
-            "alignment_accepted_rate": rate(r.alignment_ok for r in rows),
+            "fuzz_pass_rate": (
+                rate(r.fuzz_status == "passed" for r in rows if r.fuzz_status is not None)
+                if any(r.fuzz_status is not None for r in rows) else None
+            ),
+            "security_clean_rate": gated_rate(rows, "security"),
+            "alignment_accepted_rate": gated_rate(rows, "alignment"),
             "mean_similarity": statistics.mean(sims) if sims else None,
         }
     return out
@@ -198,17 +259,26 @@ def main():
     print(f"Corpus: {directory}")
     print(f"Samples: {ov['n']}")
     print("=" * 70)
-    print(f"Quality tier:           A={ov['quality_counts'].get('A', 0)}  "
-          f"B={ov['quality_counts'].get('B', 0)}  ({ov['quality_A_rate']:.1f}% A)")
-    print(f"Compiler valid rate:    {ov['valid_rate']:.1f}%  (mean errors {ov['mean_errors']:.2f})")
-    print(f"Foundry fuzz pass rate: {ov['fuzz_pass_rate']:.1f}%  {ov['fuzz_status_counts']}")
-    print(f"Execution-clean rate:   {ov['execution_clean_rate']:.1f}%  "
-          f"(mean contract defects {ov['mean_contract_defects']:.2f})")
-    print(f"Security-clean rate:    {ov['security_clean_rate']:.1f}%  "
-          f"(mean findings {ov['mean_findings']:.2f}, mean actionable {ov['mean_actionable']:.2f})")
-    print(f"Spec-alignment accepted:{ov['alignment_accepted_rate']:.1f}%  "
-          f"(mean similarity {ov['mean_similarity']:.4f}, median {ov['median_similarity']:.4f})")
-    print(f"All 4 gates clean:      {ov['all_four_gates_clean_rate']:.1f}%")
+    ungraded = ov['quality_counts'].get('U', 0)
+    tier = (f"Quality tier:           A={ov['quality_counts'].get('A', 0)}  "
+            f"B={ov['quality_counts'].get('B', 0)}")
+    if ungraded:
+        tier += f"  U={ungraded} (a gate never ran)"
+    tier += f"  ({ov['quality_A_rate']:.1f}% A)"
+    print(tier)
+    evaluated = ov["gates_evaluated"]
+    print(f"Compiler valid rate:    {ov['valid_rate']:>5.1f}%  (mean errors {ov['mean_errors']:.2f})")
+    print(f"Foundry fuzz pass rate: {_pct(ov['fuzz_pass_rate'])}  {ov['fuzz_status_counts']}")
+    print(f"Execution-clean rate:   {_pct(ov['execution_clean_rate'])}  "
+          f"(n={evaluated['execution']}, mean contract defects {ov['mean_contract_defects']:.2f})")
+    print(f"Security-clean rate:    {_pct(ov['security_clean_rate'])}  "
+          f"(n={evaluated['security']}, mean findings {ov['mean_findings']:.2f}, "
+          f"mean actionable {ov['mean_actionable']:.2f})")
+    sim = ("n/a" if ov["mean_similarity"] is None
+           else f"mean similarity {ov['mean_similarity']:.4f}, median {ov['median_similarity']:.4f}")
+    print(f"Spec-alignment accepted:{_pct(ov['alignment_accepted_rate'])}  "
+          f"(n={evaluated['alignment']}, {sim})")
+    print(f"All 4 gates clean:      {_pct(ov['all_four_gates_clean_rate'])}")
     print()
     print("Quality-gate funnel:")
     for k, v in funnel.items():
@@ -219,8 +289,8 @@ def main():
     for cat, s in cats.items():
         ms = f"{s['mean_similarity']:.3f}" if s["mean_similarity"] is not None else "n/a"
         print(f"{cat:<14}{s['n']:>5}{s['quality_A_rate']:>8.1f}%{s['valid_rate']:>8.1f}%"
-              f"{s['fuzz_pass_rate']:>7.1f}%{s['security_clean_rate']:>11.1f}%"
-              f"{s['alignment_accepted_rate']:>8.1f}%{ms:>9}")
+              f"{_pct(s['fuzz_pass_rate'], 6)}{_pct(s['security_clean_rate'], 10)}"
+              f"{_pct(s['alignment_accepted_rate'], 7)}{ms:>9}")
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     result = {
@@ -230,7 +300,7 @@ def main():
         "gate_funnel": funnel,
         "by_category": cats,
     }
-    json_path = OUT_DIR / "with_kernel_spec_fidelity.json"
+    json_path = OUT_DIR / f"{directory.name}_fidelity.json"
     json_path.write_text(json.dumps(result, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print(f"\nResults saved to: {json_path}")
 
