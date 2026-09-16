@@ -11,7 +11,7 @@ from nl2sysml.sysml_execution.models import ExecutionResult
 
 from .conditions import CONDITIONS
 from .compare import paired_comparison
-from .pipeline import StagewiseSysMLPipeline
+from .pipeline import StagewiseSysMLPipeline, compiler_report
 from .run_study import assigned_rows, load_seed
 
 
@@ -40,6 +40,16 @@ def _execution(success: bool) -> ExecutionResult:
 
 
 class StagewiseTests(unittest.TestCase):
+    def test_compiler_report_handles_diagnostics_without_codes(self):
+        result = CompilerResult(
+            errors=[CompilerError("error", 1, 1, "unclassified", None)],
+            is_valid=False,
+        )
+        report = compiler_report(result)
+        self.assertEqual(1, report["error_count"])
+        self.assertEqual(0, report["syntax_error_count"])
+        self.assertEqual(0, report["semantic_error_count"])
+
     def test_conditions_are_strictly_cumulative(self):
         self.assertEqual(
             (True, False, False, False),

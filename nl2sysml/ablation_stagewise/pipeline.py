@@ -43,8 +43,12 @@ def compiler_report(result: Any) -> dict:
     return {
         "passed": getattr(result, "is_valid", False) is True,
         "error_count": len(errors),
-        "syntax_error_count": sum(error.is_syntax_error() for error in errors),
-        "semantic_error_count": sum(error.is_semantic_error() for error in errors),
+        "syntax_error_count": sum(
+            bool(error.is_syntax_error()) for error in errors
+        ),
+        "semantic_error_count": sum(
+            bool(error.is_semantic_error()) for error in errors
+        ),
         "errors": [
             {
                 "severity": error.severity,
