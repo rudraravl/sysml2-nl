@@ -44,8 +44,9 @@ This is Newton Physics evidence. It is not Isaac Sim or PhysX evidence.
 
 ## Integrity
 
-The original evidence archive is retained under `evidence/job-3046960/`. Its
-SHA-256 is:
+The original evidence archive (tarball + independent verification JSON) has
+been removed from the repo as a one-off job artifact; this document and its
+checksum are the retained record. Its SHA-256 was:
 
 ```text
 813d7869a5d1fcbeea309a17bca9b8fdf5e5743b6fd826afe04f0fde41d790ee
