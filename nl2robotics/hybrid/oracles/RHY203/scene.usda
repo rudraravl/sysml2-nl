@@ -1,0 +1,136 @@
+#usda 1.0
+(
+    defaultPrim = "World"
+    kilogramsPerUnit = 1
+    metersPerUnit = 1
+    timeCodesPerSecond = 100
+    upAxis = "Z"
+)
+
+def Xform "World"
+{
+    def PhysicsScene "PhysicsScene"
+    {
+        vector3f physics:gravityDirection = (0, 0, -1)
+        float physics:gravityMagnitude = 0
+    }
+
+    def Xform "Base" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI"]
+    )
+    {
+        bool physics:kinematicEnabled = false
+        double3 xformOp:translate = (0, 0, 0.8)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+
+        def Cube "Collision" (
+            prepend apiSchemas = ["PhysicsCollisionAPI"]
+        )
+        {
+            double size = 1
+            float3 xformOp:scale = (0.5, 0.3, 0.1)
+            uniform token[] xformOpOrder = ["xformOp:scale"]
+        }
+    }
+
+    def Xform "LeftLink" (
+        prepend apiSchemas = ["PhysicsMassAPI", "PhysicsRigidBodyAPI"]
+    )
+    {
+        float physics:mass = 1.5
+        bool physics:kinematicEnabled = false
+        double3 xformOp:translate = (-0.2, 0, 0.55)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+
+        def Cylinder "Collision" (
+            prepend apiSchemas = ["PhysicsCollisionAPI"]
+        )
+        {
+            uniform token axis = "Z"
+            double radius = 0.06
+            double height = 0.4
+        }
+    }
+
+    def Xform "RightLink" (
+        prepend apiSchemas = ["PhysicsMassAPI", "PhysicsRigidBodyAPI"]
+    )
+    {
+        float physics:mass = 1.25
+        bool physics:kinematicEnabled = false
+        double3 xformOp:translate = (0.2, 0, 0.575)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+
+        def Capsule "Collision" (
+            prepend apiSchemas = ["PhysicsCollisionAPI"]
+        )
+        {
+            uniform token axis = "Z"
+            double radius = 0.05
+            double height = 0.35
+        }
+    }
+
+    def Xform "Tool" (
+        prepend apiSchemas = ["PhysicsMassAPI", "PhysicsRigidBodyAPI"]
+    )
+    {
+        float physics:mass = 0.5
+        bool physics:kinematicEnabled = false
+        double3 xformOp:translate = (-0.2, 0, 0.28)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+
+        def Sphere "Collision" (
+            prepend apiSchemas = ["PhysicsCollisionAPI"]
+        )
+        {
+            double radius = 0.07
+        }
+    }
+
+    def PhysicsFixedJoint "WorldAnchor" (
+        prepend apiSchemas = ["PhysicsArticulationRootAPI"]
+    )
+    {
+        rel physics:body0 = </World/Base>
+    }
+
+    def PhysicsRevoluteJoint "LeftShoulder"
+    {
+        rel physics:body0 = </World/Base>
+        rel physics:body1 = </World/LeftLink>
+        token physics:axis = "X"
+        point3f physics:localPos0 = (-0.2, 0, -0.05)
+        point3f physics:localPos1 = (0, 0, 0.2)
+        quatf physics:localRot0 = (1, 0, 0, 0)
+        quatf physics:localRot1 = (1, 0, 0, 0)
+        float physics:lowerLimit = -45
+        float physics:upperLimit = 45
+    }
+
+    def PhysicsRevoluteJoint "RightShoulder"
+    {
+        rel physics:body0 = </World/Base>
+        rel physics:body1 = </World/RightLink>
+        token physics:axis = "Z"
+        point3f physics:localPos0 = (0.2, 0, -0.05)
+        point3f physics:localPos1 = (0, 0, 0.175)
+        quatf physics:localRot0 = (1, 0, 0, 0)
+        quatf physics:localRot1 = (1, 0, 0, 0)
+        float physics:lowerLimit = -40
+        float physics:upperLimit = 40
+    }
+
+    def PhysicsPrismaticJoint "ToolSlide"
+    {
+        rel physics:body0 = </World/LeftLink>
+        rel physics:body1 = </World/Tool>
+        token physics:axis = "Y"
+        point3f physics:localPos0 = (0, 0, -0.2)
+        point3f physics:localPos1 = (0, 0, 0.07)
+        quatf physics:localRot0 = (1, 0, 0, 0)
+        quatf physics:localRot1 = (1, 0, 0, 0)
+        float physics:lowerLimit = -0.1
+        float physics:upperLimit = 0.1
+    }
+}

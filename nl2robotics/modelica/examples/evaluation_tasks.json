@@ -1,0 +1,62 @@
+[
+  {
+    "id": "RBT-E001", "category": "joint_mechanics", "difficulty": "basic",
+    "requirement": "Generate a one-axis robot joint named EvaluationJoint with inertia 0.6 kg.m2 and damping 0.15 N.m.s/rad. Apply 1.2 N.m from rest. Expose angle and angularVelocity and simulate for 2 seconds.",
+    "simulation": {"stop_time": 2.0},
+    "properties": [{"id": "E001-P1", "kind": "eventually", "signal": "angle", "start": 0.0, "end": 2.0, "lower": 2.0}]
+  },
+  {
+    "id": "RBT-E002", "category": "feedback_control", "difficulty": "intermediate",
+    "requirement": "Generate a PD-controlled rotary joint named EvaluationServo that moves from zero to 0.75 rad. Expose angle and ensure it settles within 0.05 rad of target from 4 to 5 seconds.",
+    "simulation": {"stop_time": 5.0},
+    "properties": [{"id": "E002-P1", "kind": "always", "signal": "angle", "start": 4.0, "end": 5.0, "lower": 0.70, "upper": 0.80}]
+  },
+  {
+    "id": "RBT-E003", "category": "electric_actuation", "difficulty": "intermediate",
+    "requirement": "Generate a voltage-driven DC motor joint named EvaluationMotor including current, back EMF, torque production, inertia, and damping. Expose current, angularVelocity, and angle; angle must become positive within 2 seconds.",
+    "simulation": {"stop_time": 2.0},
+    "properties": [{"id": "E003-P1", "kind": "eventually", "signal": "angle", "start": 0.0, "end": 2.0, "lower": 0.1}]
+  },
+  {
+    "id": "RBT-E004", "category": "hybrid_safety", "difficulty": "advanced",
+    "requirement": "Generate a sampled position controller named EvaluationDigitalJoint with a 0.1 second sample period, held torque command, joint angle and angularVelocity states, and a 1.2 rad target. Angle must remain below 1.5 rad for 6 seconds.",
+    "simulation": {"stop_time": 6.0},
+    "properties": [{"id": "E004-P1", "kind": "always", "signal": "angle", "start": 0.0, "end": 6.0, "upper": 1.5}]
+  },
+  {
+    "id": "RBT-E005", "category": "mobile_aerial", "difficulty": "intermediate",
+    "requirement": "Generate a differential-drive kinematic model named EvaluationRover with x, y, and heading states. Use unequal constant wheel speeds so heading exceeds 0.5 rad within 4 seconds.",
+    "simulation": {"stop_time": 4.0},
+    "properties": [{"id": "E005-P1", "kind": "eventually", "signal": "heading", "start": 0.0, "end": 4.0, "lower": 0.5}]
+  },
+  {
+    "id": "RBT-E006", "category": "coupled_transmissions", "difficulty": "advanced",
+    "requirement": "Generate a flexible actuator named EvaluationFlexibleJoint with separate motorAngle and jointAngle states, motor and load inertias, and a spring-damper transmission. Under positive motor torque, jointAngle must become positive within 3 seconds.",
+    "simulation": {"stop_time": 3.0},
+    "properties": [{"id": "E006-P1", "kind": "eventually", "signal": "jointAngle", "start": 0.0, "end": 3.0, "lower": 0.1}]
+  },
+  {
+    "id": "RBT-E007", "category": "sensing_estimation", "difficulty": "intermediate",
+    "requirement": "Generate a filtered joint-angle sensor named EvaluationAngleSensor with trueAngle, measuredAngle, and error outputs. The final absolute error after 5 seconds must be below 0.1 rad.",
+    "simulation": {"stop_time": 5.0},
+    "properties": [{"id": "E007-P1", "kind": "final", "signal": "error", "lower": -0.1, "upper": 0.1}]
+  },
+  {
+    "id": "RBT-E008", "category": "fluid_power", "difficulty": "advanced",
+    "requirement": "Generate a hydraulic robot cylinder named EvaluationHydraulicAxis with pressure, flowRate, position, and velocity. Positive supply flow must move the piston beyond 0.02 m within 4 seconds.",
+    "simulation": {"stop_time": 4.0},
+    "properties": [{"id": "E008-P1", "kind": "eventually", "signal": "position", "start": 0.0, "end": 4.0, "lower": 0.02}]
+  },
+  {
+    "id": "RBT-E009", "category": "trajectory_generation", "difficulty": "intermediate",
+    "requirement": "Generate a smooth cubic joint trajectory named EvaluationTrajectory from zero to one radian over 4 seconds, exposing reference, position, velocity, and trackingError.",
+    "simulation": {"stop_time": 5.0},
+    "properties": [{"id": "E009-P1", "kind": "final", "signal": "trackingError", "lower": -0.1, "upper": 0.1}]
+  },
+  {
+    "id": "RBT-E010", "category": "multibody_kinematics", "difficulty": "intermediate",
+    "requirement": "Generate two-link planar-arm forward kinematics named EvaluationPlanarArm with joint angles q1 and q2, link lengths, end-effector x and y, and workspace radius no greater than the sum of link lengths.",
+    "simulation": {"stop_time": 4.0},
+    "properties": [{"id": "E010-P1", "kind": "always", "signal": "radius", "start": 0.0, "end": 4.0, "lower": 0.0, "upper": 1.0}]
+  }
+]

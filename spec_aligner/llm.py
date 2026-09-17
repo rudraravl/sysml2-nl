@@ -49,7 +49,7 @@ DEFAULT_MODEL = "z-ai/glm-5.2"
 # Default host-CLI models when a Gemini expert id is proxied through Claude/Codex.
 # Claude Code expects hyphenated ids (claude-sonnet-4-5), not OpenRouter dots.
 _DEFAULT_PROXY_CLAUDE_MODEL = "claude-sonnet-4-5"
-_DEFAULT_PROXY_CODEX_MODEL = "gpt-5.4"
+_DEFAULT_PROXY_CODEX_MODEL = "gpt-5.6-sol"
 
 
 class CliUsageLimitError(RuntimeError):
@@ -150,6 +150,26 @@ def ask_completion(
                 time.sleep(15 * (attempt + 1))
     assert last is not None
     raise last
+
+
+def probe_completion(
+    *, model: str, provider: str | None = None, timeout: int = 120
+) -> str:
+    """Run one bounded completion to verify model/provider compatibility.
+
+    Unlike :func:`ask_completion`, this intentionally does not retry.  It is
+    used by experiment preflight so an invalid model name, missing account
+    entitlement, or broken CLI transport fails before any experiment cells
+    are created.
+    """
+    return _ask_once(
+        "Reply with exactly READY and nothing else.",
+        model,
+        timeout,
+        prefix=TEXT_PREFIX,
+        provider=provider,
+    )
+
 
 def format_chat_prompt(system_msg: str, human_msg: str) -> str:
     """Combine chat-style system/user messages into one CLI prompt body."""

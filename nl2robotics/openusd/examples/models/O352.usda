@@ -1,0 +1,83 @@
+#usda 1.0
+(
+    defaultPrim = "World"
+    kilogramsPerUnit = 1
+    metersPerUnit = 1
+    timeCodesPerSecond = 50
+    upAxis = "Z"
+)
+
+def Xform "World" (
+    prepend apiSchemas = ["PhysicsArticulationRootAPI"]
+)
+{
+    def PhysicsScene "PhysicsScene"
+    {
+        vector3f physics:gravityDirection = (0, 0, -1)
+        float physics:gravityMagnitude = 9.81
+    }
+    def Xform "Chassis" (
+        prepend apiSchemas = ["PhysicsMassAPI", "PhysicsRigidBodyAPI"]
+    )
+    {
+        float physics:mass = 10.5
+        double3 xformOp:translate = (0, 0, 0.4)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+        def Cube "Collision" (
+            prepend apiSchemas = ["PhysicsCollisionAPI"]
+        )
+        {
+            double size = 1
+            float3 xformOp:scale = (0.3, 0.3, 0.3)
+            uniform token[] xformOpOrder = ["xformOp:scale"]
+        }
+    }
+    def Xform "LeftWheel" (
+        prepend apiSchemas = ["PhysicsMassAPI", "PhysicsRigidBodyAPI"]
+    )
+    {
+        float physics:mass = 1
+        double3 xformOp:translate = (0, 0, 0.25)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+        def Cylinder "Collision" (
+            prepend apiSchemas = ["PhysicsCollisionAPI"]
+        )
+        {
+            uniform token axis = "Y"
+            double height = 0.3
+            double radius = 0.4
+            float3 xformOp:scale = (0.3, 0.3, 0.3)
+            uniform token[] xformOpOrder = ["xformOp:scale"]
+        }
+    }
+    def Xform "RightWheel" (
+        prepend apiSchemas = ["PhysicsMassAPI", "PhysicsRigidBodyAPI"]
+    )
+    {
+        float physics:mass = 1
+        double3 xformOp:translate = (0, 0, 0.25)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+        def Cylinder "Collision" (
+            prepend apiSchemas = ["PhysicsCollisionAPI"]
+        )
+        {
+            uniform token axis = "Y"
+            double height = 0.3
+            double radius = 0.4
+            float3 xformOp:scale = (0.3, 0.3, 0.3)
+            uniform token[] xformOpOrder = ["xformOp:scale"]
+        }
+    }
+    def PhysicsRevoluteJoint "LeftAxle"
+    {
+        rel physics:body0 = </World/Chassis>
+        rel physics:body1 = </World/LeftWheel>
+        token physics:axis = "Y"
+    }
+    def PhysicsRevoluteJoint "RightAxle"
+    {
+        rel physics:body0 = </World/Chassis>
+        rel physics:body1 = </World/RightWheel>
+        token physics:axis = "Y"
+    }
+}

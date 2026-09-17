@@ -1,0 +1,71 @@
+#usda 1.0
+(
+    defaultPrim = "World"
+    kilogramsPerUnit = 1
+    metersPerUnit = 1
+    timeCodesPerSecond = 60
+    upAxis = "Z"
+)
+
+def Xform "World" (
+    prepend apiSchemas = ["PhysicsArticulationRootAPI"]
+)
+{
+    def PhysicsScene "PhysicsScene"
+    {
+        vector3f physics:gravityDirection = (0, 0, -1)
+        float physics:gravityMagnitude = 9.81
+    }
+    def Xform "Chassis" (
+        prepend apiSchemas = ["PhysicsMassAPI", "PhysicsRigidBodyAPI"]
+    )
+    {
+        float physics:mass = 12
+        def Cube "Collision" (
+            prepend apiSchemas = ["PhysicsCollisionAPI"]
+        )
+        {
+            double size = 1
+            float3 xformOp:scale = (0.6, 0.35, 0.15)
+            uniform token[] xformOpOrder = ["xformOp:scale"]
+        }
+    }
+    def Xform "LeftWheel" (
+        prepend apiSchemas = ["PhysicsMassAPI", "PhysicsRigidBodyAPI"]
+    )
+    {
+        float physics:mass = 1.2
+        def Cylinder "Collision" (
+            prepend apiSchemas = ["PhysicsCollisionAPI"]
+        )
+        {
+            double radius = 0.22
+            double height = 0.1
+        }
+    }
+    def Xform "RightWheel" (
+        prepend apiSchemas = ["PhysicsMassAPI", "PhysicsRigidBodyAPI"]
+    )
+    {
+        float physics:mass = 1.2
+        def Cylinder "Collision" (
+            prepend apiSchemas = ["PhysicsCollisionAPI"]
+        )
+        {
+            double radius = 0.22
+            double height = 0.1
+        }
+    }
+    def PhysicsRevoluteJoint "LeftAxle"
+    {
+        rel physics:body0 = </World/Chassis>
+        rel physics:body1 = </World/LeftWheel>
+        token physics:axis = "Y"
+    }
+    def PhysicsRevoluteJoint "RightAxle"
+    {
+        rel physics:body0 = </World/Chassis>
+        rel physics:body1 = </World/RightWheel>
+        token physics:axis = "Y"
+    }
+}

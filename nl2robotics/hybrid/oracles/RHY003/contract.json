@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "task_id": "RHY003",
+  "execution_mode": "portable_fmu_kinematic",
+  "clock": {"start_time": 0.0, "stop_time": 2.0, "step_size": 0.01, "time_codes_per_second": 100.0},
+  "state_ownership": [
+    {"state_id": "carriage.position", "kind": "physical", "owner": "fmu_plant"},
+    {"state_id": "carriage.velocity", "kind": "physical", "owner": "fmu_plant"}
+  ],
+  "mappings": [
+    {
+      "id": "map_carriage_position", "interface_id": "carriage_position_to_usd", "state_id": "carriage.position", "semantic_joint_id": "slide_joint", "semantic_parent_entity_id": "base", "semantic_child_entity_id": "carriage", "owner": "fmu_plant", "direction": "fmu_to_usd", "fmu_variable": "carriagePosition", "source_unit": "m", "usd_joint_path": "/World/SlideJoint", "usd_parent_prim": "/World/Base", "usd_driven_prim": "/World/Carriage", "usd_quantity": "joint_position", "target_unit": "m", "axis": "X", "interpolation": "linear", "numeric_tolerance": 1e-6, "initial_value": 0.0
+    }
+  ]
+}

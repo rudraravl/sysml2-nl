@@ -1,0 +1,988 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+import tempfile
+import unittest
+from unittest.mock import patch
+
+from nl2robotics.benchmark.suite import BenchmarkSuite
+from nl2robotics.experiments.conditions import CONDITIONS
+from nl2robotics.experiments.executor import (
+    COMBINER_MODEL,
+    EXPERT_MODELS,
+    PipelineExperimentExecutor,
+    _baseline_execution_clock,
+    _one_shot_outcomes,
+    _study_validity,
+    _execution_mode,
+    generation_requirement,
+    generation_strategy,
+)
+from nl2robotics.experiments.metrics import (
+    extract_metrics,
+    paired_binary_comparison,
+    paired_continuous_comparison,
+    summarize_records,
+)
+from nl2robotics.experiments.protocol import freeze_protocol
+from nl2robotics.experiments.runner import AblationRunner, planned_cells
+from nl2robotics.experiments.run_cli import (
+    _load_suite,
+    _preflight_llm_environment,
+    _preflight_modelica_backend,
+)
+from nl2robotics.modelica.models import Diagnostic, ModelicaBuild
+from nl2robotics.orchestrator.normalizer import NormalizationResult
+from nl2robotics.studies.capability_matrix import MANIFEST as CAPABILITY_MANIFEST
+
+
+class ExperimentTests(unittest.TestCase):
+    def test_capability_manifest_is_selected_by_experiment_cli(self):
+        suite = _load_suite(CAPABILITY_MANIFEST)
+        selected = suite.select(profile="capability", variant="rich")
+        self.assertEqual(13, len(selected))
+        self.assertEqual("RCB001", selected[0][0].id)
+
+    def test_capability_cells_route_only_to_modelica_execution(self):
+        task, prompt = _load_suite(CAPABILITY_MANIFEST).select(
+            profile="capability", variant="rich"
+        )[0]
+        self.assertEqual("modelica_capability", _execution_mode(task))
+        executor = object.__new__(PipelineExperimentExecutor)
+        executor.modelica = object()
+        executor.normalizer = object()
+        executor.text_ask = lambda _: ""
+        executor.json_ask = lambda _: ""
+        executor.max_tool_repairs = 2
+        executor.k = 5
+        executor._generate_modelica = lambda *args, **kwargs: ("model X end X;", {})
+        executor._generate_openusd = lambda *args, **kwargs: self.fail(
+            "capability path invoked OpenUSD generation"
+        )
+        with tempfile.TemporaryDirectory() as tmp, patch(
+            "nl2robotics.experiments.executor.ModelicaCapabilityOrchestrator"
+        ) as orchestrator:
+            orchestrator.return_value.run.return_value = {
+                "artifact_mode": "modelica_only", "passed": False,
+            }
+            result = executor._run_hybrid(
+                task, CONDITIONS["FULL"], prompt, Path(tmp)
+            )
+        self.assertEqual("modelica_only", result["artifact_mode"])
+        orchestrator.assert_called_once()
+        orchestrator.return_value.run.assert_called_once()
+
+    def test_b0_capability_bypasses_normalizer_and_contract_planner(self):
+        task, prompt = _load_suite(
+            Path("nl2robotics/corpus/pipeline_prompt_manifest.json")
+        ).select(profile="capability", variant="rich")[0]
+        executor = object.__new__(PipelineExperimentExecutor)
+        executor.modelica = object()
+        executor.normalizer = object()
+        executor.text_ask = lambda _: ""
+        executor.json_ask = lambda _: self.fail("B0 invoked normalizer")
+        executor.max_tool_repairs = 2
+        executor.k = 5
+        executor._generate_modelica = lambda *args, **kwargs: ("model X end X;", {})
+        with tempfile.TemporaryDirectory() as tmp, patch(
+            "nl2robotics.experiments.executor.ModelicaCapabilityOrchestrator"
+        ) as orchestrator:
+            orchestrator.return_value.run_compiler_execution_baseline.return_value = {
+                "artifact_mode": "modelica_only", "passed": True,
+            }
+            result = executor._run_hybrid(
+                task, CONDITIONS["B0"], prompt, Path(tmp)
+            )
+        self.assertTrue(result["passed"])
+        orchestrator.return_value.run.assert_not_called()
+        call = orchestrator.return_value.run_compiler_execution_baseline.call_args
+        self.assertEqual(task.id, call.kwargs["task_id"])
+        self.assertEqual(
+            task.oracle["design_axes"]["control_rate_hz"],
+            call.kwargs["clock"]["frequency_hz"],
+        )
+        self.assertEqual("frozen_manifest_design_axes",
+                         call.kwargs["clock"]["source"])
+
+    def test_b0_clock_has_deterministic_text_fallback(self):
+        task, prompt = _load_suite(CAPABILITY_MANIFEST).select(
+            profile="capability", variant="rich"
+        )[0]
+        clock = _baseline_execution_clock(task, prompt)
+        self.assertEqual(100.0, clock["frequency_hz"])
+        self.assertEqual(5.0, clock["duration"])
+        self.assertEqual("deterministic_prompt_timing", clock["source"])
+
+    def test_frozen_conditions_map_to_distinct_generation_strategies(self):
+        self.assertEqual("direct", generation_strategy(CONDITIONS["B0"]))
+        self.assertEqual("rag_single", generation_strategy(CONDITIONS["B1"]))
+        self.assertEqual("rag_moe", generation_strategy(CONDITIONS["B2"]))
+        self.assertEqual("rag_moe", generation_strategy(CONDITIONS["FULL"]))
+
+    def test_direct_baseline_uses_separate_frozen_model_transport(self):
+        calls = []
+
+        class Pipeline:
+            @staticmethod
+            def build_baseline_messages(requirement):
+                return "system", requirement
+
+            @staticmethod
+            def refine_layer1(requirement, candidate, ask, **kwargs):
+                self.assertEqual("model Baseline end Baseline;", candidate)
+                return {
+                    "final_modelica": candidate,
+                    "retrieved_examples": [],
+                    "passed": True,
+                }
+
+        executor = PipelineExperimentExecutor(
+            text_ask=lambda _: self.fail("support model generated B0"),
+            json_ask=lambda _: "{}",
+            baseline_ask=lambda prompt: (
+                calls.append(prompt) or "model Baseline end Baseline;"
+            ),
+            baseline_model="z-ai/glm-5.2",
+            modelica_pipeline=Pipeline(),
+            portable_pipeline=object(),
+        )
+        code, report = executor._generate_modelica(
+            "requirement", CONDITIONS["B0"], Path("unused")
+        )
+        self.assertEqual("model Baseline end Baseline;", code)
+        self.assertEqual(1, len(calls))
+        self.assertEqual("z-ai/glm-5.2", report["generation_model"])
+        self.assertEqual("direct", report["generation_mode"])
+
+    def test_contract_prompt_is_hidden_from_non_contract_baselines(self):
+        for condition_id in ("B0", "B1", "B2"):
+            self.assertEqual(
+                "raw",
+                generation_requirement("raw", "profiled", CONDITIONS[condition_id]),
+            )
+        for condition_id in ("B3", "FULL"):
+            self.assertEqual(
+                "profiled",
+                generation_requirement("raw", "profiled", CONDITIONS[condition_id]),
+            )
+
+    def test_runner_checkpoints_and_resumes_exact_cells(self):
+        task = BenchmarkSuite().select(profile="modelica")[0]
+        calls = {"count": 0}
+
+        def execute(task, condition, prompt, output_dir):
+            calls["count"] += 1
+            return {"passed": condition.id == "FULL", "failure_stage": None}
+
+        with tempfile.TemporaryDirectory() as tmp:
+            runner = AblationRunner(Path(tmp), configuration={"model": "test"})
+            first = runner.run([task], [CONDITIONS["B0"], CONDITIONS["FULL"]],
+                               execute, variant="rich")
+            second = runner.run([task], [CONDITIONS["B0"], CONDITIONS["FULL"]],
+                                execute, variant="rich")
+        self.assertEqual(2, calls["count"])
+        self.assertEqual(first, second)
+
+    def test_resume_refreshes_derived_metrics_without_rewriting_evidence(self):
+        task = BenchmarkSuite().select(profile="hybrid")[0]
+
+        def execute(*args, **kwargs):
+            return {
+                "stage": "portable_hybrid",
+                "passed": False,
+                "properties": [
+                    {"status": "satisfied", "passed": True},
+                    {"status": "unevaluable", "passed": False},
+                ],
+            }
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            runner = AblationRunner(root)
+            first = runner.run(
+                [task], [CONDITIONS["B0"]], execute, variant="rich"
+            )
+            checkpoint = next(root.glob("**/run.json"))
+            saved = json.loads(checkpoint.read_text(encoding="utf-8"))
+            saved["metrics"].pop("property_total")
+            checkpoint.write_text(json.dumps(saved), encoding="utf-8")
+
+            second = runner.run(
+                [task], [CONDITIONS["B0"]], execute, variant="rich"
+            )
+            unchanged = json.loads(checkpoint.read_text(encoding="utf-8"))
+
+        self.assertEqual(2, second[0]["metrics"]["property_total"])
+        self.assertNotIn("property_total", unchanged["metrics"])
+        self.assertEqual(first[0]["result"], second[0]["result"])
+
+    def test_runner_prepares_one_shared_block_for_all_conditions(self):
+        task = BenchmarkSuite().select(profile="hybrid")[0]
+
+        class Executor:
+            def __init__(self):
+                self.prepares = 0
+                self.contexts = []
+
+            def prepare_block(self, task, prompt, repetition, output_dir):
+                self.prepares += 1
+                return {"token": object()}
+
+            def __call__(self, task, condition, prompt, output_dir, *, block_context):
+                self.contexts.append(block_context)
+                return {
+                    "passed": False,
+                    "study_validity": {"eligible": True},
+                }
+
+        execute = Executor()
+        with tempfile.TemporaryDirectory() as tmp:
+            AblationRunner(Path(tmp)).run(
+                [task], [CONDITIONS["B0"], CONDITIONS["FULL"]], execute,
+                variant="rich",
+            )
+        self.assertEqual(1, execute.prepares)
+        self.assertEqual(2, len(execute.contexts))
+        self.assertIs(execute.contexts[0], execute.contexts[1])
+
+    def test_runner_does_not_prepare_context_for_b0_when_executor_opts_out(self):
+        task = BenchmarkSuite().select(profile="hybrid")[0]
+
+        class Executor:
+            def __init__(self):
+                self.prepares = 0
+
+            @staticmethod
+            def requires_block_context(task, condition):
+                return condition.id != "B0"
+
+            def prepare_block(self, task, prompt, repetition, output_dir):
+                self.prepares += 1
+                raise AssertionError("B0 normalization should not run")
+
+            def __call__(self, task, condition, prompt, output_dir):
+                return {"passed": True, "study_validity": {"eligible": True}}
+
+        execute = Executor()
+        with tempfile.TemporaryDirectory() as tmp:
+            records = AblationRunner(Path(tmp)).run(
+                [task], [CONDITIONS["B0"]], execute, variant="rich"
+            )
+        self.assertEqual(0, execute.prepares)
+        self.assertEqual(1, len(records))
+        self.assertIsNone(records[0]["infrastructure_error"])
+
+    def test_shards_are_disjoint_and_cover_the_global_randomized_plan(self):
+        tasks = BenchmarkSuite().select(profile="hybrid")[:5]
+        conditions = [CONDITIONS["B0"], CONDITIONS["FULL"]]
+        seen = [[], []]
+
+        def execute(task, condition, prompt, output_dir):
+            seen[current_shard].append((task.id, condition.id))
+            return {
+                "passed": True,
+                "study_validity": {"eligible": True},
+            }
+
+        with tempfile.TemporaryDirectory() as tmp:
+            for current_shard in range(2):
+                runner = AblationRunner(
+                    Path(tmp), randomization_seed=17,
+                    randomize_task_order=True,
+                    shard_count=2, shard_index=current_shard,
+                )
+                records = runner.run(
+                    tasks, conditions, execute, variant="rich",
+                )
+                self.assertEqual(
+                    current_shard,
+                    runner.last_run_control["shard_index"],
+                )
+            self.assertTrue((Path(tmp) / "run-control-shard-000-of-002.json").is_file())
+            self.assertTrue((Path(tmp) / "run-control-shard-001-of-002.json").is_file())
+        self.assertFalse(set(seen[0]) & set(seen[1]))
+        self.assertEqual(
+            sorted(
+                (task.id, condition.id)
+                for task, _ in tasks for condition in conditions
+            ),
+            sorted(seen[0] + seen[1]),
+        )
+        owner = {}
+        for shard_index, rows in enumerate(seen):
+            for task_id, _ in rows:
+                owner.setdefault(task_id, set()).add(shard_index)
+        self.assertTrue(all(len(shards) == 1 for shards in owner.values()))
+
+    def test_normalization_block_is_cached_and_reconstructed_exactly(self):
+        task, prompt = BenchmarkSuite().select(profile="hybrid")[0]
+        ir = {"source_text": prompt, "execution_mode": "portable_fmu_kinematic"}
+
+        class Normalizer:
+            def __init__(self):
+                self.calls = 0
+
+            def normalize(self, *args, task_id, **kwargs):
+                self.calls += 1
+                return NormalizationResult(task_id=task_id, ir={
+                    **ir, "task_id": task_id, "schema_version": "1.0",
+                }, attempts=[{"attempt": 0, "valid": True, "response": "{}"}])
+
+        normalizer = Normalizer()
+        executor = PipelineExperimentExecutor(
+            text_ask=lambda _: "", json_ask=lambda _: "", normalizer=normalizer,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            first = executor.prepare_block(task, prompt, 0, root)
+            second = executor.prepare_block(task, prompt, 0, root)
+        self.assertEqual(1, normalizer.calls)
+        self.assertEqual(first["normalized_ir_sha256"], second["normalized_ir_sha256"])
+        self.assertEqual(first["normalization"].ir, second["normalization"].ir)
+
+    def test_condition_order_is_blocked_randomized_and_reproducible(self):
+        tasks = BenchmarkSuite().select(profile="hybrid")[:3]
+        conditions = list(CONDITIONS.values())
+        first = planned_cells(tasks, conditions, repetitions=2, seed=17)
+        second = planned_cells(tasks, conditions, repetitions=2, seed=17)
+        third = planned_cells(tasks, conditions, repetitions=2, seed=18)
+        key = lambda rows: [
+            (row["task"].id, row["repetition"], row["condition"].id)
+            for row in rows
+        ]
+        self.assertEqual(key(first), key(second))
+        self.assertNotEqual(key(first), key(third))
+        for offset in range(0, len(first), len(conditions)):
+            block = first[offset:offset + len(conditions)]
+            self.assertEqual(len(conditions), len({row["condition"].id for row in block}))
+
+    def test_corpus_task_order_is_seeded_randomized_and_reproducible(self):
+        tasks = BenchmarkSuite().select()[:10]
+        conditions = [CONDITIONS["FULL"]]
+        first = planned_cells(
+            tasks, conditions, repetitions=1, seed=17,
+            randomize_task_order=True,
+        )
+        second = planned_cells(
+            tasks, conditions, repetitions=1, seed=17,
+            randomize_task_order=True,
+        )
+        third = planned_cells(
+            tasks, conditions, repetitions=1, seed=18,
+            randomize_task_order=True,
+        )
+        ids = lambda rows: [row["task"].id for row in rows]
+        canonical = sorted(task.id for task, _ in tasks)
+        self.assertEqual(ids(first), ids(second))
+        self.assertNotEqual(canonical, ids(first))
+        self.assertNotEqual(ids(first), ids(third))
+        self.assertEqual(canonical, sorted(ids(first)))
+
+    def test_runtime_preflight_reports_backend_failure(self):
+        class Pipeline:
+            class Runner:
+                backend = "docker"
+
+                @staticmethod
+                def resolved_backend():
+                    return "docker"
+
+            runner = Runner()
+
+            @staticmethod
+            def compile(source, *, output_dir):
+                self.assertIn("NL2RoboticsRuntimePreflight", source)
+                return type("Result", (), {"passed": False, "build": ModelicaBuild(
+                    True, "NL2RoboticsRuntimePreflight",
+                    diagnostics=[Diagnostic(
+                        "infrastructure", "error", "Docker daemon unavailable"
+                    )],
+                )})()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            report = _preflight_modelica_backend(Pipeline(), Path(tmp))
+        self.assertFalse(report["success"])
+        self.assertEqual(["Docker daemon unavailable"], report["diagnostics"])
+
+    def test_llm_preflight_rejects_provider_model_mismatch_without_calls(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch(
+                "nl2robotics.experiments.run_cli.shutil.which",
+                return_value="/usr/bin/claude",
+            ), patch.dict(
+                "os.environ", {"OPENROUTER_API_KEY": "present"}, clear=True,
+            ):
+                report = _preflight_llm_environment(
+                    model="gpt-5.4", provider="claude", repository=Path(tmp)
+                )
+        self.assertFalse(report["success"])
+        self.assertTrue(any(
+            "incompatible" in item for item in report["diagnostics"]
+        ))
+
+    def test_non_moe_preflight_does_not_require_openrouter(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch(
+                "nl2robotics.experiments.run_cli.shutil.which",
+                return_value="/usr/bin/codex",
+            ), patch(
+                "nl2robotics.experiments.run_cli.probe_completion",
+                return_value="READY",
+            ), patch.dict("os.environ", {}, clear=True):
+                report = _preflight_llm_environment(
+                    model="gpt-5.4", provider="codex",
+                    repository=Path(tmp), require_moe=False,
+                )
+        self.assertTrue(report["success"])
+        self.assertFalse(report["moe_required"])
+        self.assertTrue(report["model_probe_attempted"])
+        self.assertTrue(report["model_probe_passed"])
+
+    def test_glm_baseline_preflight_requires_openrouter(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch(
+                "nl2robotics.experiments.run_cli.shutil.which",
+                return_value="/usr/bin/codex",
+            ), patch(
+                "nl2robotics.experiments.run_cli.probe_completion",
+                return_value="READY",
+            ), patch.dict("os.environ", {}, clear=True):
+                report = _preflight_llm_environment(
+                    model="gpt-5.4", provider="codex",
+                    repository=Path(tmp), require_moe=False,
+                    baseline_model="z-ai/glm-5.2", require_baseline=True,
+                )
+        self.assertFalse(report["success"])
+        self.assertEqual("openrouter", report["baseline_route"])
+        self.assertTrue(any(
+            "baseline model" in item for item in report["diagnostics"]
+        ))
+
+    def test_open_model_support_preflight_uses_openrouter(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch(
+                "nl2robotics.experiments.run_cli.invoke_modelica_model",
+                return_value="READY",
+            ) as invoke, patch.dict(
+                "os.environ", {"OPENROUTER_API_KEY": "present"}, clear=True,
+            ):
+                report = _preflight_llm_environment(
+                    model="z-ai/glm-5.2", provider="openrouter",
+                    repository=Path(tmp), require_moe=False,
+                    baseline_model="z-ai/glm-5.2", require_baseline=True,
+                )
+        self.assertTrue(report["success"])
+        self.assertEqual("openrouter", report["support_provider"])
+        self.assertIsNone(report["provider_cli_present"])
+        self.assertTrue(report["model_probe_passed"])
+        invoke.assert_called_once()
+
+    def test_open_model_preflight_rejects_empty_completion(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch(
+                "nl2robotics.experiments.run_cli.invoke_modelica_model",
+                return_value="",
+            ), patch.dict(
+                "os.environ", {"OPENROUTER_API_KEY": "present"}, clear=True,
+            ):
+                report = _preflight_llm_environment(
+                    model="z-ai/glm-5.2", provider="openrouter",
+                    repository=Path(tmp), require_moe=False,
+                    baseline_model="z-ai/glm-5.2", require_baseline=True,
+                )
+        self.assertFalse(report["success"])
+        self.assertFalse(report["model_probe_passed"])
+        self.assertTrue(any(
+            "no exact READY" in item for item in report["diagnostics"]
+        ))
+
+    def test_llm_preflight_rejects_unusable_model_before_cells(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch(
+                "nl2robotics.experiments.run_cli.shutil.which",
+                return_value="/usr/bin/codex",
+            ), patch(
+                "nl2robotics.experiments.run_cli.probe_completion",
+                side_effect=RuntimeError("model is not supported"),
+            ), patch.dict("os.environ", {}, clear=True):
+                report = _preflight_llm_environment(
+                    model="gpt-unsupported", provider="codex",
+                    repository=Path(tmp), require_moe=False,
+                )
+        self.assertFalse(report["success"])
+        self.assertTrue(report["model_probe_attempted"])
+        self.assertFalse(report["model_probe_passed"])
+        self.assertTrue(any(
+            "model is not supported" in item for item in report["diagnostics"]
+        ))
+
+    def test_usage_limit_stops_without_recording_failed_cell(self):
+        task = BenchmarkSuite().select(profile="modelica")[0]
+
+        def execute(*args, **kwargs):
+            raise RuntimeError("You've hit your usage limit. Try again later.")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            runner = AblationRunner(root)
+            records = runner.run(
+                [task], [CONDITIONS["B0"], CONDITIONS["FULL"]], execute,
+                variant="rich",
+            )
+            self.assertEqual([], records)
+            self.assertTrue(runner.last_run_control["stopped_early"])
+            self.assertEqual(
+                "provider usage limit detected; rerun the identical command to resume",
+                runner.last_run_control["stop_reason"],
+            )
+            self.assertEqual([], list(root.glob("**/run.json")))
+
+    def test_infrastructure_degraded_cell_is_not_resumed(self):
+        task = BenchmarkSuite().select(profile="modelica")[0]
+        calls = {"count": 0}
+
+        def execute(*args, **kwargs):
+            calls["count"] += 1
+            return {"infrastructure_pending": True, "passed": False}
+
+        with tempfile.TemporaryDirectory() as tmp:
+            runner = AblationRunner(Path(tmp))
+            runner.run([task], [CONDITIONS["B0"]], execute, variant="rich")
+            runner.run([task], [CONDITIONS["B0"]], execute, variant="rich")
+        self.assertEqual(2, calls["count"])
+
+    def test_missing_moe_expert_is_infrastructure_ineligible(self):
+        report = {
+            "generation_mode": "moe",
+            "retrieved_examples": [{"id": "X"}],
+            "expert_candidates": ["only-one"],
+            "expert_soft_fail_count": 1,
+            "study_controls": {
+                "rag_enabled": True, "moe_enabled": True,
+                "tool_repair_enabled": False,
+            },
+        }
+        validity = _study_validity(
+            {"stage": "modelica_experiment", "generation": report},
+            CONDITIONS["B2"], True,
+        )
+        self.assertFalse(validity["eligible"])
+        self.assertTrue(any("expert" in issue for issue in validity["issues"]))
+
+    def test_runtime_repair_cannot_execute_in_a_disabled_ablation(self):
+        result = {
+            "stage": "robotics_orchestrator",
+            "modelica": {
+                "passed": True,
+                "generation_mode": "direct",
+                "retrieved_examples": [],
+                "expert_candidates": [],
+                "study_controls": {
+                    "rag_enabled": False,
+                    "moe_enabled": False,
+                    "tool_repair_enabled": False,
+                    "retrieval_k": 0,
+                },
+            },
+            "runtime_repair": {
+                "enabled": True, "triggered": True,
+                "attempted": 1, "max_repairs": 1,
+            },
+        }
+        validity = _study_validity(result, CONDITIONS["B0"], False)
+        self.assertFalse(validity["eligible"])
+        self.assertIn("runtime-repair control mismatch", validity["issues"])
+        self.assertIn("runtime repair executed while disabled", validity["issues"])
+
+    def test_runtime_repair_attempt_bound_is_a_fidelity_gate(self):
+        result = {
+            "stage": "robotics_orchestrator",
+            "modelica": {
+                "passed": True,
+                "generation_mode": "rag_moe",
+                "retrieved_examples": [{"id": str(i)} for i in range(5)],
+                "expert_candidates": list(EXPERT_MODELS),
+                "expert_models": list(EXPERT_MODELS),
+                "expert_soft_fail_count": 0,
+                "combiner_model": COMBINER_MODEL,
+                "study_controls": {
+                    "rag_enabled": True,
+                    "moe_enabled": True,
+                    "tool_repair_enabled": True,
+                    "retrieval_k": 5,
+                },
+            },
+            "runtime_repair": {
+                "enabled": True, "triggered": True,
+                "attempted": 2, "max_repairs": 1,
+            },
+        }
+        validity = _study_validity(result, CONDITIONS["FULL"], True)
+        self.assertFalse(validity["eligible"])
+        self.assertIn(
+            "runtime repair exceeded its frozen attempt bound",
+            validity["issues"],
+        )
+
+    def test_provider_timeout_is_infrastructure_ineligible(self):
+        validity = _study_validity({
+            "stage": "robotics_orchestrator",
+            "failure_stage": "openusd_generation",
+            "error": (
+                "OpenRouter call failed (z-ai/glm-5.2): "
+                "The read operation timed out"
+            ),
+            "modelica": {
+                "passed": True,
+                "generation_mode": "moe",
+                "retrieved_examples": [{"id": str(i)} for i in range(5)],
+                "expert_candidates": list(EXPERT_MODELS),
+                "expert_models": list(EXPERT_MODELS),
+                "expert_soft_fail_count": 0,
+                "combiner_model": COMBINER_MODEL,
+                "study_controls": {
+                    "rag_enabled": True,
+                    "moe_enabled": True,
+                    "tool_repair_enabled": True,
+                    "retrieval_k": 5,
+                },
+            },
+        }, CONDITIONS["FULL"], True)
+        self.assertFalse(validity["eligible"])
+        self.assertTrue(any(
+            "provider infrastructure failure" in issue
+            for issue in validity["issues"]
+        ))
+
+    def test_native_runtime_outage_is_infrastructure_ineligible(self):
+        result = {
+            "stage": "robotics_orchestrator",
+            "modelica": {
+                "passed": True,
+                "generation_mode": "direct",
+                "retrieved_examples": [],
+                "expert_candidates": [],
+                "study_controls": {
+                    "rag_enabled": False,
+                    "moe_enabled": False,
+                    "tool_repair_enabled": False,
+                    "retrieval_k": 0,
+                },
+            },
+            "hybrid": {"fmu": {"diagnostics": [{
+                "stage": "infrastructure", "severity": "error",
+                "message": "Docker daemon unavailable",
+            }]}},
+            "runtime_repair": {
+                "enabled": False, "triggered": False,
+                "attempted": 0, "max_repairs": 0,
+            },
+        }
+        validity = _study_validity(result, CONDITIONS["B0"], False)
+        self.assertFalse(validity["eligible"])
+        self.assertTrue(any(
+            "native infrastructure failure" in issue
+            for issue in validity["issues"]
+        ))
+
+    def test_attempt_zero_is_separate_from_repaired_final_validity(self):
+        result = {
+            "stage": "modelica_experiment",
+            "passed": True,
+            "modelica": {"passed": True},
+            "generation": {
+                "generation_mode": "direct",
+                "attempts": [{"attempt": 0, "passed": False},
+                             {"attempt": 1, "passed": True}],
+            },
+        }
+        result["one_shot"] = _one_shot_outcomes(result)
+        metrics = extract_metrics("modelica", result)
+        self.assertFalse(metrics["modelica_build_attempt_0"])
+        self.assertTrue(metrics["modelica_build"])
+
+    def test_repair_metric_includes_profile_semantic_and_runtime_attempts(self):
+        result = {
+            "modelica": {"repairs": 1},
+            "openusd": {"repairs": 2},
+            "semantic_repair": {"attempted": 1, "accepted": 1},
+            "runtime_repair": {"attempted": 2, "accepted": 1},
+        }
+        self.assertEqual(6, extract_metrics("capability", result)["repairs"])
+
+    def test_protocol_freezes_corpora_models_and_exact_cell_fingerprints(self):
+        task = BenchmarkSuite().select(profile="modelica")[:1]
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "repo"
+            for domain in ("modelica", "openusd"):
+                corpus = root / "nl2robotics" / domain / "examples"
+                corpus.mkdir(parents=True)
+                (corpus / "manifest.json").write_text("[]\n", encoding="utf-8")
+                (corpus / "corpus_subsets.json").write_text("{}\n", encoding="utf-8")
+                (corpus / "artifact.txt").write_text(domain, encoding="utf-8")
+            report, configuration = freeze_protocol(
+                repository=root,
+                output_dir=Path(tmp) / "out",
+                tasks=task,
+                conditions=[CONDITIONS["B0"], CONDITIONS["FULL"]],
+                variant="rich",
+                repetitions=2,
+                configuration={"single_model": "test"},
+                randomization_seed=11,
+            )
+            modelica_only, _ = freeze_protocol(
+                repository=root,
+                output_dir=Path(tmp) / "modelica-only",
+                tasks=task,
+                conditions=[CONDITIONS["FULL"]],
+                variant="rich",
+                repetitions=1,
+                configuration={
+                    "single_model": "test", "artifact_mode": "modelica_only",
+                },
+                randomization_seed=11,
+            )
+            with self.assertRaises(ValueError):
+                freeze_protocol(
+                    repository=root,
+                    output_dir=Path(tmp) / "out",
+                    tasks=task,
+                    conditions=[CONDITIONS["B0"], CONDITIONS["FULL"]],
+                    variant="rich",
+                    repetitions=2,
+                    configuration={"single_model": "changed"},
+                    randomization_seed=11,
+                )
+        self.assertEqual(4, report["planned_cell_count"])
+        self.assertEqual(4, len({row["fingerprint"] for row in report["planned_cells"]}))
+        self.assertEqual(3, report["corpora"]["modelica"]["file_count"])
+        self.assertEqual({"modelica"}, set(modelica_only["corpora"]))
+        self.assertNotIn("openusd_validator", modelica_only["runtime_versions"])
+        self.assertIn("study_protocol_core_sha256", configuration)
+
+    def test_summary_separates_infrastructure_failure(self):
+        base = {
+            "task_id": "T1", "profile": "hybrid", "variant": "rich",
+            "repetition": 0,
+        }
+        records = [
+            {**base, "condition": {"id": "B0"}, "metrics": {
+                "infrastructure_available": True, "end_to_end": False,
+                "failure_stage": "generation",
+            }},
+            {**base, "condition": {"id": "FULL"}, "metrics": {
+                "infrastructure_available": True, "end_to_end": True,
+                "failure_stage": None,
+            }},
+            {**base, "task_id": "T2", "condition": {"id": "FULL"}, "metrics": {
+                "infrastructure_available": False, "end_to_end": None,
+                "failure_stage": "infrastructure",
+            }},
+        ]
+        summary = summarize_records(records, bootstrap_samples=100)
+        self.assertEqual(1, summary["infrastructure_failure_count"])
+        self.assertEqual(1.0, summary["conditions"]["FULL"]["binary"]
+                         ["end_to_end"]["rate"])
+        paired = paired_binary_comparison(records, "B0", "FULL", "end_to_end")
+        self.assertEqual(1, paired["paired_count"])
+        self.assertEqual(1, paired["b_only_success"])
+
+    def test_paired_runtime_survival_reports_effect_and_excludes_infrastructure(self):
+        records = []
+        for task, baseline, full in (("T1", 0.2, 1.0), ("T2", 0.5, 0.75)):
+            for condition, value in (("B0", baseline), ("FULL", full)):
+                records.append({
+                    "task_id": task, "variant": "rich", "repetition": 0,
+                    "condition": {"id": condition}, "metrics": {
+                        "infrastructure_available": True,
+                        "runtime_survival_fraction": value,
+                    },
+                })
+        records.append({
+            "task_id": "T3", "variant": "rich", "repetition": 0,
+            "condition": {"id": "FULL"}, "metrics": {
+                "infrastructure_available": False,
+                "runtime_survival_fraction": 1.0,
+            },
+        })
+        paired = paired_continuous_comparison(
+            records, "B0", "FULL", "runtime_survival_fraction",
+            bootstrap_samples=100,
+        )
+        self.assertEqual(2, paired["paired_count"])
+        self.assertEqual(2, paired["improved"])
+        self.assertAlmostEqual(0.525, paired["mean_difference_b_minus_a"])
+
+    def test_isaac_result_populates_headline_metrics(self):
+        result = {
+            "stage": "isaac_closed_loop",
+            "success": True,
+            "passed": True,
+            "contract": {"success": True},
+            "fmu": {"success": True},
+            "execution": {"success": True},
+            "simulator": {"loaded": True},
+            "repeatability": {"success": True},
+            "properties": [{"passed": True}],
+        }
+        metrics = extract_metrics("hybrid", result)
+        self.assertTrue(metrics["end_to_end"])
+        self.assertTrue(metrics["fmu_execution"])
+        self.assertTrue(metrics["contract_valid"])
+        self.assertTrue(metrics["named_simulator_load"])
+        self.assertTrue(metrics["stable_simulation"])
+        self.assertTrue(metrics["all_properties_pass"])
+
+    def test_property_outcomes_remain_visible_when_strict_gate_fails(self):
+        result = {
+            "stage": "portable_hybrid",
+            "passed": False,
+            "properties": [
+                {"status": "satisfied", "passed": True},
+                {"status": "violated", "passed": False},
+                {"status": "unevaluable", "passed": False},
+            ],
+        }
+        metrics = extract_metrics("hybrid", result)
+        self.assertFalse(metrics["all_properties_pass"])
+        self.assertEqual(3, metrics["property_total"])
+        self.assertEqual(2, metrics["property_evaluable"])
+        self.assertEqual(1, metrics["property_satisfied"])
+        self.assertEqual(1, metrics["property_violated"])
+        self.assertEqual(1, metrics["property_unevaluable"])
+        self.assertAlmostEqual(2 / 3, metrics["property_evaluability_rate"])
+        self.assertEqual(0.5, metrics["property_satisfaction_rate_evaluable"])
+
+    def test_pending_h2_infrastructure_is_excluded_from_rates(self):
+        metrics = extract_metrics("hybrid", {
+            "infrastructure_pending": True,
+            "ready_for_gpu": True,
+            "passed": False,
+        })
+        self.assertFalse(metrics["infrastructure_available"])
+        self.assertIsNone(metrics["end_to_end"])
+
+    def test_legacy_capability_validation_is_not_end_to_end_execution(self):
+        metrics = extract_metrics("capability", {
+            "passed": True, "failure_stage": None,
+            "normalization": {"success": True},
+            "plan": {"success": True},
+            "modelica": {"passed": True},
+            "openusd": {"passed": True},
+            "capabilities": {"highest_reached_tier": 2},
+        })
+        self.assertTrue(metrics["normalization_valid"])
+        self.assertTrue(metrics["ir_valid"])
+        self.assertTrue(metrics["artifact_pair_valid"])
+        self.assertEqual(2, metrics["verification_tier"])
+        self.assertFalse(metrics["end_to_end"])
+        self.assertIsNone(metrics["fmu_execution"])
+
+    def test_modelica_only_metrics_never_imply_an_artifact_pair(self):
+        metrics = extract_metrics("capability", {
+            "artifact_mode": "modelica_only", "passed": True,
+            "modelica": {"passed": True},
+            "hybrid": {
+                "fmu": {"success": True},
+                "contract": {"success": True},
+                "execution": {"success": True},
+                "trace_gate": {"success": True},
+                "properties": [{"status": "satisfied", "passed": True}],
+            },
+            "alignment": {"claim_ready": True},
+            "stage_trace": [{
+                "index": 8, "stage": "modelica_specification_alignment",
+                "reached": True, "passed": True,
+            }],
+        })
+        self.assertTrue(metrics["artifact_valid"])
+        self.assertIsNone(metrics["artifact_pair_valid"])
+        self.assertTrue(metrics["fmu_interface_valid"])
+        self.assertTrue(metrics["runtime_trace_valid"])
+        self.assertTrue(metrics["post_execution_semantic"])
+
+    def test_runtime_failure_progress_is_reported_without_becoming_success(self):
+        metrics = extract_metrics("capability", {
+            "artifact_mode": "modelica_only", "passed": False,
+            "failure_stage": "fmu_execution",
+            "hybrid": {
+                "clock": {"start_time": 0.0, "stop_time": 8.0},
+                "fmu": {"success": True},
+                "execution": {
+                    "success": False,
+                    "initialized": True,
+                    "failure_class": "nonfinite_dynamics",
+                    "failure_time": 6.0,
+                },
+            },
+        })
+        self.assertFalse(metrics["fmu_execution"])
+        self.assertEqual("nonfinite_dynamics", metrics["runtime_failure_class"])
+        self.assertEqual(0.75, metrics["runtime_survival_fraction"])
+
+        summary = summarize_records([{
+            "condition": {"id": "FULL"}, "metrics": metrics,
+        }], bootstrap_samples=10)
+        self.assertEqual(
+            {"nonfinite_dynamics": 1},
+            summary["conditions"]["FULL"]["runtime_failure_classes"],
+        )
+
+    def test_disabled_alignment_is_not_counted_as_full_funnel_success(self):
+        metrics = extract_metrics("capability", {
+            "passed": True,
+            "ablation": {"condition": {"alignment": False}},
+            "stage_trace": [
+                {"index": 8, "stage": "runtime_execution", "reached": True,
+                 "passed": True, "status": "passed"},
+                {"index": 11, "stage": "post_execution_semantic_alignment",
+                 "reached": False, "passed": None, "status": "disabled"},
+            ],
+        })
+        self.assertTrue(metrics["configured_pipeline_success"])
+        self.assertIsNone(metrics["end_to_end"])
+
+    def test_h2_handoff_result_replaces_preparation_for_metrics(self):
+        isaac = {
+            "stage": "isaac_closed_loop", "success": True, "passed": True,
+            "claim_eligible_h2": True,
+        }
+        executor = object.__new__(PipelineExperimentExecutor)
+        executor.h2_handoff = lambda **kwargs: {
+            "success": True, "failure_stage": None, "isaac_report": isaac,
+        }
+        executor.newton_handoff = None
+        with tempfile.TemporaryDirectory() as tmp:
+            result = executor._complete_h2({
+                "ready_for_gpu": True,
+                "passed": False,
+                "hybrid": {"manifest": "hybrid/execution-input.json"},
+            }, Path(tmp))
+        self.assertTrue(result["passed"])
+        self.assertTrue(result["claim_eligible_h2"])
+        self.assertIs(result["hybrid"], isaac)
+
+    def test_newton_handoff_result_populates_claim_metrics(self):
+        newton = {
+            "stage": "newton_closed_loop", "success": True, "passed": True,
+            "claim_eligible_h2": True, "claim_eligible_newton_h2": True,
+        }
+        executor = object.__new__(PipelineExperimentExecutor)
+        executor.h2_handoff = None
+        executor.newton_handoff = lambda **kwargs: {
+            "success": True, "failure_stage": None, "newton_report": newton,
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            result = executor._complete_h2({
+                "ready_for_gpu": True,
+                "passed": False,
+                "hybrid": {"manifest": "hybrid/execution-input.json"},
+            }, Path(tmp), "newton_h2")
+        self.assertTrue(result["passed"])
+        self.assertTrue(result["claim_eligible_h2"])
+        self.assertIs(result["hybrid"], newton)
+
+
+if __name__ == "__main__":
+    unittest.main()

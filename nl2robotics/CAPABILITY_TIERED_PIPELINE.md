@@ -1,0 +1,118 @@
+# Capability-tiered robotics pipeline
+
+> Historical dual-artifact design. The paper-facing corpus now uses
+> `modelica_capability`: one generated Modelica artifact followed by native
+> compilation, FMI 2.0 Co-Simulation export, FMU contract checks, execution,
+> trace-property monitoring, and Modelica/specification alignment. This file is
+> retained only to interpret archived Modelica+OpenUSD evidence.
+
+The robotics pipeline has a broad generation path and separately named
+executable profiles. It does not force every robotics request into the
+fixed-base PD articulation contract, and it does not promote artifact validity
+to physics-execution evidence.
+
+## Broad shared IR
+
+`capability_tiered` normalization can preserve grounded requirements for:
+
+- fixed, floating, mobile, aerial, legged, marine, multi-robot, and soft-body
+  entities;
+- serial, branching, multi-articulation, and closed-chain topology;
+- revolute, continuous, prismatic, fixed, spherical/ball, free, distance, D6,
+  planar, screw, gear, universal, mimic, tendon, and cable joints;
+- principal or arbitrary joint axes and multi-DOF joints;
+- primitive, mesh, convex, height-field, compound, and unspecified geometry;
+- P/PI/PD/PID, feedforward, trajectory, state-feedback, impedance, admittance,
+  computed-torque, operational-space, mobile, aerial, MPC, and custom control;
+- joint, base, body, wheel, thrust, wrench, contact, IMU, encoder, camera,
+  lidar, GPS, odometry, electrical, fluid-power, and deformation signals;
+- sensors, estimators, environments, materials, friction, contact, obstacles,
+  terrain, trajectories, and temporal or task-level properties.
+
+The vocabulary is intentionally broader than any one runtime. Facts remain
+grounded in exact source excerpts. Missing values remain unknown; the broad IR
+does not invent masses, gains, transforms, meshes, or clocks to make a request
+look executable.
+
+Timing may be grounded as either absolute start/stop endpoints or as a duration.
+This lets ordinary requests such as "run at 100 Hz for 5 seconds" retain their
+stated horizon without inventing a zero-valued start time. Strict executable
+profiles still require explicit absolute endpoints and keep their existing
+runtime clock gate.
+
+Every capability contract also carries a grounding ledger. Retrieved examples
+are modeling-pattern references, never factual sources. An omitted physical
+value must remain absent or be represented by an explicitly marked unresolved
+placeholder; it is not promoted to a validated requirement fact. Direct state
+properties require matching observable interfaces so generators cannot silently
+replace an unmapped property with a constant monitor.
+
+## Verification ladder
+
+| Tier | Meaning |
+|---|---|
+| 0 | Natural language was normalized with source evidence. |
+| 1 | The broad shared IR passed structural and reference validation. |
+| 2 | Both generated artifacts passed their Modelica and OpenUSD profile validators. |
+| 3 | An executable contract resolved and checked every required FMU trace interface. |
+| 4 | A real runtime completed and emitted externally evaluated behavior verdicts. |
+| 5 | Execution also passed accelerator, backend, repeatability, and provenance gates. |
+
+Every run records the highest tier actually reached. A difficult mobile,
+contact, aerial, or sensing request can therefore contribute to stage-survival,
+behavior, and semantic-fidelity experiments even when it fails before the final
+gate. Tier 4 from the integrated FMU route is never mislabeled as Newton H2.
+
+## Implemented profiles
+
+- `general_modelica_openusd`: broad complementary artifact generation,
+  integrated FMU behavior execution, external property evaluation, and
+  post-execution semantic alignment, tier-4 ceiling.
+- `portable_fmu_kinematic`: real FMU execution plus verified USD playback.
+- `articulated_joint_space_h2`: fixed-base acyclic revolute/prismatic trees,
+  independent saturated PD effort control, Newton or Isaac adapter, and tier-5
+  provenance when the external execution gate passes.
+
+The router also identifies requested mobile, aerial, legged, marine, soft,
+fluid-power, electromechanical, multi-robot, closed-chain, sensor, contact, and
+trajectory/coupled-control profiles. Those use the integrated FMU behavior path;
+they still require dedicated simulator adapters before any Newton/Isaac or
+accelerator claim.
+
+## Command
+
+```bash
+python3 -m nl2robotics.orchestrator.cli \
+  --request request.txt \
+  --execution-mode capability_tiered \
+  --output-dir outputs/broad-robotics-run \
+  --mode moe --subset full1500
+```
+
+The bundle contains the grounded IR, executable capability contract,
+profile-specific generation requirements, Modelica and OpenUSD artifacts,
+validator reports, FMU, runtime trace, property verdicts, pre/post semantic
+alignment, `capability-report.json`, and `result.json`. Newton/accelerator claim
+flags remain false unless the strict H2 profile produces that evidence.
+
+For reproducible artifact ablations, freeze a validated normalization and rerun
+without another normalization model call:
+
+```bash
+python3 -m nl2robotics.orchestrator.cli \
+  --normalized-ir outputs/broad-robotics-run/normalized_requirement_ir.json \
+  --output-dir outputs/broad-robotics-frozen-ir-rerun \
+  --mode single --model gpt-5.6-sol --provider codex --subset full1500
+```
+
+The frozen IR's task ID, source text, execution mode, mappings, and declared
+unknowns remain authoritative. The CLI rejects a conflicting task ID.
+
+## Paper use
+
+Use a capability matrix rather than one universal pass rate. Stratify tasks by
+domain and requested feature, report normalization/IR validity, artifact
+validity, cross-artifact validity, execution, and provenance separately, and
+compare ablation conditions at the strongest applicable tier. The real DeltaAI
+Newton results are the strongest evidence cells; they do not define the
+language or generation boundary of the system.

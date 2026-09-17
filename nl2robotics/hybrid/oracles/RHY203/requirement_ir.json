@@ -1,0 +1,77 @@
+{
+  "schema_version": "1.0",
+  "task_id": "RHY203",
+  "source_text": "Create a closed-loop branching three-joint inspection mechanism. Newton Physics owns all rigid-body dynamics and one Modelica FMU owns three independent PD control channels. A fixed base supports a 1.5 kg cylindrical left link with radius 0.06 m and height 0.4 m and a separate 1.25 kg capsule right link with radius 0.05 m and height 0.35 m. A 0.5 kg spherical tool with radius 0.07 m attaches to the left link. The left shoulder is an X-axis revolute joint from the base to the left link with limits from -45 to 45 degrees. The right shoulder is a Z-axis revolute joint from the base to the right link with limits from -40 to 40 degrees. The tool slide is a Y-axis prismatic joint from the left link to the tool with limits from -0.1 to 0.1 m. The left shoulder PD controller has target 15 degrees, proportional gain 8 N.m/rad, derivative gain 1.2 N.m.s/rad, and torque limit 3 N.m. The right shoulder PD controller has target -12 degrees, proportional gain 0.5 N.m/rad, derivative gain 0.07 N.m.s/rad, and torque limit 0.15 N.m. The tool slide PD controller has target 0.05 m, proportional gain 40 N/m, derivative gain 6 N.s/m, and force limit 8 N. Each controller receives its joint position and velocity in canonical SI units and outputs joint effort. Use zero gravity. Run from 0 to 3 seconds at 100 Hz with two physics substeps. Every joint must always stay within its limits. At the end, each shoulder must be within 4 degrees of its target and the tool slide must be within 0.015 m of its target. Both shoulder speeds must finish below 0.05 rad/s in magnitude and the tool speed must finish below 0.01 m/s in magnitude.",
+  "execution_mode": "newton_closed_loop",
+  "clock": {
+    "start_time": 0.0,
+    "stop_time": 3.0,
+    "frequency_hz": 100.0,
+    "physics_substeps": 2,
+    "evidence": ["Run from 0 to 3 seconds at 100 Hz with two physics substeps"]
+  },
+  "entities": [
+    {"id": "base", "kind": "fixed_base", "evidence": ["A fixed base"]},
+    {"id": "left_link", "kind": "rigid_link", "shape": "cylinder", "mass": 1.5, "mass_unit": "kg", "radius": 0.06, "height": 0.4, "dimension_unit": "m", "evidence": ["1.5 kg cylindrical left link with radius 0.06 m and height 0.4 m"]},
+    {"id": "right_link", "kind": "rigid_link", "shape": "capsule", "mass": 1.25, "mass_unit": "kg", "radius": 0.05, "height": 0.35, "dimension_unit": "m", "evidence": ["1.25 kg capsule right link with radius 0.05 m and height 0.35 m"]},
+    {"id": "tool", "kind": "rigid_link", "shape": "sphere", "mass": 0.5, "mass_unit": "kg", "radius": 0.07, "dimension_unit": "m", "evidence": ["0.5 kg spherical tool with radius 0.07 m"]}
+  ],
+  "joints": [
+    {"id": "left_shoulder", "type": "revolute", "parent": "base", "child": "left_link", "axis": "X", "lower_limit": -45.0, "upper_limit": 45.0, "limit_unit": "deg", "evidence": ["left shoulder is an X-axis revolute joint from the base to the left link with limits from -45 to 45 degrees"]},
+    {"id": "right_shoulder", "type": "revolute", "parent": "base", "child": "right_link", "axis": "Z", "lower_limit": -40.0, "upper_limit": 40.0, "limit_unit": "deg", "evidence": ["right shoulder is a Z-axis revolute joint from the base to the right link with limits from -40 to 40 degrees"]},
+    {"id": "tool_slide", "type": "prismatic", "parent": "left_link", "child": "tool", "axis": "Y", "lower_limit": -0.1, "upper_limit": 0.1, "limit_unit": "m", "evidence": ["tool slide is a Y-axis prismatic joint from the left link to the tool with limits from -0.1 to 0.1 m"]}
+  ],
+  "parameters": [
+    {"id": "left_kp", "owner": "fmu_controller", "joint_id": "left_shoulder", "quantity": "proportional_gain", "value": 8.0, "unit": "N.m/rad", "evidence": ["proportional gain 8 N.m/rad"]},
+    {"id": "left_kd", "owner": "fmu_controller", "joint_id": "left_shoulder", "quantity": "derivative_gain", "value": 1.2, "unit": "N.m.s/rad", "evidence": ["derivative gain 1.2 N.m.s/rad"]},
+    {"id": "left_target", "owner": "fmu_controller", "joint_id": "left_shoulder", "quantity": "target_position", "value": 15.0, "unit": "deg", "evidence": ["target 15 degrees"]},
+    {"id": "left_limit", "owner": "fmu_controller", "joint_id": "left_shoulder", "quantity": "effort_limit", "value": 3.0, "unit": "N.m", "evidence": ["torque limit 3 N.m"]},
+    {"id": "right_kp", "owner": "fmu_controller", "joint_id": "right_shoulder", "quantity": "proportional_gain", "value": 0.5, "unit": "N.m/rad", "evidence": ["proportional gain 0.5 N.m/rad"]},
+    {"id": "right_kd", "owner": "fmu_controller", "joint_id": "right_shoulder", "quantity": "derivative_gain", "value": 0.07, "unit": "N.m.s/rad", "evidence": ["derivative gain 0.07 N.m.s/rad"]},
+    {"id": "right_target", "owner": "fmu_controller", "joint_id": "right_shoulder", "quantity": "target_position", "value": -12.0, "unit": "deg", "evidence": ["target -12 degrees"]},
+    {"id": "right_limit", "owner": "fmu_controller", "joint_id": "right_shoulder", "quantity": "effort_limit", "value": 0.15, "unit": "N.m", "evidence": ["torque limit 0.15 N.m"]},
+    {"id": "tool_kp", "owner": "fmu_controller", "joint_id": "tool_slide", "quantity": "proportional_gain", "value": 40.0, "unit": "N/m", "evidence": ["proportional gain 40 N/m"]},
+    {"id": "tool_kd", "owner": "fmu_controller", "joint_id": "tool_slide", "quantity": "derivative_gain", "value": 6.0, "unit": "N.s/m", "evidence": ["derivative gain 6 N.s/m"]},
+    {"id": "tool_target", "owner": "fmu_controller", "joint_id": "tool_slide", "quantity": "target_position", "value": 0.05, "unit": "m", "evidence": ["target 0.05 m"]},
+    {"id": "tool_limit", "owner": "fmu_controller", "joint_id": "tool_slide", "quantity": "effort_limit", "value": 8.0, "unit": "N", "evidence": ["force limit 8 N"]}
+  ],
+  "dynamics": [
+    {"id": "branching_articulation_dynamics", "owner": "usd_physics", "states": ["left_shoulder.position", "left_shoulder.velocity", "right_shoulder.position", "right_shoulder.velocity", "tool_slide.position", "tool_slide.velocity"], "evidence": ["Newton Physics owns all rigid-body dynamics"]}
+  ],
+  "controllers": [
+    {"id": "branch_pd", "owner": "fmu_controller", "kind": "PD", "joint_ids": ["left_shoulder", "right_shoulder", "tool_slide"], "evidence": ["one Modelica FMU owns three independent PD control channels"]}
+  ],
+  "actuators": [
+    {"id": "left_actuator", "owner": "fmu_controller", "joint_id": "left_shoulder", "command": "joint_effort", "evidence": ["torque limit 3 N.m"]},
+    {"id": "right_actuator", "owner": "fmu_controller", "joint_id": "right_shoulder", "command": "joint_effort", "evidence": ["torque limit 0.15 N.m"]},
+    {"id": "tool_actuator", "owner": "fmu_controller", "joint_id": "tool_slide", "command": "joint_effort", "evidence": ["force limit 8 N"]}
+  ],
+  "sensors": [],
+  "environment": [
+    {"id": "zero_gravity", "kind": "gravity", "magnitude": 0.0, "unit": "m/s2", "evidence": ["Use zero gravity"]}
+  ],
+  "interfaces": [
+    {"id": "left_position_feedback", "joint_id": "left_shoulder", "state_id": "left_shoulder.position", "quantity": "joint_position", "direction": "usd_to_fmu", "source_unit": "rad", "target_unit": "rad", "initial_value": 0.0, "required": true, "evidence": ["receives its joint position and velocity in canonical SI units"]},
+    {"id": "left_velocity_feedback", "joint_id": "left_shoulder", "state_id": "left_shoulder.velocity", "quantity": "joint_velocity", "direction": "usd_to_fmu", "source_unit": "rad/s", "target_unit": "rad/s", "initial_value": 0.0, "required": true, "evidence": ["receives its joint position and velocity in canonical SI units"]},
+    {"id": "left_effort_command", "joint_id": "left_shoulder", "state_id": "left_shoulder.command_effort", "quantity": "joint_effort", "direction": "fmu_to_usd", "source_unit": "N.m", "target_unit": "N.m", "required": true, "evidence": ["outputs joint effort"]},
+    {"id": "right_position_feedback", "joint_id": "right_shoulder", "state_id": "right_shoulder.position", "quantity": "joint_position", "direction": "usd_to_fmu", "source_unit": "rad", "target_unit": "rad", "initial_value": 0.0, "required": true, "evidence": ["receives its joint position and velocity in canonical SI units"]},
+    {"id": "right_velocity_feedback", "joint_id": "right_shoulder", "state_id": "right_shoulder.velocity", "quantity": "joint_velocity", "direction": "usd_to_fmu", "source_unit": "rad/s", "target_unit": "rad/s", "initial_value": 0.0, "required": true, "evidence": ["receives its joint position and velocity in canonical SI units"]},
+    {"id": "right_effort_command", "joint_id": "right_shoulder", "state_id": "right_shoulder.command_effort", "quantity": "joint_effort", "direction": "fmu_to_usd", "source_unit": "N.m", "target_unit": "N.m", "required": true, "evidence": ["outputs joint effort"]},
+    {"id": "tool_position_feedback", "joint_id": "tool_slide", "state_id": "tool_slide.position", "quantity": "joint_position", "direction": "usd_to_fmu", "source_unit": "m", "target_unit": "m", "initial_value": 0.0, "required": true, "evidence": ["receives its joint position and velocity in canonical SI units"]},
+    {"id": "tool_velocity_feedback", "joint_id": "tool_slide", "state_id": "tool_slide.velocity", "quantity": "joint_velocity", "direction": "usd_to_fmu", "source_unit": "m/s", "target_unit": "m/s", "initial_value": 0.0, "required": true, "evidence": ["receives its joint position and velocity in canonical SI units"]},
+    {"id": "tool_effort_command", "joint_id": "tool_slide", "state_id": "tool_slide.command_effort", "quantity": "joint_effort", "direction": "fmu_to_usd", "source_unit": "N", "target_unit": "N", "required": true, "evidence": ["outputs joint effort"]}
+  ],
+  "properties": [
+    {"id": "left_within_limits", "kind": "always", "interface_id": "left_position_feedback", "lower": -0.7853981633974483, "upper": 0.7853981633974483, "evidence": ["Every joint must always stay within its limits"]},
+    {"id": "right_within_limits", "kind": "always", "interface_id": "right_position_feedback", "lower": -0.6981317007977318, "upper": 0.6981317007977318, "evidence": ["Every joint must always stay within its limits"]},
+    {"id": "tool_within_limits", "kind": "always", "interface_id": "tool_position_feedback", "lower": -0.1, "upper": 0.1, "evidence": ["Every joint must always stay within its limits"]},
+    {"id": "left_reaches_target", "kind": "final", "interface_id": "left_position_feedback", "lower": 0.19198621771937624, "upper": 0.33161255787892263, "evidence": ["each shoulder must be within 4 degrees of its target"]},
+    {"id": "right_reaches_target", "kind": "final", "interface_id": "right_position_feedback", "lower": -0.2792526803190927, "upper": -0.13962634015954636, "evidence": ["each shoulder must be within 4 degrees of its target"]},
+    {"id": "tool_reaches_target", "kind": "final", "interface_id": "tool_position_feedback", "lower": 0.035, "upper": 0.065, "evidence": ["tool slide must be within 0.015 m of its target"]},
+    {"id": "left_finishes_slow", "kind": "final", "interface_id": "left_velocity_feedback", "lower": -0.05, "upper": 0.05, "evidence": ["Both shoulder speeds must finish below 0.05 rad/s in magnitude"]},
+    {"id": "right_finishes_slow", "kind": "final", "interface_id": "right_velocity_feedback", "lower": -0.05, "upper": 0.05, "evidence": ["Both shoulder speeds must finish below 0.05 rad/s in magnitude"]},
+    {"id": "tool_finishes_slow", "kind": "final", "interface_id": "tool_velocity_feedback", "lower": -0.01, "upper": 0.01, "evidence": ["the tool speed must finish below 0.01 m/s in magnitude"]}
+  ],
+  "assumptions": ["The deterministic profile layout orients every primitive's axial dimension along local Z and places joints at adjacent link endpoints."],
+  "unknowns": ["Joint friction and contact material"]
+}

@@ -1,0 +1,50 @@
+{
+  "schema_version": "1.0",
+  "task_id": "RHY201",
+  "source_text": "Create a closed-loop one-degree-of-freedom robot arm. Newton Physics owns the rigid-body dynamics of a two-kilogram link that is 0.6 meters long with a 0.1 meter square cross-section, and the Modelica FMU owns a PD controller. The controller receives shoulder angle in radians and angular velocity in radians per second and outputs shoulder torque in N.m. Use proportional gain 12 N.m/rad, derivative gain 2 N.m.s/rad, a 30 degree target, and a 5 N.m torque limit. The OpenUSD scene contains a base fixed to the world and the link connected by a Y-axis revolute joint limited from -90 to 90 degrees. Use zero gravity for this integration oracle. Run from 0 to 3 seconds at 100 Hz with two physics substeps per communication step. The arm must stay within its joint limits and finish within 3 degrees of the target.",
+  "execution_mode": "newton_closed_loop",
+  "clock": {
+    "start_time": 0.0,
+    "stop_time": 3.0,
+    "frequency_hz": 100.0,
+    "physics_substeps": 2,
+    "evidence": ["Run from 0 to 3 seconds at 100 Hz", "two physics substeps per communication step"]
+  },
+  "entities": [
+    {"id": "base", "kind": "fixed_base", "evidence": ["base fixed to the world"]},
+    {"id": "link", "kind": "rigid_link", "mass": 2.0, "mass_unit": "kg", "length": 0.6, "width": 0.1, "depth": 0.1, "dimension_unit": "m", "evidence": ["two-kilogram link", "0.6 meters long with a 0.1 meter square cross-section"]}
+  ],
+  "joints": [
+    {"id": "shoulder", "type": "revolute", "parent": "base", "child": "link", "axis": "Y", "lower_limit": -90.0, "upper_limit": 90.0, "limit_unit": "deg", "evidence": ["Y-axis revolute joint limited from -90 to 90 degrees"]}
+  ],
+  "parameters": [
+    {"id": "kp", "owner": "fmu_controller", "joint_id": "shoulder", "quantity": "proportional_gain", "value": 12.0, "unit": "N.m/rad", "evidence": ["proportional gain 12 N.m/rad"]},
+    {"id": "kd", "owner": "fmu_controller", "joint_id": "shoulder", "quantity": "derivative_gain", "value": 2.0, "unit": "N.m.s/rad", "evidence": ["derivative gain 2 N.m.s/rad"]},
+    {"id": "target", "owner": "fmu_controller", "joint_id": "shoulder", "quantity": "target_position", "value": 30.0, "unit": "deg", "evidence": ["a 30 degree target"]},
+    {"id": "torque_limit", "owner": "fmu_controller", "joint_id": "shoulder", "quantity": "effort_limit", "value": 5.0, "unit": "N.m", "evidence": ["a 5 N.m torque limit"]}
+  ],
+  "dynamics": [
+    {"id": "shoulder_plant", "owner": "usd_physics", "states": ["shoulder.angle", "shoulder.angular_velocity"], "evidence": ["Newton Physics owns the rigid-body dynamics"]}
+  ],
+  "controllers": [
+    {"id": "shoulder_pd", "owner": "fmu_controller", "kind": "PD", "evidence": ["the Modelica FMU owns a PD controller"]}
+  ],
+  "actuators": [
+    {"id": "shoulder_actuator", "owner": "fmu_controller", "joint_id": "shoulder", "command": "joint_effort", "evidence": ["outputs shoulder torque in N.m"]}
+  ],
+  "sensors": [],
+  "environment": [
+    {"id": "zero_gravity", "kind": "gravity", "magnitude": 0.0, "unit": "m/s2", "evidence": ["Use zero gravity for this integration oracle"]}
+  ],
+  "interfaces": [
+    {"id": "shoulder_angle_to_controller", "joint_id": "shoulder", "state_id": "shoulder.angle", "quantity": "joint_position", "direction": "usd_to_fmu", "source_unit": "rad", "target_unit": "rad", "required": true, "evidence": ["receives shoulder angle in radians"]},
+    {"id": "shoulder_velocity_to_controller", "joint_id": "shoulder", "state_id": "shoulder.angular_velocity", "quantity": "joint_velocity", "direction": "usd_to_fmu", "source_unit": "rad/s", "target_unit": "rad/s", "required": true, "evidence": ["angular velocity in radians per second"]},
+    {"id": "shoulder_torque_to_simulator", "joint_id": "shoulder", "state_id": "shoulder.command_effort", "quantity": "joint_effort", "direction": "fmu_to_usd", "source_unit": "N.m", "target_unit": "N.m", "required": true, "evidence": ["outputs shoulder torque in N.m"]}
+  ],
+  "properties": [
+    {"id": "within_joint_limits", "kind": "always", "interface_id": "shoulder_angle_to_controller", "signal": "shoulder.angle", "lower": -1.5707963267948966, "upper": 1.5707963267948966, "evidence": ["must stay within its joint limits"]},
+    {"id": "reaches_target", "kind": "final", "interface_id": "shoulder_angle_to_controller", "signal": "shoulder.angle", "lower": 0.47123889803846897, "upper": 0.5759586531581288, "evidence": ["finish within 3 degrees of the target"]}
+  ],
+  "assumptions": ["The box link is centered 0.3 m below the shoulder pivot so its authored length matches the requirement.", "Newton Physics derives the inertia tensor from the grounded mass and box geometry."],
+  "unknowns": ["Contact material and joint friction"]
+}

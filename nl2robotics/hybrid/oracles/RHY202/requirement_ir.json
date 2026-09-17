@@ -1,0 +1,62 @@
+{
+  "schema_version": "1.0",
+  "task_id": "RHY202",
+  "source_text": "Create a closed-loop two-joint pick-and-place arm. Newton Physics owns the rigid-body dynamics and a Modelica FMU owns independent PD controllers for both joints. A fixed base supports a 2 kg box arm that is 0.5 m long, 0.12 m wide, and 0.12 m deep. A 1 kg box slider that is 0.3 m long, 0.1 m wide, and 0.1 m deep attaches to the arm. The shoulder is a Y-axis revolute joint from the base to the arm with limits from -60 to 60 degrees. The extension is an X-axis prismatic joint from the arm to the slider with limits from -0.15 to 0.15 m. The shoulder controller receives position in rad and velocity in rad/s and outputs torque in N.m with proportional gain 10 N.m/rad, derivative gain 1.5 N.m.s/rad, target 20 degrees, and torque limit 4 N.m. The extension controller receives position in m and velocity in m/s and outputs force in N with proportional gain 50 N/m, derivative gain 8 N.s/m, target 0.08 m, and force limit 12 N. Use zero gravity. Run from 0 to 2.5 seconds at 100 Hz with two physics substeps. Both joints must always stay within their limits. At the end, the shoulder must be within 4 degrees of its target and the extension must be within 0.015 m of its target.",
+  "execution_mode": "newton_closed_loop",
+  "clock": {
+    "start_time": 0.0,
+    "stop_time": 2.5,
+    "frequency_hz": 100.0,
+    "physics_substeps": 2,
+    "evidence": ["Run from 0 to 2.5 seconds at 100 Hz with two physics substeps"]
+  },
+  "entities": [
+    {"id": "base", "kind": "fixed_base", "evidence": ["A fixed base"]},
+    {"id": "arm", "kind": "rigid_link", "shape": "box", "mass": 2.0, "mass_unit": "kg", "length": 0.5, "width": 0.12, "depth": 0.12, "dimension_unit": "m", "evidence": ["2 kg box arm that is 0.5 m long, 0.12 m wide, and 0.12 m deep"]},
+    {"id": "slider", "kind": "rigid_link", "shape": "box", "mass": 1.0, "mass_unit": "kg", "length": 0.3, "width": 0.1, "depth": 0.1, "dimension_unit": "m", "evidence": ["1 kg box slider that is 0.3 m long, 0.1 m wide, and 0.1 m deep"]}
+  ],
+  "joints": [
+    {"id": "shoulder", "type": "revolute", "parent": "base", "child": "arm", "axis": "Y", "lower_limit": -60.0, "upper_limit": 60.0, "limit_unit": "deg", "evidence": ["shoulder is a Y-axis revolute joint from the base to the arm with limits from -60 to 60 degrees"]},
+    {"id": "extension", "type": "prismatic", "parent": "arm", "child": "slider", "axis": "X", "lower_limit": -0.15, "upper_limit": 0.15, "limit_unit": "m", "evidence": ["extension is an X-axis prismatic joint from the arm to the slider with limits from -0.15 to 0.15 m"]}
+  ],
+  "parameters": [
+    {"id": "shoulder_kp", "owner": "fmu_controller", "joint_id": "shoulder", "quantity": "proportional_gain", "value": 10.0, "unit": "N.m/rad", "evidence": ["proportional gain 10 N.m/rad"]},
+    {"id": "shoulder_kd", "owner": "fmu_controller", "joint_id": "shoulder", "quantity": "derivative_gain", "value": 1.5, "unit": "N.m.s/rad", "evidence": ["derivative gain 1.5 N.m.s/rad"]},
+    {"id": "shoulder_target", "owner": "fmu_controller", "joint_id": "shoulder", "quantity": "target_position", "value": 20.0, "unit": "deg", "evidence": ["target 20 degrees"]},
+    {"id": "shoulder_limit", "owner": "fmu_controller", "joint_id": "shoulder", "quantity": "effort_limit", "value": 4.0, "unit": "N.m", "evidence": ["torque limit 4 N.m"]},
+    {"id": "extension_kp", "owner": "fmu_controller", "joint_id": "extension", "quantity": "proportional_gain", "value": 50.0, "unit": "N/m", "evidence": ["proportional gain 50 N/m"]},
+    {"id": "extension_kd", "owner": "fmu_controller", "joint_id": "extension", "quantity": "derivative_gain", "value": 8.0, "unit": "N.s/m", "evidence": ["derivative gain 8 N.s/m"]},
+    {"id": "extension_target", "owner": "fmu_controller", "joint_id": "extension", "quantity": "target_position", "value": 0.08, "unit": "m", "evidence": ["target 0.08 m"]},
+    {"id": "extension_limit", "owner": "fmu_controller", "joint_id": "extension", "quantity": "effort_limit", "value": 12.0, "unit": "N", "evidence": ["force limit 12 N"]}
+  ],
+  "dynamics": [
+    {"id": "articulation_dynamics", "owner": "usd_physics", "states": ["shoulder.position", "shoulder.velocity", "extension.position", "extension.velocity"], "evidence": ["Newton Physics owns the rigid-body dynamics"]}
+  ],
+  "controllers": [
+    {"id": "joint_pd", "owner": "fmu_controller", "kind": "PD", "joint_ids": ["shoulder", "extension"], "evidence": ["Modelica FMU owns independent PD controllers for both joints"]}
+  ],
+  "actuators": [
+    {"id": "shoulder_actuator", "owner": "fmu_controller", "joint_id": "shoulder", "command": "joint_effort", "evidence": ["outputs torque in N.m"]},
+    {"id": "extension_actuator", "owner": "fmu_controller", "joint_id": "extension", "command": "joint_effort", "evidence": ["outputs force in N"]}
+  ],
+  "sensors": [],
+  "environment": [
+    {"id": "zero_gravity", "kind": "gravity", "magnitude": 0.0, "unit": "m/s2", "evidence": ["Use zero gravity"]}
+  ],
+  "interfaces": [
+    {"id": "shoulder_position_feedback", "joint_id": "shoulder", "state_id": "shoulder.position", "quantity": "joint_position", "direction": "usd_to_fmu", "source_unit": "rad", "target_unit": "rad", "initial_value": 0.0, "required": true, "evidence": ["shoulder controller receives position in rad"]},
+    {"id": "shoulder_velocity_feedback", "joint_id": "shoulder", "state_id": "shoulder.velocity", "quantity": "joint_velocity", "direction": "usd_to_fmu", "source_unit": "rad/s", "target_unit": "rad/s", "initial_value": 0.0, "required": true, "evidence": ["velocity in rad/s"]},
+    {"id": "shoulder_effort_command", "joint_id": "shoulder", "state_id": "shoulder.command_effort", "quantity": "joint_effort", "direction": "fmu_to_usd", "source_unit": "N.m", "target_unit": "N.m", "required": true, "evidence": ["outputs torque in N.m"]},
+    {"id": "extension_position_feedback", "joint_id": "extension", "state_id": "extension.position", "quantity": "joint_position", "direction": "usd_to_fmu", "source_unit": "m", "target_unit": "m", "initial_value": 0.0, "required": true, "evidence": ["extension controller receives position in m"]},
+    {"id": "extension_velocity_feedback", "joint_id": "extension", "state_id": "extension.velocity", "quantity": "joint_velocity", "direction": "usd_to_fmu", "source_unit": "m/s", "target_unit": "m/s", "initial_value": 0.0, "required": true, "evidence": ["velocity in m/s"]},
+    {"id": "extension_effort_command", "joint_id": "extension", "state_id": "extension.command_effort", "quantity": "joint_effort", "direction": "fmu_to_usd", "source_unit": "N", "target_unit": "N", "required": true, "evidence": ["outputs force in N"]}
+  ],
+  "properties": [
+    {"id": "shoulder_within_limits", "kind": "always", "interface_id": "shoulder_position_feedback", "lower": -1.0471975511965976, "upper": 1.0471975511965976, "evidence": ["Both joints must always stay within their limits"]},
+    {"id": "extension_within_limits", "kind": "always", "interface_id": "extension_position_feedback", "lower": -0.15, "upper": 0.15, "evidence": ["Both joints must always stay within their limits"]},
+    {"id": "shoulder_reaches_target", "kind": "final", "interface_id": "shoulder_position_feedback", "lower": 0.2792526803190927, "upper": 0.4188790204786391, "evidence": ["shoulder must be within 4 degrees of its target"]},
+    {"id": "extension_reaches_target", "kind": "final", "interface_id": "extension_position_feedback", "lower": 0.065, "upper": 0.095, "evidence": ["extension must be within 0.015 m of its target"]}
+  ],
+  "assumptions": ["The deterministic profile layout orients both links along local Z and places each joint at the adjacent link endpoints."],
+  "unknowns": ["Joint friction and contact material"]
+}

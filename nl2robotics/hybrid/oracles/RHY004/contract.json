@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "task_id": "RHY004",
+  "execution_mode": "portable_fmu_kinematic",
+  "clock": {"start_time": 0.0, "stop_time": 3.0, "step_size": 0.02, "time_codes_per_second": 50.0},
+  "state_ownership": [
+    {"state_id": "inspection_joint.angle", "kind": "physical", "owner": "fmu_plant"},
+    {"state_id": "inspection_joint.angular_velocity", "kind": "physical", "owner": "fmu_plant"}
+  ],
+  "mappings": [
+    {
+      "id": "map_inspection_angle", "interface_id": "inspection_angle_to_usd", "state_id": "inspection_joint.angle", "semantic_joint_id": "inspection_joint", "semantic_parent_entity_id": "pedestal", "semantic_child_entity_id": "arm", "owner": "fmu_plant", "direction": "fmu_to_usd", "fmu_variable": "jointAngleDeg", "source_unit": "deg", "usd_joint_path": "/World/InspectionJoint", "usd_parent_prim": "/World/Pedestal", "usd_driven_prim": "/World/Arm", "usd_quantity": "joint_position", "target_unit": "deg", "axis": "X", "interpolation": "linear", "numeric_tolerance": 1e-5, "initial_value": 0.0
+    }
+  ]
+}

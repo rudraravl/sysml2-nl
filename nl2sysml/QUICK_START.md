@@ -79,7 +79,8 @@ python3 test_single.py U140 --no-compiler
 ## What Happens
 
 1. **RAG Context**: Loads similar examples from dataset
-2. **Expert Models**: Queries 4 expert models (gemini, gpt, claude, llama)
+2. **Expert Models**: Queries the current open-source Qwen, GLM, DeepSeek,
+   and Llama expert set through OpenRouter
 3. **Compiler Check**: Validates each candidate (if enabled)
 4. **Refinement**: Iteratively fixes errors (if compiler enabled)
 5. **Synthesis**: Combines candidates into final model
@@ -121,4 +122,3 @@ python3 test_single.py U140 --no-compiler
 # Batch generation (50 entries)
 python3 batch_generate.py
 ```
-

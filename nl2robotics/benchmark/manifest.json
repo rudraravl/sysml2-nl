@@ -1,0 +1,127 @@
+[
+  {
+    "id": "RBM001", "profile": "modelica", "category": "joint_mechanics", "difficulty": "basic", "target_level": "fmu_execution",
+    "oracle": {"evaluation_task_id": "RBT-E001", "artifact": "modelica_oracles/RBM001.mo"},
+    "prompt_variants": {
+      "rich": "Generate a one-axis robot joint named EvaluationJoint with inertia 0.6 kg.m2 and damping 0.15 N.m.s/rad. Apply 1.2 N.m from rest. Expose angle and angularVelocity and simulate for 2 seconds.",
+      "concise": "Model a torque-driven robot joint with inertia 0.6 kg.m2, damping 0.15 N.m.s/rad, and 1.2 N.m input for 2 seconds; expose angle and speed.",
+      "underspecified": "Model a torque-driven one-axis robot joint and expose its angle and angular velocity."
+    },
+    "labeled_unknowns": ["simulation duration", "inertia", "damping", "applied torque"]
+  },
+  {
+    "id": "RBM002", "profile": "modelica", "category": "feedback_control", "difficulty": "intermediate", "target_level": "fmu_execution",
+    "oracle": {"evaluation_task_id": "RBT-E002", "artifact": "modelica_oracles/RBM002.mo"},
+    "prompt_variants": {
+      "rich": "Generate a PD-controlled rotary joint named EvaluationServo that moves from zero to 0.75 rad. Expose angle and ensure it settles within 0.05 rad of target from 4 to 5 seconds.",
+      "concise": "Create a PD rotary servo targeting 0.75 rad and expose angle; it must settle within 0.05 rad during seconds 4 through 5.",
+      "underspecified": "Create a PD-controlled rotary servo that moves to a requested position."
+    },
+    "labeled_unknowns": ["target", "settling tolerance", "simulation interval", "controller gains"]
+  },
+  {
+    "id": "RBM003", "profile": "modelica", "category": "hybrid_safety", "difficulty": "advanced", "target_level": "fmu_execution",
+    "oracle": {"evaluation_task_id": "RBT-E004", "artifact": "modelica_oracles/RBM003.mo"},
+    "prompt_variants": {
+      "rich": "Generate a sampled position controller named EvaluationDigitalJoint with a 0.1 second sample period, held torque command, joint angle and angularVelocity states, and a 1.2 rad target. Angle must remain below 1.5 rad for 6 seconds.",
+      "concise": "Model a sampled joint controller with 0.1 s updates, held torque, a 1.2 rad target, and a six-second 1.5 rad safety bound.",
+      "underspecified": "Model a sampled position controller with a held actuator command."
+    },
+    "labeled_unknowns": ["sample period", "target", "safety bound", "horizon"]
+  },
+  {
+    "id": "RBM004", "profile": "modelica", "category": "coupled_transmissions", "difficulty": "advanced", "target_level": "fmu_execution",
+    "oracle": {"evaluation_task_id": "RBT-E006", "artifact": "modelica_oracles/RBM004.mo"},
+    "prompt_variants": {
+      "rich": "Generate a flexible actuator named EvaluationFlexibleJoint with separate motorAngle and jointAngle states, motor and load inertias, and a spring-damper transmission. Under positive motor torque, jointAngle must become positive within 3 seconds.",
+      "concise": "Model a flexible motor-load joint with separate angles, inertias, and a spring-damper transmission; positive torque must move the load within 3 seconds.",
+      "underspecified": "Model a flexible motor and load connected through a compliant transmission."
+    },
+    "labeled_unknowns": ["inertias", "transmission coefficients", "input torque", "horizon"]
+  },
+  {
+    "id": "RBM005", "profile": "modelica", "category": "fluid_power", "difficulty": "advanced", "target_level": "fmu_execution",
+    "oracle": {"evaluation_task_id": "RBT-E008", "artifact": "modelica_oracles/RBM005.mo"},
+    "prompt_variants": {
+      "rich": "Generate a hydraulic robot cylinder named EvaluationHydraulicAxis with pressure, flowRate, position, and velocity. Positive supply flow must move the piston beyond 0.02 m within 4 seconds.",
+      "concise": "Model a hydraulic axis exposing pressure, flow, position, and velocity; positive flow must move it past 0.02 m in four seconds.",
+      "underspecified": "Model a hydraulic robot cylinder with observable pressure and motion."
+    },
+    "labeled_unknowns": ["supply flow", "motion threshold", "horizon", "fluid parameters"]
+  },
+  {
+    "id": "RBU001", "profile": "openusd", "category": "joint_topology", "difficulty": "basic", "target_level": "semantic_validation",
+    "oracle": {"artifact": "openusd_oracles/BOU001.usda", "required_counts": {"joints": 1, "rigid_bodies": 1, "articulations": 1}},
+    "prompt_variants": {
+      "rich": "Create a Z-up SI OpenUSD robot with a fixed cylindrical column and a four-kilogram boom connected by a Z-axis revolute yaw joint limited from -45 to 120 degrees. Use 100 time codes per second and collision geometry.",
+      "concise": "Create a fixed-column USD boom with mass 4 kg, collision, and a Z revolute joint limited -45 to 120 degrees at 100 Hz.",
+      "underspecified": "Create a fixed-column robot boom connected by a revolute joint."
+    },
+    "labeled_unknowns": ["mass", "axis", "limits", "clock", "dimensions"]
+  },
+  {
+    "id": "RBU002", "profile": "openusd", "category": "prismatic_articulation", "difficulty": "intermediate", "target_level": "semantic_validation",
+    "oracle": {"artifact": "openusd_oracles/BOU002.usda", "required_counts": {"joints": 1, "rigid_bodies": 1, "articulations": 1}},
+    "prompt_variants": {
+      "rich": "Create a Z-up SI OpenUSD inspection rail with a fixed rail and seven-kilogram collidable head connected by a Y-axis prismatic joint traveling from -0.2 to 0.7 meters at 60 time codes per second.",
+      "concise": "Create a 7 kg USD inspection head sliding on Y from -0.2 to 0.7 m with collisions and a fixed rail.",
+      "underspecified": "Create an inspection head that slides along a fixed rail."
+    },
+    "labeled_unknowns": ["mass", "axis", "travel", "clock", "geometry"]
+  },
+  {
+    "id": "RBU003", "profile": "openusd", "category": "multi_link_articulation", "difficulty": "advanced", "target_level": "semantic_validation",
+    "oracle": {"artifact": "openusd_oracles/BOU003.usda", "required_counts": {"joints": 2, "rigid_bodies": 2, "articulations": 1}},
+    "prompt_variants": {
+      "rich": "Create a fixed-base two-link OpenUSD arm at 120 time codes per second. Give the upper link mass 3 kg and forearm mass 1 kg, collisions, a Y shoulder limited plus or minus 90 degrees, and a Y elbow limited from 0 to 135 degrees.",
+      "concise": "Create a collidable 3 kg plus 1 kg two-link USD arm with Y-axis shoulder and elbow limits and a fixed mount.",
+      "underspecified": "Create a fixed-base two-link arm articulation."
+    },
+    "labeled_unknowns": ["link masses", "joint axes", "joint limits", "clock", "geometry"]
+  },
+  {
+    "id": "RBU004", "profile": "openusd", "category": "environment", "difficulty": "intermediate", "target_level": "semantic_validation",
+    "oracle": {"artifact": "openusd_oracles/BOU004.usda", "required_counts": {"physics_scenes": 1, "rigid_bodies": 1, "collisions": 4}},
+    "prompt_variants": {
+      "rich": "Create a Z-up SI OpenUSD Mars test scene with gravity 3.71 m/s2, a 2.5 kg spherical payload above collidable ground, and two distinct static box obstacles at 60 time codes per second.",
+      "concise": "Create a Mars-gravity USD scene with a 2.5 kg spherical payload, ground collider, and two box obstacles.",
+      "underspecified": "Create a planetary payload test scene with ground and obstacles."
+    },
+    "labeled_unknowns": ["gravity", "payload mass", "payload shape", "obstacle count", "clock"]
+  },
+  {
+    "id": "RBU005", "profile": "openusd", "category": "mobile_articulation", "difficulty": "advanced", "target_level": "semantic_validation",
+    "oracle": {"artifact": "openusd_oracles/BOU005.usda", "required_counts": {"joints": 2, "rigid_bodies": 3, "articulations": 1}},
+    "prompt_variants": {
+      "rich": "Create a Z-up SI mobile robot articulation with a 12 kg collidable chassis and two 1.2 kg collidable wheels. Connect each wheel with a Y-axis revolute axle and use 60 time codes per second.",
+      "concise": "Create a USD differential mobile base with a 12 kg chassis and two 1.2 kg wheels on Y revolute axles.",
+      "underspecified": "Create a mobile chassis with two articulated wheels."
+    },
+    "labeled_unknowns": ["masses", "axle axes", "clock", "wheel dimensions", "drive settings"]
+  },
+  {
+    "id": "RBH001", "profile": "hybrid", "category": "rotary_h1", "difficulty": "intermediate", "target_level": "portable_h1", "oracle": {"bundle": "../hybrid/oracles/RHY001"},
+    "prompt_variants": {"rich": "@request", "concise": "Create a portable Modelica-driven one-joint arm with a 2 kg USD link, Y revolute limits of plus or minus 90 degrees, a 30 degree target, and synchronized 50 Hz playback.", "underspecified": "Create a portable one-joint arm whose Modelica motion animates an OpenUSD link."},
+    "labeled_unknowns": ["inertia", "stiffness", "damping", "exact limits", "clock", "property bounds"]
+  },
+  {
+    "id": "RBH002", "profile": "hybrid", "category": "linear_h1", "difficulty": "intermediate", "target_level": "portable_h1", "oracle": {"bundle": "../hybrid/oracles/RHY002"},
+    "prompt_variants": {"rich": "@request", "concise": "Create a portable Modelica-driven vertical lift with a 5 kg USD carriage on a Z prismatic joint, a 0.6 m target, and 50 Hz playback.", "underspecified": "Create a portable vertical lift whose Modelica position animates a USD carriage."},
+    "labeled_unknowns": ["mass", "stiffness", "damping", "travel", "clock", "property bounds"]
+  },
+  {
+    "id": "RBH003", "profile": "hybrid", "category": "linear_h1", "difficulty": "advanced", "target_level": "portable_h1", "oracle": {"bundle": "../hybrid/oracles/RHY003"},
+    "prompt_variants": {"rich": "@request", "concise": "Create a portable horizontal 3 kg carriage driven by a Modelica spring-damper plant toward 0.4 m and animated on a USD X prismatic joint at 100 Hz.", "underspecified": "Create a horizontal Modelica carriage and animate its USD embodiment."},
+    "labeled_unknowns": ["mass", "plant parameters", "travel", "target", "clock", "property bounds"]
+  },
+  {
+    "id": "RBH004", "profile": "hybrid", "category": "unit_conversion_h1", "difficulty": "advanced", "target_level": "portable_h1", "oracle": {"bundle": "../hybrid/oracles/RHY004"},
+    "prompt_variants": {"rich": "@request", "concise": "Create a portable 1.5 kg inspection arm whose Modelica plant exports degrees to an X-axis USD revolute joint and targets 45 degrees at 50 Hz.", "underspecified": "Create a Modelica rotary arm and animate its OpenUSD joint using a converted angle signal."},
+    "labeled_unknowns": ["mass", "plant parameters", "limits", "target", "clock", "units"]
+  },
+  {
+    "id": "RBH005", "profile": "hybrid", "category": "closed_loop_h2", "difficulty": "advanced", "target_level": "isaac_h2", "oracle": {"bundle": "../hybrid/oracles/RHY101"},
+    "prompt_variants": {"rich": "@request", "concise": "Create a closed-loop USD one-link arm whose Isaac dynamics feed angle and speed to a Modelica PD controller and receive bounded torque at 100 Hz.", "underspecified": "Create an Isaac and Modelica closed-loop arm controller."},
+    "labeled_unknowns": ["link geometry", "mass", "controller gains", "limits", "clock", "gravity", "property bounds"]
+  }
+]
