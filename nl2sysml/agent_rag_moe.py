@@ -35,6 +35,7 @@ import os
 import json
 import random
 import re
+import socket
 import sys
 import threading
 import time
@@ -538,10 +539,93 @@ def _retry_after_seconds(exc: BaseException, attempt: int) -> float:
 def _is_retryable_openrouter_error(exc: BaseException) -> bool:
     if isinstance(exc, _urlerror.HTTPError):
         return exc.code in _RETRYABLE_STATUS
-    if isinstance(exc, (_urlerror.URLError, TimeoutError, OSError)):
+    if isinstance(exc, (_urlerror.URLError, TimeoutError, socket.timeout, ConnectionError, OSError)):
         # Connection resets / read timeouts are transient under load.
         return True
-    return False
+    lowered = str(exc).lower()
+    return any(marker in lowered for marker in (
+        "timed out",
+        "timeout",
+        "connection reset",
+        "connection aborted",
+        "temporarily unavailable",
+        "remote end closed connection",
+    ))
+
+
+def openrouter_transport_config() -> dict[str, Any]:
+    """Return the resolved transport/generation limits used by every call."""
+    return {
+        "socket_timeout_seconds": 120.0,
+        "response_timeout_seconds": _positive_timeout(
+            os.getenv("OPENROUTER_RESPONSE_TIMEOUT", "300"), default=300.0
+        ),
+        "max_completion_tokens": _positive_int(
+            os.getenv("OPENROUTER_MAX_TOKENS", "32768"), default=32768
+        ),
+        "temperature": 0.2,
+        "reasoning_policy": "provider_default",
+        "provider_routing": "openrouter_default_balanced_with_fallback",
+    }
+
+
+def _positive_timeout(raw: str, *, default: float) -> float:
+    """Parse a positive timeout without allowing a disabled batch guard."""
+    try:
+        timeout = float(raw)
+    except (TypeError, ValueError):
+        return default
+    return timeout if timeout > 0 else default
+
+
+def _positive_int(raw: str, *, default: int) -> int:
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return default
+    return value if value > 0 else default
+
+
+def _read_response_with_deadline(resp: Any, *, timeout: float) -> bytes:
+    """Read a response with a wall-clock deadline, including trickled bodies.
+
+    ``urlopen(..., timeout=...)`` only bounds individual socket operations. A
+    provider can keep a chunked response alive indefinitely by periodically
+    sending bytes. Corpus/batch runs need a bound on the entire response body
+    so a single incomplete request cannot stall the whole run.
+    """
+    deadline = time.monotonic() + timeout
+    chunks: list[bytes] = []
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError(
+                f"OpenRouter response exceeded {timeout:g}s total timeout"
+            )
+        _set_response_read_timeout(resp, min(120.0, remaining))
+        try:
+            chunk = resp.read(64 * 1024)
+        except TypeError:
+            # Preserve compatibility with lightweight response doubles and
+            # file-like transports whose ``read`` accepts no size argument;
+            # that form is defined here as a one-shot, complete-body read.
+            return b"".join(chunks) + resp.read()
+        if not chunk:
+            return b"".join(chunks)
+        chunks.append(chunk)
+
+
+def _set_response_read_timeout(resp: Any, timeout: float) -> None:
+    """Best-effort socket deadline update for urllib HTTPResponse objects."""
+    candidates = [
+        getattr(resp, "fp", None),
+        getattr(getattr(resp, "fp", None), "raw", None),
+    ]
+    for candidate in candidates:
+        sock = getattr(candidate, "_sock", None)
+        if sock is not None and hasattr(sock, "settimeout"):
+            sock.settimeout(timeout)
+            return
 
 
 def _openrouter_invoke(model: str, system_msg: str, human_msg: str, key: str) -> str:
@@ -586,13 +670,15 @@ def _openrouter_invoke_once(model: str, system_msg: str, human_msg: str, key: st
         raise RuntimeError(f"OPENROUTER_API_KEY missing for model {model}")
     base = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
     url = f"{base}/chat/completions"
+    transport = openrouter_transport_config()
     payload = {
         "model": model,
         "messages": [
             {"role": "system", "content": system_msg},
             {"role": "user", "content": human_msg},
         ],
-        "temperature": 0.2,
+        "temperature": transport["temperature"],
+        "max_completion_tokens": transport["max_completion_tokens"],
     }
     data = json.dumps(payload).encode("utf-8")
     headers = {
@@ -609,8 +695,10 @@ def _openrouter_invoke_once(model: str, system_msg: str, human_msg: str, key: st
     try:
         with _openrouter_gate():
             _openrouter_pace()
-            with _req.urlopen(req, timeout=120) as resp:  # Increased timeout to 120s
-                raw = resp.read().decode("utf-8", errors="ignore")
+            with _req.urlopen(req, timeout=transport["socket_timeout_seconds"]) as resp:
+                raw = _read_response_with_deadline(
+                    resp, timeout=transport["response_timeout_seconds"]
+                ).decode("utf-8", errors="ignore")
                 obj = json.loads(raw)
     except Exception as e:
         detail = str(e)
@@ -650,8 +738,12 @@ def _openrouter_invoke_once(model: str, system_msg: str, human_msg: str, key: st
         raise RuntimeError(
             f"OpenRouter returned unexpected payload for {model}: {obj!r}"
         ) from e
-    if not str(text).strip():
-        raise RuntimeError(f"OpenRouter returned empty content for {model}")
+    if text is None or not str(text).strip():
+        # A successful provider response with no final answer is a model-output
+        # failure, not an infrastructure one — return an empty candidate so the
+        # normal empty/degenerate-answer gate (not the retry/exclusion path)
+        # records it faithfully.
+        return ""
     return str(text)
 
 
