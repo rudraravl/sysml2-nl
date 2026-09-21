@@ -36,6 +36,7 @@ nl2solidity/ablation/
   run_ablation.py      runs one shard of one arm; every sbatch calls this
   preflight.py         per-arm toolchain check, run before submitting
   gen_sbatch.py        regenerates pace/*.sbatch from profiles.py
+  analyze_ablation.py  paired analysis of the finished arms (A0..A5)
   test_ablation.py     73 tests: ladder monotonicity, shard partition, knobs
   pace/
     common.sh          shared node setup, sourced by every sbatch
@@ -179,6 +180,18 @@ This prints compile validity, Foundry fuzz pass rate, execution-clean rate,
 Slither-clean rate, alignment similarity and the four-gate funnel, and writes
 `dataset/analysis_results/A2_fidelity.json`. Because every arm is measured
 identically, those six JSON files line up column for column.
+
+Across arms, with paired tests (the same metrics and statistics as naive-vs-full), on
+either the local copy or the PACE output — it only reads `meta.json`, takes seconds, and
+needs no SLURM job:
+
+```bash
+.venv/bin/python nl2solidity/ablation/analyze_ablation.py          # step + cumulative, all arms
+.venv/bin/python nl2solidity/ablation/analyze_ablation.py --root nl2solidity/dataset/ablation
+```
+
+Writes `dataset/analysis_results/ablation/ablation_summary.md` (the whole ladder) and one
+`A?_to_A?/comparison.md` per comparison. See `analysis/README.md`.
 
 ### Cheap mode
 
