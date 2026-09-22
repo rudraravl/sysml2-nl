@@ -64,10 +64,25 @@ Use the official installer for the SysML kernel rather than inventing a
 kernelspec around `nl2sysml/MCSysMLv2.jar`; that JAR is a MontiCore CLI and is
 not the OMG Jupyter execution kernel.
 
-## Audit before launch
+## Frozen rich-prompt sample
 
-The corpus contains 1,574 unique prompts in six domains. Dry-run every shard
-without provider calls:
+The default study manifest contains 500 deterministic, domain-stratified rich
+NL prompts from `dataset/data`. Every selected task has intact one-shot GLM-5.2
+A0 evidence under `dataset/naive_glm`, so all arms are pairable on identical
+inputs. Selection uses seed `20260922` and does not condition on A0 success or
+failure. The selected agent-generated cases are outside the first 300
+official/community examples used by retrieval, preventing exact-target RAG
+leakage. Source prompt, reference, and A0 candidate hashes are frozen in the
+manifest.
+
+Regenerate or verify the manifest deterministically:
+
+```bash
+python -m nl2sysml.ablation_stagewise.build_rich_manifest
+python -m nl2sysml.ablation_stagewise.build_rich_manifest --check
+```
+
+Dry-run every shard without provider calls:
 
 ```bash
 python -m nl2sysml.ablation_stagewise.run_study \
@@ -78,7 +93,7 @@ python -m nl2sysml.ablation_stagewise.run_study \
   --dry-run
 ```
 
-The deterministic domain-stratified assignment covers every prompt exactly
+The deterministic domain-stratified assignment covers all 500 prompts exactly
 once and differs by at most one sample per domain for 4, 5, or 6 workers.
 
 ## Launch locally

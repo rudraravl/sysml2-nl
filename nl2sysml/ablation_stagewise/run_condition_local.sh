@@ -30,6 +30,7 @@ RUN_ID="${SYSML_ABLATION_RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)-${COMMIT:0:8}}"
 OUTPUT_ROOT="${SYSML_ABLATION_OUTPUT_ROOT:-$REPO_ROOT/outputs/sysml-ablation-$RUN_ID}"
 CONDITION_OUTPUT="$OUTPUT_ROOT/$CONDITION_ID"
 LOG_DIR="$CONDITION_OUTPUT/logs"
+DATASET="${SYSML_ABLATION_DATASET:-$REPO_ROOT/nl2sysml/ablation_stagewise/rich500_manifest.jsonl}"
 mkdir -p "$LOG_DIR"
 
 if [[ -n "${SYSML_PYTHON:-}" ]]; then
@@ -61,6 +62,7 @@ for (( SHARD_INDEX=0; SHARD_INDEX<WORKER_COUNT; SHARD_INDEX++ )); do
     "$PYTHON_BIN" -m nl2sysml.ablation_stagewise.run_study
     --condition "$CONDITION_ID"
     --output-dir "$CONDITION_OUTPUT"
+    --dataset "$DATASET"
     --shard-count "$WORKER_COUNT"
     --shard-index "$SHARD_INDEX"
   )
@@ -85,7 +87,8 @@ for pid in "${PIDS[@]}"; do
 done
 
 "$PYTHON_BIN" -m nl2sysml.ablation_stagewise.aggregate \
-  --output-dir "$CONDITION_OUTPUT"
+  --output-dir "$CONDITION_OUTPUT" \
+  --dataset "$DATASET"
 
 echo "condition: $CONDITION_ID"
 echo "commit: $COMMIT"

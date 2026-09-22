@@ -13,7 +13,8 @@ from nl2sysml.sysml_execution.models import ExecutionResult
 from .conditions import CONDITIONS
 from .compare import paired_comparison
 from .pipeline import StagewiseSysMLPipeline, compiler_report
-from .run_study import apply_jupyter_path_override, assigned_rows, load_seed
+from .build_rich_manifest import build_manifest
+from .run_study import DEFAULT_DATASET, apply_jupyter_path_override, assigned_rows, load_seed
 
 
 def _compiler(valid: bool, count: int = 0) -> CompilerResult:
@@ -75,9 +76,9 @@ class StagewiseTests(unittest.TestCase):
         self.assertFalse(CONDITIONS["A3"].execution_feedback)
         self.assertTrue(CONDITIONS["A4"].execution_feedback)
 
-    def test_full_seed_shards_are_disjoint_balanced_and_complete(self):
-        rows = load_seed(Path("nl2sysml/nl_seed.jsonl"))
-        self.assertEqual(1574, len(rows))
+    def test_rich500_shards_are_disjoint_balanced_and_complete(self):
+        rows = load_seed(DEFAULT_DATASET)
+        self.assertEqual(500, len(rows))
         for shard_count in (4, 5, 6):
             owner = {}
             domain_counts = []
@@ -93,10 +94,18 @@ class StagewiseTests(unittest.TestCase):
                     domain = row.get("domain", "unknown")
                     counts[domain] = counts.get(domain, 0) + 1
                 domain_counts.append(counts)
-            self.assertEqual(1574, len(owner))
+            self.assertEqual(500, len(owner))
             for domain in {row.get("domain", "unknown") for row in rows}:
                 values = [counts.get(domain, 0) for counts in domain_counts]
                 self.assertLessEqual(max(values) - min(values), 1)
+
+    def test_rich500_manifest_is_reproducible_and_a0_paired(self):
+        rows = build_manifest(Path("."), count=500, seed=20260922)
+        frozen = load_seed(DEFAULT_DATASET)
+        self.assertEqual([row["id"] for row in frozen], [row["id"] for row in rows])
+        self.assertTrue(all(row["prompt_source"] == "dataset_rich_nl" for row in rows))
+        self.assertTrue(all(int(row["dataset_data_id"]) > 300 for row in rows))
+        self.assertTrue(all((Path(".") / row["a0_candidate_path"]).is_file() for row in rows))
 
     def _run(self, condition_id, *, compiler, executor):
         calls = []

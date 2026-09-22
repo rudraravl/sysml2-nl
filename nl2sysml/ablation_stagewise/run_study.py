@@ -25,8 +25,8 @@ from .pipeline import InfrastructureError, StagewiseSysMLPipeline
 
 
 REPOSITORY = Path(__file__).resolve().parents[2]
-DEFAULT_DATASET = REPOSITORY / "nl2sysml" / "nl_seed.jsonl"
-DEFAULT_SEED = 20260916
+DEFAULT_DATASET = Path(__file__).resolve().parent / "rich500_manifest.jsonl"
+DEFAULT_SEED = 20260922
 
 
 def _sha256_bytes(value: bytes) -> str:
