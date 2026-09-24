@@ -1,0 +1,2762 @@
+{
+  "condition": {
+    "alignment": true,
+    "id": "FULL",
+    "label": "complete_pipeline",
+    "moe": true,
+    "rag": true,
+    "tool_repair": true,
+    "validated_contract": true
+  },
+  "configuration": {
+    "artifact_mode": "modelica_only",
+    "benchmark_manifest": "/storage/scratch1/4/skannan89/robotics-generalized/nl2robotics/corpus/pipeline_prompt_manifest.json",
+    "benchmark_manifest_sha256": "0a6631f7b9c9cbf4983d92ab4424943a668f60e571bf5ee4203213f84c1a8409",
+    "benchmark_split": "all",
+    "configuration_variant_filter": [],
+    "family_filter": [],
+    "fmi_backend": "local",
+    "h2_controller_backend": "local",
+    "h2_device": "cpu",
+    "h2_repetitions": 3,
+    "h2_solver": "TGS",
+    "isaac_handoff_configured": false,
+    "k": 5,
+    "max_runtime_repairs": 2,
+    "max_tool_repairs": 2,
+    "modelica_backend": "local",
+    "modelica_subset": "full1500",
+    "moe_configuration": "shared_with_sysml_pipeline",
+    "newton_controller_backend": "local",
+    "newton_device": "cuda:0",
+    "newton_fmi_runtime_image": "nl2robotics-fmi-runtime:0.1",
+    "newton_handoff_configured": false,
+    "newton_repeatability_tolerance": 1e-06,
+    "newton_repetitions": 3,
+    "newton_solver": "featherstone",
+    "newton_version": "1.5.0",
+    "pipeline": "nl_ir_modelica_compile_fmu_execute_spec",
+    "rag_routing": "family_preferred_4_of_5_with_global_fallback",
+    "randomization_seed": 20260830,
+    "require_complete_moe": true,
+    "runtime_repair_model": "z-ai/glm-5.2",
+    "runtime_repair_policy": "tool_conditions_only_monotonic_recompile_reexecute_recheck_behavior",
+    "runtime_repair_provider": "openrouter",
+    "semantic_case_filter": [],
+    "shard_assignment": "category_stratified_task_block_round_robin",
+    "shard_count": 4,
+    "single_model": "z-ai/glm-5.2",
+    "single_provider": "openrouter",
+    "study_protocol_core_sha256": "f5f0200a721873f9eeac07c7084e8f58fe820d1acef60434f7e0ac234041d153",
+    "task_order": "seeded_randomized"
+  },
+  "difficulty": "advanced",
+  "duration_seconds": 1522.387613652274,
+  "fingerprint": "5c1ded3f9cc2d6e45c677f773f0cc34639da9ca460815be11a0486bf90d5e871",
+  "infrastructure_error": null,
+  "metrics": {
+    "all_properties_pass": false,
+    "artifact_pair_valid": null,
+    "artifact_pair_valid_attempt_0": null,
+    "artifact_valid": true,
+    "artifact_valid_attempt_0": true,
+    "behavior_evaluated": true,
+    "blocking_violations": 2,
+    "condition_fidelity": true,
+    "configured_pipeline_success": false,
+    "contract_valid": true,
+    "end_to_end": false,
+    "failure_stage": "behavior_evaluation",
+    "fmu_execution": true,
+    "fmu_export": true,
+    "fmu_interface_valid": true,
+    "infrastructure_available": true,
+    "ir_valid": true,
+    "maximum_stage_reached": 9,
+    "modelica_build": true,
+    "modelica_build_attempt_0": true,
+    "named_simulator_load": null,
+    "normalization_valid": true,
+    "post_execution_semantic": false,
+    "pre_execution_semantic": null,
+    "property_evaluability_rate": 1.0,
+    "property_evaluable": 7,
+    "property_satisfaction_rate_evaluable": 0.7142857142857143,
+    "property_satisfied": 5,
+    "property_total": 7,
+    "property_unevaluable": 0,
+    "property_violated": 2,
+    "repairs": 1,
+    "runtime_execution": true,
+    "runtime_trace_valid": true,
+    "semantic_coverage": 0.60223,
+    "semantic_score": 0.925926,
+    "specification_claim_ready": false,
+    "stable_simulation": true,
+    "usd_semantic_valid": null,
+    "usd_semantic_valid_attempt_0": null,
+    "verification_tier": 4
+  },
+  "planned_order_index": 663,
+  "profile": "capability",
+  "randomization_seed": 20260830,
+  "repetition": 0,
+  "result": {
+    "ablation": {
+      "condition": {
+        "alignment": true,
+        "id": "FULL",
+        "label": "complete_pipeline",
+        "moe": true,
+        "rag": true,
+        "tool_repair": true,
+        "validated_contract": true
+      },
+      "contract_role": "generation_and_validation",
+      "generation_strategy": "rag_moe"
+    },
+    "alignment": {
+      "blocking_violations": 2,
+      "claim_ready": false,
+      "counts": {
+        "not_applicable": 0,
+        "satisfied": 30,
+        "unknown": 26,
+        "violated": 2
+      },
+      "deterministic_violations": 2,
+      "enabled": true,
+      "evidence_coverage": 0.60223,
+      "not_run": false,
+      "passed": false,
+      "per_family": {
+        "interface": 1.0,
+        "parameter": 1.0,
+        "property": 0.714286,
+        "timing": 1.0
+      },
+      "question_count": 58,
+      "report": "alignment.json",
+      "skipped": false,
+      "weighted_semantic_score": 0.925926
+    },
+    "artifact_mode": "modelica_only",
+    "capabilities": {
+      "highest_reached_tier": 4,
+      "highest_reached_tier_name": "behaviorally_executed",
+      "profile_count": 14,
+      "report": "capability-report.json",
+      "requested_feature_count": 27,
+      "tiers": [
+        {
+          "name": "normalized",
+          "passed": true,
+          "tier": 0
+        },
+        {
+          "name": "ir_validated",
+          "passed": true,
+          "tier": 1
+        },
+        {
+          "modelica_passed": true,
+          "name": "artifacts_validated",
+          "openusd_passed": null,
+          "passed": true,
+          "tier": 2
+        },
+        {
+          "name": "executable_contract_validated",
+          "passed": true,
+          "reason": null,
+          "tier": 3
+        },
+        {
+          "behavior_evaluated": true,
+          "execution_completed": true,
+          "name": "behaviorally_executed",
+          "passed": true,
+          "reason": null,
+          "tier": 4
+        },
+        {
+          "name": "accelerator_provenance_verified",
+          "passed": false,
+          "reason": "requires genuine accelerator execution provenance",
+          "tier": 5
+        }
+      ]
+    },
+    "claim_eligible_deltaai_h2": false,
+    "claim_eligible_h2": false,
+    "claim_eligible_newton_h2": false,
+    "failure_stage": "behavior_evaluation",
+    "hybrid": {
+      "behavior_evaluated": true,
+      "behavior_passed": false,
+      "contract": {
+        "fmu": {
+          "fmi_version": "2.0",
+          "interface_type": "co_simulation",
+          "model_name": "RobotTask_RPI1020_R00",
+          "variables": [
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "omegaWheel",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "rad/s",
+              "value_reference": 0,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "rollAngle",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "rad",
+              "value_reference": 1,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "v",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "m/s",
+              "value_reference": 2,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "x",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "m",
+              "value_reference": 3,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(omegaWheel)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "s-2",
+              "value_reference": 4,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(rollAngle)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "Hz",
+              "value_reference": 5,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(v)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m.s-2",
+              "value_reference": 6,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(x)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m.s-1",
+              "value_reference": 7,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_if_edge_distance)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 8,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_if_payload_force)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 9,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_if_pitch)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 10,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_if_slip_ratio)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 11,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_if_torque)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 12,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_if_torque_command)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 13,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_if_tracking_error)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 14,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(brakingTorque)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 15,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(gravityCompensation)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 16,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(rawTorque)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 17,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(slipFactor)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 18,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(vRef)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 19,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(wheelTorque)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 20,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_attitude_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 35,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_edge_distance_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 36,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_payload_force_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 37,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_roll_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 38,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_slip_ratio_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 39,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_speed_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 40,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_torque_command_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 41,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_torque_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 42,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_tracking_error_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 43,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "brakingTorque",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N.m",
+              "value_reference": 44,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "gravityCompensation",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N.m",
+              "value_reference": 45,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "gravityForce",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 46,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "muLimit",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 47,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "rawTorque",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N.m",
+              "value_reference": 48,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "ridgePerturbation",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "rad",
+              "value_reference": 49,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "slipFactor",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "dimensionless",
+              "value_reference": 50,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_attitude",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "rad",
+              "value_reference": 51,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_edge_distance",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 52,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_payload_force",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 53,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_pitch",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "rad",
+              "value_reference": 54,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_roll",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "rad",
+              "value_reference": 55,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_slip_ratio",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "dimensionless",
+              "value_reference": 56,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_speed",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 57,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_torque",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N.m",
+              "value_reference": 58,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_torque_command",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N.m",
+              "value_reference": 59,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_tracking_error",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m/s",
+              "value_reference": 60,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "tractionForce",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 61,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "vRef",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m/s",
+              "value_reference": 62,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "wheelTorque",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N.m",
+              "value_reference": 63,
+              "variability": "continuous"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "brakingGain",
+              "scalar_type": "real",
+              "start": "8.0",
+              "unit": "N.m.s/m",
+              "value_reference": 64,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "contactStiffness",
+              "scalar_type": "real",
+              "start": "2000.0",
+              "unit": "N/(m/s)",
+              "value_reference": 65,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_entities_omnicart_platform_length",
+              "scalar_type": "real",
+              "start": "0.58",
+              "unit": "m",
+              "value_reference": 66,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_entities_omnicart_platform_mass",
+              "scalar_type": "real",
+              "start": "25.0",
+              "unit": "kg",
+              "value_reference": 67,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_entities_omnicart_platform_width",
+              "scalar_type": "real",
+              "start": "0.46",
+              "unit": "m",
+              "value_reference": 68,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_entities_wheel_1_radius",
+              "scalar_type": "real",
+              "start": "0.095",
+              "unit": "m",
+              "value_reference": 69,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_entities_wheel_2_radius",
+              "scalar_type": "real",
+              "start": "0.095",
+              "unit": "m",
+              "value_reference": 70,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_entities_wheel_3_radius",
+              "scalar_type": "real",
+              "start": "0.095",
+              "unit": "m",
+              "value_reference": 71,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_entities_wheel_4_radius",
+              "scalar_type": "real",
+              "start": "0.095",
+              "unit": "m",
+              "value_reference": 72,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_environment_env_friction_magnitude",
+              "scalar_type": "real",
+              "start": "0.76",
+              "unit": "dimensionless",
+              "value_reference": 73,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_environment_env_payload_force_magnitude",
+              "scalar_type": "real",
+              "start": "218.0",
+              "unit": "N",
+              "value_reference": 74,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_environment_env_plateau_magnitude",
+              "scalar_type": "real",
+              "start": "2.0",
+              "unit": "m",
+              "value_reference": 75,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_environment_env_ramp_magnitude",
+              "scalar_type": "real",
+              "start": "12.0",
+              "unit": "deg",
+              "value_reference": 76,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_environment_env_ridges_magnitude",
+              "scalar_type": "real",
+              "start": "0.05",
+              "unit": "m",
+              "value_reference": 77,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_parameters_param_roller_angle_value",
+              "scalar_type": "real",
+              "start": "45.0",
+              "unit": "deg",
+              "value_reference": 78,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_parameters_param_torque_limit_value",
+              "scalar_type": "real",
+              "start": "14.6",
+              "unit": "N.m",
+              "value_reference": 79,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "gravity",
+              "scalar_type": "real",
+              "start": "9.81",
+              "unit": "m/s2",
+              "value_reference": 80,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "kpSpeed",
+              "scalar_type": "real",
+              "start": "10.0",
+              "unit": "N.m.s/m",
+              "value_reference": 81,
+              "variability": "fixed"
+            },
+            {
+              "causality": "calculatedParameter",
+              "initial": null,
+              "name": "plateauLength",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 82,
+              "variability": "fixed"
+            },
+            {
+              "causality": "calculatedParameter",
+              "initial": null,
+              "name": "rampAngleRad",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "rad",
+              "value_reference": 83,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "rampLength",
+              "scalar_type": "real",
+              "start": "1.5",
+              "unit": "m",
+              "value_reference": 84,
+              "variability": "fixed"
+            },
+            {
+              "causality": "calculatedParameter",
+              "initial": null,
+              "name": "rollDamping",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "1/s",
+              "value_reference": 85,
+              "variability": "fixed"
+            },
+            {
+              "causality": "calculatedParameter",
+              "initial": null,
+              "name": "rollerAngleRad",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "rad",
+              "value_reference": 86,
+              "variability": "fixed"
+            },
+            {
+              "causality": "calculatedParameter",
+              "initial": null,
+              "name": "rollerForceCoeff",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "dimensionless",
+              "value_reference": 87,
+              "variability": "fixed"
+            },
+            {
+              "causality": "calculatedParameter",
+              "initial": null,
+              "name": "totalDistance",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 88,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "wheelInertia",
+              "scalar_type": "real",
+              "start": "0.005",
+              "unit": "kg.m2",
+              "value_reference": 89,
+              "variability": "fixed"
+            },
+            {
+              "causality": "calculatedParameter",
+              "initial": null,
+              "name": "wheelRadius",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 90,
+              "variability": "fixed"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_pitch_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 35,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "edgeDistance",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 52,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "payloadForce",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 53,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "pitchAngle",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "rad",
+              "value_reference": 51,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "platformAttitude",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "rad",
+              "value_reference": 51,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "slipRatio",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "dimensionless",
+              "value_reference": 56,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "terrainPitch",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "rad",
+              "value_reference": 51,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "torqueCommand",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N.m",
+              "value_reference": 59,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "trackingError",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m/s",
+              "value_reference": 60,
+              "variability": "continuous"
+            }
+          ]
+        },
+        "issues": [],
+        "resolved_mappings": [
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_speed",
+            "id": "map_if_speed",
+            "interface_id": "if_speed",
+            "quantity": "speed",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": "sensor_encoders",
+            "source_unit": "unspecified",
+            "state_id": "platform_speed",
+            "target_unit": "unspecified",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_attitude",
+            "id": "map_if_attitude",
+            "interface_id": "if_attitude",
+            "quantity": "attitude",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": "sensor_imu",
+            "source_unit": "rad",
+            "state_id": "platform_attitude",
+            "target_unit": "rad",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_roll",
+            "id": "map_if_roll",
+            "interface_id": "if_roll",
+            "quantity": "roll_angle",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "rad",
+            "state_id": "roll_angle",
+            "target_unit": "rad",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_pitch",
+            "id": "map_if_pitch",
+            "interface_id": "if_pitch",
+            "quantity": "pitch_angle",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "rad",
+            "state_id": "pitch_angle",
+            "target_unit": "rad",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_edge_distance",
+            "id": "map_if_edge_distance",
+            "interface_id": "if_edge_distance",
+            "quantity": "distance",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": "sensor_depth",
+            "source_unit": "m",
+            "state_id": "edge_distance",
+            "target_unit": "m",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_slip_ratio",
+            "id": "map_if_slip_ratio",
+            "interface_id": "if_slip_ratio",
+            "quantity": "slip_ratio",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "dimensionless",
+            "state_id": "slip_ratio",
+            "target_unit": "dimensionless",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_torque",
+            "id": "map_if_torque",
+            "interface_id": "if_torque",
+            "quantity": "torque",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "N.m",
+            "state_id": "wheel_torque",
+            "target_unit": "N.m",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_tracking_error",
+            "id": "map_if_tracking_error",
+            "interface_id": "if_tracking_error",
+            "quantity": "tracking_error",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "m/s",
+            "state_id": "tracking_error",
+            "target_unit": "m/s",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_torque_command",
+            "id": "map_if_torque_command",
+            "interface_id": "if_torque_command",
+            "quantity": "torque_command",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "N.m",
+            "state_id": "torque_command",
+            "target_unit": "N.m",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_payload_force",
+            "id": "map_if_payload_force",
+            "interface_id": "if_payload_force",
+            "quantity": "force",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "N",
+            "state_id": "payload_force",
+            "target_unit": "N",
+            "verification_status": "resolved_fmu_output"
+          }
+        ],
+        "resolved_parameter_mappings": [
+          {
+            "actual_unit": "kg",
+            "actual_value": 25.0,
+            "collection": "entities",
+            "expected_value": 25.0,
+            "fact_id": "entities.omnicart_platform.mass",
+            "field": "mass",
+            "fmu_variable": "fact_entities_omnicart_platform_mass",
+            "id": "fact_entities_omnicart_platform_mass",
+            "record_id": "omnicart_platform",
+            "required": true,
+            "source_unit": "kg",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "m",
+            "actual_value": 0.58,
+            "collection": "entities",
+            "expected_value": 0.58,
+            "fact_id": "entities.omnicart_platform.length",
+            "field": "length",
+            "fmu_variable": "fact_entities_omnicart_platform_length",
+            "id": "fact_entities_omnicart_platform_length",
+            "record_id": "omnicart_platform",
+            "required": true,
+            "source_unit": "m",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "m",
+            "actual_value": 0.46,
+            "collection": "entities",
+            "expected_value": 0.46,
+            "fact_id": "entities.omnicart_platform.width",
+            "field": "width",
+            "fmu_variable": "fact_entities_omnicart_platform_width",
+            "id": "fact_entities_omnicart_platform_width",
+            "record_id": "omnicart_platform",
+            "required": true,
+            "source_unit": "m",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "m",
+            "actual_value": 0.095,
+            "collection": "entities",
+            "expected_value": 0.095,
+            "fact_id": "entities.wheel_1.radius",
+            "field": "radius",
+            "fmu_variable": "fact_entities_wheel_1_radius",
+            "id": "fact_entities_wheel_1_radius",
+            "record_id": "wheel_1",
+            "required": true,
+            "source_unit": "m",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "m",
+            "actual_value": 0.095,
+            "collection": "entities",
+            "expected_value": 0.095,
+            "fact_id": "entities.wheel_2.radius",
+            "field": "radius",
+            "fmu_variable": "fact_entities_wheel_2_radius",
+            "id": "fact_entities_wheel_2_radius",
+            "record_id": "wheel_2",
+            "required": true,
+            "source_unit": "m",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "m",
+            "actual_value": 0.095,
+            "collection": "entities",
+            "expected_value": 0.095,
+            "fact_id": "entities.wheel_3.radius",
+            "field": "radius",
+            "fmu_variable": "fact_entities_wheel_3_radius",
+            "id": "fact_entities_wheel_3_radius",
+            "record_id": "wheel_3",
+            "required": true,
+            "source_unit": "m",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "m",
+            "actual_value": 0.095,
+            "collection": "entities",
+            "expected_value": 0.095,
+            "fact_id": "entities.wheel_4.radius",
+            "field": "radius",
+            "fmu_variable": "fact_entities_wheel_4_radius",
+            "id": "fact_entities_wheel_4_radius",
+            "record_id": "wheel_4",
+            "required": true,
+            "source_unit": "m",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "deg",
+            "actual_value": 45.0,
+            "collection": "parameters",
+            "expected_value": 45.0,
+            "fact_id": "parameters.param_roller_angle.value",
+            "field": "value",
+            "fmu_variable": "fact_parameters_param_roller_angle_value",
+            "id": "fact_parameters_param_roller_angle_value",
+            "record_id": "param_roller_angle",
+            "required": true,
+            "source_unit": "deg",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "N.m",
+            "actual_value": 14.6,
+            "collection": "parameters",
+            "expected_value": 14.6,
+            "fact_id": "parameters.param_torque_limit.value",
+            "field": "value",
+            "fmu_variable": "fact_parameters_param_torque_limit_value",
+            "id": "fact_parameters_param_torque_limit_value",
+            "record_id": "param_torque_limit",
+            "required": true,
+            "source_unit": "N.m",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "deg",
+            "actual_value": 12.0,
+            "collection": "environment",
+            "expected_value": 12.0,
+            "fact_id": "environment.env_ramp.magnitude",
+            "field": "magnitude",
+            "fmu_variable": "fact_environment_env_ramp_magnitude",
+            "id": "fact_environment_env_ramp_magnitude",
+            "record_id": "env_ramp",
+            "required": true,
+            "source_unit": "deg",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "m",
+            "actual_value": 2.0,
+            "collection": "environment",
+            "expected_value": 2.0,
+            "fact_id": "environment.env_plateau.magnitude",
+            "field": "magnitude",
+            "fmu_variable": "fact_environment_env_plateau_magnitude",
+            "id": "fact_environment_env_plateau_magnitude",
+            "record_id": "env_plateau",
+            "required": true,
+            "source_unit": "m",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "dimensionless",
+            "actual_value": 0.76,
+            "collection": "environment",
+            "expected_value": 0.76,
+            "fact_id": "environment.env_friction.magnitude",
+            "field": "magnitude",
+            "fmu_variable": "fact_environment_env_friction_magnitude",
+            "id": "fact_environment_env_friction_magnitude",
+            "record_id": "env_friction",
+            "required": true,
+            "source_unit": "dimensionless",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "m",
+            "actual_value": 0.05,
+            "collection": "environment",
+            "expected_value": 0.05,
+            "fact_id": "environment.env_ridges.magnitude",
+            "field": "magnitude",
+            "fmu_variable": "fact_environment_env_ridges_magnitude",
+            "id": "fact_environment_env_ridges_magnitude",
+            "record_id": "env_ridges",
+            "required": true,
+            "source_unit": "m",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "N",
+            "actual_value": 218.0,
+            "collection": "environment",
+            "expected_value": 218.0,
+            "fact_id": "environment.env_payload_force.magnitude",
+            "field": "magnitude",
+            "fmu_variable": "fact_environment_env_payload_force_magnitude",
+            "id": "fact_environment_env_payload_force_magnitude",
+            "record_id": "env_payload_force",
+            "required": true,
+            "source_unit": "N",
+            "verification_status": "resolved_fmu_parameter"
+          }
+        ],
+        "success": true
+      },
+      "execution": {
+        "available": true,
+        "columns": [
+          "time",
+          "trace_if_attitude",
+          "trace_if_edge_distance",
+          "trace_if_payload_force",
+          "trace_if_pitch",
+          "trace_if_roll",
+          "trace_if_slip_ratio",
+          "trace_if_speed",
+          "trace_if_torque",
+          "trace_if_torque_command",
+          "trace_if_tracking_error"
+        ],
+        "diagnostics": [],
+        "duration_seconds": 0.5210489621385932,
+        "initialized": true,
+        "report_file": "outputs/robotics-corpus-full-glm52-v1/RPI1020/rich/FULL/repeat-00/artifacts/execution/execution/execution.json",
+        "result_file": "outputs/robotics-corpus-full-glm52-v1/RPI1020/rich/FULL/repeat-00/artifacts/execution/execution/trace.csv",
+        "sample_count": 10001,
+        "simulated": true,
+        "success": true
+      },
+      "execution_completed": true,
+      "execution_mode": "integrated_fmu_behavior",
+      "failure_stage": "behavior_evaluation",
+      "fmu": {
+        "available": true,
+        "checked": true,
+        "diagnostics": [
+          {
+            "message": "[/storage/scratch1/4/skannan89/robotics-generalized/outputs/robotics-corpus-full-glm52-v1/RPI1020/rich/FULL/repeat-00/artifacts/execution/export/Candidate.mo:34:3-34:87:writable] Warning: The following equation is INCONSISTENT due to specified unit information: rollDamping = 3.0 + fact_entities_omnicart_platform_width",
+            "severity": "warning",
+            "stage": "compiler"
+          },
+          {
+            "message": "Warning: The units of following sub-expressions need to be equal:",
+            "severity": "warning",
+            "stage": "compiler"
+          },
+          {
+            "message": "[/storage/scratch1/4/skannan89/robotics-generalized/outputs/robotics-corpus-full-glm52-v1/RPI1020/rich/FULL/repeat-00/artifacts/execution/export/Candidate.mo:90:3-90:63:writable] Warning: The following equation is INCONSISTENT due to specified unit information: der(rollAngle) = ridgePerturbation - rollDamping * rollAngle",
+            "severity": "warning",
+            "stage": "compiler"
+          }
+        ],
+        "duration_seconds": 8.823410033248365,
+        "exported": true,
+        "fmi_version": "2.0",
+        "fmu_path": "outputs/robotics-corpus-full-glm52-v1/RPI1020/rich/FULL/repeat-00/artifacts/execution/export/candidate.fmu",
+        "inputs": [],
+        "interface_type": "co_simulation",
+        "model_identifier": "candidate",
+        "model_name": "RobotTask_RPI1020_R00",
+        "outputs": [
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_attitude",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad",
+            "value_reference": 51,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_edge_distance",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 52,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_payload_force",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 53,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_pitch",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad",
+            "value_reference": 54,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_roll",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad",
+            "value_reference": 55,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_slip_ratio",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "dimensionless",
+            "value_reference": 56,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_speed",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 57,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_torque",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m",
+            "value_reference": 58,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_torque_command",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m",
+            "value_reference": 59,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_tracking_error",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m/s",
+            "value_reference": 60,
+            "variability": "continuous"
+          }
+        ],
+        "success": true,
+        "variables": [
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "omegaWheel",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "rad/s",
+            "value_reference": 0,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "rollAngle",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "rad",
+            "value_reference": 1,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "v",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "m/s",
+            "value_reference": 2,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "x",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "m",
+            "value_reference": 3,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(omegaWheel)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "s-2",
+            "value_reference": 4,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(rollAngle)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "Hz",
+            "value_reference": 5,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(v)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m.s-2",
+            "value_reference": 6,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(x)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m.s-1",
+            "value_reference": 7,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_if_edge_distance)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 8,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_if_payload_force)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 9,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_if_pitch)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 10,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_if_slip_ratio)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 11,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_if_torque)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 12,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_if_torque_command)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 13,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_if_tracking_error)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 14,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(brakingTorque)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 15,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(gravityCompensation)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 16,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(rawTorque)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 17,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(slipFactor)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 18,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(vRef)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 19,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(wheelTorque)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 20,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_attitude_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 35,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_edge_distance_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 36,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_payload_force_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 37,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_roll_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 38,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_slip_ratio_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 39,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_speed_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 40,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_torque_command_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 41,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_torque_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 42,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_tracking_error_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 43,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "brakingTorque",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m",
+            "value_reference": 44,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "gravityCompensation",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m",
+            "value_reference": 45,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "gravityForce",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 46,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "muLimit",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 47,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "rawTorque",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m",
+            "value_reference": 48,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "ridgePerturbation",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad",
+            "value_reference": 49,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "slipFactor",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "dimensionless",
+            "value_reference": 50,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_attitude",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad",
+            "value_reference": 51,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_edge_distance",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 52,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_payload_force",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 53,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_pitch",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad",
+            "value_reference": 54,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_roll",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad",
+            "value_reference": 55,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_slip_ratio",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "dimensionless",
+            "value_reference": 56,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_speed",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 57,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_torque",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m",
+            "value_reference": 58,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_torque_command",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m",
+            "value_reference": 59,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_tracking_error",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m/s",
+            "value_reference": 60,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "tractionForce",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 61,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "vRef",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m/s",
+            "value_reference": 62,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "wheelTorque",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m",
+            "value_reference": 63,
+            "variability": "continuous"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "brakingGain",
+            "scalar_type": "real",
+            "start": "8.0",
+            "unit": "N.m.s/m",
+            "value_reference": 64,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "contactStiffness",
+            "scalar_type": "real",
+            "start": "2000.0",
+            "unit": "N/(m/s)",
+            "value_reference": 65,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_entities_omnicart_platform_length",
+            "scalar_type": "real",
+            "start": "0.58",
+            "unit": "m",
+            "value_reference": 66,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_entities_omnicart_platform_mass",
+            "scalar_type": "real",
+            "start": "25.0",
+            "unit": "kg",
+            "value_reference": 67,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_entities_omnicart_platform_width",
+            "scalar_type": "real",
+            "start": "0.46",
+            "unit": "m",
+            "value_reference": 68,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_entities_wheel_1_radius",
+            "scalar_type": "real",
+            "start": "0.095",
+            "unit": "m",
+            "value_reference": 69,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_entities_wheel_2_radius",
+            "scalar_type": "real",
+            "start": "0.095",
+            "unit": "m",
+            "value_reference": 70,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_entities_wheel_3_radius",
+            "scalar_type": "real",
+            "start": "0.095",
+            "unit": "m",
+            "value_reference": 71,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_entities_wheel_4_radius",
+            "scalar_type": "real",
+            "start": "0.095",
+            "unit": "m",
+            "value_reference": 72,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_environment_env_friction_magnitude",
+            "scalar_type": "real",
+            "start": "0.76",
+            "unit": "dimensionless",
+            "value_reference": 73,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_environment_env_payload_force_magnitude",
+            "scalar_type": "real",
+            "start": "218.0",
+            "unit": "N",
+            "value_reference": 74,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_environment_env_plateau_magnitude",
+            "scalar_type": "real",
+            "start": "2.0",
+            "unit": "m",
+            "value_reference": 75,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_environment_env_ramp_magnitude",
+            "scalar_type": "real",
+            "start": "12.0",
+            "unit": "deg",
+            "value_reference": 76,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_environment_env_ridges_magnitude",
+            "scalar_type": "real",
+            "start": "0.05",
+            "unit": "m",
+            "value_reference": 77,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_parameters_param_roller_angle_value",
+            "scalar_type": "real",
+            "start": "45.0",
+            "unit": "deg",
+            "value_reference": 78,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_parameters_param_torque_limit_value",
+            "scalar_type": "real",
+            "start": "14.6",
+            "unit": "N.m",
+            "value_reference": 79,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "gravity",
+            "scalar_type": "real",
+            "start": "9.81",
+            "unit": "m/s2",
+            "value_reference": 80,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "kpSpeed",
+            "scalar_type": "real",
+            "start": "10.0",
+            "unit": "N.m.s/m",
+            "value_reference": 81,
+            "variability": "fixed"
+          },
+          {
+            "causality": "calculatedParameter",
+            "initial": null,
+            "name": "plateauLength",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 82,
+            "variability": "fixed"
+          },
+          {
+            "causality": "calculatedParameter",
+            "initial": null,
+            "name": "rampAngleRad",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad",
+            "value_reference": 83,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "rampLength",
+            "scalar_type": "real",
+            "start": "1.5",
+            "unit": "m",
+            "value_reference": 84,
+            "variability": "fixed"
+          },
+          {
+            "causality": "calculatedParameter",
+            "initial": null,
+            "name": "rollDamping",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "1/s",
+            "value_reference": 85,
+            "variability": "fixed"
+          },
+          {
+            "causality": "calculatedParameter",
+            "initial": null,
+            "name": "rollerAngleRad",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad",
+            "value_reference": 86,
+            "variability": "fixed"
+          },
+          {
+            "causality": "calculatedParameter",
+            "initial": null,
+            "name": "rollerForceCoeff",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "dimensionless",
+            "value_reference": 87,
+            "variability": "fixed"
+          },
+          {
+            "causality": "calculatedParameter",
+            "initial": null,
+            "name": "totalDistance",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 88,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "wheelInertia",
+            "scalar_type": "real",
+            "start": "0.005",
+            "unit": "kg.m2",
+            "value_reference": 89,
+            "variability": "fixed"
+          },
+          {
+            "causality": "calculatedParameter",
+            "initial": null,
+            "name": "wheelRadius",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 90,
+            "variability": "fixed"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_pitch_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 35,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "edgeDistance",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 52,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "payloadForce",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 53,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "pitchAngle",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad",
+            "value_reference": 51,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "platformAttitude",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad",
+            "value_reference": 51,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "slipRatio",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "dimensionless",
+            "value_reference": 56,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "terrainPitch",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad",
+            "value_reference": 51,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "torqueCommand",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m",
+            "value_reference": 59,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "trackingError",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m/s",
+            "value_reference": 60,
+            "variability": "continuous"
+          }
+        ]
+      },
+      "passed": false,
+      "properties": [
+        {
+          "detail": "always robustness=0",
+          "formula": "G[0, T](trace_if_torque <= 14.6)",
+          "id": "prop_torque_limit",
+          "interface_id": "if_torque",
+          "passed": true,
+          "property_id": "prop_torque_limit",
+          "robustness": 0.0,
+          "status": "satisfied"
+        },
+        {
+          "detail": "always robustness=-0.65",
+          "formula": "G[0, T](trace_if_slip_ratio <= 0.35)",
+          "id": "prop_slip_limit",
+          "interface_id": "if_slip_ratio",
+          "passed": false,
+          "property_id": "prop_slip_limit",
+          "robustness": -0.65,
+          "status": "violated"
+        },
+        {
+          "detail": "always robustness=0.4",
+          "formula": "G[0, T](trace_if_roll <= 0.4)",
+          "id": "prop_roll_limit",
+          "interface_id": "if_roll",
+          "passed": true,
+          "property_id": "prop_roll_limit",
+          "robustness": 0.4,
+          "status": "satisfied"
+        },
+        {
+          "detail": "always robustness=0.19056",
+          "formula": "G[0, T](trace_if_pitch <= 0.4)",
+          "id": "prop_pitch_limit",
+          "interface_id": "if_pitch",
+          "passed": true,
+          "property_id": "prop_pitch_limit",
+          "robustness": 0.19056048976068046,
+          "status": "satisfied"
+        },
+        {
+          "detail": "always robustness=-35.3978",
+          "formula": "G[13.0, T](trace_if_tracking_error <= 0.144)",
+          "id": "prop_tracking_error",
+          "interface_id": "if_tracking_error",
+          "passed": false,
+          "property_id": "prop_tracking_error",
+          "robustness": -35.39776507391495,
+          "status": "violated"
+        },
+        {
+          "detail": "final robustness=283.905",
+          "formula": "final[0, T](0.0 <= trace_if_edge_distance)",
+          "id": "prop_stopping_margin",
+          "interface_id": "if_edge_distance",
+          "passed": true,
+          "property_id": "prop_stopping_margin",
+          "robustness": 283.90494312389444,
+          "status": "satisfied"
+        },
+        {
+          "detail": "finite-value trace gate passed",
+          "formula": "all requested runtime outputs are finite",
+          "id": "prop_no_nan",
+          "passed": true,
+          "property_id": "prop_no_nan",
+          "robustness": null,
+          "status": "satisfied"
+        }
+      ],
+      "property_count": 7,
+      "property_summary": {
+        "passed": 5,
+        "total": 7,
+        "unevaluable": 0,
+        "violated": 2
+      },
+      "report": "execution.json",
+      "trace_gate": {
+        "finite": true,
+        "minimum_expected_samples": 10000,
+        "missing_outputs": [],
+        "required_outputs": [
+          "trace_if_attitude",
+          "trace_if_edge_distance",
+          "trace_if_payload_force",
+          "trace_if_pitch",
+          "trace_if_roll",
+          "trace_if_slip_ratio",
+          "trace_if_speed",
+          "trace_if_torque",
+          "trace_if_torque_command",
+          "trace_if_tracking_error"
+        ],
+        "sample_count": 10001,
+        "success": true
+      }
+    },
+    "modelica": {
+      "artifact": "modelica/model.mo",
+      "attempt_0_valid": true,
+      "combiner_model": "z-ai/glm-5.2",
+      "expert_candidates": [
+        "qwen/qwen3.6-plus",
+        "z-ai/glm-5.2",
+        "deepseek/deepseek-v4-pro",
+        "meta-llama/llama-4-maverick"
+      ],
+      "expert_models": [
+        "qwen/qwen3.6-plus",
+        "z-ai/glm-5.2",
+        "deepseek/deepseek-v4-pro",
+        "meta-llama/llama-4-maverick"
+      ],
+      "expert_soft_fail_count": 0,
+      "generation_mode": "moe",
+      "identity_preserved": true,
+      "model_name": "RobotTask_RPI1020_R00",
+      "passed": true,
+      "repairs": 0,
+      "report": "modelica/generation.json",
+      "retrieved_examples": [
+        {
+          "id": "M009",
+          "score": 56.14978979892216
+        },
+        {
+          "id": "M008",
+          "score": 47.104329893521246
+        },
+        {
+          "id": "M521",
+          "score": 46.35076328040339
+        },
+        {
+          "id": "M007",
+          "score": 43.809649102084485
+        },
+        {
+          "id": "M1001",
+          "score": 47.171824070753935
+        }
+      ],
+      "study_controls": {
+        "max_tool_repairs": 2,
+        "moe_enabled": true,
+        "rag_enabled": true,
+        "retrieval_k": 5,
+        "tool_repair_enabled": true
+      }
+    },
+    "normalization": {
+      "attempt_count": 1,
+      "precomputed": true,
+      "report": "normalization.json",
+      "success": true
+    },
+    "one_shot": {
+      "artifact_pair_valid_attempt_0": null,
+      "artifact_valid_attempt_0": true,
+      "modelica_valid_attempt_0": true,
+      "openusd_valid_attempt_0": null
+    },
+    "paired_block": {
+      "block_fingerprint": "0347310aaea756f48e96b18d7ee5c3d06333c63c2bb3767e9c6ab11cf67fa7e9",
+      "normalized_ir_sha256": "07f0915e1f6e2ae50a3c1f5e99c7d7e9a8abce9d88701a3ec2dd274cc54021a0",
+      "repetition": 0
+    },
+    "passed": false,
+    "plan": {
+      "contract": "contract.json",
+      "mapping_count": 10,
+      "model_name": "RobotTask_RPI1020_R00",
+      "parameter_mapping_count": 14,
+      "report": "plan.json",
+      "requirement_ir": "requirement_ir.json",
+      "success": true
+    },
+    "runtime_repair": {
+      "accepted": 0,
+      "attempted": 1,
+      "enabled": true,
+      "final_model": "modelica/model.mo",
+      "infrastructure_error": null,
+      "max_repairs": 2,
+      "original_model": null,
+      "report": "runtime-repair.json",
+      "triggered": true
+    },
+    "schema_version": "1.0",
+    "source_text_sha256": "a028b73321cd7258b3160f550444ea45893d4831487b4374c8ac911bf1a35b7d",
+    "stage": "modelica_capability_orchestrator",
+    "stage_trace": [
+      {
+        "index": 0,
+        "passed": true,
+        "reached": true,
+        "stage": "requirement_normalization",
+        "status": "passed"
+      },
+      {
+        "index": 1,
+        "passed": true,
+        "reached": true,
+        "stage": "interface_planning",
+        "status": "passed"
+      },
+      {
+        "index": 2,
+        "passed": true,
+        "reached": true,
+        "stage": "modelica_validation",
+        "status": "passed"
+      },
+      {
+        "index": 3,
+        "passed": true,
+        "reached": true,
+        "stage": "modelica_identity",
+        "status": "passed"
+      },
+      {
+        "index": 4,
+        "passed": true,
+        "reached": true,
+        "stage": "fmu_export",
+        "status": "passed"
+      },
+      {
+        "index": 5,
+        "passed": true,
+        "reached": true,
+        "stage": "fmu_interface_contract",
+        "status": "passed"
+      },
+      {
+        "index": 6,
+        "passed": true,
+        "reached": true,
+        "stage": "runtime_initialization",
+        "status": "passed"
+      },
+      {
+        "index": 7,
+        "passed": true,
+        "reached": true,
+        "stage": "runtime_execution",
+        "status": "passed"
+      },
+      {
+        "index": 8,
+        "passed": true,
+        "reached": true,
+        "stage": "behavior_evaluation",
+        "status": "passed"
+      },
+      {
+        "index": 9,
+        "passed": false,
+        "reached": true,
+        "stage": "modelica_specification_alignment",
+        "status": "failed"
+      }
+    ],
+    "study_validity": {
+      "alignment_observed": true,
+      "complete_moe_required": true,
+      "condition_fidelity_passed": true,
+      "contract_created": true,
+      "eligible": true,
+      "expected": {
+        "alignment": true,
+        "id": "FULL",
+        "label": "complete_pipeline",
+        "moe": true,
+        "rag": true,
+        "tool_repair": true,
+        "validated_contract": true
+      },
+      "generation_reached": true,
+      "issues": [],
+      "observed_generation": [
+        {
+          "combiner_model": "z-ai/glm-5.2",
+          "expert_candidate_count": 4,
+          "expert_roster": [
+            "qwen/qwen3.6-plus",
+            "z-ai/glm-5.2",
+            "deepseek/deepseek-v4-pro",
+            "meta-llama/llama-4-maverick"
+          ],
+          "expert_soft_fail_count": 0,
+          "generation_mode": "moe",
+          "owner": "modelica",
+          "retrieval_count": 5,
+          "study_controls": {
+            "max_tool_repairs": 2,
+            "moe_enabled": true,
+            "rag_enabled": true,
+            "retrieval_k": 5,
+            "tool_repair_enabled": true
+          }
+        }
+      ],
+      "runtime_repair_observed": true
+    },
+    "task_id": "RPI1020-R00"
+  },
+  "schema_version": "1.1",
+  "task_id": "RPI1020",
+  "variant": "rich"
+}

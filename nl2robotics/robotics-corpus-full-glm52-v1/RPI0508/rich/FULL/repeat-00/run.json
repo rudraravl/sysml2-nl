@@ -1,0 +1,3011 @@
+{
+  "condition": {
+    "alignment": true,
+    "id": "FULL",
+    "label": "complete_pipeline",
+    "moe": true,
+    "rag": true,
+    "tool_repair": true,
+    "validated_contract": true
+  },
+  "configuration": {
+    "artifact_mode": "modelica_only",
+    "benchmark_manifest": "/storage/scratch1/4/skannan89/robotics-generalized/nl2robotics/corpus/pipeline_prompt_manifest.json",
+    "benchmark_manifest_sha256": "0a6631f7b9c9cbf4983d92ab4424943a668f60e571bf5ee4203213f84c1a8409",
+    "benchmark_split": "all",
+    "configuration_variant_filter": [],
+    "family_filter": [],
+    "fmi_backend": "local",
+    "h2_controller_backend": "local",
+    "h2_device": "cpu",
+    "h2_repetitions": 3,
+    "h2_solver": "TGS",
+    "isaac_handoff_configured": false,
+    "k": 5,
+    "max_runtime_repairs": 2,
+    "max_tool_repairs": 2,
+    "modelica_backend": "local",
+    "modelica_subset": "full1500",
+    "moe_configuration": "shared_with_sysml_pipeline",
+    "newton_controller_backend": "local",
+    "newton_device": "cuda:0",
+    "newton_fmi_runtime_image": "nl2robotics-fmi-runtime:0.1",
+    "newton_handoff_configured": false,
+    "newton_repeatability_tolerance": 1e-06,
+    "newton_repetitions": 3,
+    "newton_solver": "featherstone",
+    "newton_version": "1.5.0",
+    "pipeline": "nl_ir_modelica_compile_fmu_execute_spec",
+    "rag_routing": "family_preferred_4_of_5_with_global_fallback",
+    "randomization_seed": 20260830,
+    "require_complete_moe": true,
+    "runtime_repair_model": "z-ai/glm-5.2",
+    "runtime_repair_policy": "tool_conditions_only_monotonic_recompile_reexecute_recheck_behavior",
+    "runtime_repair_provider": "openrouter",
+    "semantic_case_filter": [],
+    "shard_assignment": "category_stratified_task_block_round_robin",
+    "shard_count": 4,
+    "single_model": "z-ai/glm-5.2",
+    "single_provider": "openrouter",
+    "study_protocol_core_sha256": "f5f0200a721873f9eeac07c7084e8f58fe820d1acef60434f7e0ac234041d153",
+    "task_order": "seeded_randomized"
+  },
+  "difficulty": "intermediate",
+  "duration_seconds": 798.4091658187099,
+  "fingerprint": "7bca0be7e13dbfb5ef09496b6633438e028de1b49c9903fe03ca7f6663c3656b",
+  "infrastructure_error": null,
+  "metrics": {
+    "all_properties_pass": false,
+    "artifact_pair_valid": null,
+    "artifact_pair_valid_attempt_0": null,
+    "artifact_valid": true,
+    "artifact_valid_attempt_0": false,
+    "behavior_evaluated": true,
+    "blocking_violations": 1,
+    "condition_fidelity": true,
+    "configured_pipeline_success": false,
+    "contract_valid": true,
+    "end_to_end": false,
+    "failure_stage": "behavior_evaluation",
+    "fmu_execution": true,
+    "fmu_export": true,
+    "fmu_interface_valid": true,
+    "infrastructure_available": true,
+    "ir_valid": true,
+    "maximum_stage_reached": 9,
+    "modelica_build": true,
+    "modelica_build_attempt_0": false,
+    "named_simulator_load": null,
+    "normalization_valid": true,
+    "post_execution_semantic": false,
+    "pre_execution_semantic": null,
+    "property_evaluability_rate": 1.0,
+    "property_evaluable": 6,
+    "property_satisfaction_rate_evaluable": 0.8333333333333334,
+    "property_satisfied": 5,
+    "property_total": 6,
+    "property_unevaluable": 0,
+    "property_violated": 1,
+    "repairs": 2,
+    "runtime_execution": true,
+    "runtime_trace_valid": true,
+    "semantic_coverage": 0.649573,
+    "semantic_score": 0.960526,
+    "specification_claim_ready": false,
+    "stable_simulation": true,
+    "usd_semantic_valid": null,
+    "usd_semantic_valid_attempt_0": null,
+    "verification_tier": 4
+  },
+  "planned_order_index": 238,
+  "profile": "capability",
+  "randomization_seed": 20260830,
+  "repetition": 0,
+  "result": {
+    "ablation": {
+      "condition": {
+        "alignment": true,
+        "id": "FULL",
+        "label": "complete_pipeline",
+        "moe": true,
+        "rag": true,
+        "tool_repair": true,
+        "validated_contract": true
+      },
+      "contract_role": "generation_and_validation",
+      "generation_strategy": "rag_moe"
+    },
+    "alignment": {
+      "blocking_violations": 1,
+      "claim_ready": false,
+      "counts": {
+        "not_applicable": 0,
+        "satisfied": 27,
+        "unknown": 21,
+        "violated": 1
+      },
+      "deterministic_violations": 1,
+      "enabled": true,
+      "evidence_coverage": 0.649573,
+      "not_run": false,
+      "passed": false,
+      "per_family": {
+        "interface": 1.0,
+        "parameter": 1.0,
+        "property": 0.833333,
+        "timing": 1.0
+      },
+      "question_count": 49,
+      "report": "alignment.json",
+      "skipped": false,
+      "weighted_semantic_score": 0.960526
+    },
+    "artifact_mode": "modelica_only",
+    "capabilities": {
+      "highest_reached_tier": 4,
+      "highest_reached_tier_name": "behaviorally_executed",
+      "profile_count": 14,
+      "report": "capability-report.json",
+      "requested_feature_count": 26,
+      "tiers": [
+        {
+          "name": "normalized",
+          "passed": true,
+          "tier": 0
+        },
+        {
+          "name": "ir_validated",
+          "passed": true,
+          "tier": 1
+        },
+        {
+          "modelica_passed": true,
+          "name": "artifacts_validated",
+          "openusd_passed": null,
+          "passed": true,
+          "tier": 2
+        },
+        {
+          "name": "executable_contract_validated",
+          "passed": true,
+          "reason": null,
+          "tier": 3
+        },
+        {
+          "behavior_evaluated": true,
+          "execution_completed": true,
+          "name": "behaviorally_executed",
+          "passed": true,
+          "reason": null,
+          "tier": 4
+        },
+        {
+          "name": "accelerator_provenance_verified",
+          "passed": false,
+          "reason": "requires genuine accelerator execution provenance",
+          "tier": 5
+        }
+      ]
+    },
+    "claim_eligible_deltaai_h2": false,
+    "claim_eligible_h2": false,
+    "claim_eligible_newton_h2": false,
+    "failure_stage": "behavior_evaluation",
+    "hybrid": {
+      "behavior_evaluated": true,
+      "behavior_passed": false,
+      "contract": {
+        "fmu": {
+          "fmi_version": "2.0",
+          "interface_type": "co_simulation",
+          "model_name": "RobotTask_RPI0508_R00",
+          "variables": [
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "currentIntegrator",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": null,
+              "value_reference": 0,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "motorAngle",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "rad",
+              "value_reference": 1,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "motorVelocity",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "rad/s",
+              "value_reference": 2,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "plant_current",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "A",
+              "value_reference": 3,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "plant_temperature",
+              "scalar_type": "real",
+              "start": "293.15",
+              "unit": "K",
+              "value_reference": 4,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "positionIntegrator",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": null,
+              "value_reference": 5,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(currentIntegrator)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 6,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(motorAngle)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "Hz",
+              "value_reference": 7,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(motorVelocity)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "s-2",
+              "value_reference": 8,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(plant_current)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "s-1.A",
+              "value_reference": 9,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(plant_temperature)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "s-1.K",
+              "value_reference": 10,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(positionIntegrator)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 11,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_if_control_validity)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 12,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_if_current_command)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 13,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_if_final_error)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 14,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_if_load_disturbance)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 15,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_if_physical_validity)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 16,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_if_position_meas)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 17,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_if_tracking_error)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 18,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_if_travel)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 19,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_if_velocity_meas)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 20,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_if_voltage)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 21,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(busVoltage)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 22,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(rawCurrentCommand)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 23,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_control_validity_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 37,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_current_command_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 38,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_current_meas_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 39,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "_D_trace_if_estimator_validity_der",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": null,
+              "value_reference": 40,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_final_error_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 41,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_load_disturbance_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 42,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_physical_validity_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 43,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "_D_trace_if_position_command_der",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": null,
+              "value_reference": 44,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_position_meas_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 45,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_temperature_meas_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 46,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_tracking_error_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 47,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_travel_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 48,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_velocity_meas_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 49,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_voltage_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 50,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "backEmfConstant",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "V.s/rad",
+              "value_reference": 51,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "busVoltage",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "V",
+              "value_reference": 52,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "contactTorque",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N.m",
+              "value_reference": 53,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "estimator_validity",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "dimensionless",
+              "value_reference": 54,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "motorTorque",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N.m",
+              "value_reference": 55,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "rawCurrentCommand",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "A",
+              "value_reference": 56,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "rawVoltage",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "V",
+              "value_reference": 57,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "torqueConstant",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N.m/A",
+              "value_reference": 58,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "totalLoadTorque",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N.m",
+              "value_reference": 59,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_control_validity",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "dimensionless",
+              "value_reference": 60,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_current_command",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 61,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_current_meas",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 62,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_estimator_validity",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "dimensionless",
+              "value_reference": 63,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_final_error",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 64,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_load_disturbance",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N_or_N.m",
+              "value_reference": 65,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_physical_validity",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "dimensionless",
+              "value_reference": 66,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_position_command",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 67,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_position_meas",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 68,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_temperature_meas",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 69,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_tracking_error",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "rad_or_m",
+              "value_reference": 70,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_travel",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 71,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_velocity_meas",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 72,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_voltage",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "V",
+              "value_reference": 73,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "voltageCommand",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "V",
+              "value_reference": 74,
+              "variability": "continuous"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "ambientTemperature",
+              "scalar_type": "real",
+              "start": "293.15",
+              "unit": "K",
+              "value_reference": 76,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "batteryInternalResistance",
+              "scalar_type": "real",
+              "start": "0.1",
+              "unit": "Ohm",
+              "value_reference": 77,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "contactDamping",
+              "scalar_type": "real",
+              "start": "5.0",
+              "unit": "N.m.s/rad",
+              "value_reference": 78,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "contactStiffness",
+              "scalar_type": "real",
+              "start": "100.0",
+              "unit": "N.m/rad",
+              "value_reference": 79,
+              "variability": "fixed"
+            },
+            {
+              "causality": "calculatedParameter",
+              "initial": null,
+              "name": "controller_position_command",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "rad",
+              "value_reference": 80,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "currentLimit",
+              "scalar_type": "real",
+              "start": "15.0",
+              "unit": "A",
+              "value_reference": 81,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_entities_wheel_radius",
+              "scalar_type": "real",
+              "start": "0.12",
+              "unit": "m",
+              "value_reference": 82,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_parameters_param_dc_bus_limit_value",
+              "scalar_type": "real",
+              "start": "48.0",
+              "unit": "V",
+              "value_reference": 83,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_parameters_param_gearbox_ratio_value",
+              "scalar_type": "real",
+              "start": "9.0",
+              "unit": "ratio",
+              "value_reference": 84,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_parameters_param_load_disturbance_magnitude_value",
+              "scalar_type": "real",
+              "start": "8.0",
+              "unit": "N_or_N.m",
+              "value_reference": 85,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_parameters_param_motor_phases_value",
+              "scalar_type": "real",
+              "start": "3.0",
+              "unit": "phases",
+              "value_reference": 86,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_parameters_param_motor_pole_pairs_value",
+              "scalar_type": "real",
+              "start": "4.0",
+              "unit": "pairs",
+              "value_reference": 87,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_parameters_param_motor_voltage_value",
+              "scalar_type": "real",
+              "start": "48.0",
+              "unit": "V",
+              "value_reference": 88,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fluxConstant",
+              "scalar_type": "real",
+              "start": "0.05",
+              "unit": "Wb",
+              "value_reference": 89,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "gravityLoad",
+              "scalar_type": "real",
+              "start": "0.5",
+              "unit": "N.m",
+              "value_reference": 90,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "kiCurrent",
+              "scalar_type": "real",
+              "start": "50.0",
+              "unit": null,
+              "value_reference": 91,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "kiPosition",
+              "scalar_type": "real",
+              "start": "150.0",
+              "unit": null,
+              "value_reference": 92,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "kpCurrent",
+              "scalar_type": "real",
+              "start": "3.0",
+              "unit": null,
+              "value_reference": 93,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "kpPosition",
+              "scalar_type": "real",
+              "start": "150.0",
+              "unit": null,
+              "value_reference": 94,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "motorInductance",
+              "scalar_type": "real",
+              "start": "0.005",
+              "unit": "H",
+              "value_reference": 95,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "motorInertia",
+              "scalar_type": "real",
+              "start": "0.02",
+              "unit": "kg.m2",
+              "value_reference": 96,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "motorResistance",
+              "scalar_type": "real",
+              "start": "0.5",
+              "unit": "Ohm",
+              "value_reference": 97,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "targetPosition",
+              "scalar_type": "real",
+              "start": "1.0",
+              "unit": "rad",
+              "value_reference": 98,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "thermalCapacity",
+              "scalar_type": "real",
+              "start": "100.0",
+              "unit": "J/K",
+              "value_reference": 99,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "thermalResistance",
+              "scalar_type": "real",
+              "start": "0.5",
+              "unit": "K/W",
+              "value_reference": 100,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "travelLimit",
+              "scalar_type": "real",
+              "start": "3.0",
+              "unit": "rad",
+              "value_reference": 101,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "viscousFriction",
+              "scalar_type": "real",
+              "start": "0.5",
+              "unit": "N.m.s/rad",
+              "value_reference": 102,
+              "variability": "fixed"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "controller_current_command",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "A",
+              "value_reference": 61,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "controller_final_error",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 64,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "controller_tracking_error",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "rad_or_m",
+              "value_reference": 70,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "controller_validity",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "dimensionless",
+              "value_reference": 60,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "plant_load_disturbance",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N_or_N.m",
+              "value_reference": 65,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "plant_position",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "rad",
+              "value_reference": 68,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "plant_travel",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 71,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "plant_validity",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "dimensionless",
+              "value_reference": 66,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "plant_velocity",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "rad/s",
+              "value_reference": 72,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "plant_voltage",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "V",
+              "value_reference": 73,
+              "variability": "continuous"
+            }
+          ]
+        },
+        "issues": [],
+        "resolved_mappings": [
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_current_meas",
+            "id": "map_if_current_meas",
+            "interface_id": "if_current_meas",
+            "quantity": "electrical_current",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": "sensor_current",
+            "source_unit": "unspecified",
+            "state_id": "plant.current",
+            "target_unit": "unspecified",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_position_meas",
+            "id": "map_if_position_meas",
+            "interface_id": "if_position_meas",
+            "quantity": "position",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": "sensor_position",
+            "source_unit": "unspecified",
+            "state_id": "plant.position",
+            "target_unit": "unspecified",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_velocity_meas",
+            "id": "map_if_velocity_meas",
+            "interface_id": "if_velocity_meas",
+            "quantity": "velocity",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": "sensor_velocity",
+            "source_unit": "unspecified",
+            "state_id": "plant.velocity",
+            "target_unit": "unspecified",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_temperature_meas",
+            "id": "map_if_temperature_meas",
+            "interface_id": "if_temperature_meas",
+            "quantity": "temperature",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": "sensor_temperature",
+            "source_unit": "unspecified",
+            "state_id": "plant.temperature",
+            "target_unit": "unspecified",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_voltage",
+            "id": "map_if_voltage",
+            "interface_id": "if_voltage",
+            "quantity": "voltage",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "V",
+            "state_id": "plant.voltage",
+            "target_unit": "V",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_tracking_error",
+            "id": "map_if_tracking_error",
+            "interface_id": "if_tracking_error",
+            "quantity": "tracking_error",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "rad_or_m",
+            "state_id": "controller.tracking_error",
+            "target_unit": "rad_or_m",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_final_error",
+            "id": "map_if_final_error",
+            "interface_id": "if_final_error",
+            "quantity": "final_error",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "unspecified",
+            "state_id": "controller.final_error",
+            "target_unit": "unspecified",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_travel",
+            "id": "map_if_travel",
+            "interface_id": "if_travel",
+            "quantity": "travel",
+            "required": true,
+            "semantic_entity_id": "wheel",
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "unspecified",
+            "state_id": "plant.travel",
+            "target_unit": "unspecified",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_load_disturbance",
+            "id": "map_if_load_disturbance",
+            "interface_id": "if_load_disturbance",
+            "quantity": "load_disturbance",
+            "required": true,
+            "semantic_entity_id": "wheel",
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "N_or_N.m",
+            "state_id": "plant.load_disturbance",
+            "target_unit": "N_or_N.m",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_position_command",
+            "id": "map_if_position_command",
+            "interface_id": "if_position_command",
+            "quantity": "position_command",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "unspecified",
+            "state_id": "controller.position_command",
+            "target_unit": "unspecified",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_current_command",
+            "id": "map_if_current_command",
+            "interface_id": "if_current_command",
+            "quantity": "current_command",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "unspecified",
+            "state_id": "controller.current_command",
+            "target_unit": "unspecified",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_physical_validity",
+            "id": "map_if_physical_validity",
+            "interface_id": "if_physical_validity",
+            "quantity": "validity",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "dimensionless",
+            "state_id": "plant.validity",
+            "target_unit": "dimensionless",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_control_validity",
+            "id": "map_if_control_validity",
+            "interface_id": "if_control_validity",
+            "quantity": "validity",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "dimensionless",
+            "state_id": "controller.validity",
+            "target_unit": "dimensionless",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_estimator_validity",
+            "id": "map_if_estimator_validity",
+            "interface_id": "if_estimator_validity",
+            "quantity": "validity",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "dimensionless",
+            "state_id": "estimator.validity",
+            "target_unit": "dimensionless",
+            "verification_status": "resolved_fmu_output"
+          }
+        ],
+        "resolved_parameter_mappings": [
+          {
+            "actual_unit": "m",
+            "actual_value": 0.12,
+            "collection": "entities",
+            "expected_value": 0.12,
+            "fact_id": "entities.wheel.radius",
+            "field": "radius",
+            "fmu_variable": "fact_entities_wheel_radius",
+            "id": "fact_entities_wheel_radius",
+            "record_id": "wheel",
+            "required": true,
+            "source_unit": "m",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "V",
+            "actual_value": 48.0,
+            "collection": "parameters",
+            "expected_value": 48.0,
+            "fact_id": "parameters.param_motor_voltage.value",
+            "field": "value",
+            "fmu_variable": "fact_parameters_param_motor_voltage_value",
+            "id": "fact_parameters_param_motor_voltage_value",
+            "record_id": "param_motor_voltage",
+            "required": true,
+            "source_unit": "V",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "pairs",
+            "actual_value": 4.0,
+            "collection": "parameters",
+            "expected_value": 4.0,
+            "fact_id": "parameters.param_motor_pole_pairs.value",
+            "field": "value",
+            "fmu_variable": "fact_parameters_param_motor_pole_pairs_value",
+            "id": "fact_parameters_param_motor_pole_pairs_value",
+            "record_id": "param_motor_pole_pairs",
+            "required": true,
+            "source_unit": "pairs",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "phases",
+            "actual_value": 3.0,
+            "collection": "parameters",
+            "expected_value": 3.0,
+            "fact_id": "parameters.param_motor_phases.value",
+            "field": "value",
+            "fmu_variable": "fact_parameters_param_motor_phases_value",
+            "id": "fact_parameters_param_motor_phases_value",
+            "record_id": "param_motor_phases",
+            "required": true,
+            "source_unit": "phases",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "ratio",
+            "actual_value": 9.0,
+            "collection": "parameters",
+            "expected_value": 9.0,
+            "fact_id": "parameters.param_gearbox_ratio.value",
+            "field": "value",
+            "fmu_variable": "fact_parameters_param_gearbox_ratio_value",
+            "id": "fact_parameters_param_gearbox_ratio_value",
+            "record_id": "param_gearbox_ratio",
+            "required": true,
+            "source_unit": "ratio",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "V",
+            "actual_value": 48.0,
+            "collection": "parameters",
+            "expected_value": 48.0,
+            "fact_id": "parameters.param_dc_bus_limit.value",
+            "field": "value",
+            "fmu_variable": "fact_parameters_param_dc_bus_limit_value",
+            "id": "fact_parameters_param_dc_bus_limit_value",
+            "record_id": "param_dc_bus_limit",
+            "required": true,
+            "source_unit": "V",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "N_or_N.m",
+            "actual_value": 8.0,
+            "collection": "parameters",
+            "expected_value": 8.0,
+            "fact_id": "parameters.param_load_disturbance_magnitude.value",
+            "field": "value",
+            "fmu_variable": "fact_parameters_param_load_disturbance_magnitude_value",
+            "id": "fact_parameters_param_load_disturbance_magnitude_value",
+            "record_id": "param_load_disturbance_magnitude",
+            "required": true,
+            "source_unit": "N_or_N.m",
+            "verification_status": "resolved_fmu_parameter"
+          }
+        ],
+        "success": true
+      },
+      "execution": {
+        "available": true,
+        "columns": [
+          "time",
+          "trace_if_control_validity",
+          "trace_if_current_command",
+          "trace_if_current_meas",
+          "trace_if_estimator_validity",
+          "trace_if_final_error",
+          "trace_if_load_disturbance",
+          "trace_if_physical_validity",
+          "trace_if_position_command",
+          "trace_if_position_meas",
+          "trace_if_temperature_meas",
+          "trace_if_tracking_error",
+          "trace_if_travel",
+          "trace_if_velocity_meas",
+          "trace_if_voltage"
+        ],
+        "diagnostics": [],
+        "duration_seconds": 0.37572807213291526,
+        "initialized": true,
+        "report_file": "outputs/robotics-corpus-full-glm52-v1/RPI0508/rich/FULL/repeat-00/artifacts/runtime-repair/attempt-1/execution/execution/execution.json",
+        "result_file": "outputs/robotics-corpus-full-glm52-v1/RPI0508/rich/FULL/repeat-00/artifacts/runtime-repair/attempt-1/execution/execution/trace.csv",
+        "sample_count": 2801,
+        "simulated": true,
+        "success": true
+      },
+      "execution_completed": true,
+      "execution_mode": "integrated_fmu_behavior",
+      "failure_stage": "behavior_evaluation",
+      "fmu": {
+        "available": true,
+        "checked": true,
+        "diagnostics": [],
+        "duration_seconds": 10.114306640811265,
+        "exported": true,
+        "fmi_version": "2.0",
+        "fmu_path": "outputs/robotics-corpus-full-glm52-v1/RPI0508/rich/FULL/repeat-00/artifacts/runtime-repair/attempt-1/execution/export/candidate.fmu",
+        "inputs": [],
+        "interface_type": "co_simulation",
+        "model_identifier": "candidate",
+        "model_name": "RobotTask_RPI0508_R00",
+        "outputs": [
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_control_validity",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "dimensionless",
+            "value_reference": 60,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_current_command",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 61,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_current_meas",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 62,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_estimator_validity",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "dimensionless",
+            "value_reference": 63,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_final_error",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 64,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_load_disturbance",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N_or_N.m",
+            "value_reference": 65,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_physical_validity",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "dimensionless",
+            "value_reference": 66,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_position_command",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 67,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_position_meas",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 68,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_temperature_meas",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 69,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_tracking_error",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad_or_m",
+            "value_reference": 70,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_travel",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 71,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_velocity_meas",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 72,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_voltage",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "V",
+            "value_reference": 73,
+            "variability": "continuous"
+          }
+        ],
+        "success": true,
+        "variables": [
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "currentIntegrator",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": null,
+            "value_reference": 0,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "motorAngle",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "rad",
+            "value_reference": 1,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "motorVelocity",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "rad/s",
+            "value_reference": 2,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "plant_current",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "A",
+            "value_reference": 3,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "plant_temperature",
+            "scalar_type": "real",
+            "start": "293.15",
+            "unit": "K",
+            "value_reference": 4,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "positionIntegrator",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": null,
+            "value_reference": 5,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(currentIntegrator)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 6,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(motorAngle)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "Hz",
+            "value_reference": 7,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(motorVelocity)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "s-2",
+            "value_reference": 8,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(plant_current)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "s-1.A",
+            "value_reference": 9,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(plant_temperature)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "s-1.K",
+            "value_reference": 10,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(positionIntegrator)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 11,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_if_control_validity)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 12,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_if_current_command)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 13,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_if_final_error)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 14,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_if_load_disturbance)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 15,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_if_physical_validity)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 16,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_if_position_meas)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 17,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_if_tracking_error)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 18,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_if_travel)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 19,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_if_velocity_meas)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 20,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_if_voltage)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 21,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(busVoltage)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 22,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(rawCurrentCommand)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 23,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_control_validity_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 37,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_current_command_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 38,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_current_meas_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 39,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "_D_trace_if_estimator_validity_der",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": null,
+            "value_reference": 40,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_final_error_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 41,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_load_disturbance_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 42,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_physical_validity_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 43,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "_D_trace_if_position_command_der",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": null,
+            "value_reference": 44,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_position_meas_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 45,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_temperature_meas_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 46,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_tracking_error_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 47,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_travel_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 48,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_velocity_meas_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 49,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_voltage_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 50,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "backEmfConstant",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "V.s/rad",
+            "value_reference": 51,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "busVoltage",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "V",
+            "value_reference": 52,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "contactTorque",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m",
+            "value_reference": 53,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "estimator_validity",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "dimensionless",
+            "value_reference": 54,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "motorTorque",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m",
+            "value_reference": 55,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "rawCurrentCommand",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "A",
+            "value_reference": 56,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "rawVoltage",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "V",
+            "value_reference": 57,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "torqueConstant",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m/A",
+            "value_reference": 58,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "totalLoadTorque",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m",
+            "value_reference": 59,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_control_validity",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "dimensionless",
+            "value_reference": 60,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_current_command",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 61,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_current_meas",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 62,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_estimator_validity",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "dimensionless",
+            "value_reference": 63,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_final_error",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 64,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_load_disturbance",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N_or_N.m",
+            "value_reference": 65,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_physical_validity",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "dimensionless",
+            "value_reference": 66,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_position_command",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 67,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_position_meas",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 68,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_temperature_meas",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 69,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_tracking_error",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad_or_m",
+            "value_reference": 70,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_travel",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 71,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_velocity_meas",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 72,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_voltage",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "V",
+            "value_reference": 73,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "voltageCommand",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "V",
+            "value_reference": 74,
+            "variability": "continuous"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "ambientTemperature",
+            "scalar_type": "real",
+            "start": "293.15",
+            "unit": "K",
+            "value_reference": 76,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "batteryInternalResistance",
+            "scalar_type": "real",
+            "start": "0.1",
+            "unit": "Ohm",
+            "value_reference": 77,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "contactDamping",
+            "scalar_type": "real",
+            "start": "5.0",
+            "unit": "N.m.s/rad",
+            "value_reference": 78,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "contactStiffness",
+            "scalar_type": "real",
+            "start": "100.0",
+            "unit": "N.m/rad",
+            "value_reference": 79,
+            "variability": "fixed"
+          },
+          {
+            "causality": "calculatedParameter",
+            "initial": null,
+            "name": "controller_position_command",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad",
+            "value_reference": 80,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "currentLimit",
+            "scalar_type": "real",
+            "start": "15.0",
+            "unit": "A",
+            "value_reference": 81,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_entities_wheel_radius",
+            "scalar_type": "real",
+            "start": "0.12",
+            "unit": "m",
+            "value_reference": 82,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_parameters_param_dc_bus_limit_value",
+            "scalar_type": "real",
+            "start": "48.0",
+            "unit": "V",
+            "value_reference": 83,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_parameters_param_gearbox_ratio_value",
+            "scalar_type": "real",
+            "start": "9.0",
+            "unit": "ratio",
+            "value_reference": 84,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_parameters_param_load_disturbance_magnitude_value",
+            "scalar_type": "real",
+            "start": "8.0",
+            "unit": "N_or_N.m",
+            "value_reference": 85,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_parameters_param_motor_phases_value",
+            "scalar_type": "real",
+            "start": "3.0",
+            "unit": "phases",
+            "value_reference": 86,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_parameters_param_motor_pole_pairs_value",
+            "scalar_type": "real",
+            "start": "4.0",
+            "unit": "pairs",
+            "value_reference": 87,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_parameters_param_motor_voltage_value",
+            "scalar_type": "real",
+            "start": "48.0",
+            "unit": "V",
+            "value_reference": 88,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fluxConstant",
+            "scalar_type": "real",
+            "start": "0.05",
+            "unit": "Wb",
+            "value_reference": 89,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "gravityLoad",
+            "scalar_type": "real",
+            "start": "0.5",
+            "unit": "N.m",
+            "value_reference": 90,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "kiCurrent",
+            "scalar_type": "real",
+            "start": "50.0",
+            "unit": null,
+            "value_reference": 91,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "kiPosition",
+            "scalar_type": "real",
+            "start": "150.0",
+            "unit": null,
+            "value_reference": 92,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "kpCurrent",
+            "scalar_type": "real",
+            "start": "3.0",
+            "unit": null,
+            "value_reference": 93,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "kpPosition",
+            "scalar_type": "real",
+            "start": "150.0",
+            "unit": null,
+            "value_reference": 94,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "motorInductance",
+            "scalar_type": "real",
+            "start": "0.005",
+            "unit": "H",
+            "value_reference": 95,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "motorInertia",
+            "scalar_type": "real",
+            "start": "0.02",
+            "unit": "kg.m2",
+            "value_reference": 96,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "motorResistance",
+            "scalar_type": "real",
+            "start": "0.5",
+            "unit": "Ohm",
+            "value_reference": 97,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "targetPosition",
+            "scalar_type": "real",
+            "start": "1.0",
+            "unit": "rad",
+            "value_reference": 98,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "thermalCapacity",
+            "scalar_type": "real",
+            "start": "100.0",
+            "unit": "J/K",
+            "value_reference": 99,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "thermalResistance",
+            "scalar_type": "real",
+            "start": "0.5",
+            "unit": "K/W",
+            "value_reference": 100,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "travelLimit",
+            "scalar_type": "real",
+            "start": "3.0",
+            "unit": "rad",
+            "value_reference": 101,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "viscousFriction",
+            "scalar_type": "real",
+            "start": "0.5",
+            "unit": "N.m.s/rad",
+            "value_reference": 102,
+            "variability": "fixed"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "controller_current_command",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "A",
+            "value_reference": 61,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "controller_final_error",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 64,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "controller_tracking_error",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad_or_m",
+            "value_reference": 70,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "controller_validity",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "dimensionless",
+            "value_reference": 60,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "plant_load_disturbance",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N_or_N.m",
+            "value_reference": 65,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "plant_position",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad",
+            "value_reference": 68,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "plant_travel",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 71,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "plant_validity",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "dimensionless",
+            "value_reference": 66,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "plant_velocity",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad/s",
+            "value_reference": 72,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "plant_voltage",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "V",
+            "value_reference": 73,
+            "variability": "continuous"
+          }
+        ]
+      },
+      "passed": false,
+      "properties": [
+        {
+          "detail": "always robustness=0",
+          "formula": "G[0, T](trace_if_voltage <= 48)",
+          "id": "prop_voltage_bound",
+          "interface_id": "if_voltage",
+          "passed": true,
+          "property_id": "prop_voltage_bound",
+          "robustness": 0.0,
+          "status": "satisfied"
+        },
+        {
+          "detail": "always robustness=-1.84064",
+          "formula": "G[9.1, T](trace_if_tracking_error <= 0.03)",
+          "id": "prop_tracking_error",
+          "interface_id": "if_tracking_error",
+          "passed": false,
+          "property_id": "prop_tracking_error",
+          "robustness": -1.8406385517098853,
+          "status": "violated"
+        },
+        {
+          "detail": "always robustness=0",
+          "formula": "G[4.6667, 9.3333](trace_if_load_disturbance <= 8)",
+          "id": "prop_load_disturbance",
+          "interface_id": "if_load_disturbance",
+          "passed": true,
+          "property_id": "prop_load_disturbance",
+          "robustness": 0.0,
+          "status": "satisfied"
+        },
+        {
+          "detail": "always robustness=0",
+          "formula": "G[0, T](trace_if_physical_validity <= 0)",
+          "id": "prop_physical_finite",
+          "interface_id": "if_physical_validity",
+          "passed": true,
+          "property_id": "prop_physical_finite",
+          "robustness": 0.0,
+          "status": "satisfied"
+        },
+        {
+          "detail": "always robustness=0",
+          "formula": "G[0, T](trace_if_control_validity <= 0)",
+          "id": "prop_control_finite",
+          "interface_id": "if_control_validity",
+          "passed": true,
+          "property_id": "prop_control_finite",
+          "robustness": 0.0,
+          "status": "satisfied"
+        },
+        {
+          "detail": "always robustness=0",
+          "formula": "G[0, T](trace_if_estimator_validity <= 0)",
+          "id": "prop_estimator_finite",
+          "interface_id": "if_estimator_validity",
+          "passed": true,
+          "property_id": "prop_estimator_finite",
+          "robustness": 0.0,
+          "status": "satisfied"
+        }
+      ],
+      "property_count": 6,
+      "property_summary": {
+        "passed": 5,
+        "total": 6,
+        "unevaluable": 0,
+        "violated": 1
+      },
+      "report": "execution.json",
+      "trace_gate": {
+        "finite": true,
+        "minimum_expected_samples": 2800,
+        "missing_outputs": [],
+        "required_outputs": [
+          "trace_if_control_validity",
+          "trace_if_current_command",
+          "trace_if_current_meas",
+          "trace_if_estimator_validity",
+          "trace_if_final_error",
+          "trace_if_load_disturbance",
+          "trace_if_physical_validity",
+          "trace_if_position_command",
+          "trace_if_position_meas",
+          "trace_if_temperature_meas",
+          "trace_if_tracking_error",
+          "trace_if_travel",
+          "trace_if_velocity_meas",
+          "trace_if_voltage"
+        ],
+        "sample_count": 2801,
+        "success": true
+      }
+    },
+    "modelica": {
+      "artifact": "modelica/model.mo",
+      "attempt_0_valid": false,
+      "combiner_model": "z-ai/glm-5.2",
+      "expert_candidates": [
+        "qwen/qwen3.6-plus",
+        "z-ai/glm-5.2",
+        "deepseek/deepseek-v4-pro",
+        "meta-llama/llama-4-maverick"
+      ],
+      "expert_models": [
+        "qwen/qwen3.6-plus",
+        "z-ai/glm-5.2",
+        "deepseek/deepseek-v4-pro",
+        "meta-llama/llama-4-maverick"
+      ],
+      "expert_soft_fail_count": 0,
+      "generation_mode": "moe",
+      "identity_preserved": true,
+      "model_name": "RobotTask_RPI0508_R00",
+      "passed": true,
+      "repairs": 1,
+      "report": "modelica/generation.json",
+      "retrieved_examples": [
+        {
+          "id": "M007",
+          "score": 53.46412640971412
+        },
+        {
+          "id": "M008",
+          "score": 52.304614879018345
+        },
+        {
+          "id": "M520",
+          "score": 48.636270534369295
+        },
+        {
+          "id": "M1033",
+          "score": 46.54907862495612
+        },
+        {
+          "id": "M009",
+          "score": 45.77017061357886
+        }
+      ],
+      "study_controls": {
+        "max_tool_repairs": 2,
+        "moe_enabled": true,
+        "rag_enabled": true,
+        "retrieval_k": 5,
+        "tool_repair_enabled": true
+      }
+    },
+    "normalization": {
+      "attempt_count": 1,
+      "precomputed": true,
+      "report": "normalization.json",
+      "success": true
+    },
+    "one_shot": {
+      "artifact_pair_valid_attempt_0": null,
+      "artifact_valid_attempt_0": false,
+      "modelica_valid_attempt_0": false,
+      "openusd_valid_attempt_0": null
+    },
+    "paired_block": {
+      "block_fingerprint": "fc4f7d9c9e9fb6f87b057f27b6dc8e5641bdb775d6527071e7fa6409bb4da876",
+      "normalized_ir_sha256": "502c653f42031a1979631709c66c98698fa3febc076dadc561a1e8c25d394d8e",
+      "repetition": 0
+    },
+    "passed": false,
+    "plan": {
+      "contract": "contract.json",
+      "mapping_count": 14,
+      "model_name": "RobotTask_RPI0508_R00",
+      "parameter_mapping_count": 7,
+      "report": "plan.json",
+      "requirement_ir": "requirement_ir.json",
+      "success": true
+    },
+    "runtime_repair": {
+      "accepted": 1,
+      "attempted": 1,
+      "enabled": true,
+      "final_model": "modelica/model.mo",
+      "infrastructure_error": null,
+      "max_repairs": 2,
+      "original_model": "modelica/pre-runtime-model.mo",
+      "report": "runtime-repair.json",
+      "triggered": true
+    },
+    "schema_version": "1.0",
+    "source_text_sha256": "d0d42eb398de87746ed2e0330584d33e619637d7813e4e5960f1e9d25730fba8",
+    "stage": "modelica_capability_orchestrator",
+    "stage_trace": [
+      {
+        "index": 0,
+        "passed": true,
+        "reached": true,
+        "stage": "requirement_normalization",
+        "status": "passed"
+      },
+      {
+        "index": 1,
+        "passed": true,
+        "reached": true,
+        "stage": "interface_planning",
+        "status": "passed"
+      },
+      {
+        "index": 2,
+        "passed": true,
+        "reached": true,
+        "stage": "modelica_validation",
+        "status": "passed"
+      },
+      {
+        "index": 3,
+        "passed": true,
+        "reached": true,
+        "stage": "modelica_identity",
+        "status": "passed"
+      },
+      {
+        "index": 4,
+        "passed": true,
+        "reached": true,
+        "stage": "fmu_export",
+        "status": "passed"
+      },
+      {
+        "index": 5,
+        "passed": true,
+        "reached": true,
+        "stage": "fmu_interface_contract",
+        "status": "passed"
+      },
+      {
+        "index": 6,
+        "passed": true,
+        "reached": true,
+        "stage": "runtime_initialization",
+        "status": "passed"
+      },
+      {
+        "index": 7,
+        "passed": true,
+        "reached": true,
+        "stage": "runtime_execution",
+        "status": "passed"
+      },
+      {
+        "index": 8,
+        "passed": true,
+        "reached": true,
+        "stage": "behavior_evaluation",
+        "status": "passed"
+      },
+      {
+        "index": 9,
+        "passed": false,
+        "reached": true,
+        "stage": "modelica_specification_alignment",
+        "status": "failed"
+      }
+    ],
+    "study_validity": {
+      "alignment_observed": true,
+      "complete_moe_required": true,
+      "condition_fidelity_passed": true,
+      "contract_created": true,
+      "eligible": true,
+      "expected": {
+        "alignment": true,
+        "id": "FULL",
+        "label": "complete_pipeline",
+        "moe": true,
+        "rag": true,
+        "tool_repair": true,
+        "validated_contract": true
+      },
+      "generation_reached": true,
+      "issues": [],
+      "observed_generation": [
+        {
+          "combiner_model": "z-ai/glm-5.2",
+          "expert_candidate_count": 4,
+          "expert_roster": [
+            "qwen/qwen3.6-plus",
+            "z-ai/glm-5.2",
+            "deepseek/deepseek-v4-pro",
+            "meta-llama/llama-4-maverick"
+          ],
+          "expert_soft_fail_count": 0,
+          "generation_mode": "moe",
+          "owner": "modelica",
+          "retrieval_count": 5,
+          "study_controls": {
+            "max_tool_repairs": 2,
+            "moe_enabled": true,
+            "rag_enabled": true,
+            "retrieval_k": 5,
+            "tool_repair_enabled": true
+          }
+        }
+      ],
+      "runtime_repair_observed": true
+    },
+    "task_id": "RPI0508-R00"
+  },
+  "schema_version": "1.1",
+  "task_id": "RPI0508",
+  "variant": "rich"
+}

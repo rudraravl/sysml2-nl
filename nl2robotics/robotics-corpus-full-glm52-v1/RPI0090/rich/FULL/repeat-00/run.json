@@ -1,0 +1,3264 @@
+{
+  "condition": {
+    "alignment": true,
+    "id": "FULL",
+    "label": "complete_pipeline",
+    "moe": true,
+    "rag": true,
+    "tool_repair": true,
+    "validated_contract": true
+  },
+  "configuration": {
+    "artifact_mode": "modelica_only",
+    "benchmark_manifest": "/storage/scratch1/4/skannan89/robotics-generalized/nl2robotics/corpus/pipeline_prompt_manifest.json",
+    "benchmark_manifest_sha256": "0a6631f7b9c9cbf4983d92ab4424943a668f60e571bf5ee4203213f84c1a8409",
+    "benchmark_split": "all",
+    "configuration_variant_filter": [],
+    "family_filter": [],
+    "fmi_backend": "local",
+    "h2_controller_backend": "local",
+    "h2_device": "cpu",
+    "h2_repetitions": 3,
+    "h2_solver": "TGS",
+    "isaac_handoff_configured": false,
+    "k": 5,
+    "max_runtime_repairs": 2,
+    "max_tool_repairs": 2,
+    "modelica_backend": "local",
+    "modelica_subset": "full1500",
+    "moe_configuration": "shared_with_sysml_pipeline",
+    "newton_controller_backend": "local",
+    "newton_device": "cuda:0",
+    "newton_fmi_runtime_image": "nl2robotics-fmi-runtime:0.1",
+    "newton_handoff_configured": false,
+    "newton_repeatability_tolerance": 1e-06,
+    "newton_repetitions": 3,
+    "newton_solver": "featherstone",
+    "newton_version": "1.5.0",
+    "pipeline": "nl_ir_modelica_compile_fmu_execute_spec",
+    "rag_routing": "family_preferred_4_of_5_with_global_fallback",
+    "randomization_seed": 20260830,
+    "require_complete_moe": true,
+    "runtime_repair_model": "z-ai/glm-5.2",
+    "runtime_repair_policy": "tool_conditions_only_monotonic_recompile_reexecute_recheck_behavior",
+    "runtime_repair_provider": "openrouter",
+    "semantic_case_filter": [],
+    "shard_assignment": "category_stratified_task_block_round_robin",
+    "shard_count": 4,
+    "single_model": "z-ai/glm-5.2",
+    "single_provider": "openrouter",
+    "study_protocol_core_sha256": "f5f0200a721873f9eeac07c7084e8f58fe820d1acef60434f7e0ac234041d153",
+    "task_order": "seeded_randomized"
+  },
+  "difficulty": "advanced",
+  "duration_seconds": 956.8460526908748,
+  "fingerprint": "a3722f23939bedd39ea55ea1c2879c11c58459b98adf3e20b41c1b48055d4ead",
+  "infrastructure_error": null,
+  "metrics": {
+    "all_properties_pass": false,
+    "artifact_pair_valid": null,
+    "artifact_pair_valid_attempt_0": null,
+    "artifact_valid": true,
+    "artifact_valid_attempt_0": true,
+    "behavior_evaluated": true,
+    "blocking_violations": 4,
+    "condition_fidelity": true,
+    "configured_pipeline_success": false,
+    "contract_valid": true,
+    "end_to_end": false,
+    "failure_stage": "behavior_evaluation",
+    "fmu_execution": true,
+    "fmu_export": true,
+    "fmu_interface_valid": true,
+    "infrastructure_available": true,
+    "ir_valid": true,
+    "maximum_stage_reached": 9,
+    "modelica_build": true,
+    "modelica_build_attempt_0": true,
+    "named_simulator_load": null,
+    "normalization_valid": true,
+    "post_execution_semantic": false,
+    "pre_execution_semantic": null,
+    "property_evaluability_rate": 1.0,
+    "property_evaluable": 9,
+    "property_satisfaction_rate_evaluable": 0.5555555555555556,
+    "property_satisfied": 5,
+    "property_total": 9,
+    "property_unevaluable": 0,
+    "property_violated": 4,
+    "repairs": 1,
+    "runtime_execution": true,
+    "runtime_trace_valid": true,
+    "semantic_coverage": 0.576642,
+    "semantic_score": 0.848101,
+    "specification_claim_ready": false,
+    "stable_simulation": true,
+    "usd_semantic_valid": null,
+    "usd_semantic_valid_attempt_0": null,
+    "verification_tier": 4
+  },
+  "planned_order_index": 31,
+  "profile": "capability",
+  "randomization_seed": 20260830,
+  "repetition": 0,
+  "result": {
+    "ablation": {
+      "condition": {
+        "alignment": true,
+        "id": "FULL",
+        "label": "complete_pipeline",
+        "moe": true,
+        "rag": true,
+        "tool_repair": true,
+        "validated_contract": true
+      },
+      "contract_role": "generation_and_validation",
+      "generation_strategy": "rag_moe"
+    },
+    "alignment": {
+      "blocking_violations": 4,
+      "claim_ready": false,
+      "counts": {
+        "not_applicable": 0,
+        "satisfied": 25,
+        "unknown": 29,
+        "violated": 4
+      },
+      "deterministic_violations": 4,
+      "enabled": true,
+      "evidence_coverage": 0.576642,
+      "not_run": false,
+      "passed": false,
+      "per_family": {
+        "interface": 1.0,
+        "parameter": 1.0,
+        "property": 0.555556,
+        "timing": 1.0
+      },
+      "question_count": 58,
+      "report": "alignment.json",
+      "skipped": false,
+      "weighted_semantic_score": 0.848101
+    },
+    "artifact_mode": "modelica_only",
+    "capabilities": {
+      "highest_reached_tier": 4,
+      "highest_reached_tier_name": "behaviorally_executed",
+      "profile_count": 14,
+      "report": "capability-report.json",
+      "requested_feature_count": 29,
+      "tiers": [
+        {
+          "name": "normalized",
+          "passed": true,
+          "tier": 0
+        },
+        {
+          "name": "ir_validated",
+          "passed": true,
+          "tier": 1
+        },
+        {
+          "modelica_passed": true,
+          "name": "artifacts_validated",
+          "openusd_passed": null,
+          "passed": true,
+          "tier": 2
+        },
+        {
+          "name": "executable_contract_validated",
+          "passed": true,
+          "reason": null,
+          "tier": 3
+        },
+        {
+          "behavior_evaluated": true,
+          "execution_completed": true,
+          "name": "behaviorally_executed",
+          "passed": true,
+          "reason": null,
+          "tier": 4
+        },
+        {
+          "name": "accelerator_provenance_verified",
+          "passed": false,
+          "reason": "requires genuine accelerator execution provenance",
+          "tier": 5
+        }
+      ]
+    },
+    "claim_eligible_deltaai_h2": false,
+    "claim_eligible_h2": false,
+    "claim_eligible_newton_h2": false,
+    "failure_stage": "behavior_evaluation",
+    "hybrid": {
+      "behavior_evaluated": true,
+      "behavior_passed": false,
+      "contract": {
+        "fmu": {
+          "fmi_version": "2.0",
+          "interface_type": "co_simulation",
+          "model_name": "RobotTask_RPI0090_R00",
+          "variables": [
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "cable_angle",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "rad",
+              "value_reference": 0,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "cable_angular_vel",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "rad/s",
+              "value_reference": 1,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "omega",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "rad/s",
+              "value_reference": 2,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "probe_force",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "N",
+              "value_reference": 3,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "theta",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "rad",
+              "value_reference": 4,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "thrust_fan_1",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 5,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "thrust_fan_2",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 6,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "thrust_fan_3",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 7,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "thrust_fan_4",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 8,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "vx",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "m/s",
+              "value_reference": 9,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "vz",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "m/s",
+              "value_reference": 10,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "x",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "m",
+              "value_reference": 11,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "z",
+              "scalar_type": "real",
+              "start": "2.0",
+              "unit": "m",
+              "value_reference": 12,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(cable_angle)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "Hz",
+              "value_reference": 13,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(cable_angular_vel)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "s-2",
+              "value_reference": 14,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(omega)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "s-2",
+              "value_reference": 15,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(probe_force)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "km.s-3.g",
+              "value_reference": 16,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(theta)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "Hz",
+              "value_reference": 17,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(thrust_fan_1)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "km.s-3.g",
+              "value_reference": 18,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(thrust_fan_2)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "km.s-3.g",
+              "value_reference": 19,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(thrust_fan_3)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "km.s-3.g",
+              "value_reference": 20,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(thrust_fan_4)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "km.s-3.g",
+              "value_reference": 21,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(vx)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m.s-2",
+              "value_reference": 22,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(vz)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m.s-2",
+              "value_reference": 23,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(x)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m.s-1",
+              "value_reference": 24,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(z)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m.s-1",
+              "value_reference": 25,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_if_cable_tension)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 26,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_if_ground_strike)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 27,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_if_payload_placement)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 28,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_if_tracking_error)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 29,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(payload_x)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 30,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(payload_z)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 31,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(position_command_x)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 32,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(position_command_z)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 33,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_cable_tension_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 47,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_ground_strike_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 48,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_imu_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 49,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_payload_placement_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 50,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_probe_force_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 51,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_thrust_fan_1_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 52,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_thrust_fan_2_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 53,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_thrust_fan_3_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 54,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_thrust_fan_4_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 55,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_tracking_error_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 56,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "ax_cmd",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m/s2",
+              "value_reference": 57,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "az_cmd",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m/s2",
+              "value_reference": 58,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "body_accel_x",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m/s2",
+              "value_reference": 59,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "body_accel_z",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m/s2",
+              "value_reference": 60,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "drag_x",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 61,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "drag_z",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 62,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "gust_force",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 63,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "payload_x",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 64,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "payload_z",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 65,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "pitch_moment",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N.m",
+              "value_reference": 66,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "pitch_moment_actual",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N.m",
+              "value_reference": 67,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "position_command_x",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 68,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "position_command_z",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 69,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "probe_tip_x",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 70,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "theta_cmd",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "rad",
+              "value_reference": 71,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "thrust_fan_2_cmd",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 72,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "thrust_fan_4_cmd",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 73,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "total_thrust",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 74,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "total_thrust_actual",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 75,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_cable_angle",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "rad",
+              "value_reference": 76,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_cable_tension",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 77,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_gps",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 78,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_ground_strike",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "dimensionless",
+              "value_reference": 79,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_imu",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 80,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_payload_placement",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 81,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_probe_force",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 82,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_thrust_fan_1",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 83,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_thrust_fan_2",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 84,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_thrust_fan_3",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 85,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_thrust_fan_4",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 86,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_tracking_error",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 87,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "vx_cmd",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m/s",
+              "value_reference": 88,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "vz_cmd",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m/s",
+              "value_reference": 89,
+              "variability": "continuous"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "body_inertia",
+              "scalar_type": "real",
+              "start": "0.05",
+              "unit": "kg.m2",
+              "value_reference": 92,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "cable_length",
+              "scalar_type": "real",
+              "start": "1.0",
+              "unit": "m",
+              "value_reference": 93,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "drag_coeff",
+              "scalar_type": "real",
+              "start": "0.15",
+              "unit": "N.s/m",
+              "value_reference": 94,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_entities_aerial_body_mass",
+              "scalar_type": "real",
+              "start": "2.7",
+              "unit": "kg",
+              "value_reference": 95,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_entities_inspection_probe_length",
+              "scalar_type": "real",
+              "start": "0.18",
+              "unit": "m",
+              "value_reference": 96,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_environment_controlled_gust_env_magnitude",
+              "scalar_type": "real",
+              "start": "11.6",
+              "unit": "N",
+              "value_reference": 97,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_parameters_fan_thrust_limit_value",
+              "scalar_type": "real",
+              "start": "22.0",
+              "unit": "N",
+              "value_reference": 98,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_parameters_gust_disturbance_force_value",
+              "scalar_type": "real",
+              "start": "11.6",
+              "unit": "N",
+              "value_reference": 99,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_parameters_horizontal_translation_distance_value",
+              "scalar_type": "real",
+              "start": "5.0",
+              "unit": "m",
+              "value_reference": 100,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_parameters_target_zone_radius_param_value",
+              "scalar_type": "real",
+              "start": "0.8",
+              "unit": "m",
+              "value_reference": 101,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fan_arm",
+              "scalar_type": "real",
+              "start": "0.2",
+              "unit": "m",
+              "value_reference": 102,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "g",
+              "scalar_type": "real",
+              "start": "9.81",
+              "unit": "m/s2",
+              "value_reference": 103,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "kd_cable",
+              "scalar_type": "real",
+              "start": "5.0",
+              "unit": "m/s2",
+              "value_reference": 104,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "kd_theta",
+              "scalar_type": "real",
+              "start": "16.0",
+              "unit": "1/s",
+              "value_reference": 105,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "kd_x",
+              "scalar_type": "real",
+              "start": "12.0",
+              "unit": "1/s",
+              "value_reference": 106,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "kd_z",
+              "scalar_type": "real",
+              "start": "12.0",
+              "unit": "1/s",
+              "value_reference": 107,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "kp_theta",
+              "scalar_type": "real",
+              "start": "80.0",
+              "unit": "1/s2",
+              "value_reference": 108,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "kp_x",
+              "scalar_type": "real",
+              "start": "25.0",
+              "unit": "1/s2",
+              "value_reference": 109,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "kp_z",
+              "scalar_type": "real",
+              "start": "25.0",
+              "unit": "1/s2",
+              "value_reference": 110,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "payload_mass",
+              "scalar_type": "real",
+              "start": "0.5",
+              "unit": "kg",
+              "value_reference": 111,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "probe_force_limit",
+              "scalar_type": "real",
+              "start": "5.0",
+              "unit": "N",
+              "value_reference": 112,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "tau_fan",
+              "scalar_type": "real",
+              "start": "0.02",
+              "unit": "s",
+              "value_reference": 113,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "tau_probe",
+              "scalar_type": "real",
+              "start": "0.01",
+              "unit": "s",
+              "value_reference": 114,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "z0",
+              "scalar_type": "real",
+              "start": "2.0",
+              "unit": "m",
+              "value_reference": 115,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "z_cruise",
+              "scalar_type": "real",
+              "start": "3.0",
+              "unit": "m",
+              "value_reference": 116,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "z_final",
+              "scalar_type": "real",
+              "start": "1.3",
+              "unit": "m",
+              "value_reference": 117,
+              "variability": "fixed"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_cable_angle_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 1,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_gps_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 9,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "cable_tension",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 77,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "gps_measurement",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 11,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "ground_strike",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "dimensionless",
+              "value_reference": 79,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "imu_measurement",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "rad/s",
+              "value_reference": 2,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "payload_placement_error",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 81,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "thrust_fan_1_cmd",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 72,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "thrust_fan_3_cmd",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 73,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "tracking_error",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 87,
+              "variability": "continuous"
+            }
+          ]
+        },
+        "issues": [],
+        "resolved_mappings": [
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_thrust_fan_1",
+            "id": "map_if_thrust_fan_1",
+            "interface_id": "if_thrust_fan_1",
+            "quantity": "thrust",
+            "required": true,
+            "semantic_entity_id": "fan_1",
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "N",
+            "state_id": "thrust_fan_1",
+            "target_unit": "N",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_thrust_fan_2",
+            "id": "map_if_thrust_fan_2",
+            "interface_id": "if_thrust_fan_2",
+            "quantity": "thrust",
+            "required": true,
+            "semantic_entity_id": "fan_2",
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "N",
+            "state_id": "thrust_fan_2",
+            "target_unit": "N",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_thrust_fan_3",
+            "id": "map_if_thrust_fan_3",
+            "interface_id": "if_thrust_fan_3",
+            "quantity": "thrust",
+            "required": true,
+            "semantic_entity_id": "fan_3",
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "N",
+            "state_id": "thrust_fan_3",
+            "target_unit": "N",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_thrust_fan_4",
+            "id": "map_if_thrust_fan_4",
+            "interface_id": "if_thrust_fan_4",
+            "quantity": "thrust",
+            "required": true,
+            "semantic_entity_id": "fan_4",
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "N",
+            "state_id": "thrust_fan_4",
+            "target_unit": "N",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_probe_force",
+            "id": "map_if_probe_force",
+            "interface_id": "if_probe_force",
+            "quantity": "force",
+            "required": true,
+            "semantic_entity_id": "inspection_probe",
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "unspecified",
+            "state_id": "probe_force",
+            "target_unit": "unspecified",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_cable_angle",
+            "id": "map_if_cable_angle",
+            "interface_id": "if_cable_angle",
+            "quantity": "angle",
+            "required": true,
+            "semantic_entity_id": "suspended_payload",
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "rad",
+            "state_id": "cable_angle",
+            "target_unit": "rad",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_cable_tension",
+            "id": "map_if_cable_tension",
+            "interface_id": "if_cable_tension",
+            "quantity": "tension",
+            "required": true,
+            "semantic_entity_id": "suspended_payload",
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "unspecified",
+            "state_id": "cable_tension",
+            "target_unit": "unspecified",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_tracking_error",
+            "id": "map_if_tracking_error",
+            "interface_id": "if_tracking_error",
+            "quantity": "position_error",
+            "required": true,
+            "semantic_entity_id": "aerial_body",
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "m",
+            "state_id": "tracking_error",
+            "target_unit": "m",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_ground_strike",
+            "id": "map_if_ground_strike",
+            "interface_id": "if_ground_strike",
+            "quantity": "contact",
+            "required": true,
+            "semantic_entity_id": "aerial_body",
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "dimensionless",
+            "state_id": "ground_strike",
+            "target_unit": "dimensionless",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_payload_placement",
+            "id": "map_if_payload_placement",
+            "interface_id": "if_payload_placement",
+            "quantity": "position_error",
+            "required": true,
+            "semantic_entity_id": "suspended_payload",
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "m",
+            "state_id": "payload_placement_error",
+            "target_unit": "m",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_imu",
+            "id": "map_if_imu",
+            "interface_id": "if_imu",
+            "quantity": "imu",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": "imu_sensor",
+            "source_unit": "unspecified",
+            "state_id": "imu_measurement",
+            "target_unit": "unspecified",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_gps",
+            "id": "map_if_gps",
+            "interface_id": "if_gps",
+            "quantity": "gps",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": "gps_sensor",
+            "source_unit": "unspecified",
+            "state_id": "gps_measurement",
+            "target_unit": "unspecified",
+            "verification_status": "resolved_fmu_output"
+          }
+        ],
+        "resolved_parameter_mappings": [
+          {
+            "actual_unit": "kg",
+            "actual_value": 2.7,
+            "collection": "entities",
+            "expected_value": 2.7,
+            "fact_id": "entities.aerial_body.mass",
+            "field": "mass",
+            "fmu_variable": "fact_entities_aerial_body_mass",
+            "id": "fact_entities_aerial_body_mass",
+            "record_id": "aerial_body",
+            "required": true,
+            "source_unit": "kg",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "m",
+            "actual_value": 0.18,
+            "collection": "entities",
+            "expected_value": 0.18,
+            "fact_id": "entities.inspection_probe.length",
+            "field": "length",
+            "fmu_variable": "fact_entities_inspection_probe_length",
+            "id": "fact_entities_inspection_probe_length",
+            "record_id": "inspection_probe",
+            "required": true,
+            "source_unit": "m",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "N",
+            "actual_value": 22.0,
+            "collection": "parameters",
+            "expected_value": 22.0,
+            "fact_id": "parameters.fan_thrust_limit.value",
+            "field": "value",
+            "fmu_variable": "fact_parameters_fan_thrust_limit_value",
+            "id": "fact_parameters_fan_thrust_limit_value",
+            "record_id": "fan_thrust_limit",
+            "required": true,
+            "source_unit": "N",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "N",
+            "actual_value": 11.6,
+            "collection": "parameters",
+            "expected_value": 11.6,
+            "fact_id": "parameters.gust_disturbance_force.value",
+            "field": "value",
+            "fmu_variable": "fact_parameters_gust_disturbance_force_value",
+            "id": "fact_parameters_gust_disturbance_force_value",
+            "record_id": "gust_disturbance_force",
+            "required": true,
+            "source_unit": "N",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "m",
+            "actual_value": 5.0,
+            "collection": "parameters",
+            "expected_value": 5.0,
+            "fact_id": "parameters.horizontal_translation_distance.value",
+            "field": "value",
+            "fmu_variable": "fact_parameters_horizontal_translation_distance_value",
+            "id": "fact_parameters_horizontal_translation_distance_value",
+            "record_id": "horizontal_translation_distance",
+            "required": true,
+            "source_unit": "m",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "m",
+            "actual_value": 0.8,
+            "collection": "parameters",
+            "expected_value": 0.8,
+            "fact_id": "parameters.target_zone_radius_param.value",
+            "field": "value",
+            "fmu_variable": "fact_parameters_target_zone_radius_param_value",
+            "id": "fact_parameters_target_zone_radius_param_value",
+            "record_id": "target_zone_radius_param",
+            "required": true,
+            "source_unit": "m",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "N",
+            "actual_value": 11.6,
+            "collection": "environment",
+            "expected_value": 11.6,
+            "fact_id": "environment.controlled_gust_env.magnitude",
+            "field": "magnitude",
+            "fmu_variable": "fact_environment_controlled_gust_env_magnitude",
+            "id": "fact_environment_controlled_gust_env_magnitude",
+            "record_id": "controlled_gust_env",
+            "required": true,
+            "source_unit": "N",
+            "verification_status": "resolved_fmu_parameter"
+          }
+        ],
+        "success": true
+      },
+      "execution": {
+        "available": true,
+        "columns": [
+          "time",
+          "trace_if_cable_angle",
+          "trace_if_cable_tension",
+          "trace_if_gps",
+          "trace_if_ground_strike",
+          "trace_if_imu",
+          "trace_if_payload_placement",
+          "trace_if_probe_force",
+          "trace_if_thrust_fan_1",
+          "trace_if_thrust_fan_2",
+          "trace_if_thrust_fan_3",
+          "trace_if_thrust_fan_4",
+          "trace_if_tracking_error"
+        ],
+        "diagnostics": [],
+        "duration_seconds": 0.5385109120979905,
+        "initialized": true,
+        "report_file": "outputs/robotics-corpus-full-glm52-v1/RPI0090/rich/FULL/repeat-00/artifacts/execution/execution/execution.json",
+        "result_file": "outputs/robotics-corpus-full-glm52-v1/RPI0090/rich/FULL/repeat-00/artifacts/execution/execution/trace.csv",
+        "sample_count": 10001,
+        "simulated": true,
+        "success": true
+      },
+      "execution_completed": true,
+      "execution_mode": "integrated_fmu_behavior",
+      "failure_stage": "behavior_evaluation",
+      "fmu": {
+        "available": true,
+        "checked": true,
+        "diagnostics": [],
+        "duration_seconds": 10.26906645577401,
+        "exported": true,
+        "fmi_version": "2.0",
+        "fmu_path": "outputs/robotics-corpus-full-glm52-v1/RPI0090/rich/FULL/repeat-00/artifacts/execution/export/candidate.fmu",
+        "inputs": [],
+        "interface_type": "co_simulation",
+        "model_identifier": "candidate",
+        "model_name": "RobotTask_RPI0090_R00",
+        "outputs": [
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_cable_angle",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad",
+            "value_reference": 76,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_cable_tension",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 77,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_gps",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 78,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_ground_strike",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "dimensionless",
+            "value_reference": 79,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_imu",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 80,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_payload_placement",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 81,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_probe_force",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 82,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_thrust_fan_1",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 83,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_thrust_fan_2",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 84,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_thrust_fan_3",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 85,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_thrust_fan_4",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 86,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_tracking_error",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 87,
+            "variability": "continuous"
+          }
+        ],
+        "success": true,
+        "variables": [
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "cable_angle",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "rad",
+            "value_reference": 0,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "cable_angular_vel",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "rad/s",
+            "value_reference": 1,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "omega",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "rad/s",
+            "value_reference": 2,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "probe_force",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "N",
+            "value_reference": 3,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "theta",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "rad",
+            "value_reference": 4,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "thrust_fan_1",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 5,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "thrust_fan_2",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 6,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "thrust_fan_3",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 7,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "thrust_fan_4",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 8,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "vx",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "m/s",
+            "value_reference": 9,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "vz",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "m/s",
+            "value_reference": 10,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "x",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "m",
+            "value_reference": 11,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "z",
+            "scalar_type": "real",
+            "start": "2.0",
+            "unit": "m",
+            "value_reference": 12,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(cable_angle)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "Hz",
+            "value_reference": 13,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(cable_angular_vel)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "s-2",
+            "value_reference": 14,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(omega)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "s-2",
+            "value_reference": 15,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(probe_force)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "km.s-3.g",
+            "value_reference": 16,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(theta)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "Hz",
+            "value_reference": 17,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(thrust_fan_1)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "km.s-3.g",
+            "value_reference": 18,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(thrust_fan_2)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "km.s-3.g",
+            "value_reference": 19,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(thrust_fan_3)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "km.s-3.g",
+            "value_reference": 20,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(thrust_fan_4)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "km.s-3.g",
+            "value_reference": 21,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(vx)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m.s-2",
+            "value_reference": 22,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(vz)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m.s-2",
+            "value_reference": 23,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(x)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m.s-1",
+            "value_reference": 24,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(z)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m.s-1",
+            "value_reference": 25,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_if_cable_tension)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 26,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_if_ground_strike)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 27,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_if_payload_placement)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 28,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_if_tracking_error)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 29,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(payload_x)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 30,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(payload_z)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 31,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(position_command_x)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 32,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(position_command_z)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 33,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_cable_tension_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 47,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_ground_strike_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 48,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_imu_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 49,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_payload_placement_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 50,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_probe_force_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 51,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_thrust_fan_1_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 52,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_thrust_fan_2_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 53,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_thrust_fan_3_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 54,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_thrust_fan_4_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 55,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_tracking_error_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 56,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "ax_cmd",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m/s2",
+            "value_reference": 57,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "az_cmd",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m/s2",
+            "value_reference": 58,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "body_accel_x",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m/s2",
+            "value_reference": 59,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "body_accel_z",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m/s2",
+            "value_reference": 60,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "drag_x",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 61,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "drag_z",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 62,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "gust_force",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 63,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "payload_x",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 64,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "payload_z",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 65,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "pitch_moment",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m",
+            "value_reference": 66,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "pitch_moment_actual",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m",
+            "value_reference": 67,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "position_command_x",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 68,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "position_command_z",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 69,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "probe_tip_x",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 70,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "theta_cmd",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad",
+            "value_reference": 71,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "thrust_fan_2_cmd",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 72,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "thrust_fan_4_cmd",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 73,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "total_thrust",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 74,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "total_thrust_actual",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 75,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_cable_angle",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad",
+            "value_reference": 76,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_cable_tension",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 77,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_gps",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 78,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_ground_strike",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "dimensionless",
+            "value_reference": 79,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_imu",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 80,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_payload_placement",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 81,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_probe_force",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 82,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_thrust_fan_1",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 83,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_thrust_fan_2",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 84,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_thrust_fan_3",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 85,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_thrust_fan_4",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 86,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_tracking_error",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 87,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "vx_cmd",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m/s",
+            "value_reference": 88,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "vz_cmd",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m/s",
+            "value_reference": 89,
+            "variability": "continuous"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "body_inertia",
+            "scalar_type": "real",
+            "start": "0.05",
+            "unit": "kg.m2",
+            "value_reference": 92,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "cable_length",
+            "scalar_type": "real",
+            "start": "1.0",
+            "unit": "m",
+            "value_reference": 93,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "drag_coeff",
+            "scalar_type": "real",
+            "start": "0.15",
+            "unit": "N.s/m",
+            "value_reference": 94,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_entities_aerial_body_mass",
+            "scalar_type": "real",
+            "start": "2.7",
+            "unit": "kg",
+            "value_reference": 95,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_entities_inspection_probe_length",
+            "scalar_type": "real",
+            "start": "0.18",
+            "unit": "m",
+            "value_reference": 96,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_environment_controlled_gust_env_magnitude",
+            "scalar_type": "real",
+            "start": "11.6",
+            "unit": "N",
+            "value_reference": 97,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_parameters_fan_thrust_limit_value",
+            "scalar_type": "real",
+            "start": "22.0",
+            "unit": "N",
+            "value_reference": 98,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_parameters_gust_disturbance_force_value",
+            "scalar_type": "real",
+            "start": "11.6",
+            "unit": "N",
+            "value_reference": 99,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_parameters_horizontal_translation_distance_value",
+            "scalar_type": "real",
+            "start": "5.0",
+            "unit": "m",
+            "value_reference": 100,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_parameters_target_zone_radius_param_value",
+            "scalar_type": "real",
+            "start": "0.8",
+            "unit": "m",
+            "value_reference": 101,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fan_arm",
+            "scalar_type": "real",
+            "start": "0.2",
+            "unit": "m",
+            "value_reference": 102,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "g",
+            "scalar_type": "real",
+            "start": "9.81",
+            "unit": "m/s2",
+            "value_reference": 103,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "kd_cable",
+            "scalar_type": "real",
+            "start": "5.0",
+            "unit": "m/s2",
+            "value_reference": 104,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "kd_theta",
+            "scalar_type": "real",
+            "start": "16.0",
+            "unit": "1/s",
+            "value_reference": 105,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "kd_x",
+            "scalar_type": "real",
+            "start": "12.0",
+            "unit": "1/s",
+            "value_reference": 106,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "kd_z",
+            "scalar_type": "real",
+            "start": "12.0",
+            "unit": "1/s",
+            "value_reference": 107,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "kp_theta",
+            "scalar_type": "real",
+            "start": "80.0",
+            "unit": "1/s2",
+            "value_reference": 108,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "kp_x",
+            "scalar_type": "real",
+            "start": "25.0",
+            "unit": "1/s2",
+            "value_reference": 109,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "kp_z",
+            "scalar_type": "real",
+            "start": "25.0",
+            "unit": "1/s2",
+            "value_reference": 110,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "payload_mass",
+            "scalar_type": "real",
+            "start": "0.5",
+            "unit": "kg",
+            "value_reference": 111,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "probe_force_limit",
+            "scalar_type": "real",
+            "start": "5.0",
+            "unit": "N",
+            "value_reference": 112,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "tau_fan",
+            "scalar_type": "real",
+            "start": "0.02",
+            "unit": "s",
+            "value_reference": 113,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "tau_probe",
+            "scalar_type": "real",
+            "start": "0.01",
+            "unit": "s",
+            "value_reference": 114,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "z0",
+            "scalar_type": "real",
+            "start": "2.0",
+            "unit": "m",
+            "value_reference": 115,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "z_cruise",
+            "scalar_type": "real",
+            "start": "3.0",
+            "unit": "m",
+            "value_reference": 116,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "z_final",
+            "scalar_type": "real",
+            "start": "1.3",
+            "unit": "m",
+            "value_reference": 117,
+            "variability": "fixed"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_cable_angle_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 1,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_gps_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 9,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "cable_tension",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 77,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "gps_measurement",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 11,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "ground_strike",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "dimensionless",
+            "value_reference": 79,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "imu_measurement",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad/s",
+            "value_reference": 2,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "payload_placement_error",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 81,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "thrust_fan_1_cmd",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 72,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "thrust_fan_3_cmd",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 73,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "tracking_error",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 87,
+            "variability": "continuous"
+          }
+        ]
+      },
+      "passed": false,
+      "properties": [
+        {
+          "detail": "always robustness=1.42109e-14",
+          "formula": "G[0, T](trace_if_thrust_fan_1 <= 22.0)",
+          "id": "prop_thrust_bound_1",
+          "interface_id": "if_thrust_fan_1",
+          "passed": true,
+          "property_id": "prop_thrust_bound_1",
+          "robustness": 1.4210854715202004e-14,
+          "status": "satisfied"
+        },
+        {
+          "detail": "always robustness=1.42109e-14",
+          "formula": "G[0, T](trace_if_thrust_fan_2 <= 22.0)",
+          "id": "prop_thrust_bound_2",
+          "interface_id": "if_thrust_fan_2",
+          "passed": true,
+          "property_id": "prop_thrust_bound_2",
+          "robustness": 1.4210854715202004e-14,
+          "status": "satisfied"
+        },
+        {
+          "detail": "always robustness=1.42109e-14",
+          "formula": "G[0, T](trace_if_thrust_fan_3 <= 22.0)",
+          "id": "prop_thrust_bound_3",
+          "interface_id": "if_thrust_fan_3",
+          "passed": true,
+          "property_id": "prop_thrust_bound_3",
+          "robustness": 1.4210854715202004e-14,
+          "status": "satisfied"
+        },
+        {
+          "detail": "always robustness=1.42109e-14",
+          "formula": "G[0, T](trace_if_thrust_fan_4 <= 22.0)",
+          "id": "prop_thrust_bound_4",
+          "interface_id": "if_thrust_fan_4",
+          "passed": true,
+          "property_id": "prop_thrust_bound_4",
+          "robustness": 1.4210854715202004e-14,
+          "status": "satisfied"
+        },
+        {
+          "detail": "always robustness=-0.834523",
+          "formula": "G[0, T](trace_if_cable_angle <= 0.45)",
+          "id": "prop_swing_bound",
+          "interface_id": "if_cable_angle",
+          "passed": false,
+          "property_id": "prop_swing_bound",
+          "robustness": -0.834523379283044,
+          "status": "violated"
+        },
+        {
+          "detail": "always robustness=-612.937",
+          "formula": "G[13.0, T](trace_if_tracking_error <= 0.24)",
+          "id": "prop_tracking_error_bound",
+          "interface_id": "if_tracking_error",
+          "passed": false,
+          "property_id": "prop_tracking_error_bound",
+          "robustness": -612.9371614653405,
+          "status": "violated"
+        },
+        {
+          "detail": "final robustness=-612.141",
+          "formula": "final[0, T](trace_if_payload_placement <= 0.8)",
+          "id": "prop_target_placement",
+          "interface_id": "if_payload_placement",
+          "passed": false,
+          "property_id": "prop_target_placement",
+          "robustness": -612.1405891601087,
+          "status": "violated"
+        },
+        {
+          "detail": "always robustness=-1",
+          "formula": "G[0, T](trace_if_ground_strike <= 0.0)",
+          "id": "prop_no_ground_strike",
+          "interface_id": "if_ground_strike",
+          "passed": false,
+          "property_id": "prop_no_ground_strike",
+          "robustness": -1.0,
+          "status": "violated"
+        },
+        {
+          "detail": "finite-value trace gate passed",
+          "formula": "all requested runtime outputs are finite",
+          "id": "prop_no_nan_inf",
+          "passed": true,
+          "property_id": "prop_no_nan_inf",
+          "robustness": null,
+          "status": "satisfied"
+        }
+      ],
+      "property_count": 9,
+      "property_summary": {
+        "passed": 5,
+        "total": 9,
+        "unevaluable": 0,
+        "violated": 4
+      },
+      "report": "execution.json",
+      "trace_gate": {
+        "finite": true,
+        "minimum_expected_samples": 10000,
+        "missing_outputs": [],
+        "required_outputs": [
+          "trace_if_cable_angle",
+          "trace_if_cable_tension",
+          "trace_if_gps",
+          "trace_if_ground_strike",
+          "trace_if_imu",
+          "trace_if_payload_placement",
+          "trace_if_probe_force",
+          "trace_if_thrust_fan_1",
+          "trace_if_thrust_fan_2",
+          "trace_if_thrust_fan_3",
+          "trace_if_thrust_fan_4",
+          "trace_if_tracking_error"
+        ],
+        "sample_count": 10001,
+        "success": true
+      }
+    },
+    "modelica": {
+      "artifact": "modelica/model.mo",
+      "attempt_0_valid": true,
+      "combiner_model": "z-ai/glm-5.2",
+      "expert_candidates": [
+        "qwen/qwen3.6-plus",
+        "z-ai/glm-5.2",
+        "deepseek/deepseek-v4-pro",
+        "meta-llama/llama-4-maverick"
+      ],
+      "expert_models": [
+        "qwen/qwen3.6-plus",
+        "z-ai/glm-5.2",
+        "deepseek/deepseek-v4-pro",
+        "meta-llama/llama-4-maverick"
+      ],
+      "expert_soft_fail_count": 0,
+      "generation_mode": "moe",
+      "identity_preserved": true,
+      "model_name": "RobotTask_RPI0090_R00",
+      "passed": true,
+      "repairs": 0,
+      "report": "modelica/generation.json",
+      "retrieved_examples": [
+        {
+          "id": "M008",
+          "score": 59.337191180263055
+        },
+        {
+          "id": "M007",
+          "score": 56.072191202109146
+        },
+        {
+          "id": "M009",
+          "score": 55.58139950448965
+        },
+        {
+          "id": "M1121",
+          "score": 51.735023533589086
+        },
+        {
+          "id": "M1101",
+          "score": 46.185517649279284
+        }
+      ],
+      "study_controls": {
+        "max_tool_repairs": 2,
+        "moe_enabled": true,
+        "rag_enabled": true,
+        "retrieval_k": 5,
+        "tool_repair_enabled": true
+      }
+    },
+    "normalization": {
+      "attempt_count": 1,
+      "precomputed": true,
+      "report": "normalization.json",
+      "success": true
+    },
+    "one_shot": {
+      "artifact_pair_valid_attempt_0": null,
+      "artifact_valid_attempt_0": true,
+      "modelica_valid_attempt_0": true,
+      "openusd_valid_attempt_0": null
+    },
+    "paired_block": {
+      "block_fingerprint": "eb0eff2e3d7911cb552a442810df8f1473cb0c7a3da5a884764ee49658210087",
+      "normalized_ir_sha256": "b12820b12881cd0df1823af5614861d4a22890a69552e0216cb31f9df230363f",
+      "repetition": 0
+    },
+    "passed": false,
+    "plan": {
+      "contract": "contract.json",
+      "mapping_count": 12,
+      "model_name": "RobotTask_RPI0090_R00",
+      "parameter_mapping_count": 7,
+      "report": "plan.json",
+      "requirement_ir": "requirement_ir.json",
+      "success": true
+    },
+    "runtime_repair": {
+      "accepted": 0,
+      "attempted": 1,
+      "enabled": true,
+      "final_model": "modelica/model.mo",
+      "infrastructure_error": null,
+      "max_repairs": 2,
+      "original_model": null,
+      "report": "runtime-repair.json",
+      "triggered": true
+    },
+    "schema_version": "1.0",
+    "source_text_sha256": "24f94c97eaedf9f00714208d503280a1813ff502ecbad3e60474142e6f47d4f5",
+    "stage": "modelica_capability_orchestrator",
+    "stage_trace": [
+      {
+        "index": 0,
+        "passed": true,
+        "reached": true,
+        "stage": "requirement_normalization",
+        "status": "passed"
+      },
+      {
+        "index": 1,
+        "passed": true,
+        "reached": true,
+        "stage": "interface_planning",
+        "status": "passed"
+      },
+      {
+        "index": 2,
+        "passed": true,
+        "reached": true,
+        "stage": "modelica_validation",
+        "status": "passed"
+      },
+      {
+        "index": 3,
+        "passed": true,
+        "reached": true,
+        "stage": "modelica_identity",
+        "status": "passed"
+      },
+      {
+        "index": 4,
+        "passed": true,
+        "reached": true,
+        "stage": "fmu_export",
+        "status": "passed"
+      },
+      {
+        "index": 5,
+        "passed": true,
+        "reached": true,
+        "stage": "fmu_interface_contract",
+        "status": "passed"
+      },
+      {
+        "index": 6,
+        "passed": true,
+        "reached": true,
+        "stage": "runtime_initialization",
+        "status": "passed"
+      },
+      {
+        "index": 7,
+        "passed": true,
+        "reached": true,
+        "stage": "runtime_execution",
+        "status": "passed"
+      },
+      {
+        "index": 8,
+        "passed": true,
+        "reached": true,
+        "stage": "behavior_evaluation",
+        "status": "passed"
+      },
+      {
+        "index": 9,
+        "passed": false,
+        "reached": true,
+        "stage": "modelica_specification_alignment",
+        "status": "failed"
+      }
+    ],
+    "study_validity": {
+      "alignment_observed": true,
+      "complete_moe_required": true,
+      "condition_fidelity_passed": true,
+      "contract_created": true,
+      "eligible": true,
+      "expected": {
+        "alignment": true,
+        "id": "FULL",
+        "label": "complete_pipeline",
+        "moe": true,
+        "rag": true,
+        "tool_repair": true,
+        "validated_contract": true
+      },
+      "generation_reached": true,
+      "issues": [],
+      "observed_generation": [
+        {
+          "combiner_model": "z-ai/glm-5.2",
+          "expert_candidate_count": 4,
+          "expert_roster": [
+            "qwen/qwen3.6-plus",
+            "z-ai/glm-5.2",
+            "deepseek/deepseek-v4-pro",
+            "meta-llama/llama-4-maverick"
+          ],
+          "expert_soft_fail_count": 0,
+          "generation_mode": "moe",
+          "owner": "modelica",
+          "retrieval_count": 5,
+          "study_controls": {
+            "max_tool_repairs": 2,
+            "moe_enabled": true,
+            "rag_enabled": true,
+            "retrieval_k": 5,
+            "tool_repair_enabled": true
+          }
+        }
+      ],
+      "runtime_repair_observed": true
+    },
+    "task_id": "RPI0090-R00"
+  },
+  "schema_version": "1.1",
+  "task_id": "RPI0090",
+  "variant": "rich"
+}

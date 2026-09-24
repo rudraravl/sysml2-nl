@@ -38,12 +38,8 @@ Usage
 
 from __future__ import annotations
 
-import argparse
-import json
 import sys
-import time
 from collections import defaultdict
-from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -51,7 +47,7 @@ _NL2 = Path(__file__).resolve().parent.parent
 _ROOT = _NL2.parent
 sys.path.insert(0, str(_ROOT))
 
-from analysis import paired_stats as ps  # noqa: E402
+from analysis import ablation  # noqa: E402
 from analysis import report  # noqa: E402
 from nl2solidity import analyze_naive_vs_full as nvf  # noqa: E402
 
@@ -71,7 +67,7 @@ DEFAULT_OUT = DATASET / "analysis_results" / "ablation"
 
 
 # ---- inputs -----------------------------------------------------------------
-def resolve_root(arg: Optional[str]) -> Path:
+def find_root(arg: Optional[str]) -> Path:
     candidates = [Path(arg)] if arg else ROOT_CANDIDATES
     for c in candidates:
         if any(c.glob("A*/*/meta.json")):
@@ -80,34 +76,8 @@ def resolve_root(arg: Optional[str]) -> Path:
              "\nPass --root <dir containing A0/ ... A5/> (e.g. the PACE dataset/ablation).")
 
 
-def parse_comparisons(args: argparse.Namespace, arms: list[str]) -> list[tuple[str, str]]:
-    """Ordered, de-duplicated (reference, comparison) arm pairs."""
-    pairs: list[tuple[str, str]] = []
-    if args.compare:
-        for spec in args.compare:
-            a, sep, b = spec.partition(":")
-            if not sep or a not in ARMS or b not in ARMS or a == b:
-                sys.exit(f"--compare expects REF:ARM with distinct arms from {ARMS}, got {spec!r}")
-            pairs.append((a, b))
-    else:
-        if args.mode in ("step", "both"):
-            pairs += [(ARMS[i - 1], ARMS[i]) for i in range(1, len(ARMS))]
-        if args.mode in ("cumulative", "both"):
-            pairs += [(ARMS[0], ARMS[i]) for i in range(1, len(ARMS))]
-    seen, out = set(), []
-    for p in pairs:
-        if p in seen:
-            continue
-        seen.add(p)
-        if p[0] in arms and p[1] in arms:
-            out.append(p)
-        else:
-            print(f"  ! skipping {p[0]} vs {p[1]}: arm not present", file=sys.stderr)
-    return out
-
-
-def slug(a: str, b: str) -> str:
-    return f"{a}_to_{b}"
+def discover(root: Path) -> dict[str, str]:
+    return {a: ARM_ADDS[a] for a in ARMS if any((root / a).glob("*/meta.json"))}
 
 
 # ---- per-comparison extras (same sections as naive-vs-full) -----------------
@@ -149,102 +119,35 @@ def failure_table(corpora: dict[str, dict], arms: list[str], sids: list[str]) ->
         [[k] + [f"{counts[a][k]} ({counts[a][k] / n * 100:.1f}%)" for a in arms] for k in FAIL_ORDER])
 
 
-def run_comparison(ref_arm: str, cmp_arm: str, corpora: dict[str, dict], out_dir: Path,
-                   root: Path, plots: bool) -> dict:
-    ref, cmp_ = corpora[ref_arm], corpora[cmp_arm]
-    sids = sorted(set(ref) & set(cmp_))
-    labels = (ref_arm, cmp_arm)
-    metrics = nvf.build_metrics(ref, cmp_, sids)
-    results = ps.analyze(metrics)
-    title = f"Ablation {ref_arm} -> {cmp_arm}: {ARM_ADDS[ref_arm]} vs {ARM_ADDS[cmp_arm]} (n={len(sids)} pairs)"
-    report.print_summary(results, title, labels)
-
-    header = [
-        f"- Reference arm **{ref_arm}** ({ARM_ADDS[ref_arm]}): {len(ref)} samples in `{root / ref_arm}`",
-        f"- Comparison arm **{cmp_arm}** ({ARM_ADDS[cmp_arm]}): {len(cmp_)} samples in `{root / cmp_arm}`",
-        f"- Paired on sid: **{len(sids)}** ({ref_arm}-only {len(set(ref) - set(cmp_))}, "
-        f"{cmp_arm}-only {len(set(cmp_) - set(ref))})",
-        f"- Δ is the raw difference ({cmp_arm} − {ref_arm}); the effect size is signed so that "
-        f"positive means {cmp_arm} is better. All metrics come from cached `meta.json`; a metric "
-        "missing for either side of a pair drops that pair from that metric only (see `n` per row).",
-    ]
-    written = report.write_outputs(
-        out_dir, title=title, header_lines=header, results=results,
-        extra_sections=[("First failing stage", failure_table({ref_arm: ref, cmp_arm: cmp_},
-                                                              [ref_arm, cmp_arm], sids)),
-                        ("By category", by_category(ref, cmp_, sids, labels))],
-        meta={"reference": ref_arm, "comparison": cmp_arm, "root": str(root),
-              "n_pairs": len(sids), "reference_total": len(ref), "comparison_total": len(cmp_)},
-        plots=plots, metrics=metrics, labels=labels)
-    return {"results": results, "n_pairs": len(sids), "written": written}
+def pair_sections(ref_arm: str, cmp_arm: str, ref: dict, cmp_: dict, sids: list[str]):
+    return [("First failing stage", failure_table({ref_arm: ref, cmp_arm: cmp_},
+                                                  [ref_arm, cmp_arm], sids)),
+            ("By category", by_category(ref, cmp_, sids, (ref_arm, cmp_arm)))]
 
 
-# ---- ladder (descriptive, every arm on one common footing) ------------------
-def ladder(corpora: dict[str, dict], arms: list[str]) -> dict:
-    """Per-arm value of every metric on the sids present in ALL arms. Security
-    metrics are further restricted to sids where every arm compiles, so the row is
-    comparable across arms (Slither reports 0 findings for uncompilable code)."""
-    common = sorted(set.intersection(*(set(corpora[a]) for a in arms)))
+# ---- ladder -----------------------------------------------------------------
+def ladder_context(corpora: dict[str, dict], arms: list[str], common: list[str]) -> dict:
+    """Security metrics are restricted to seeds where every arm compiles, so the
+    row is comparable across arms (Slither reports 0 findings for uncompilable code)."""
     all_compile = [s for s in common if all(nvf.is_valid(corpora[a][s]) is True for a in arms)]
-    per_arm: dict[str, dict[str, dict]] = {}
-    for a in arms:
-        # (arm, arm) pairing: the "naive" side of each PairedMetric is this arm's value.
-        for m in nvf.build_metrics(corpora[a], corpora[a], common, security_sids=all_compile):
-            vals = [float(v) for v in m.naive]
-            entry = {"n": len(vals), "kind": m.kind, "lower_is_better": m.lower_is_better,
-                     "note": m.note}
-            if not vals:
-                entry.update(value=None, ci=None)
-            elif m.kind == "proportion":
-                k = int(sum(vals))
-                entry.update(value=k / len(vals) * 100, ci=ps.wilson_ci(k, len(vals)))
-            else:
-                entry.update(value=sum(vals) / len(vals), ci=ps.bootstrap_mean_ci(vals))
-            per_arm.setdefault(m.name, {})[a] = entry
-    return {"common_n": len(common), "all_compile_n": len(all_compile), "metrics": per_arm}
+    return {"all_compile_n": len(all_compile), "_all_compile": all_compile}
 
 
-def _fmt(entry: dict) -> str:
-    if entry["value"] is None:
-        return "n/a"
-    return f"{entry['value']:.1f}%" if entry["kind"] == "proportion" else f"{entry['value']:.3g}"
+def ladder_metrics(corpus: dict, common: list[str], ctx: dict):
+    # (arm, arm) pairing: the "naive" side of each PairedMetric is this arm's value.
+    return nvf.build_metrics(corpus, corpus, common, security_sids=ctx["_all_compile"])
 
 
-def ladder_table(lad: dict, arms: list[str]) -> str:
-    rows = []
-    for name, by_arm in lad["metrics"].items():
-        first = next(iter(by_arm.values()))
-        arrow = " ↓" if first["lower_is_better"] else ""
-        rows.append([name + arrow, first["n"]] + [_fmt(by_arm[a]) for a in arms])
-    return report.table_md(["Metric (↓ = lower is better)", "n"] + arms, rows)
+def ladder_note(ctx: dict) -> str:
+    return (f"; the Slither rows are further restricted to the **{ctx['all_compile_n']}** seeds "
+            "where every arm compiles, because Slither reports 0 findings for code it cannot "
+            "analyse.")
 
 
-def effect_table(all_results: dict[tuple[str, str], list[dict]], pairs: list[tuple[str, str]],
-                 metric_names: list[str]) -> str:
-    """One row per metric, one column per comparison: raw delta (later - earlier),
-    marked * when Holm p < 0.05."""
-    def cell(r: Optional[dict]) -> str:
-        if r is None or r["skipped"]:
-            return "n/a"
-        d = r["delta"]
-        text = f"{d:+.1f} pp" if r["kind"] == "proportion" else f"{d:+.3g}"
-        return text + ("*" if r["p_holm"] < ps.ALPHA else "")
-
-    lower = {r["metric"] for r in next(iter(all_results.values())) if r["lower_is_better"]}
-    rows = []
-    for name in metric_names:
-        row = [name + (" ↓" if name in lower else "")]
-        for p in pairs:
-            match = next((r for r in all_results[p] if r["metric"] == name), None)
-            row.append(cell(match))
-        rows.append(row)
-    return report.table_md(["Metric (↓ = lower is better)"] + [f"{a}→{b}" for a, b in pairs], rows)
-
-
-def category_ladder(corpora: dict[str, dict], arms: list[str], sids: list[str]) -> str:
+def ladder_sections(root: Path, corpora: dict[str, dict], arms: list[str], common: list[str]):
     """Quality-grade-A rate per category per arm: where in the taxonomy each stage pays."""
     groups: dict[str, list[str]] = defaultdict(list)
-    for s in sids:
+    for s in common:
         groups[corpora[arms[-1]][s].get("category") or "unknown"].append(s)
     rows = []
     for cat, m in sorted(groups.items(), key=lambda kv: -len(kv[1])):
@@ -253,149 +156,40 @@ def category_ladder(corpora: dict[str, dict], arms: list[str], sids: list[str]) 
             vals = [v for v in (nvf.grade_a(corpora[a][s]) for s in m) if v is not None]
             cells.append(f"{sum(vals) / len(vals) * 100:.0f}%" if vals else "n/a")
         rows.append([cat, len(m)] + cells)
-    return report.table_md(["Category", "n"] + arms, rows)
+    return [("First failing stage", failure_table(corpora, arms, common)),
+            ("Quality grade A by category",
+             report.table_md(["Category", "n"] + arms, rows))]
 
 
-# ---- ladder plots -----------------------------------------------------------
-def ladder_plots(out_dir: Path, lad: dict, arms: list[str]) -> dict[str, Path]:
-    try:
-        import matplotlib
-        matplotlib.use("Agg")
-        import matplotlib.pyplot as plt
-    except ImportError:
-        print("matplotlib not installed — skipping ladder plots (pip install matplotlib)")
-        return {}
-    written: dict[str, Path] = {}
-    for kind, fname, ylabel in (("proportion", "ladder_rates.png", "Rate (%), 95% Wilson CI"),
-                                ("continuous", "ladder_continuous.png", "Mean, 95% bootstrap CI")):
-        items = [(n, d) for n, d in lad["metrics"].items()
-                 if next(iter(d.values()))["kind"] == kind and all(d[a]["value"] is not None for a in arms)]
-        if not items:
-            continue
-        cols = min(3, len(items))
-        nrows = (len(items) + cols - 1) // cols
-        fig, axes = plt.subplots(nrows, cols, figsize=(4.4 * cols, 3.2 * nrows), squeeze=False)
-        x = list(range(len(arms)))
-        for ax, (name, d) in zip(axes.flat, items):
-            y = [d[a]["value"] for a in arms]
-            lo = [d[a]["value"] - d[a]["ci"][0] for a in arms]
-            hi = [d[a]["ci"][1] - d[a]["value"] for a in arms]
-            ax.errorbar(x, y, yerr=[lo, hi], marker="o", color=report.FULL_COLOR, capsize=3)
-            ax.set_xticks(x, arms)
-            ax.set_title(f"{name} (n={d[arms[0]]['n']})", fontsize=9)
-            ax.grid(alpha=0.25)
-            if kind == "proportion":
-                ax.set_ylim(0, 100)
-        for ax in list(axes.flat)[len(items):]:
-            ax.axis("off")
-        fig.supylabel(ylabel, fontsize=9)
-        fig.tight_layout()
-        p = out_dir / fname
-        fig.savefig(p, dpi=150)
-        plt.close(fig)
-        written[fname.removesuffix(".png")] = p
-    return written
-
-
-# ---- main -------------------------------------------------------------------
-def main() -> None:
-    ap = argparse.ArgumentParser(description=__doc__,
-                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--root", help="directory holding A0/ .. A5/ "
-                                   f"(default {ROOT_CANDIDATES[0].relative_to(_ROOT)}, else the local copy)")
-    ap.add_argument("--out-dir", default=str(DEFAULT_OUT), help="where to write results")
-    ap.add_argument("--mode", choices=["both", "step", "cumulative"], default="both",
-                    help="step = A(k-1)->A(k); cumulative = A0->A(k); default both")
-    ap.add_argument("--compare", action="append", metavar="REF:ARM",
-                    help="explicit comparison, repeatable (overrides --mode), e.g. A2:A4")
-    ap.add_argument("--no-plots", action="store_true")
-    args = ap.parse_args()
-
-    t0 = time.time()
-    root = resolve_root(args.root)
-    corpora = {a: nvf.load_corpus(root / a) for a in ARMS if any((root / a).glob("*/meta.json"))}
-    arms = [a for a in ARMS if a in corpora]
-    print(f"root: {root}")
-    for a in arms:
-        print(f"  {a}  {len(corpora[a]):>4} samples   {ARM_ADDS[a]}")
-    missing = [a for a in ARMS if a not in corpora]
-    if missing:
-        print(f"  ! no samples for {', '.join(missing)}", file=sys.stderr)
-    pairs = parse_comparisons(args, arms)
-    if not pairs:
-        sys.exit("Nothing to compare: need at least two arms.")
-
-    out_dir = Path(args.out_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
-    all_results: dict[tuple[str, str], list[dict]] = {}
-    n_pairs: dict[tuple[str, str], int] = {}
-    for a, b in pairs:
-        print()
-        r = run_comparison(a, b, corpora, out_dir / slug(a, b), root, plots=not args.no_plots)
-        all_results[(a, b)], n_pairs[(a, b)] = r["results"], r["n_pairs"]
-
-    # -- ladder summary --------------------------------------------------------
-    summary_json: dict = {"generated": datetime.now().isoformat(timespec="seconds"),
-                          "alpha": ps.ALPHA, "root": str(root), "arms": arms,
-                          "comparisons": {f"{a}->{b}": {"n_pairs": n_pairs[(a, b)],
-                                                        "results": all_results[(a, b)]}
-                                          for a, b in pairs}}
-    md = ["# Solidity ablation ladder", "",
-          "Arms (each is the one below plus exactly one stage):", ""]
-    md += [f"- **{a}** — {ARM_ADDS[a]} ({len(corpora[a])} samples)" for a in arms]
-    md.append("")
-
-    if len(arms) >= 2:
-        lad = ladder(corpora, arms)
-        summary_json["ladder"] = lad
-        md += ["## Every metric down the ladder", "",
-               f"Descriptive. Restricted to the **{lad['common_n']}** seeds present in every arm; "
-               f"the Slither rows are further restricted to the **{lad['all_compile_n']}** seeds "
-               "where every arm compiles, because Slither reports 0 findings for code it cannot "
-               "analyse. Tests are in the comparison tables below.", "",
-               ladder_table(lad, arms), ""]
-        common = sorted(set.intersection(*(set(corpora[a]) for a in arms)))
-        md += ["## First failing stage", "",
-               failure_table(corpora, arms, common), "",
-               "## Quality grade A by category", "",
-               category_ladder(corpora, arms, common), ""]
-
-    metric_names = [r["metric"] for r in next(iter(all_results.values())) if not r["skipped"]]
-    for heading, sel, blurb in (
-            ("Step effects: what each stage adds", [p for p in pairs if ARMS.index(p[1]) - ARMS.index(p[0]) == 1],
-             "Each column pairs an arm with the one directly below it on the ladder."),
-            ("Cumulative effects vs one-shot (A0)", [p for p in pairs if p[0] == "A0" and p[1] != "A1"],
-             "Each column pairs an arm with A0. A0→A5 is the ablation-native full-vs-naive; "
-             "A0→A1 is already in the step table.")):
-        if sel:
-            md += [f"## {heading}", "",
-                   f"{blurb} Each cell is the raw Δ (later − earlier): a rise is good for a "
-                   "rate, a fall is good for a ↓ metric. `*` marks Holm-adjusted p < 0.05 within "
-                   "that comparison's table. Effect sizes, CIs and power per comparison are in "
-                   "`<from>_to_<to>/comparison.md`.", "",
-                   effect_table(all_results, sel, metric_names), ""]
-    md += ["## Reading these numbers", "",
-           "* Holm correction is applied **within** each comparison's metric table (as in the "
-           "naive-vs-full analysis), not across comparisons. With nine comparisons, treat an "
-           "isolated `*` at p just under 0.05 as suggestive.",
-           "* Every arm is *measured* by every checker (solc, Foundry, Slither, aligner) even where "
-           "the stage is not used for repair, so a metric moves between arms only because of the "
-           "stage that was added, not because it started being measured.",
-           "* Later arms repair against the very checkers that score them (A3 against solc, A4 "
-           "against Foundry, A5 against Slither and the aligner). Gains on those metrics are "
-           "expected by construction; the informative signal is on the metrics a stage does not "
-           "repair against.", ""]
-    (out_dir / "ablation_summary.md").write_text("\n".join(md) + "\n", encoding="utf-8")
-    (out_dir / "ablation_summary.json").write_text(
-        json.dumps(summary_json, indent=2, default=report._json_default) + "\n", encoding="utf-8")
-    if not args.no_plots and len(arms) >= 2:
-        for kind, path in ladder_plots(out_dir, lad, arms).items():
-            print(f"wrote {kind}: {path}")
-
-    print(f"\nwrote {out_dir / 'ablation_summary.md'}")
-    print(f"wrote {out_dir / 'ablation_summary.json'}")
-    print(f"{len(pairs)} comparisons in {time.time() - t0:.1f}s")
+STUDY = ablation.Study(
+    domain="Solidity",
+    doc=__doc__,
+    default_out=DEFAULT_OUT,
+    unit="seeds",
+    key_name="sid",
+    source_desc="cached `meta.json`",
+    cumulative_note=("Each column pairs an arm with {first}. {first}→{last} is the ablation-native "
+                     "full-vs-naive; {first}→{second} is already in the step table."),
+    notes=[
+        "Every arm is *measured* by every checker (solc, Foundry, Slither, aligner) even where "
+        "the stage is not used for repair, so a metric moves between arms only because of the "
+        "stage that was added, not because it started being measured.",
+        "Later arms repair against the very checkers that score them (A3 against solc, A4 "
+        "against Foundry, A5 against Slither and the aligner). Gains on those metrics are "
+        "expected by construction; the informative signal is on the metrics a stage does not "
+        "repair against.",
+    ],
+    find_root=find_root,
+    discover=discover,
+    load=lambda root, arm: nvf.load_corpus(root / arm),
+    build_metrics=nvf.build_metrics,
+    pair_sections=pair_sections,
+    ladder_context=ladder_context,
+    ladder_metrics=ladder_metrics,
+    ladder_note=ladder_note,
+    ladder_sections=ladder_sections,
+)
 
 
 if __name__ == "__main__":
-    main()
+    ablation.main(STUDY)

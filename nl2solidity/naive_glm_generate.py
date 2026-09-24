@@ -50,6 +50,17 @@ OUT_DIR = _ROOT / "nl2solidity" / "dataset" / "naive_glm"
 
 
 def _openrouter_invoke(model, system_msg, human_msg, key, retries=3):
+    messages = [
+        {"role": "system", "content": system_msg},
+        {"role": "user", "content": human_msg},
+    ]
+    return _openrouter_chat(model, messages, key, retries=retries)[0]
+
+
+def _openrouter_chat(model, messages, key, temperature=0.2, top_p=None, retries=3):
+    """One chat completion over a full message list. Returns (content, response_obj);
+    response_obj carries `usage` when OpenRouter reports it. top_p=None leaves it out
+    of the payload, so _openrouter_invoke sends exactly what it always has."""
     import json as _json
     import urllib.error as _err
     import urllib.request as _req
@@ -57,12 +68,11 @@ def _openrouter_invoke(model, system_msg, human_msg, key, retries=3):
     base = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
     payload = {
         "model": model,
-        "messages": [
-            {"role": "system", "content": system_msg},
-            {"role": "user", "content": human_msg},
-        ],
-        "temperature": 0.2,
+        "messages": messages,
+        "temperature": temperature,
     }
+    if top_p is not None:
+        payload["top_p"] = top_p
     headers = {
         "Content-Type": "application/json",
         "Accept": "application/json",
@@ -104,7 +114,7 @@ def _openrouter_invoke(model, system_msg, human_msg, key, retries=3):
             time.sleep(2 * (attempt + 1))
             continue
         try:
-            return obj["choices"][0]["message"]["content"]
+            return obj["choices"][0]["message"]["content"], obj
         except (KeyError, IndexError):
             last = f"unexpected response shape: {body[:200]}"
             time.sleep(2 * (attempt + 1))

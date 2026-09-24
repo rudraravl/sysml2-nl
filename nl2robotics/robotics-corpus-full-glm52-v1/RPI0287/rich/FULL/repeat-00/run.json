@@ -1,0 +1,4083 @@
+{
+  "condition": {
+    "alignment": true,
+    "id": "FULL",
+    "label": "complete_pipeline",
+    "moe": true,
+    "rag": true,
+    "tool_repair": true,
+    "validated_contract": true
+  },
+  "configuration": {
+    "artifact_mode": "modelica_only",
+    "benchmark_manifest": "/storage/scratch1/4/skannan89/robotics-generalized/nl2robotics/corpus/pipeline_prompt_manifest.json",
+    "benchmark_manifest_sha256": "0a6631f7b9c9cbf4983d92ab4424943a668f60e571bf5ee4203213f84c1a8409",
+    "benchmark_split": "all",
+    "configuration_variant_filter": [],
+    "family_filter": [],
+    "fmi_backend": "local",
+    "h2_controller_backend": "local",
+    "h2_device": "cpu",
+    "h2_repetitions": 3,
+    "h2_solver": "TGS",
+    "isaac_handoff_configured": false,
+    "k": 5,
+    "max_runtime_repairs": 2,
+    "max_tool_repairs": 2,
+    "modelica_backend": "local",
+    "modelica_subset": "full1500",
+    "moe_configuration": "shared_with_sysml_pipeline",
+    "newton_controller_backend": "local",
+    "newton_device": "cuda:0",
+    "newton_fmi_runtime_image": "nl2robotics-fmi-runtime:0.1",
+    "newton_handoff_configured": false,
+    "newton_repeatability_tolerance": 1e-06,
+    "newton_repetitions": 3,
+    "newton_solver": "featherstone",
+    "newton_version": "1.5.0",
+    "pipeline": "nl_ir_modelica_compile_fmu_execute_spec",
+    "rag_routing": "family_preferred_4_of_5_with_global_fallback",
+    "randomization_seed": 20260830,
+    "require_complete_moe": true,
+    "runtime_repair_model": "z-ai/glm-5.2",
+    "runtime_repair_policy": "tool_conditions_only_monotonic_recompile_reexecute_recheck_behavior",
+    "runtime_repair_provider": "openrouter",
+    "semantic_case_filter": [],
+    "shard_assignment": "category_stratified_task_block_round_robin",
+    "shard_count": 4,
+    "single_model": "z-ai/glm-5.2",
+    "single_provider": "openrouter",
+    "study_protocol_core_sha256": "f5f0200a721873f9eeac07c7084e8f58fe820d1acef60434f7e0ac234041d153",
+    "task_order": "seeded_randomized"
+  },
+  "difficulty": "advanced",
+  "duration_seconds": 1045.7961756167933,
+  "fingerprint": "215fefd1b61663da43808513ef95d73a600cb4a8ca3e5c4b336a1d8ba57714b2",
+  "infrastructure_error": null,
+  "metrics": {
+    "all_properties_pass": false,
+    "artifact_pair_valid": null,
+    "artifact_pair_valid_attempt_0": null,
+    "artifact_valid": true,
+    "artifact_valid_attempt_0": true,
+    "behavior_evaluated": true,
+    "blocking_violations": 1,
+    "condition_fidelity": true,
+    "configured_pipeline_success": false,
+    "contract_valid": true,
+    "end_to_end": false,
+    "failure_stage": "behavior_evaluation",
+    "fmu_execution": true,
+    "fmu_export": true,
+    "fmu_interface_valid": true,
+    "infrastructure_available": true,
+    "ir_valid": true,
+    "maximum_stage_reached": 9,
+    "modelica_build": true,
+    "modelica_build_attempt_0": true,
+    "named_simulator_load": null,
+    "normalization_valid": true,
+    "post_execution_semantic": false,
+    "pre_execution_semantic": null,
+    "property_evaluability_rate": 1.0,
+    "property_evaluable": 6,
+    "property_satisfaction_rate_evaluable": 0.8333333333333334,
+    "property_satisfied": 5,
+    "property_total": 6,
+    "property_unevaluable": 0,
+    "property_violated": 1,
+    "repairs": 1,
+    "runtime_execution": true,
+    "runtime_trace_valid": true,
+    "semantic_coverage": 0.548611,
+    "semantic_score": 0.962025,
+    "specification_claim_ready": false,
+    "stable_simulation": true,
+    "usd_semantic_valid": null,
+    "usd_semantic_valid_attempt_0": null,
+    "verification_tier": 4
+  },
+  "planned_order_index": 278,
+  "profile": "capability",
+  "randomization_seed": 20260830,
+  "repetition": 0,
+  "result": {
+    "ablation": {
+      "condition": {
+        "alignment": true,
+        "id": "FULL",
+        "label": "complete_pipeline",
+        "moe": true,
+        "rag": true,
+        "tool_repair": true,
+        "validated_contract": true
+      },
+      "contract_role": "generation_and_validation",
+      "generation_strategy": "rag_moe"
+    },
+    "alignment": {
+      "blocking_violations": 1,
+      "claim_ready": false,
+      "counts": {
+        "not_applicable": 0,
+        "satisfied": 29,
+        "unknown": 31,
+        "violated": 1
+      },
+      "deterministic_violations": 1,
+      "enabled": true,
+      "evidence_coverage": 0.548611,
+      "not_run": false,
+      "passed": false,
+      "per_family": {
+        "interface": 1.0,
+        "parameter": 1.0,
+        "property": 0.833333,
+        "timing": 1.0
+      },
+      "question_count": 61,
+      "report": "alignment.json",
+      "skipped": false,
+      "weighted_semantic_score": 0.962025
+    },
+    "artifact_mode": "modelica_only",
+    "capabilities": {
+      "highest_reached_tier": 4,
+      "highest_reached_tier_name": "behaviorally_executed",
+      "profile_count": 14,
+      "report": "capability-report.json",
+      "requested_feature_count": 27,
+      "tiers": [
+        {
+          "name": "normalized",
+          "passed": true,
+          "tier": 0
+        },
+        {
+          "name": "ir_validated",
+          "passed": true,
+          "tier": 1
+        },
+        {
+          "modelica_passed": true,
+          "name": "artifacts_validated",
+          "openusd_passed": null,
+          "passed": true,
+          "tier": 2
+        },
+        {
+          "name": "executable_contract_validated",
+          "passed": true,
+          "reason": null,
+          "tier": 3
+        },
+        {
+          "behavior_evaluated": true,
+          "execution_completed": true,
+          "name": "behaviorally_executed",
+          "passed": true,
+          "reason": null,
+          "tier": 4
+        },
+        {
+          "name": "accelerator_provenance_verified",
+          "passed": false,
+          "reason": "requires genuine accelerator execution provenance",
+          "tier": 5
+        }
+      ]
+    },
+    "claim_eligible_deltaai_h2": false,
+    "claim_eligible_h2": false,
+    "claim_eligible_newton_h2": false,
+    "failure_stage": "behavior_evaluation",
+    "hybrid": {
+      "behavior_evaluated": true,
+      "behavior_passed": false,
+      "contract": {
+        "fmu": {
+          "fmi_version": "2.0",
+          "interface_type": "co_simulation",
+          "model_name": "RobotTask_RPI0287_R00",
+          "variables": [
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "int_err",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "N.s",
+              "value_reference": 0,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "q1",
+              "scalar_type": "real",
+              "start": "2.0",
+              "unit": "rad",
+              "value_reference": 1,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "q2",
+              "scalar_type": "real",
+              "start": "1.1415926535897931",
+              "unit": "rad",
+              "value_reference": 2,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "w1",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "rad/s",
+              "value_reference": 3,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "w2",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "rad/s",
+              "value_reference": 4,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(int_err)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 5,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(q1)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "Hz",
+              "value_reference": 6,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(q2)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "Hz",
+              "value_reference": 7,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(w1)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "s-2",
+              "value_reference": 8,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(w2)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "s-2",
+              "value_reference": 9,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_iface_actuator_sensor_left)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 10,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_iface_actuator_sensor_right)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 11,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_iface_closure_error)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 12,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_iface_command_trace)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 13,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_iface_disturbance_force)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 14,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_iface_locked_contact)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 15,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_iface_normal_contact_force)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 16,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_iface_output_pose)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 17,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_iface_sensor_trace)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 18,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_iface_state_trace)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 19,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_iface_tangential_slip)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 20,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(F_cmd_x)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 21,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(F_cmd_y)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 22,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(F_force_y)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 23,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(F_pos_y)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 24,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(J11)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 25,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(J12)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 26,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(J21)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 27,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(J22)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 28,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(a_int)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 29,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(d_elbow)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 30,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(d_safe)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 31,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(det_J)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 32,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(dxA)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 33,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(dxC)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 34,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(dyB)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 35,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(dyD)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 36,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(ex_L)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 37,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(ex_R)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 38,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(ey_L)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 39,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(ey_R)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 40,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(h_int)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 41,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(in_contact)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 42,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(mx_int)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 43,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(my_int)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 44,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(penetration)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 45,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(px)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 46,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(tau1_raw)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 47,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(tau2_raw)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 48,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(vx)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 49,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(vy)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 50,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_iface_actuator_cmd_left_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 68,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_iface_actuator_cmd_right_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 69,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_iface_closure_error_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 70,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_iface_command_trace_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 71,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_iface_disturbance_force_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 72,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_iface_locked_contact_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 73,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_iface_normal_contact_force_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 74,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_iface_output_pose_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 75,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_iface_sensor_trace_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 76,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_iface_state_trace_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 77,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_iface_tangential_slip_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 78,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "F_cmd_x",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 79,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "F_cmd_y",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 80,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "F_ext_x",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 81,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "F_ext_y",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 82,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "F_force_y",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 83,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "F_pos_y",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 84,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "J11",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m/rad",
+              "value_reference": 85,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "J12",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m/rad",
+              "value_reference": 86,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "J21",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m/rad",
+              "value_reference": 87,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "J22",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m/rad",
+              "value_reference": 88,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "a_int",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 89,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "d_elbow",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 90,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "d_safe",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 91,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "det_J",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m2",
+              "value_reference": 92,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "dxA",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 93,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "dxC",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 94,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "dyB",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 95,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "dyD",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 96,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "ex_L",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 97,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "ex_R",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 98,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "ey_L",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 99,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "ey_R",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 100,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "h_int",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 101,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "in_contact",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "dimensionless",
+              "value_reference": 102,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "mx_int",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 103,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "my_int",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 104,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "penetration",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 105,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "px",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 106,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "tau1_raw",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N.m",
+              "value_reference": 107,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "tau2_raw",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N.m",
+              "value_reference": 108,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "tau_env_1",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N.m",
+              "value_reference": 109,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "tau_env_2",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N.m",
+              "value_reference": 110,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_iface_actuator_cmd_left",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N.m",
+              "value_reference": 111,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_iface_actuator_cmd_right",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N.m",
+              "value_reference": 112,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_iface_actuator_sensor_left",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 113,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_iface_actuator_sensor_right",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 114,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_iface_closure_error",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 115,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_iface_command_trace",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 116,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_iface_disturbance_force",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 117,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_iface_locked_contact",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "dimensionless",
+              "value_reference": 118,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_iface_normal_contact_force",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 119,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_iface_output_pose",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 120,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_iface_sensor_trace",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 121,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_iface_state_trace",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 122,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_iface_tangential_slip",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 123,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "vx",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m/s",
+              "value_reference": 124,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "vy",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m/s",
+              "value_reference": 125,
+              "variability": "continuous"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "B_joint",
+              "scalar_type": "real",
+              "start": "0.5",
+              "unit": "N.m.s/rad",
+              "value_reference": 126,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "F_target",
+              "scalar_type": "real",
+              "start": "50.0",
+              "unit": "N",
+              "value_reference": 127,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "J_act",
+              "scalar_type": "real",
+              "start": "0.5",
+              "unit": "kg.m2",
+              "value_reference": 128,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "Kd_force",
+              "scalar_type": "real",
+              "start": "5.0",
+              "unit": "N.s/m",
+              "value_reference": 129,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "Kd_pos_x",
+              "scalar_type": "real",
+              "start": "40.0",
+              "unit": "N.s/m",
+              "value_reference": 130,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "Kd_pos_y",
+              "scalar_type": "real",
+              "start": "60.0",
+              "unit": "N.s/m",
+              "value_reference": 131,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "Ki_force",
+              "scalar_type": "real",
+              "start": "10.0",
+              "unit": "1/(N.s)",
+              "value_reference": 132,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "Kp_force",
+              "scalar_type": "real",
+              "start": "1.0",
+              "unit": "dimensionless",
+              "value_reference": 133,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "Kp_pos_x",
+              "scalar_type": "real",
+              "start": "400.0",
+              "unit": "N/m",
+              "value_reference": 134,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "Kp_pos_y",
+              "scalar_type": "real",
+              "start": "800.0",
+              "unit": "N/m",
+              "value_reference": 135,
+              "variability": "fixed"
+            },
+            {
+              "causality": "calculatedParameter",
+              "initial": null,
+              "name": "L1",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 136,
+              "variability": "fixed"
+            },
+            {
+              "causality": "calculatedParameter",
+              "initial": null,
+              "name": "L2",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 137,
+              "variability": "fixed"
+            },
+            {
+              "causality": "calculatedParameter",
+              "initial": null,
+              "name": "L3",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 138,
+              "variability": "fixed"
+            },
+            {
+              "causality": "calculatedParameter",
+              "initial": null,
+              "name": "L4",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 139,
+              "variability": "fixed"
+            },
+            {
+              "causality": "calculatedParameter",
+              "initial": null,
+              "name": "base_offset",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 140,
+              "variability": "fixed"
+            },
+            {
+              "causality": "calculatedParameter",
+              "initial": null,
+              "name": "c_contact",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N.s/m",
+              "value_reference": 141,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_entities_actuated_link_left_length",
+              "scalar_type": "real",
+              "start": "0.3",
+              "unit": "m",
+              "value_reference": 142,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_entities_actuated_link_right_length",
+              "scalar_type": "real",
+              "start": "0.3",
+              "unit": "m",
+              "value_reference": 143,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_entities_passive_link_left_length",
+              "scalar_type": "real",
+              "start": "0.42",
+              "unit": "m",
+              "value_reference": 144,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_entities_passive_link_right_length",
+              "scalar_type": "real",
+              "start": "0.42",
+              "unit": "m",
+              "value_reference": 145,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_parameters_param_base_pivot_offset_value",
+              "scalar_type": "real",
+              "start": "0.25",
+              "unit": "m",
+              "value_reference": 146,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_parameters_param_command_bound_value",
+              "scalar_type": "real",
+              "start": "41.8",
+              "unit": "N.m",
+              "value_reference": 147,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_parameters_param_contact_damping_value",
+              "scalar_type": "real",
+              "start": "2.0",
+              "unit": "kN.s/m",
+              "value_reference": 148,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_parameters_param_contact_stiffness_value",
+              "scalar_type": "real",
+              "start": "200.0",
+              "unit": "kN/m",
+              "value_reference": 149,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_parameters_param_force_change_value",
+              "scalar_type": "real",
+              "start": "21.6",
+              "unit": "N",
+              "value_reference": 150,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_parameters_param_friction_coefficient_value",
+              "scalar_type": "real",
+              "start": "0.7",
+              "unit": "dimensionless",
+              "value_reference": 151,
+              "variability": "fixed"
+            },
+            {
+              "causality": "calculatedParameter",
+              "initial": null,
+              "name": "k_contact",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N/m",
+              "value_reference": 152,
+              "variability": "fixed"
+            },
+            {
+              "causality": "calculatedParameter",
+              "initial": null,
+              "name": "mu_fric",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "dimensionless",
+              "value_reference": 153,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "slip_reg",
+              "scalar_type": "real",
+              "start": "0.001",
+              "unit": "m/s",
+              "value_reference": 154,
+              "variability": "fixed"
+            },
+            {
+              "causality": "calculatedParameter",
+              "initial": null,
+              "name": "tau_bound",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N.m",
+              "value_reference": 155,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "y_surface",
+              "scalar_type": "real",
+              "start": "0.4",
+              "unit": "m",
+              "value_reference": 156,
+              "variability": "fixed"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_iface_actuator_sensor_left_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 68,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_iface_actuator_sensor_right_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 69,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "F_friction",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 81,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "F_normal",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 119,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "closure_error",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 115,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "disturbance_force",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 117,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "locked_contact",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "dimensionless",
+              "value_reference": 118,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "py",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 120,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "tangential_slip",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m/s",
+              "value_reference": 123,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "tau1_cmd",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N.m",
+              "value_reference": 111,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "tau2_cmd",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N.m",
+              "value_reference": 112,
+              "variability": "continuous"
+            }
+          ]
+        },
+        "issues": [],
+        "resolved_mappings": [
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_iface_actuator_cmd_left",
+            "id": "map_iface_actuator_cmd_left",
+            "interface_id": "iface_actuator_cmd_left",
+            "quantity": "effort",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": "base_joint_left",
+            "semantic_sensor_id": null,
+            "source_unit": "N.m",
+            "state_id": "actuator_torque_command_left",
+            "target_unit": "N.m",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_iface_actuator_cmd_right",
+            "id": "map_iface_actuator_cmd_right",
+            "interface_id": "iface_actuator_cmd_right",
+            "quantity": "effort",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": "base_joint_right",
+            "semantic_sensor_id": null,
+            "source_unit": "N.m",
+            "state_id": "actuator_torque_command_right",
+            "target_unit": "N.m",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_iface_actuator_sensor_left",
+            "id": "map_iface_actuator_sensor_left",
+            "interface_id": "iface_actuator_sensor_left",
+            "quantity": "sensor",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": "actuator_sensor_left",
+            "source_unit": "unspecified",
+            "state_id": "actuator_sensor_left_signal",
+            "target_unit": "unspecified",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_iface_actuator_sensor_right",
+            "id": "map_iface_actuator_sensor_right",
+            "interface_id": "iface_actuator_sensor_right",
+            "quantity": "sensor",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": "actuator_sensor_right",
+            "source_unit": "unspecified",
+            "state_id": "actuator_sensor_right_signal",
+            "target_unit": "unspecified",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_iface_output_pose",
+            "id": "map_iface_output_pose",
+            "interface_id": "iface_output_pose",
+            "quantity": "body_motion",
+            "required": true,
+            "semantic_entity_id": "output_end_point",
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "unspecified",
+            "state_id": "output_end_point_pose",
+            "target_unit": "unspecified",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_iface_normal_contact_force",
+            "id": "map_iface_normal_contact_force",
+            "interface_id": "iface_normal_contact_force",
+            "quantity": "wrench",
+            "required": true,
+            "semantic_entity_id": "output_end_point",
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "N",
+            "state_id": "normal_contact_force",
+            "target_unit": "N",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_iface_state_trace",
+            "id": "map_iface_state_trace",
+            "interface_id": "iface_state_trace",
+            "quantity": "state",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "unspecified",
+            "state_id": "system_state_trace",
+            "target_unit": "unspecified",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_iface_command_trace",
+            "id": "map_iface_command_trace",
+            "interface_id": "iface_command_trace",
+            "quantity": "command",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "unspecified",
+            "state_id": "command_trace",
+            "target_unit": "unspecified",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_iface_sensor_trace",
+            "id": "map_iface_sensor_trace",
+            "interface_id": "iface_sensor_trace",
+            "quantity": "sensor",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "unspecified",
+            "state_id": "sensor_trace",
+            "target_unit": "unspecified",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_iface_closure_error",
+            "id": "map_iface_closure_error",
+            "interface_id": "iface_closure_error",
+            "quantity": "position_error",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "m",
+            "state_id": "closure_error",
+            "target_unit": "m",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_iface_tangential_slip",
+            "id": "map_iface_tangential_slip",
+            "interface_id": "iface_tangential_slip",
+            "quantity": "slip",
+            "required": true,
+            "semantic_entity_id": "output_end_point",
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "unspecified",
+            "state_id": "tangential_slip",
+            "target_unit": "unspecified",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_iface_locked_contact",
+            "id": "map_iface_locked_contact",
+            "interface_id": "iface_locked_contact",
+            "quantity": "contact_state",
+            "required": true,
+            "semantic_entity_id": "output_end_point",
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "dimensionless",
+            "state_id": "locked_contact_state",
+            "target_unit": "dimensionless",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_iface_disturbance_force",
+            "id": "map_iface_disturbance_force",
+            "interface_id": "iface_disturbance_force",
+            "quantity": "wrench",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "N",
+            "state_id": "disturbance_force_change",
+            "target_unit": "N",
+            "verification_status": "resolved_fmu_output"
+          }
+        ],
+        "resolved_parameter_mappings": [
+          {
+            "actual_unit": "m",
+            "actual_value": 0.3,
+            "collection": "entities",
+            "expected_value": 0.3,
+            "fact_id": "entities.actuated_link_left.length",
+            "field": "length",
+            "fmu_variable": "fact_entities_actuated_link_left_length",
+            "id": "fact_entities_actuated_link_left_length",
+            "record_id": "actuated_link_left",
+            "required": true,
+            "source_unit": "m",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "m",
+            "actual_value": 0.3,
+            "collection": "entities",
+            "expected_value": 0.3,
+            "fact_id": "entities.actuated_link_right.length",
+            "field": "length",
+            "fmu_variable": "fact_entities_actuated_link_right_length",
+            "id": "fact_entities_actuated_link_right_length",
+            "record_id": "actuated_link_right",
+            "required": true,
+            "source_unit": "m",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "m",
+            "actual_value": 0.42,
+            "collection": "entities",
+            "expected_value": 0.42,
+            "fact_id": "entities.passive_link_left.length",
+            "field": "length",
+            "fmu_variable": "fact_entities_passive_link_left_length",
+            "id": "fact_entities_passive_link_left_length",
+            "record_id": "passive_link_left",
+            "required": true,
+            "source_unit": "m",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "m",
+            "actual_value": 0.42,
+            "collection": "entities",
+            "expected_value": 0.42,
+            "fact_id": "entities.passive_link_right.length",
+            "field": "length",
+            "fmu_variable": "fact_entities_passive_link_right_length",
+            "id": "fact_entities_passive_link_right_length",
+            "record_id": "passive_link_right",
+            "required": true,
+            "source_unit": "m",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "N.m",
+            "actual_value": 41.8,
+            "collection": "parameters",
+            "expected_value": 41.8,
+            "fact_id": "parameters.param_command_bound.value",
+            "field": "value",
+            "fmu_variable": "fact_parameters_param_command_bound_value",
+            "id": "fact_parameters_param_command_bound_value",
+            "record_id": "param_command_bound",
+            "required": true,
+            "source_unit": "N.m",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "kN/m",
+            "actual_value": 200.0,
+            "collection": "parameters",
+            "expected_value": 200.0,
+            "fact_id": "parameters.param_contact_stiffness.value",
+            "field": "value",
+            "fmu_variable": "fact_parameters_param_contact_stiffness_value",
+            "id": "fact_parameters_param_contact_stiffness_value",
+            "record_id": "param_contact_stiffness",
+            "required": true,
+            "source_unit": "kN/m",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "kN.s/m",
+            "actual_value": 2.0,
+            "collection": "parameters",
+            "expected_value": 2.0,
+            "fact_id": "parameters.param_contact_damping.value",
+            "field": "value",
+            "fmu_variable": "fact_parameters_param_contact_damping_value",
+            "id": "fact_parameters_param_contact_damping_value",
+            "record_id": "param_contact_damping",
+            "required": true,
+            "source_unit": "kN.s/m",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "dimensionless",
+            "actual_value": 0.7,
+            "collection": "parameters",
+            "expected_value": 0.7,
+            "fact_id": "parameters.param_friction_coefficient.value",
+            "field": "value",
+            "fmu_variable": "fact_parameters_param_friction_coefficient_value",
+            "id": "fact_parameters_param_friction_coefficient_value",
+            "record_id": "param_friction_coefficient",
+            "required": true,
+            "source_unit": "dimensionless",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "N",
+            "actual_value": 21.6,
+            "collection": "parameters",
+            "expected_value": 21.6,
+            "fact_id": "parameters.param_force_change.value",
+            "field": "value",
+            "fmu_variable": "fact_parameters_param_force_change_value",
+            "id": "fact_parameters_param_force_change_value",
+            "record_id": "param_force_change",
+            "required": true,
+            "source_unit": "N",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "m",
+            "actual_value": 0.25,
+            "collection": "parameters",
+            "expected_value": 0.25,
+            "fact_id": "parameters.param_base_pivot_offset.value",
+            "field": "value",
+            "fmu_variable": "fact_parameters_param_base_pivot_offset_value",
+            "id": "fact_parameters_param_base_pivot_offset_value",
+            "record_id": "param_base_pivot_offset",
+            "required": true,
+            "source_unit": "m",
+            "verification_status": "resolved_fmu_parameter"
+          }
+        ],
+        "success": true
+      },
+      "execution": {
+        "available": true,
+        "columns": [
+          "time",
+          "trace_iface_actuator_cmd_left",
+          "trace_iface_actuator_cmd_right",
+          "trace_iface_actuator_sensor_left",
+          "trace_iface_actuator_sensor_right",
+          "trace_iface_closure_error",
+          "trace_iface_command_trace",
+          "trace_iface_disturbance_force",
+          "trace_iface_locked_contact",
+          "trace_iface_normal_contact_force",
+          "trace_iface_output_pose",
+          "trace_iface_sensor_trace",
+          "trace_iface_state_trace",
+          "trace_iface_tangential_slip"
+        ],
+        "diagnostics": [],
+        "duration_seconds": 1.608454467728734,
+        "initialized": true,
+        "report_file": "outputs/robotics-corpus-full-glm52-v1/RPI0287/rich/FULL/repeat-00/artifacts/execution/execution/execution.json",
+        "result_file": "outputs/robotics-corpus-full-glm52-v1/RPI0287/rich/FULL/repeat-00/artifacts/execution/execution/trace.csv",
+        "sample_count": 4001,
+        "simulated": true,
+        "success": true
+      },
+      "execution_completed": true,
+      "execution_mode": "integrated_fmu_behavior",
+      "failure_stage": "behavior_evaluation",
+      "fmu": {
+        "available": true,
+        "checked": true,
+        "diagnostics": [
+          {
+            "message": "[/storage/scratch1/4/skannan89/robotics-generalized/outputs/robotics-corpus-full-glm52-v1/RPI0287/rich/FULL/repeat-00/artifacts/execution/export/Candidate.mo:187:3-188:30:writable] Warning: The following equation is INCONSISTENT due to specified unit information: F_force_y = (-F_target) + Kp_force * (F_target - F_normal) - Ki_force * int_err - Kd_force * vy",
+            "severity": "warning",
+            "stage": "compiler"
+          },
+          {
+            "message": "Warning: The units of following sub-expressions need to be equal:",
+            "severity": "warning",
+            "stage": "compiler"
+          },
+          {
+            "message": "[/storage/scratch1/4/skannan89/robotics-generalized/outputs/robotics-corpus-full-glm52-v1/RPI0287/rich/FULL/repeat-00/artifacts/execution/export/Candidate.mo:238:3-238:87:writable] Warning: The following equation is INCONSISTENT due to specified unit information: trace_iface_state_trace = sqrt(px ^ 2.0 + py ^ 2.0 + q1 ^ 2.0 + q2 ^ 2.0 + w1 ^ 2.0 + w2 ^ 2.0 + F_normal ^ 2.0)",
+            "severity": "warning",
+            "stage": "compiler"
+          },
+          {
+            "message": "[/storage/scratch1/4/skannan89/robotics-generalized/outputs/robotics-corpus-full-glm52-v1/RPI0287/rich/FULL/repeat-00/artifacts/execution/export/Candidate.mo:240:3-240:72:writable] Warning: The following equation is INCONSISTENT due to specified unit information: trace_iface_sensor_trace = sqrt(tau1_cmd ^ 2.0 + tau2_cmd ^ 2.0 + F_normal ^ 2.0)",
+            "severity": "warning",
+            "stage": "compiler"
+          }
+        ],
+        "duration_seconds": 23.37603322789073,
+        "exported": true,
+        "fmi_version": "2.0",
+        "fmu_path": "outputs/robotics-corpus-full-glm52-v1/RPI0287/rich/FULL/repeat-00/artifacts/execution/export/candidate.fmu",
+        "inputs": [],
+        "interface_type": "co_simulation",
+        "model_identifier": "candidate",
+        "model_name": "RobotTask_RPI0287_R00",
+        "outputs": [
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_actuator_cmd_left",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m",
+            "value_reference": 111,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_actuator_cmd_right",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m",
+            "value_reference": 112,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_actuator_sensor_left",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 113,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_actuator_sensor_right",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 114,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_closure_error",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 115,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_command_trace",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 116,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_disturbance_force",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 117,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_locked_contact",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "dimensionless",
+            "value_reference": 118,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_normal_contact_force",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 119,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_output_pose",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 120,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_sensor_trace",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 121,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_state_trace",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 122,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_tangential_slip",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 123,
+            "variability": "continuous"
+          }
+        ],
+        "success": true,
+        "variables": [
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "int_err",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "N.s",
+            "value_reference": 0,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "q1",
+            "scalar_type": "real",
+            "start": "2.0",
+            "unit": "rad",
+            "value_reference": 1,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "q2",
+            "scalar_type": "real",
+            "start": "1.1415926535897931",
+            "unit": "rad",
+            "value_reference": 2,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "w1",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "rad/s",
+            "value_reference": 3,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "w2",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "rad/s",
+            "value_reference": 4,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(int_err)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 5,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(q1)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "Hz",
+            "value_reference": 6,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(q2)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "Hz",
+            "value_reference": 7,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(w1)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "s-2",
+            "value_reference": 8,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(w2)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "s-2",
+            "value_reference": 9,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_iface_actuator_sensor_left)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 10,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_iface_actuator_sensor_right)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 11,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_iface_closure_error)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 12,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_iface_command_trace)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 13,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_iface_disturbance_force)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 14,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_iface_locked_contact)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 15,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_iface_normal_contact_force)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 16,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_iface_output_pose)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 17,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_iface_sensor_trace)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 18,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_iface_state_trace)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 19,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_iface_tangential_slip)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 20,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(F_cmd_x)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 21,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(F_cmd_y)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 22,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(F_force_y)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 23,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(F_pos_y)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 24,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(J11)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 25,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(J12)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 26,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(J21)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 27,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(J22)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 28,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(a_int)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 29,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(d_elbow)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 30,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(d_safe)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 31,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(det_J)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 32,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(dxA)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 33,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(dxC)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 34,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(dyB)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 35,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(dyD)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 36,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(ex_L)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 37,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(ex_R)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 38,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(ey_L)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 39,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(ey_R)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 40,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(h_int)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 41,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(in_contact)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 42,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(mx_int)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 43,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(my_int)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 44,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(penetration)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 45,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(px)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 46,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(tau1_raw)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 47,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(tau2_raw)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 48,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(vx)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 49,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(vy)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 50,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_iface_actuator_cmd_left_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 68,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_iface_actuator_cmd_right_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 69,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_iface_closure_error_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 70,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_iface_command_trace_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 71,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_iface_disturbance_force_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 72,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_iface_locked_contact_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 73,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_iface_normal_contact_force_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 74,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_iface_output_pose_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 75,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_iface_sensor_trace_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 76,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_iface_state_trace_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 77,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_iface_tangential_slip_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 78,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "F_cmd_x",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 79,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "F_cmd_y",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 80,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "F_ext_x",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 81,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "F_ext_y",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 82,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "F_force_y",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 83,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "F_pos_y",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 84,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "J11",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m/rad",
+            "value_reference": 85,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "J12",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m/rad",
+            "value_reference": 86,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "J21",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m/rad",
+            "value_reference": 87,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "J22",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m/rad",
+            "value_reference": 88,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "a_int",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 89,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "d_elbow",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 90,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "d_safe",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 91,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "det_J",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m2",
+            "value_reference": 92,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "dxA",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 93,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "dxC",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 94,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "dyB",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 95,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "dyD",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 96,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "ex_L",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 97,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "ex_R",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 98,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "ey_L",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 99,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "ey_R",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 100,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "h_int",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 101,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "in_contact",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "dimensionless",
+            "value_reference": 102,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "mx_int",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 103,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "my_int",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 104,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "penetration",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 105,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "px",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 106,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "tau1_raw",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m",
+            "value_reference": 107,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "tau2_raw",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m",
+            "value_reference": 108,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "tau_env_1",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m",
+            "value_reference": 109,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "tau_env_2",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m",
+            "value_reference": 110,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_actuator_cmd_left",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m",
+            "value_reference": 111,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_actuator_cmd_right",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m",
+            "value_reference": 112,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_actuator_sensor_left",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 113,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_actuator_sensor_right",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 114,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_closure_error",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 115,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_command_trace",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 116,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_disturbance_force",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 117,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_locked_contact",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "dimensionless",
+            "value_reference": 118,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_normal_contact_force",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 119,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_output_pose",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 120,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_sensor_trace",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 121,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_state_trace",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 122,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_tangential_slip",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 123,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "vx",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m/s",
+            "value_reference": 124,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "vy",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m/s",
+            "value_reference": 125,
+            "variability": "continuous"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "B_joint",
+            "scalar_type": "real",
+            "start": "0.5",
+            "unit": "N.m.s/rad",
+            "value_reference": 126,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "F_target",
+            "scalar_type": "real",
+            "start": "50.0",
+            "unit": "N",
+            "value_reference": 127,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "J_act",
+            "scalar_type": "real",
+            "start": "0.5",
+            "unit": "kg.m2",
+            "value_reference": 128,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "Kd_force",
+            "scalar_type": "real",
+            "start": "5.0",
+            "unit": "N.s/m",
+            "value_reference": 129,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "Kd_pos_x",
+            "scalar_type": "real",
+            "start": "40.0",
+            "unit": "N.s/m",
+            "value_reference": 130,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "Kd_pos_y",
+            "scalar_type": "real",
+            "start": "60.0",
+            "unit": "N.s/m",
+            "value_reference": 131,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "Ki_force",
+            "scalar_type": "real",
+            "start": "10.0",
+            "unit": "1/(N.s)",
+            "value_reference": 132,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "Kp_force",
+            "scalar_type": "real",
+            "start": "1.0",
+            "unit": "dimensionless",
+            "value_reference": 133,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "Kp_pos_x",
+            "scalar_type": "real",
+            "start": "400.0",
+            "unit": "N/m",
+            "value_reference": 134,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "Kp_pos_y",
+            "scalar_type": "real",
+            "start": "800.0",
+            "unit": "N/m",
+            "value_reference": 135,
+            "variability": "fixed"
+          },
+          {
+            "causality": "calculatedParameter",
+            "initial": null,
+            "name": "L1",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 136,
+            "variability": "fixed"
+          },
+          {
+            "causality": "calculatedParameter",
+            "initial": null,
+            "name": "L2",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 137,
+            "variability": "fixed"
+          },
+          {
+            "causality": "calculatedParameter",
+            "initial": null,
+            "name": "L3",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 138,
+            "variability": "fixed"
+          },
+          {
+            "causality": "calculatedParameter",
+            "initial": null,
+            "name": "L4",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 139,
+            "variability": "fixed"
+          },
+          {
+            "causality": "calculatedParameter",
+            "initial": null,
+            "name": "base_offset",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 140,
+            "variability": "fixed"
+          },
+          {
+            "causality": "calculatedParameter",
+            "initial": null,
+            "name": "c_contact",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.s/m",
+            "value_reference": 141,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_entities_actuated_link_left_length",
+            "scalar_type": "real",
+            "start": "0.3",
+            "unit": "m",
+            "value_reference": 142,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_entities_actuated_link_right_length",
+            "scalar_type": "real",
+            "start": "0.3",
+            "unit": "m",
+            "value_reference": 143,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_entities_passive_link_left_length",
+            "scalar_type": "real",
+            "start": "0.42",
+            "unit": "m",
+            "value_reference": 144,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_entities_passive_link_right_length",
+            "scalar_type": "real",
+            "start": "0.42",
+            "unit": "m",
+            "value_reference": 145,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_parameters_param_base_pivot_offset_value",
+            "scalar_type": "real",
+            "start": "0.25",
+            "unit": "m",
+            "value_reference": 146,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_parameters_param_command_bound_value",
+            "scalar_type": "real",
+            "start": "41.8",
+            "unit": "N.m",
+            "value_reference": 147,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_parameters_param_contact_damping_value",
+            "scalar_type": "real",
+            "start": "2.0",
+            "unit": "kN.s/m",
+            "value_reference": 148,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_parameters_param_contact_stiffness_value",
+            "scalar_type": "real",
+            "start": "200.0",
+            "unit": "kN/m",
+            "value_reference": 149,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_parameters_param_force_change_value",
+            "scalar_type": "real",
+            "start": "21.6",
+            "unit": "N",
+            "value_reference": 150,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_parameters_param_friction_coefficient_value",
+            "scalar_type": "real",
+            "start": "0.7",
+            "unit": "dimensionless",
+            "value_reference": 151,
+            "variability": "fixed"
+          },
+          {
+            "causality": "calculatedParameter",
+            "initial": null,
+            "name": "k_contact",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N/m",
+            "value_reference": 152,
+            "variability": "fixed"
+          },
+          {
+            "causality": "calculatedParameter",
+            "initial": null,
+            "name": "mu_fric",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "dimensionless",
+            "value_reference": 153,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "slip_reg",
+            "scalar_type": "real",
+            "start": "0.001",
+            "unit": "m/s",
+            "value_reference": 154,
+            "variability": "fixed"
+          },
+          {
+            "causality": "calculatedParameter",
+            "initial": null,
+            "name": "tau_bound",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m",
+            "value_reference": 155,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "y_surface",
+            "scalar_type": "real",
+            "start": "0.4",
+            "unit": "m",
+            "value_reference": 156,
+            "variability": "fixed"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_iface_actuator_sensor_left_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 68,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_iface_actuator_sensor_right_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 69,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "F_friction",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 81,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "F_normal",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 119,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "closure_error",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 115,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "disturbance_force",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 117,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "locked_contact",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "dimensionless",
+            "value_reference": 118,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "py",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 120,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "tangential_slip",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m/s",
+            "value_reference": 123,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "tau1_cmd",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m",
+            "value_reference": 111,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "tau2_cmd",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m",
+            "value_reference": 112,
+            "variability": "continuous"
+          }
+        ]
+      },
+      "passed": false,
+      "properties": [
+        {
+          "detail": "always robustness=0",
+          "formula": "G[0, T](trace_iface_actuator_cmd_left <= 41.8)",
+          "id": "prop_actuator_bound_left",
+          "interface_id": "iface_actuator_cmd_left",
+          "passed": true,
+          "property_id": "prop_actuator_bound_left",
+          "robustness": 0.0,
+          "status": "satisfied"
+        },
+        {
+          "detail": "always robustness=0",
+          "formula": "G[0, T](trace_iface_actuator_cmd_right <= 41.8)",
+          "id": "prop_actuator_bound_right",
+          "interface_id": "iface_actuator_cmd_right",
+          "passed": true,
+          "property_id": "prop_actuator_bound_right",
+          "robustness": 0.0,
+          "status": "satisfied"
+        },
+        {
+          "detail": "always robustness=-0.115435",
+          "formula": "G[10.4, T](trace_iface_closure_error <= 0.001)",
+          "id": "prop_closure_error",
+          "interface_id": "iface_closure_error",
+          "passed": false,
+          "property_id": "prop_closure_error",
+          "robustness": -0.11543500762831087,
+          "status": "violated"
+        },
+        {
+          "detail": "finite-value trace gate passed",
+          "formula": "all requested runtime outputs are finite",
+          "id": "prop_no_nan_inf_state",
+          "passed": true,
+          "property_id": "prop_no_nan_inf_state",
+          "robustness": null,
+          "status": "satisfied"
+        },
+        {
+          "detail": "finite-value trace gate passed",
+          "formula": "all requested runtime outputs are finite",
+          "id": "prop_no_nan_inf_command",
+          "passed": true,
+          "property_id": "prop_no_nan_inf_command",
+          "robustness": null,
+          "status": "satisfied"
+        },
+        {
+          "detail": "finite-value trace gate passed",
+          "formula": "all requested runtime outputs are finite",
+          "id": "prop_no_nan_inf_sensor",
+          "passed": true,
+          "property_id": "prop_no_nan_inf_sensor",
+          "robustness": null,
+          "status": "satisfied"
+        }
+      ],
+      "property_count": 6,
+      "property_summary": {
+        "passed": 5,
+        "total": 6,
+        "unevaluable": 0,
+        "violated": 1
+      },
+      "report": "execution.json",
+      "trace_gate": {
+        "finite": true,
+        "minimum_expected_samples": 4000,
+        "missing_outputs": [],
+        "required_outputs": [
+          "trace_iface_actuator_cmd_left",
+          "trace_iface_actuator_cmd_right",
+          "trace_iface_actuator_sensor_left",
+          "trace_iface_actuator_sensor_right",
+          "trace_iface_closure_error",
+          "trace_iface_command_trace",
+          "trace_iface_disturbance_force",
+          "trace_iface_locked_contact",
+          "trace_iface_normal_contact_force",
+          "trace_iface_output_pose",
+          "trace_iface_sensor_trace",
+          "trace_iface_state_trace",
+          "trace_iface_tangential_slip"
+        ],
+        "sample_count": 4001,
+        "success": true
+      }
+    },
+    "modelica": {
+      "artifact": "modelica/model.mo",
+      "attempt_0_valid": true,
+      "combiner_model": "z-ai/glm-5.2",
+      "expert_candidates": [
+        "qwen/qwen3.6-plus",
+        "z-ai/glm-5.2",
+        "deepseek/deepseek-v4-pro",
+        "meta-llama/llama-4-maverick"
+      ],
+      "expert_models": [
+        "qwen/qwen3.6-plus",
+        "z-ai/glm-5.2",
+        "deepseek/deepseek-v4-pro",
+        "meta-llama/llama-4-maverick"
+      ],
+      "expert_soft_fail_count": 0,
+      "generation_mode": "moe",
+      "identity_preserved": true,
+      "model_name": "RobotTask_RPI0287_R00",
+      "passed": true,
+      "repairs": 0,
+      "report": "modelica/generation.json",
+      "retrieved_examples": [
+        {
+          "id": "M1019",
+          "score": 48.93639968819447
+        },
+        {
+          "id": "M1001",
+          "score": 46.32965893674234
+        },
+        {
+          "id": "M1130",
+          "score": 34.65977878007747
+        },
+        {
+          "id": "M1147",
+          "score": 34.55391465034347
+        },
+        {
+          "id": "M1008",
+          "score": 52.327177660018826
+        }
+      ],
+      "study_controls": {
+        "max_tool_repairs": 2,
+        "moe_enabled": true,
+        "rag_enabled": true,
+        "retrieval_k": 5,
+        "tool_repair_enabled": true
+      }
+    },
+    "normalization": {
+      "attempt_count": 2,
+      "precomputed": true,
+      "report": "normalization.json",
+      "success": true
+    },
+    "one_shot": {
+      "artifact_pair_valid_attempt_0": null,
+      "artifact_valid_attempt_0": true,
+      "modelica_valid_attempt_0": true,
+      "openusd_valid_attempt_0": null
+    },
+    "paired_block": {
+      "block_fingerprint": "a6fd7c17d8e65597c1fb466f86576efe1ba24978172fc8f6e283479eb01b1bf0",
+      "normalized_ir_sha256": "22a78a47ef948c4fce5776caeb62803cd9dc5dc0a4598b429641e6ad04eaea85",
+      "repetition": 0
+    },
+    "passed": false,
+    "plan": {
+      "contract": "contract.json",
+      "mapping_count": 13,
+      "model_name": "RobotTask_RPI0287_R00",
+      "parameter_mapping_count": 10,
+      "report": "plan.json",
+      "requirement_ir": "requirement_ir.json",
+      "success": true
+    },
+    "runtime_repair": {
+      "accepted": 0,
+      "attempted": 1,
+      "enabled": true,
+      "final_model": "modelica/model.mo",
+      "infrastructure_error": null,
+      "max_repairs": 2,
+      "original_model": null,
+      "report": "runtime-repair.json",
+      "triggered": true
+    },
+    "schema_version": "1.0",
+    "source_text_sha256": "c42b09832e3d5e0c08e87eda3712473cef6d20aa42d436850b0baa17ca0fe844",
+    "stage": "modelica_capability_orchestrator",
+    "stage_trace": [
+      {
+        "index": 0,
+        "passed": true,
+        "reached": true,
+        "stage": "requirement_normalization",
+        "status": "passed"
+      },
+      {
+        "index": 1,
+        "passed": true,
+        "reached": true,
+        "stage": "interface_planning",
+        "status": "passed"
+      },
+      {
+        "index": 2,
+        "passed": true,
+        "reached": true,
+        "stage": "modelica_validation",
+        "status": "passed"
+      },
+      {
+        "index": 3,
+        "passed": true,
+        "reached": true,
+        "stage": "modelica_identity",
+        "status": "passed"
+      },
+      {
+        "index": 4,
+        "passed": true,
+        "reached": true,
+        "stage": "fmu_export",
+        "status": "passed"
+      },
+      {
+        "index": 5,
+        "passed": true,
+        "reached": true,
+        "stage": "fmu_interface_contract",
+        "status": "passed"
+      },
+      {
+        "index": 6,
+        "passed": true,
+        "reached": true,
+        "stage": "runtime_initialization",
+        "status": "passed"
+      },
+      {
+        "index": 7,
+        "passed": true,
+        "reached": true,
+        "stage": "runtime_execution",
+        "status": "passed"
+      },
+      {
+        "index": 8,
+        "passed": true,
+        "reached": true,
+        "stage": "behavior_evaluation",
+        "status": "passed"
+      },
+      {
+        "index": 9,
+        "passed": false,
+        "reached": true,
+        "stage": "modelica_specification_alignment",
+        "status": "failed"
+      }
+    ],
+    "study_validity": {
+      "alignment_observed": true,
+      "complete_moe_required": true,
+      "condition_fidelity_passed": true,
+      "contract_created": true,
+      "eligible": true,
+      "expected": {
+        "alignment": true,
+        "id": "FULL",
+        "label": "complete_pipeline",
+        "moe": true,
+        "rag": true,
+        "tool_repair": true,
+        "validated_contract": true
+      },
+      "generation_reached": true,
+      "issues": [],
+      "observed_generation": [
+        {
+          "combiner_model": "z-ai/glm-5.2",
+          "expert_candidate_count": 4,
+          "expert_roster": [
+            "qwen/qwen3.6-plus",
+            "z-ai/glm-5.2",
+            "deepseek/deepseek-v4-pro",
+            "meta-llama/llama-4-maverick"
+          ],
+          "expert_soft_fail_count": 0,
+          "generation_mode": "moe",
+          "owner": "modelica",
+          "retrieval_count": 5,
+          "study_controls": {
+            "max_tool_repairs": 2,
+            "moe_enabled": true,
+            "rag_enabled": true,
+            "retrieval_k": 5,
+            "tool_repair_enabled": true
+          }
+        }
+      ],
+      "runtime_repair_observed": true
+    },
+    "task_id": "RPI0287-R00"
+  },
+  "schema_version": "1.1",
+  "task_id": "RPI0287",
+  "variant": "rich"
+}

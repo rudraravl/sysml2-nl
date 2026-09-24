@@ -1,0 +1,2443 @@
+{
+  "condition": {
+    "alignment": true,
+    "id": "FULL",
+    "label": "complete_pipeline",
+    "moe": true,
+    "rag": true,
+    "tool_repair": true,
+    "validated_contract": true
+  },
+  "configuration": {
+    "artifact_mode": "modelica_only",
+    "benchmark_manifest": "/storage/scratch1/4/skannan89/robotics-generalized/nl2robotics/corpus/pipeline_prompt_manifest.json",
+    "benchmark_manifest_sha256": "0a6631f7b9c9cbf4983d92ab4424943a668f60e571bf5ee4203213f84c1a8409",
+    "benchmark_split": "all",
+    "configuration_variant_filter": [],
+    "family_filter": [],
+    "fmi_backend": "local",
+    "h2_controller_backend": "local",
+    "h2_device": "cpu",
+    "h2_repetitions": 3,
+    "h2_solver": "TGS",
+    "isaac_handoff_configured": false,
+    "k": 5,
+    "max_runtime_repairs": 2,
+    "max_tool_repairs": 2,
+    "modelica_backend": "local",
+    "modelica_subset": "full1500",
+    "moe_configuration": "shared_with_sysml_pipeline",
+    "newton_controller_backend": "local",
+    "newton_device": "cuda:0",
+    "newton_fmi_runtime_image": "nl2robotics-fmi-runtime:0.1",
+    "newton_handoff_configured": false,
+    "newton_repeatability_tolerance": 1e-06,
+    "newton_repetitions": 3,
+    "newton_solver": "featherstone",
+    "newton_version": "1.5.0",
+    "pipeline": "nl_ir_modelica_compile_fmu_execute_spec",
+    "rag_routing": "family_preferred_4_of_5_with_global_fallback",
+    "randomization_seed": 20260830,
+    "require_complete_moe": true,
+    "runtime_repair_model": "z-ai/glm-5.2",
+    "runtime_repair_policy": "tool_conditions_only_monotonic_recompile_reexecute_recheck_behavior",
+    "runtime_repair_provider": "openrouter",
+    "semantic_case_filter": [],
+    "shard_assignment": "category_stratified_task_block_round_robin",
+    "shard_count": 4,
+    "single_model": "z-ai/glm-5.2",
+    "single_provider": "openrouter",
+    "study_protocol_core_sha256": "f5f0200a721873f9eeac07c7084e8f58fe820d1acef60434f7e0ac234041d153",
+    "task_order": "seeded_randomized"
+  },
+  "difficulty": "foundational",
+  "duration_seconds": 689.9304043129086,
+  "fingerprint": "3b173a3db665afd76ef627b7d86f7a58bf6336a3ee1b61a5ba06f8adafcf3930",
+  "infrastructure_error": null,
+  "metrics": {
+    "all_properties_pass": false,
+    "artifact_pair_valid": null,
+    "artifact_pair_valid_attempt_0": null,
+    "artifact_valid": true,
+    "artifact_valid_attempt_0": true,
+    "behavior_evaluated": true,
+    "blocking_violations": 1,
+    "condition_fidelity": true,
+    "configured_pipeline_success": false,
+    "contract_valid": true,
+    "end_to_end": false,
+    "failure_stage": "behavior_evaluation",
+    "fmu_execution": true,
+    "fmu_export": true,
+    "fmu_interface_valid": true,
+    "infrastructure_available": true,
+    "ir_valid": true,
+    "maximum_stage_reached": 9,
+    "modelica_build": true,
+    "modelica_build_attempt_0": true,
+    "named_simulator_load": null,
+    "normalization_valid": true,
+    "post_execution_semantic": false,
+    "pre_execution_semantic": null,
+    "property_evaluability_rate": 0.5555555555555556,
+    "property_evaluable": 5,
+    "property_satisfaction_rate_evaluable": 1.0,
+    "property_satisfied": 5,
+    "property_total": 9,
+    "property_unevaluable": 4,
+    "property_violated": 0,
+    "repairs": 0,
+    "runtime_execution": true,
+    "runtime_trace_valid": true,
+    "semantic_coverage": 0.516304,
+    "semantic_score": 0.947368,
+    "specification_claim_ready": false,
+    "stable_simulation": true,
+    "usd_semantic_valid": null,
+    "usd_semantic_valid_attempt_0": null,
+    "verification_tier": 4
+  },
+  "planned_order_index": 1315,
+  "profile": "capability",
+  "randomization_seed": 20260830,
+  "repetition": 0,
+  "result": {
+    "ablation": {
+      "condition": {
+        "alignment": true,
+        "id": "FULL",
+        "label": "complete_pipeline",
+        "moe": true,
+        "rag": true,
+        "tool_repair": true,
+        "validated_contract": true
+      },
+      "contract_role": "generation_and_validation",
+      "generation_strategy": "rag_moe"
+    },
+    "alignment": {
+      "blocking_violations": 1,
+      "claim_ready": false,
+      "counts": {
+        "not_applicable": 0,
+        "satisfied": 17,
+        "unknown": 21,
+        "violated": 1
+      },
+      "deterministic_violations": 0,
+      "enabled": true,
+      "evidence_coverage": 0.516304,
+      "not_run": false,
+      "passed": false,
+      "per_family": {
+        "dynamics": 0.0,
+        "interface": 1.0,
+        "parameter": 1.0,
+        "property": 1.0,
+        "timing": 1.0
+      },
+      "question_count": 39,
+      "report": "alignment.json",
+      "skipped": false,
+      "weighted_semantic_score": 0.947368
+    },
+    "artifact_mode": "modelica_only",
+    "capabilities": {
+      "highest_reached_tier": 4,
+      "highest_reached_tier_name": "behaviorally_executed",
+      "profile_count": 14,
+      "report": "capability-report.json",
+      "requested_feature_count": 21,
+      "tiers": [
+        {
+          "name": "normalized",
+          "passed": true,
+          "tier": 0
+        },
+        {
+          "name": "ir_validated",
+          "passed": true,
+          "tier": 1
+        },
+        {
+          "modelica_passed": true,
+          "name": "artifacts_validated",
+          "openusd_passed": null,
+          "passed": true,
+          "tier": 2
+        },
+        {
+          "name": "executable_contract_validated",
+          "passed": true,
+          "reason": null,
+          "tier": 3
+        },
+        {
+          "behavior_evaluated": true,
+          "execution_completed": true,
+          "name": "behaviorally_executed",
+          "passed": true,
+          "reason": null,
+          "tier": 4
+        },
+        {
+          "name": "accelerator_provenance_verified",
+          "passed": false,
+          "reason": "requires genuine accelerator execution provenance",
+          "tier": 5
+        }
+      ]
+    },
+    "claim_eligible_deltaai_h2": false,
+    "claim_eligible_h2": false,
+    "claim_eligible_newton_h2": false,
+    "failure_stage": "behavior_evaluation",
+    "hybrid": {
+      "behavior_evaluated": true,
+      "behavior_passed": false,
+      "contract": {
+        "fmu": {
+          "fmi_version": "2.0",
+          "interface_type": "co_simulation",
+          "model_name": "RobotTask_RPI0691_R00",
+          "variables": [
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "accumulatedEnergy",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "J",
+              "value_reference": 0,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "boomAngle",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "rad",
+              "value_reference": 1,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "boomVel",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "rad/s",
+              "value_reference": 2,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "pumpPressure",
+              "scalar_type": "real",
+              "start": "5e5",
+              "unit": "Pa",
+              "value_reference": 3,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "stickAngle",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "rad",
+              "value_reference": 4,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "stickVel",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "rad/s",
+              "value_reference": 5,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "supplyFlow",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "m3/s",
+              "value_reference": 6,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "temperature",
+              "scalar_type": "real",
+              "start": "300.0",
+              "unit": "K",
+              "value_reference": 7,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(accumulatedEnergy)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "W",
+              "value_reference": 8,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(boomAngle)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "Hz",
+              "value_reference": 9,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(boomVel)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "s-2",
+              "value_reference": 10,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(pumpPressure)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "km-1.s-3.g",
+              "value_reference": 11,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(stickAngle)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "Hz",
+              "value_reference": 12,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(stickVel)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "s-2",
+              "value_reference": 13,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(supplyFlow)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m3.s-2",
+              "value_reference": 14,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(temperature)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "s-1.K",
+              "value_reference": 15,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_if_command)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 16,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_if_tracking_error)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 17,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(boomRef)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 18,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(dBoomRef)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 19,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(degradationFactor)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 20,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(errBoom)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 21,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(q1_raw)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 22,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_command_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 36,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_pressure_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 37,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_supply_flow_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 38,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_tracking_error_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 39,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "boomRef",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "rad",
+              "value_reference": 40,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "compressibilityFactor",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 41,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "dBoomRef",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "rad/s",
+              "value_reference": 42,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "dStickRef",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "rad/s",
+              "value_reference": 43,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "degradationFactor",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 44,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "distTorque",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N.m",
+              "value_reference": 45,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "disturbanceActive",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 46,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "errBoom",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "rad",
+              "value_reference": 47,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "errStick",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "rad",
+              "value_reference": 48,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "gravTorque1",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N.m",
+              "value_reference": 49,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "gravTorque2",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N.m",
+              "value_reference": 50,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "hydraulicPower",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "W",
+              "value_reference": 51,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "p1",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "Pa",
+              "value_reference": 52,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "p2",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "Pa",
+              "value_reference": 53,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "q1_raw",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m3/s",
+              "value_reference": 54,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "q2_raw",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m3/s",
+              "value_reference": 55,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "q2_sat",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m3/s",
+              "value_reference": 56,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "reliefFlow",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m3/s",
+              "value_reference": 57,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "stickRef",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "rad",
+              "value_reference": 58,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_accumulated_energy",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 59,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_actuator_state",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 60,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_command",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m3/s",
+              "value_reference": 61,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_pressure",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 62,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_supply_flow",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m3/s",
+              "value_reference": 63,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_tracking_error",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 64,
+              "variability": "continuous"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "J1",
+              "scalar_type": "real",
+              "start": "50.0",
+              "unit": "kg.m2",
+              "value_reference": 65,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "J2",
+              "scalar_type": "real",
+              "start": "20.0",
+              "unit": "kg.m2",
+              "value_reference": 66,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "ambientTemperature",
+              "scalar_type": "real",
+              "start": "300.0",
+              "unit": "K",
+              "value_reference": 67,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "cyclePeriod",
+              "scalar_type": "real",
+              "start": "4.0",
+              "unit": "s",
+              "value_reference": 68,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "d1",
+              "scalar_type": "real",
+              "start": "10.0",
+              "unit": "N.m.s/rad",
+              "value_reference": 69,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "d2",
+              "scalar_type": "real",
+              "start": "5.0",
+              "unit": "N.m.s/rad",
+              "value_reference": 70,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "energyCap",
+              "scalar_type": "real",
+              "start": "1e5",
+              "unit": "J",
+              "value_reference": 71,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_entities_hyd_boom_conserve_a_boom_length",
+              "scalar_type": "real",
+              "start": "2.0",
+              "unit": "m",
+              "value_reference": 72,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_entities_hyd_boom_conserve_a_payload_mass",
+              "scalar_type": "real",
+              "start": "300.0",
+              "unit": "kg",
+              "value_reference": 73,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_entities_hyd_boom_conserve_a_stick_length",
+              "scalar_type": "real",
+              "start": "1.4",
+              "unit": "m",
+              "value_reference": 74,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_environment_env_load_disturbance_magnitude",
+              "scalar_type": "real",
+              "start": "90.0",
+              "unit": "N",
+              "value_reference": 75,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_parameters_command_magnitude_limit_value",
+              "scalar_type": "real",
+              "start": "0.003",
+              "unit": "m3/s",
+              "value_reference": 76,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "g",
+              "scalar_type": "real",
+              "start": "9.81",
+              "unit": "m/s2",
+              "value_reference": 77,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "heatTransferCoeff",
+              "scalar_type": "real",
+              "start": "50.0",
+              "unit": "W/K",
+              "value_reference": 78,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "kd_pos",
+              "scalar_type": "real",
+              "start": "1.0",
+              "unit": "1",
+              "value_reference": 79,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "kp_pos",
+              "scalar_type": "real",
+              "start": "30.0",
+              "unit": "1/s",
+              "value_reference": 80,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "momentArm",
+              "scalar_type": "real",
+              "start": "1.0",
+              "unit": "m",
+              "value_reference": 81,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "pistonArea",
+              "scalar_type": "real",
+              "start": "0.005",
+              "unit": "m2",
+              "value_reference": 82,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "refAmplitudeBoom",
+              "scalar_type": "real",
+              "start": "0.15",
+              "unit": "rad",
+              "value_reference": 83,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "refAmplitudeStick",
+              "scalar_type": "real",
+              "start": "0.1",
+              "unit": "rad",
+              "value_reference": 84,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "reliefPressure",
+              "scalar_type": "real",
+              "start": "2.5e7",
+              "unit": "Pa",
+              "value_reference": 85,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "returnPressure",
+              "scalar_type": "real",
+              "start": "5e5",
+              "unit": "Pa",
+              "value_reference": 86,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "tau_act",
+              "scalar_type": "real",
+              "start": "0.05",
+              "unit": "s",
+              "value_reference": 87,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "tau_pump",
+              "scalar_type": "real",
+              "start": "0.1",
+              "unit": "s",
+              "value_reference": 88,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "thermalMass",
+              "scalar_type": "real",
+              "start": "5000.0",
+              "unit": "J/K",
+              "value_reference": 89,
+              "variability": "fixed"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_accumulated_energy_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 51,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_actuator_state_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 2,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "command",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m3/s",
+              "value_reference": 61,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "q1_sat",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m3/s",
+              "value_reference": 61,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "tracking_error",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 64,
+              "variability": "continuous"
+            }
+          ]
+        },
+        "issues": [],
+        "resolved_mappings": [
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_supply_flow",
+            "id": "map_if_supply_flow",
+            "interface_id": "if_supply_flow",
+            "quantity": "supply_flow",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": "supply_flow_sensor",
+            "source_unit": "m3/s",
+            "state_id": "plant.supply_flow",
+            "target_unit": "m3/s",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_pressure",
+            "id": "map_if_pressure",
+            "interface_id": "if_pressure",
+            "quantity": "pressure",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": "pressure_sensor",
+            "source_unit": "unspecified",
+            "state_id": "plant.pressure",
+            "target_unit": "unspecified",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_actuator_state",
+            "id": "map_if_actuator_state",
+            "interface_id": "if_actuator_state",
+            "quantity": "actuator_state",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": "actuator_state_sensor",
+            "source_unit": "unspecified",
+            "state_id": "plant.actuator_state",
+            "target_unit": "unspecified",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_accumulated_energy",
+            "id": "map_if_accumulated_energy",
+            "interface_id": "if_accumulated_energy",
+            "quantity": "accumulated_energy_or_air_mass",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": "energy_air_mass_sensor",
+            "source_unit": "unspecified",
+            "state_id": "plant.accumulated_energy",
+            "target_unit": "unspecified",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_tracking_error",
+            "id": "map_if_tracking_error",
+            "interface_id": "if_tracking_error",
+            "quantity": "tracking_error",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "m",
+            "state_id": "controller.tracking_error",
+            "target_unit": "m",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_command",
+            "id": "map_if_command",
+            "interface_id": "if_command",
+            "quantity": "command",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "m3/s",
+            "state_id": "controller.command",
+            "target_unit": "m3/s",
+            "verification_status": "resolved_fmu_output"
+          }
+        ],
+        "resolved_parameter_mappings": [
+          {
+            "actual_unit": "m",
+            "actual_value": 2.0,
+            "collection": "entities",
+            "expected_value": 2.0,
+            "fact_id": "entities.hyd_boom_conserve_a_boom.length",
+            "field": "length",
+            "fmu_variable": "fact_entities_hyd_boom_conserve_a_boom_length",
+            "id": "fact_entities_hyd_boom_conserve_a_boom_length",
+            "record_id": "hyd_boom_conserve_a_boom",
+            "required": true,
+            "source_unit": "m",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "m",
+            "actual_value": 1.4,
+            "collection": "entities",
+            "expected_value": 1.4,
+            "fact_id": "entities.hyd_boom_conserve_a_stick.length",
+            "field": "length",
+            "fmu_variable": "fact_entities_hyd_boom_conserve_a_stick_length",
+            "id": "fact_entities_hyd_boom_conserve_a_stick_length",
+            "record_id": "hyd_boom_conserve_a_stick",
+            "required": true,
+            "source_unit": "m",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "kg",
+            "actual_value": 300.0,
+            "collection": "entities",
+            "expected_value": 300.0,
+            "fact_id": "entities.hyd_boom_conserve_a_payload.mass",
+            "field": "mass",
+            "fmu_variable": "fact_entities_hyd_boom_conserve_a_payload_mass",
+            "id": "fact_entities_hyd_boom_conserve_a_payload_mass",
+            "record_id": "hyd_boom_conserve_a_payload",
+            "required": true,
+            "source_unit": "kg",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "m3/s",
+            "actual_value": 0.003,
+            "collection": "parameters",
+            "expected_value": 0.003,
+            "fact_id": "parameters.command_magnitude_limit.value",
+            "field": "value",
+            "fmu_variable": "fact_parameters_command_magnitude_limit_value",
+            "id": "fact_parameters_command_magnitude_limit_value",
+            "record_id": "command_magnitude_limit",
+            "required": true,
+            "source_unit": "m3/s",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "N",
+            "actual_value": 90.0,
+            "collection": "environment",
+            "expected_value": 90.0,
+            "fact_id": "environment.env_load_disturbance.magnitude",
+            "field": "magnitude",
+            "fmu_variable": "fact_environment_env_load_disturbance_magnitude",
+            "id": "fact_environment_env_load_disturbance_magnitude",
+            "record_id": "env_load_disturbance",
+            "required": true,
+            "source_unit": "N",
+            "verification_status": "resolved_fmu_parameter"
+          }
+        ],
+        "success": true
+      },
+      "execution": {
+        "available": true,
+        "columns": [
+          "time",
+          "trace_if_accumulated_energy",
+          "trace_if_actuator_state",
+          "trace_if_command",
+          "trace_if_pressure",
+          "trace_if_supply_flow",
+          "trace_if_tracking_error"
+        ],
+        "diagnostics": [],
+        "duration_seconds": 1.8094031647779047,
+        "initialized": true,
+        "report_file": "outputs/robotics-corpus-full-glm52-v1/RPI0691/rich/FULL/repeat-00/artifacts/execution/execution/execution.json",
+        "result_file": "outputs/robotics-corpus-full-glm52-v1/RPI0691/rich/FULL/repeat-00/artifacts/execution/execution/trace.csv",
+        "sample_count": 641,
+        "simulated": true,
+        "success": true
+      },
+      "execution_completed": true,
+      "execution_mode": "integrated_fmu_behavior",
+      "failure_stage": "behavior_evaluation",
+      "fmu": {
+        "available": true,
+        "checked": true,
+        "diagnostics": [],
+        "duration_seconds": 17.872422609012574,
+        "exported": true,
+        "fmi_version": "2.0",
+        "fmu_path": "outputs/robotics-corpus-full-glm52-v1/RPI0691/rich/FULL/repeat-00/artifacts/execution/export/candidate.fmu",
+        "inputs": [],
+        "interface_type": "co_simulation",
+        "model_identifier": "candidate",
+        "model_name": "RobotTask_RPI0691_R00",
+        "outputs": [
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_accumulated_energy",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 59,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_actuator_state",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 60,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_command",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m3/s",
+            "value_reference": 61,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_pressure",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 62,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_supply_flow",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m3/s",
+            "value_reference": 63,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_tracking_error",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 64,
+            "variability": "continuous"
+          }
+        ],
+        "success": true,
+        "variables": [
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "accumulatedEnergy",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "J",
+            "value_reference": 0,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "boomAngle",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "rad",
+            "value_reference": 1,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "boomVel",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "rad/s",
+            "value_reference": 2,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "pumpPressure",
+            "scalar_type": "real",
+            "start": "5e5",
+            "unit": "Pa",
+            "value_reference": 3,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "stickAngle",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "rad",
+            "value_reference": 4,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "stickVel",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "rad/s",
+            "value_reference": 5,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "supplyFlow",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "m3/s",
+            "value_reference": 6,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "temperature",
+            "scalar_type": "real",
+            "start": "300.0",
+            "unit": "K",
+            "value_reference": 7,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(accumulatedEnergy)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "W",
+            "value_reference": 8,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(boomAngle)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "Hz",
+            "value_reference": 9,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(boomVel)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "s-2",
+            "value_reference": 10,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(pumpPressure)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "km-1.s-3.g",
+            "value_reference": 11,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(stickAngle)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "Hz",
+            "value_reference": 12,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(stickVel)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "s-2",
+            "value_reference": 13,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(supplyFlow)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m3.s-2",
+            "value_reference": 14,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(temperature)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "s-1.K",
+            "value_reference": 15,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_if_command)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 16,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_if_tracking_error)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 17,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(boomRef)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 18,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(dBoomRef)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 19,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(degradationFactor)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 20,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(errBoom)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 21,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(q1_raw)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 22,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_command_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 36,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_pressure_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 37,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_supply_flow_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 38,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_tracking_error_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 39,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "boomRef",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad",
+            "value_reference": 40,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "compressibilityFactor",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 41,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "dBoomRef",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad/s",
+            "value_reference": 42,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "dStickRef",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad/s",
+            "value_reference": 43,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "degradationFactor",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 44,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "distTorque",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m",
+            "value_reference": 45,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "disturbanceActive",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 46,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "errBoom",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad",
+            "value_reference": 47,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "errStick",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad",
+            "value_reference": 48,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "gravTorque1",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m",
+            "value_reference": 49,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "gravTorque2",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m",
+            "value_reference": 50,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "hydraulicPower",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "W",
+            "value_reference": 51,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "p1",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "Pa",
+            "value_reference": 52,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "p2",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "Pa",
+            "value_reference": 53,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "q1_raw",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m3/s",
+            "value_reference": 54,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "q2_raw",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m3/s",
+            "value_reference": 55,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "q2_sat",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m3/s",
+            "value_reference": 56,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "reliefFlow",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m3/s",
+            "value_reference": 57,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "stickRef",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad",
+            "value_reference": 58,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_accumulated_energy",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 59,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_actuator_state",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 60,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_command",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m3/s",
+            "value_reference": 61,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_pressure",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 62,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_supply_flow",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m3/s",
+            "value_reference": 63,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_tracking_error",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 64,
+            "variability": "continuous"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "J1",
+            "scalar_type": "real",
+            "start": "50.0",
+            "unit": "kg.m2",
+            "value_reference": 65,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "J2",
+            "scalar_type": "real",
+            "start": "20.0",
+            "unit": "kg.m2",
+            "value_reference": 66,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "ambientTemperature",
+            "scalar_type": "real",
+            "start": "300.0",
+            "unit": "K",
+            "value_reference": 67,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "cyclePeriod",
+            "scalar_type": "real",
+            "start": "4.0",
+            "unit": "s",
+            "value_reference": 68,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "d1",
+            "scalar_type": "real",
+            "start": "10.0",
+            "unit": "N.m.s/rad",
+            "value_reference": 69,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "d2",
+            "scalar_type": "real",
+            "start": "5.0",
+            "unit": "N.m.s/rad",
+            "value_reference": 70,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "energyCap",
+            "scalar_type": "real",
+            "start": "1e5",
+            "unit": "J",
+            "value_reference": 71,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_entities_hyd_boom_conserve_a_boom_length",
+            "scalar_type": "real",
+            "start": "2.0",
+            "unit": "m",
+            "value_reference": 72,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_entities_hyd_boom_conserve_a_payload_mass",
+            "scalar_type": "real",
+            "start": "300.0",
+            "unit": "kg",
+            "value_reference": 73,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_entities_hyd_boom_conserve_a_stick_length",
+            "scalar_type": "real",
+            "start": "1.4",
+            "unit": "m",
+            "value_reference": 74,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_environment_env_load_disturbance_magnitude",
+            "scalar_type": "real",
+            "start": "90.0",
+            "unit": "N",
+            "value_reference": 75,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_parameters_command_magnitude_limit_value",
+            "scalar_type": "real",
+            "start": "0.003",
+            "unit": "m3/s",
+            "value_reference": 76,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "g",
+            "scalar_type": "real",
+            "start": "9.81",
+            "unit": "m/s2",
+            "value_reference": 77,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "heatTransferCoeff",
+            "scalar_type": "real",
+            "start": "50.0",
+            "unit": "W/K",
+            "value_reference": 78,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "kd_pos",
+            "scalar_type": "real",
+            "start": "1.0",
+            "unit": "1",
+            "value_reference": 79,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "kp_pos",
+            "scalar_type": "real",
+            "start": "30.0",
+            "unit": "1/s",
+            "value_reference": 80,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "momentArm",
+            "scalar_type": "real",
+            "start": "1.0",
+            "unit": "m",
+            "value_reference": 81,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "pistonArea",
+            "scalar_type": "real",
+            "start": "0.005",
+            "unit": "m2",
+            "value_reference": 82,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "refAmplitudeBoom",
+            "scalar_type": "real",
+            "start": "0.15",
+            "unit": "rad",
+            "value_reference": 83,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "refAmplitudeStick",
+            "scalar_type": "real",
+            "start": "0.1",
+            "unit": "rad",
+            "value_reference": 84,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "reliefPressure",
+            "scalar_type": "real",
+            "start": "2.5e7",
+            "unit": "Pa",
+            "value_reference": 85,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "returnPressure",
+            "scalar_type": "real",
+            "start": "5e5",
+            "unit": "Pa",
+            "value_reference": 86,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "tau_act",
+            "scalar_type": "real",
+            "start": "0.05",
+            "unit": "s",
+            "value_reference": 87,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "tau_pump",
+            "scalar_type": "real",
+            "start": "0.1",
+            "unit": "s",
+            "value_reference": 88,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "thermalMass",
+            "scalar_type": "real",
+            "start": "5000.0",
+            "unit": "J/K",
+            "value_reference": 89,
+            "variability": "fixed"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_accumulated_energy_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 51,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_actuator_state_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 2,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "command",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m3/s",
+            "value_reference": 61,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "q1_sat",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m3/s",
+            "value_reference": 61,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "tracking_error",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 64,
+            "variability": "continuous"
+          }
+        ]
+      },
+      "passed": false,
+      "properties": [
+        {
+          "detail": "eventually robustness=0.027",
+          "formula": "F[0, 5.2](trace_if_tracking_error <= 0.027)",
+          "id": "prop_tracking_error_eventually",
+          "interface_id": "if_tracking_error",
+          "passed": true,
+          "property_id": "prop_tracking_error_eventually",
+          "robustness": 0.027,
+          "status": "satisfied"
+        },
+        {
+          "detail": "always robustness=0.000643806",
+          "formula": "G[0, T](-0.003 <= trace_if_command and trace_if_command <= 0.003)",
+          "id": "prop_command_magnitude_limit",
+          "interface_id": "if_command",
+          "passed": true,
+          "property_id": "prop_command_magnitude_limit",
+          "robustness": 0.0006438055098076552,
+          "status": "satisfied"
+        },
+        {
+          "detail": "finite-value trace gate passed",
+          "formula": "all requested runtime outputs are finite",
+          "id": "prop_no_nan_physical",
+          "passed": true,
+          "property_id": "prop_no_nan_physical",
+          "robustness": null,
+          "status": "satisfied"
+        },
+        {
+          "detail": "finite-value trace gate passed",
+          "formula": "all requested runtime outputs are finite",
+          "id": "prop_no_nan_control",
+          "passed": true,
+          "property_id": "prop_no_nan_control",
+          "robustness": null,
+          "status": "satisfied"
+        },
+        {
+          "detail": "finite-value trace gate passed",
+          "formula": "all requested runtime outputs are finite",
+          "id": "prop_no_nan_energy",
+          "passed": true,
+          "property_id": "prop_no_nan_energy",
+          "robustness": null,
+          "status": "satisfied"
+        },
+        {
+          "detail": "no deterministic evaluator exists for this grounded property kind",
+          "formula": "custom",
+          "id": "prop_cycle_completion",
+          "passed": false,
+          "property_id": "prop_cycle_completion",
+          "robustness": null,
+          "status": "unevaluable"
+        },
+        {
+          "detail": "no deterministic evaluator exists for this grounded property kind",
+          "formula": "custom",
+          "id": "prop_terminal_error",
+          "passed": false,
+          "property_id": "prop_terminal_error",
+          "robustness": null,
+          "status": "unevaluable"
+        },
+        {
+          "detail": "no deterministic evaluator exists for this grounded property kind",
+          "formula": "custom",
+          "id": "prop_energy_cap",
+          "passed": false,
+          "property_id": "prop_energy_cap",
+          "robustness": null,
+          "status": "unevaluable"
+        },
+        {
+          "detail": "no deterministic evaluator exists for this grounded property kind",
+          "formula": "custom",
+          "id": "prop_bounded_degradation",
+          "passed": false,
+          "property_id": "prop_bounded_degradation",
+          "robustness": null,
+          "status": "unevaluable"
+        }
+      ],
+      "property_count": 9,
+      "property_summary": {
+        "passed": 5,
+        "total": 9,
+        "unevaluable": 4,
+        "violated": 0
+      },
+      "report": "execution.json",
+      "trace_gate": {
+        "finite": true,
+        "minimum_expected_samples": 640,
+        "missing_outputs": [],
+        "required_outputs": [
+          "trace_if_accumulated_energy",
+          "trace_if_actuator_state",
+          "trace_if_command",
+          "trace_if_pressure",
+          "trace_if_supply_flow",
+          "trace_if_tracking_error"
+        ],
+        "sample_count": 641,
+        "success": true
+      }
+    },
+    "modelica": {
+      "artifact": "modelica/model.mo",
+      "attempt_0_valid": true,
+      "combiner_model": "z-ai/glm-5.2",
+      "expert_candidates": [
+        "qwen/qwen3.6-plus",
+        "z-ai/glm-5.2",
+        "deepseek/deepseek-v4-pro",
+        "meta-llama/llama-4-maverick"
+      ],
+      "expert_models": [
+        "qwen/qwen3.6-plus",
+        "z-ai/glm-5.2",
+        "deepseek/deepseek-v4-pro",
+        "meta-llama/llama-4-maverick"
+      ],
+      "expert_soft_fail_count": 0,
+      "generation_mode": "moe",
+      "identity_preserved": true,
+      "model_name": "RobotTask_RPI0691_R00",
+      "passed": true,
+      "repairs": 0,
+      "report": "modelica/generation.json",
+      "retrieved_examples": [
+        {
+          "id": "M1371",
+          "score": 51.33282864421625
+        },
+        {
+          "id": "M523",
+          "score": 48.89119987733458
+        },
+        {
+          "id": "M1373",
+          "score": 45.15895458882814
+        },
+        {
+          "id": "M1076",
+          "score": 44.16865175654827
+        },
+        {
+          "id": "M009",
+          "score": 42.52858454351429
+        }
+      ],
+      "study_controls": {
+        "max_tool_repairs": 2,
+        "moe_enabled": true,
+        "rag_enabled": true,
+        "retrieval_k": 5,
+        "tool_repair_enabled": true
+      }
+    },
+    "normalization": {
+      "attempt_count": 1,
+      "precomputed": true,
+      "report": "normalization.json",
+      "success": true
+    },
+    "one_shot": {
+      "artifact_pair_valid_attempt_0": null,
+      "artifact_valid_attempt_0": true,
+      "modelica_valid_attempt_0": true,
+      "openusd_valid_attempt_0": null
+    },
+    "paired_block": {
+      "block_fingerprint": "841c17225d9e3c0666297da6be27e80b4e3a86edfeba69b4933846bb03b995cb",
+      "normalized_ir_sha256": "b7398054957dec29e83ed0613a6d444b8926309b85cd7415457391ad07d5a7c9",
+      "repetition": 0
+    },
+    "passed": false,
+    "plan": {
+      "contract": "contract.json",
+      "mapping_count": 6,
+      "model_name": "RobotTask_RPI0691_R00",
+      "parameter_mapping_count": 5,
+      "report": "plan.json",
+      "requirement_ir": "requirement_ir.json",
+      "success": true
+    },
+    "runtime_repair": {
+      "accepted": 0,
+      "attempted": 0,
+      "enabled": true,
+      "final_model": "modelica/model.mo",
+      "infrastructure_error": null,
+      "max_repairs": 2,
+      "original_model": null,
+      "report": "runtime-repair.json",
+      "triggered": true
+    },
+    "schema_version": "1.0",
+    "source_text_sha256": "72a9f11876837917108e8af42fd7b2b19c0eb9227234f7b60bf16f438d5cb13f",
+    "stage": "modelica_capability_orchestrator",
+    "stage_trace": [
+      {
+        "index": 0,
+        "passed": true,
+        "reached": true,
+        "stage": "requirement_normalization",
+        "status": "passed"
+      },
+      {
+        "index": 1,
+        "passed": true,
+        "reached": true,
+        "stage": "interface_planning",
+        "status": "passed"
+      },
+      {
+        "index": 2,
+        "passed": true,
+        "reached": true,
+        "stage": "modelica_validation",
+        "status": "passed"
+      },
+      {
+        "index": 3,
+        "passed": true,
+        "reached": true,
+        "stage": "modelica_identity",
+        "status": "passed"
+      },
+      {
+        "index": 4,
+        "passed": true,
+        "reached": true,
+        "stage": "fmu_export",
+        "status": "passed"
+      },
+      {
+        "index": 5,
+        "passed": true,
+        "reached": true,
+        "stage": "fmu_interface_contract",
+        "status": "passed"
+      },
+      {
+        "index": 6,
+        "passed": true,
+        "reached": true,
+        "stage": "runtime_initialization",
+        "status": "passed"
+      },
+      {
+        "index": 7,
+        "passed": true,
+        "reached": true,
+        "stage": "runtime_execution",
+        "status": "passed"
+      },
+      {
+        "index": 8,
+        "passed": true,
+        "reached": true,
+        "stage": "behavior_evaluation",
+        "status": "passed"
+      },
+      {
+        "index": 9,
+        "passed": false,
+        "reached": true,
+        "stage": "modelica_specification_alignment",
+        "status": "failed"
+      }
+    ],
+    "study_validity": {
+      "alignment_observed": true,
+      "complete_moe_required": true,
+      "condition_fidelity_passed": true,
+      "contract_created": true,
+      "eligible": true,
+      "expected": {
+        "alignment": true,
+        "id": "FULL",
+        "label": "complete_pipeline",
+        "moe": true,
+        "rag": true,
+        "tool_repair": true,
+        "validated_contract": true
+      },
+      "generation_reached": true,
+      "issues": [],
+      "observed_generation": [
+        {
+          "combiner_model": "z-ai/glm-5.2",
+          "expert_candidate_count": 4,
+          "expert_roster": [
+            "qwen/qwen3.6-plus",
+            "z-ai/glm-5.2",
+            "deepseek/deepseek-v4-pro",
+            "meta-llama/llama-4-maverick"
+          ],
+          "expert_soft_fail_count": 0,
+          "generation_mode": "moe",
+          "owner": "modelica",
+          "retrieval_count": 5,
+          "study_controls": {
+            "max_tool_repairs": 2,
+            "moe_enabled": true,
+            "rag_enabled": true,
+            "retrieval_k": 5,
+            "tool_repair_enabled": true
+          }
+        }
+      ],
+      "runtime_repair_observed": true
+    },
+    "task_id": "RPI0691-R00"
+  },
+  "schema_version": "1.1",
+  "task_id": "RPI0691",
+  "variant": "rich"
+}

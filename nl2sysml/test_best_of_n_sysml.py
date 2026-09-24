@@ -175,3 +175,39 @@ def test_real_compiler_scores_a_candidate():
     assert good["is_valid"] and not good["errors"]
     assert not bad["is_valid"] and bad["errors"]
     assert bad["timeout"] is False
+
+
+# ------------------------------------------------------------------ transport failures are not outcomes
+def test_seed_with_a_transport_failure_is_not_complete(tmp_path):
+    ok = [cand(i, valid=True) for i in range(3)]
+    bon.write_seed(tmp_path, "U1", "p", 3, {"candidates": ok, "elapsed_sec": 1.0})
+    assert bon.is_complete(tmp_path / "U1" / "meta.json", 3)
+
+    # what the first real run wrote when OpenRouter returned 402: every sample failed, seed "written"
+    dead = [cand(i, empty=True, error="RuntimeError: OpenRouter call failed: 402 credits", code="")
+            for i in range(3)]
+    bon.write_seed(tmp_path, "U2", "p", 3, {"candidates": dead, "elapsed_sec": 1.0})
+    assert not bon.is_complete(tmp_path / "U2" / "meta.json", 3)
+
+    partial = [cand(0, valid=True), cand(1, empty=True, error="IncompleteRead", code=""), cand(2)]
+    bon.write_seed(tmp_path, "U3", "p", 3, {"candidates": partial, "elapsed_sec": 1.0})
+    assert not bon.is_complete(tmp_path / "U3" / "meta.json", 3)
+
+
+def test_completeness_checks_n_and_tolerates_missing_or_corrupt_meta(tmp_path):
+    bon.write_seed(tmp_path, "U1", "p", 3, {"candidates": [cand(i, valid=True) for i in range(3)],
+                                            "elapsed_sec": 1.0})
+    assert not bon.is_complete(tmp_path / "U1" / "meta.json", 6)      # a best-of-3 is not a best-of-6
+    assert not bon.is_complete(tmp_path / "nope" / "meta.json", 3)
+    (tmp_path / "U9").mkdir()
+    (tmp_path / "U9" / "meta.json").write_text("{not json")
+    assert not bon.is_complete(tmp_path / "U9" / "meta.json", 3)
+    (tmp_path / "U8").mkdir()
+    (tmp_path / "U8" / "meta.json").write_text(json.dumps({"validation": {}}))   # a naive-style meta
+    assert not bon.is_complete(tmp_path / "U8" / "meta.json")
+
+
+def test_model_empty_reply_is_an_outcome_not_a_transport_failure():
+    empty_reply = cand(0, empty=True, code="")          # model answered with nothing: error is None
+    assert bon.transport_failures({"candidates": [empty_reply]}) == []
+    assert bon.transport_failures({"candidates": [cand(1, error="boom", empty=True, code="")]}) == ["boom"]

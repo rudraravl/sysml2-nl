@@ -628,13 +628,19 @@ def _set_response_read_timeout(resp: Any, timeout: float) -> None:
             return
 
 
-def _openrouter_invoke(model: str, system_msg: str, human_msg: str, key: str) -> str:
-    """Rate-limit-aware OpenRouter call: capped concurrency + retry on 429/5xx."""
+def _openrouter_invoke(model: str, system_msg: str, human_msg: str, key: str, *,
+                       messages: list[dict] | None = None,
+                       usage_out: dict | None = None) -> str:
+    """Rate-limit-aware OpenRouter call: capped concurrency + retry on 429/5xx.
+
+    `messages` (a full chat history) replaces the system/human pair for multi-turn callers;
+    `usage_out` receives the provider's token usage when given."""
     max_retries = max(0, int(os.getenv("OPENROUTER_MAX_RETRIES", "5")))
     attempt = 0
     while True:
         try:
-            return _openrouter_invoke_once(model, system_msg, human_msg, key)
+            return _openrouter_invoke_once(model, system_msg, human_msg, key,
+                                           messages=messages, usage_out=usage_out)
         except _RetryableOpenRouterError as exc:
             if attempt >= max_retries:
                 raise RuntimeError(
@@ -664,7 +670,9 @@ class _RetryableOpenRouterError(Exception):
         self.retry_after = retry_after
 
 
-def _openrouter_invoke_once(model: str, system_msg: str, human_msg: str, key: str) -> str:
+def _openrouter_invoke_once(model: str, system_msg: str, human_msg: str, key: str, *,
+                            messages: list[dict] | None = None,
+                            usage_out: dict | None = None) -> str:
     # Allowed under LLM_BACKEND=cli for non-CLI experts (e.g. meta-llama/*).
     if not key:
         raise RuntimeError(f"OPENROUTER_API_KEY missing for model {model}")
@@ -673,7 +681,7 @@ def _openrouter_invoke_once(model: str, system_msg: str, human_msg: str, key: st
     transport = openrouter_transport_config()
     payload = {
         "model": model,
-        "messages": [
+        "messages": messages or [
             {"role": "system", "content": system_msg},
             {"role": "user", "content": human_msg},
         ],
@@ -738,6 +746,8 @@ def _openrouter_invoke_once(model: str, system_msg: str, human_msg: str, key: st
         raise RuntimeError(
             f"OpenRouter returned unexpected payload for {model}: {obj!r}"
         ) from e
+    if usage_out is not None and isinstance(obj.get("usage"), dict):
+        usage_out.update(obj["usage"])
     if text is None or not str(text).strip():
         # A successful provider response with no final answer is a model-output
         # failure, not an infrastructure one — return an empty candidate so the

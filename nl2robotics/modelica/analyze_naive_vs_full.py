@@ -28,7 +28,7 @@ What is and is not comparable
 Usage
     python nl2robotics/modelica/analyze_naive_vs_full.py \\
         --naive-root nl2robotics/modelica_naive \\
-        --full-root  nl2robotics/robotics-corpus-full-v1
+        --full-root  nl2robotics/robotics-corpus-full-glm52-v1
     # PACE: point both roots at the copied study output directories.
 """
 
@@ -50,7 +50,7 @@ from analysis import paired_stats as ps  # noqa: E402
 from analysis import report  # noqa: E402
 
 DEFAULT_NAIVE = _ROBOTICS / "modelica_naive"
-DEFAULT_FULL = _ROBOTICS / "robotics-corpus-full-v1"
+DEFAULT_FULL = _ROBOTICS / "robotics-corpus-full-glm52-v1"
 DEFAULT_MANIFEST = _ROBOTICS / "corpus" / "pipeline_prompt_manifest.json"
 DEFAULT_OUT = _ROBOTICS / "analysis_results" / "modelica_naive_vs_full"
 

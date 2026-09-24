@@ -1,0 +1,439 @@
+{
+  "condition": {
+    "alignment": true,
+    "id": "FULL",
+    "label": "complete_pipeline",
+    "moe": true,
+    "rag": true,
+    "tool_repair": true,
+    "validated_contract": true
+  },
+  "configuration": {
+    "artifact_mode": "modelica_only",
+    "benchmark_manifest": "/storage/scratch1/4/skannan89/robotics-generalized/nl2robotics/corpus/pipeline_prompt_manifest.json",
+    "benchmark_manifest_sha256": "0a6631f7b9c9cbf4983d92ab4424943a668f60e571bf5ee4203213f84c1a8409",
+    "benchmark_split": "all",
+    "configuration_variant_filter": [],
+    "family_filter": [],
+    "fmi_backend": "local",
+    "h2_controller_backend": "local",
+    "h2_device": "cpu",
+    "h2_repetitions": 3,
+    "h2_solver": "TGS",
+    "isaac_handoff_configured": false,
+    "k": 5,
+    "max_runtime_repairs": 2,
+    "max_tool_repairs": 2,
+    "modelica_backend": "local",
+    "modelica_subset": "full1500",
+    "moe_configuration": "shared_with_sysml_pipeline",
+    "newton_controller_backend": "local",
+    "newton_device": "cuda:0",
+    "newton_fmi_runtime_image": "nl2robotics-fmi-runtime:0.1",
+    "newton_handoff_configured": false,
+    "newton_repeatability_tolerance": 1e-06,
+    "newton_repetitions": 3,
+    "newton_solver": "featherstone",
+    "newton_version": "1.5.0",
+    "pipeline": "nl_ir_modelica_compile_fmu_execute_spec",
+    "rag_routing": "family_preferred_4_of_5_with_global_fallback",
+    "randomization_seed": 20260830,
+    "require_complete_moe": true,
+    "runtime_repair_model": "z-ai/glm-5.2",
+    "runtime_repair_policy": "tool_conditions_only_monotonic_recompile_reexecute_recheck_behavior",
+    "runtime_repair_provider": "openrouter",
+    "semantic_case_filter": [],
+    "shard_assignment": "category_stratified_task_block_round_robin",
+    "shard_count": 4,
+    "single_model": "z-ai/glm-5.2",
+    "single_provider": "openrouter",
+    "study_protocol_core_sha256": "f5f0200a721873f9eeac07c7084e8f58fe820d1acef60434f7e0ac234041d153",
+    "task_order": "seeded_randomized"
+  },
+  "difficulty": "foundational",
+  "duration_seconds": 1404.4410311840475,
+  "fingerprint": "8e953ab7204cb3cafc9a007135667815d6981ed561a45a79abae9c1ccdeeb653",
+  "infrastructure_error": null,
+  "metrics": {
+    "all_properties_pass": null,
+    "artifact_pair_valid": null,
+    "artifact_pair_valid_attempt_0": null,
+    "artifact_valid": true,
+    "artifact_valid_attempt_0": true,
+    "behavior_evaluated": null,
+    "blocking_violations": 0,
+    "condition_fidelity": true,
+    "configured_pipeline_success": false,
+    "contract_valid": null,
+    "end_to_end": false,
+    "failure_stage": "fmu_export",
+    "fmu_execution": null,
+    "fmu_export": false,
+    "fmu_interface_valid": null,
+    "infrastructure_available": true,
+    "ir_valid": true,
+    "maximum_stage_reached": 9,
+    "modelica_build": true,
+    "modelica_build_attempt_0": true,
+    "named_simulator_load": null,
+    "normalization_valid": true,
+    "post_execution_semantic": false,
+    "pre_execution_semantic": null,
+    "property_evaluability_rate": null,
+    "property_evaluable": null,
+    "property_satisfaction_rate_evaluable": null,
+    "property_satisfied": null,
+    "property_total": null,
+    "property_unevaluable": null,
+    "property_violated": null,
+    "repairs": 1,
+    "runtime_execution": null,
+    "runtime_trace_valid": null,
+    "semantic_coverage": 0.0,
+    "semantic_score": null,
+    "specification_claim_ready": false,
+    "stable_simulation": null,
+    "usd_semantic_valid": null,
+    "usd_semantic_valid_attempt_0": null,
+    "verification_tier": 2
+  },
+  "planned_order_index": 860,
+  "profile": "capability",
+  "randomization_seed": 20260830,
+  "repetition": 0,
+  "result": {
+    "ablation": {
+      "condition": {
+        "alignment": true,
+        "id": "FULL",
+        "label": "complete_pipeline",
+        "moe": true,
+        "rag": true,
+        "tool_repair": true,
+        "validated_contract": true
+      },
+      "contract_role": "generation_and_validation",
+      "generation_strategy": "rag_moe"
+    },
+    "alignment": {
+      "blocking_violations": 0,
+      "claim_ready": false,
+      "counts": {
+        "not_applicable": 0,
+        "satisfied": 0,
+        "unknown": 0,
+        "violated": 0
+      },
+      "deterministic_violations": 0,
+      "enabled": true,
+      "evidence_coverage": 0.0,
+      "not_run": true,
+      "passed": false,
+      "per_family": {},
+      "question_count": 0,
+      "report": "alignment.json",
+      "skipped": false,
+      "weighted_semantic_score": null
+    },
+    "artifact_mode": "modelica_only",
+    "capabilities": {
+      "highest_reached_tier": 2,
+      "highest_reached_tier_name": "artifacts_validated",
+      "profile_count": 14,
+      "report": "capability-report.json",
+      "requested_feature_count": 24,
+      "tiers": [
+        {
+          "name": "normalized",
+          "passed": true,
+          "tier": 0
+        },
+        {
+          "name": "ir_validated",
+          "passed": true,
+          "tier": 1
+        },
+        {
+          "modelica_passed": true,
+          "name": "artifacts_validated",
+          "openusd_passed": null,
+          "passed": true,
+          "tier": 2
+        },
+        {
+          "name": "executable_contract_validated",
+          "passed": null,
+          "reason": "requires a validated executable FMU contract",
+          "tier": 3
+        },
+        {
+          "behavior_evaluated": false,
+          "execution_completed": false,
+          "name": "behaviorally_executed",
+          "passed": false,
+          "reason": "requires a real runtime trace and behavior verdicts",
+          "tier": 4
+        },
+        {
+          "name": "accelerator_provenance_verified",
+          "passed": false,
+          "reason": "requires genuine accelerator execution provenance",
+          "tier": 5
+        }
+      ]
+    },
+    "claim_eligible_deltaai_h2": false,
+    "claim_eligible_h2": false,
+    "claim_eligible_newton_h2": false,
+    "failure_stage": "fmu_export",
+    "hybrid": {
+      "behavior_evaluated": false,
+      "behavior_passed": false,
+      "contract": {},
+      "execution": {},
+      "execution_completed": false,
+      "execution_mode": "integrated_fmu_behavior",
+      "failure_stage": "fmu_export",
+      "fmu": {
+        "available": true,
+        "checked": false,
+        "diagnostics": [
+          {
+            "message": "OpenModelica FMU export timed out after 120s",
+            "severity": "error",
+            "stage": "fmu_export"
+          }
+        ],
+        "duration_seconds": 121.26366037968546,
+        "exported": false,
+        "fmi_version": "",
+        "fmu_path": null,
+        "inputs": [],
+        "interface_type": "",
+        "model_identifier": "",
+        "model_name": "RobotTask_RPI0145_R00",
+        "outputs": [],
+        "success": false,
+        "variables": []
+      },
+      "passed": false,
+      "properties": [],
+      "property_count": 0,
+      "property_summary": {},
+      "report": "execution.json",
+      "trace_gate": {}
+    },
+    "modelica": {
+      "artifact": "modelica/model.mo",
+      "attempt_0_valid": true,
+      "combiner_model": "z-ai/glm-5.2",
+      "expert_candidates": [
+        "qwen/qwen3.6-plus",
+        "z-ai/glm-5.2",
+        "deepseek/deepseek-v4-pro",
+        "meta-llama/llama-4-maverick"
+      ],
+      "expert_models": [
+        "qwen/qwen3.6-plus",
+        "z-ai/glm-5.2",
+        "deepseek/deepseek-v4-pro",
+        "meta-llama/llama-4-maverick"
+      ],
+      "expert_soft_fail_count": 0,
+      "generation_mode": "moe",
+      "identity_preserved": true,
+      "model_name": "RobotTask_RPI0145_R00",
+      "passed": true,
+      "repairs": 0,
+      "report": "modelica/generation.json",
+      "retrieved_examples": [
+        {
+          "id": "M007",
+          "score": 63.47919563455971
+        },
+        {
+          "id": "M1027",
+          "score": 59.600004340564716
+        },
+        {
+          "id": "M008",
+          "score": 55.82372647351993
+        },
+        {
+          "id": "M009",
+          "score": 52.339348187552254
+        },
+        {
+          "id": "M1001",
+          "score": 49.08595758372279
+        }
+      ],
+      "study_controls": {
+        "max_tool_repairs": 2,
+        "moe_enabled": true,
+        "rag_enabled": true,
+        "retrieval_k": 5,
+        "tool_repair_enabled": true
+      }
+    },
+    "normalization": {
+      "attempt_count": 1,
+      "precomputed": true,
+      "report": "normalization.json",
+      "success": true
+    },
+    "one_shot": {
+      "artifact_pair_valid_attempt_0": null,
+      "artifact_valid_attempt_0": true,
+      "modelica_valid_attempt_0": true,
+      "openusd_valid_attempt_0": null
+    },
+    "paired_block": {
+      "block_fingerprint": "7b97ade37867f3ab36015d9a5849df8aff7b770440ae1db0b18f0a73fa84662f",
+      "normalized_ir_sha256": "86c62ca11ae6537cf28f540e5387bfd0a1ec1f200759bede38f7e51615ebe754",
+      "repetition": 0
+    },
+    "passed": false,
+    "plan": {
+      "contract": "contract.json",
+      "mapping_count": 14,
+      "model_name": "RobotTask_RPI0145_R00",
+      "parameter_mapping_count": 16,
+      "report": "plan.json",
+      "requirement_ir": "requirement_ir.json",
+      "success": true
+    },
+    "runtime_repair": {
+      "accepted": 0,
+      "attempted": 1,
+      "enabled": true,
+      "final_model": "modelica/model.mo",
+      "infrastructure_error": null,
+      "max_repairs": 2,
+      "original_model": null,
+      "report": "runtime-repair.json",
+      "triggered": true
+    },
+    "schema_version": "1.0",
+    "source_text_sha256": "fe2924027d1d13d239067357abfebb6f08baa79aceab81197e21c912d9d41355",
+    "stage": "modelica_capability_orchestrator",
+    "stage_trace": [
+      {
+        "index": 0,
+        "passed": true,
+        "reached": true,
+        "stage": "requirement_normalization",
+        "status": "passed"
+      },
+      {
+        "index": 1,
+        "passed": true,
+        "reached": true,
+        "stage": "interface_planning",
+        "status": "passed"
+      },
+      {
+        "index": 2,
+        "passed": true,
+        "reached": true,
+        "stage": "modelica_validation",
+        "status": "passed"
+      },
+      {
+        "index": 3,
+        "passed": true,
+        "reached": true,
+        "stage": "modelica_identity",
+        "status": "passed"
+      },
+      {
+        "index": 4,
+        "passed": false,
+        "reached": true,
+        "stage": "fmu_export",
+        "status": "failed"
+      },
+      {
+        "index": 5,
+        "passed": null,
+        "reached": false,
+        "stage": "fmu_interface_contract",
+        "status": "not_reached"
+      },
+      {
+        "index": 6,
+        "passed": null,
+        "reached": false,
+        "stage": "runtime_initialization",
+        "status": "not_reached"
+      },
+      {
+        "index": 7,
+        "passed": null,
+        "reached": false,
+        "stage": "runtime_execution",
+        "status": "not_reached"
+      },
+      {
+        "index": 8,
+        "passed": null,
+        "reached": false,
+        "stage": "behavior_evaluation",
+        "status": "not_reached"
+      },
+      {
+        "index": 9,
+        "passed": false,
+        "reached": true,
+        "stage": "modelica_specification_alignment",
+        "status": "failed"
+      }
+    ],
+    "study_validity": {
+      "alignment_observed": true,
+      "complete_moe_required": true,
+      "condition_fidelity_passed": true,
+      "contract_created": true,
+      "eligible": true,
+      "expected": {
+        "alignment": true,
+        "id": "FULL",
+        "label": "complete_pipeline",
+        "moe": true,
+        "rag": true,
+        "tool_repair": true,
+        "validated_contract": true
+      },
+      "generation_reached": true,
+      "issues": [],
+      "observed_generation": [
+        {
+          "combiner_model": "z-ai/glm-5.2",
+          "expert_candidate_count": 4,
+          "expert_roster": [
+            "qwen/qwen3.6-plus",
+            "z-ai/glm-5.2",
+            "deepseek/deepseek-v4-pro",
+            "meta-llama/llama-4-maverick"
+          ],
+          "expert_soft_fail_count": 0,
+          "generation_mode": "moe",
+          "owner": "modelica",
+          "retrieval_count": 5,
+          "study_controls": {
+            "max_tool_repairs": 2,
+            "moe_enabled": true,
+            "rag_enabled": true,
+            "retrieval_k": 5,
+            "tool_repair_enabled": true
+          }
+        }
+      ],
+      "runtime_repair_observed": true
+    },
+    "task_id": "RPI0145-R00"
+  },
+  "schema_version": "1.1",
+  "task_id": "RPI0145",
+  "variant": "rich"
+}

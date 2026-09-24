@@ -10,8 +10,17 @@ py-solc-x>=2.0.0
 # nl2solidity: static-analysis stage (Foundry itself is a separate
 # system install: `brew install foundry`)
 slither-analyzer>=0.11.0
+# nl2solidity/fsm_scg: FSM-SCG baseline (upstream FSM checks use networkx; FSMs
+# carry // comments, so parsing falls back to json_repair)
+networkx>=3.0
+json_repair>=0.30
 # nl2solidity: seed harvesting from the DefiLlama catalog (sol_seed_generator.py)
 requests>=2.31.0
 # jsonschema is optional: spec_aligner/scripts/validate_manifest.py skips schema
 # validation without it, and the dataset check still verifies files + checksums
 jsonschema>=4.0.0
+# nl2sysml/sysml_agent: SysMLAgent baseline. The runtime must match the ANTLR 4.13.2 tool that
+# generated grammar/*.py. sentence-transformers is only needed to rebuild the committed embeddings.
+antlr4-python3-runtime==4.13.2
+numpy>=1.24
+sentence-transformers>=3.0

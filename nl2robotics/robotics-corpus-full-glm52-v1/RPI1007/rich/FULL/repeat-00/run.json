@@ -1,0 +1,2897 @@
+{
+  "condition": {
+    "alignment": true,
+    "id": "FULL",
+    "label": "complete_pipeline",
+    "moe": true,
+    "rag": true,
+    "tool_repair": true,
+    "validated_contract": true
+  },
+  "configuration": {
+    "artifact_mode": "modelica_only",
+    "benchmark_manifest": "/storage/scratch1/4/skannan89/robotics-generalized/nl2robotics/corpus/pipeline_prompt_manifest.json",
+    "benchmark_manifest_sha256": "0a6631f7b9c9cbf4983d92ab4424943a668f60e571bf5ee4203213f84c1a8409",
+    "benchmark_split": "all",
+    "configuration_variant_filter": [],
+    "family_filter": [],
+    "fmi_backend": "local",
+    "h2_controller_backend": "local",
+    "h2_device": "cpu",
+    "h2_repetitions": 3,
+    "h2_solver": "TGS",
+    "isaac_handoff_configured": false,
+    "k": 5,
+    "max_runtime_repairs": 2,
+    "max_tool_repairs": 2,
+    "modelica_backend": "local",
+    "modelica_subset": "full1500",
+    "moe_configuration": "shared_with_sysml_pipeline",
+    "newton_controller_backend": "local",
+    "newton_device": "cuda:0",
+    "newton_fmi_runtime_image": "nl2robotics-fmi-runtime:0.1",
+    "newton_handoff_configured": false,
+    "newton_repeatability_tolerance": 1e-06,
+    "newton_repetitions": 3,
+    "newton_solver": "featherstone",
+    "newton_version": "1.5.0",
+    "pipeline": "nl_ir_modelica_compile_fmu_execute_spec",
+    "rag_routing": "family_preferred_4_of_5_with_global_fallback",
+    "randomization_seed": 20260830,
+    "require_complete_moe": true,
+    "runtime_repair_model": "z-ai/glm-5.2",
+    "runtime_repair_policy": "tool_conditions_only_monotonic_recompile_reexecute_recheck_behavior",
+    "runtime_repair_provider": "openrouter",
+    "semantic_case_filter": [],
+    "shard_assignment": "category_stratified_task_block_round_robin",
+    "shard_count": 4,
+    "single_model": "z-ai/glm-5.2",
+    "single_provider": "openrouter",
+    "study_protocol_core_sha256": "f5f0200a721873f9eeac07c7084e8f58fe820d1acef60434f7e0ac234041d153",
+    "task_order": "seeded_randomized"
+  },
+  "difficulty": "advanced",
+  "duration_seconds": 1827.0272810063325,
+  "fingerprint": "9bc31171f0bf19ecb3a7f564fb92dbfccd2efbbe8957dea01a8ec6e034465be2",
+  "infrastructure_error": null,
+  "metrics": {
+    "all_properties_pass": false,
+    "artifact_pair_valid": null,
+    "artifact_pair_valid_attempt_0": null,
+    "artifact_valid": true,
+    "artifact_valid_attempt_0": false,
+    "behavior_evaluated": true,
+    "blocking_violations": 0,
+    "condition_fidelity": true,
+    "configured_pipeline_success": false,
+    "contract_valid": true,
+    "end_to_end": false,
+    "failure_stage": "behavior_evaluation",
+    "fmu_execution": true,
+    "fmu_export": true,
+    "fmu_interface_valid": true,
+    "infrastructure_available": true,
+    "ir_valid": true,
+    "maximum_stage_reached": 9,
+    "modelica_build": true,
+    "modelica_build_attempt_0": false,
+    "named_simulator_load": null,
+    "normalization_valid": true,
+    "post_execution_semantic": true,
+    "pre_execution_semantic": null,
+    "property_evaluability_rate": 0.7,
+    "property_evaluable": 7,
+    "property_satisfaction_rate_evaluable": 1.0,
+    "property_satisfied": 7,
+    "property_total": 10,
+    "property_unevaluable": 3,
+    "property_violated": 0,
+    "repairs": 2,
+    "runtime_execution": true,
+    "runtime_trace_valid": true,
+    "semantic_coverage": 0.91358,
+    "semantic_score": 1.0,
+    "specification_claim_ready": false,
+    "stable_simulation": true,
+    "usd_semantic_valid": null,
+    "usd_semantic_valid_attempt_0": null,
+    "verification_tier": 4
+  },
+  "planned_order_index": 766,
+  "profile": "capability",
+  "randomization_seed": 20260830,
+  "repetition": 0,
+  "result": {
+    "ablation": {
+      "condition": {
+        "alignment": true,
+        "id": "FULL",
+        "label": "complete_pipeline",
+        "moe": true,
+        "rag": true,
+        "tool_repair": true,
+        "validated_contract": true
+      },
+      "contract_role": "generation_and_validation",
+      "generation_strategy": "rag_moe"
+    },
+    "alignment": {
+      "blocking_violations": 0,
+      "claim_ready": false,
+      "counts": {
+        "not_applicable": 0,
+        "satisfied": 65,
+        "unknown": 6,
+        "violated": 0
+      },
+      "deterministic_violations": 0,
+      "enabled": true,
+      "evidence_coverage": 0.91358,
+      "not_run": false,
+      "passed": true,
+      "per_family": {
+        "actuator": 1.0,
+        "controller_kind": 1.0,
+        "dynamics": 1.0,
+        "entity_presence": 1.0,
+        "environment": 1.0,
+        "interface": 1.0,
+        "parameter": 1.0,
+        "property": 1.0,
+        "sensor_presence": 1.0,
+        "timing": 1.0
+      },
+      "question_count": 71,
+      "report": "alignment.json",
+      "skipped": false,
+      "weighted_semantic_score": 1.0
+    },
+    "artifact_mode": "modelica_only",
+    "capabilities": {
+      "highest_reached_tier": 4,
+      "highest_reached_tier_name": "behaviorally_executed",
+      "profile_count": 14,
+      "report": "capability-report.json",
+      "requested_feature_count": 25,
+      "tiers": [
+        {
+          "name": "normalized",
+          "passed": true,
+          "tier": 0
+        },
+        {
+          "name": "ir_validated",
+          "passed": true,
+          "tier": 1
+        },
+        {
+          "modelica_passed": true,
+          "name": "artifacts_validated",
+          "openusd_passed": null,
+          "passed": true,
+          "tier": 2
+        },
+        {
+          "name": "executable_contract_validated",
+          "passed": true,
+          "reason": null,
+          "tier": 3
+        },
+        {
+          "behavior_evaluated": true,
+          "execution_completed": true,
+          "name": "behaviorally_executed",
+          "passed": true,
+          "reason": null,
+          "tier": 4
+        },
+        {
+          "name": "accelerator_provenance_verified",
+          "passed": false,
+          "reason": "requires genuine accelerator execution provenance",
+          "tier": 5
+        }
+      ]
+    },
+    "claim_eligible_deltaai_h2": false,
+    "claim_eligible_h2": false,
+    "claim_eligible_newton_h2": false,
+    "failure_stage": "behavior_evaluation",
+    "hybrid": {
+      "behavior_evaluated": true,
+      "behavior_passed": false,
+      "contract": {
+        "fmu": {
+          "fmi_version": "2.0",
+          "interface_type": "co_simulation",
+          "model_name": "RobotTask_RPI1007_R00",
+          "variables": [
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "heading",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "rad",
+              "value_reference": 0,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "speed",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "m/s",
+              "value_reference": 1,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "steering_angle",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "rad",
+              "value_reference": 2,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "x",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "m",
+              "value_reference": 3,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(heading)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "Hz",
+              "value_reference": 4,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(speed)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m.s-2",
+              "value_reference": 5,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(steering_angle)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "Hz",
+              "value_reference": 6,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(x)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m.s-1",
+              "value_reference": 7,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_command_speed_output)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 8,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_contact_output)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 9,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_depth_camera_output)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 10,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_emergency_stop_output)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 11,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_encoder_output)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 12,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_imu_output)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 13,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_obstacle_distance_output)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 14,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_rear_effort_output)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 15,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_steering_effort_output)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 16,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_tracking_error_output)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 17,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(F_disturbance)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 18,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(F_drive)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 19,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(F_traction)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 20,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(brake_effort)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 21,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(frontBumperX)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 22,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_command_speed_output_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 39,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_contact_output_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 40,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_depth_camera_output_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 41,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_emergency_stop_output_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 42,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_encoder_output_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 43,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_imu_output_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 44,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_obstacle_distance_output_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 45,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_rear_effort_output_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 46,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_steering_effort_output_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 47,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_tracking_error_output_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 48,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "F_disturbance",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 49,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "F_drive",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 50,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "F_friction_max",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 51,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "F_normal",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 52,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "F_traction",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 53,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "brake_effort",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 54,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "frontBumperX",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 55,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_command_speed_output",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m/s",
+              "value_reference": 56,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_contact_output",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "dimensionless",
+              "value_reference": 57,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_depth_camera_output",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 58,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_emergency_stop_output",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "dimensionless",
+              "value_reference": 59,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_encoder_output",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 60,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_imu_output",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 61,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_obstacle_distance_output",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 62,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_rear_effort_output",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N.m",
+              "value_reference": 63,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_speed_output",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m/s",
+              "value_reference": 64,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_steering_effort_output",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N.m",
+              "value_reference": 65,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_tracking_error_output",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 66,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "depth_image",
+              "scalar_type": "real",
+              "start": "7.0",
+              "unit": null,
+              "value_reference": 67,
+              "variability": "discrete"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "emergency_stop",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": null,
+              "value_reference": 68,
+              "variability": "discrete"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_entities_chassis_length",
+              "scalar_type": "real",
+              "start": "1.05",
+              "unit": "m",
+              "value_reference": 69,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_entities_chassis_mass",
+              "scalar_type": "real",
+              "start": "34.0",
+              "unit": "kg",
+              "value_reference": 70,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_entities_chassis_width",
+              "scalar_type": "real",
+              "start": "0.64",
+              "unit": "m",
+              "value_reference": 71,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_environment_floor_friction_env_magnitude",
+              "scalar_type": "real",
+              "start": "0.7",
+              "unit": "dimensionless",
+              "value_reference": 72,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_parameters_barrier_distance_value",
+              "scalar_type": "real",
+              "start": "7.0",
+              "unit": "m",
+              "value_reference": 73,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_parameters_chassis_length_value",
+              "scalar_type": "real",
+              "start": "1.05",
+              "unit": "m",
+              "value_reference": 74,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_parameters_chassis_mass_value",
+              "scalar_type": "real",
+              "start": "34.0",
+              "unit": "kg",
+              "value_reference": 75,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_parameters_chassis_width_value",
+              "scalar_type": "real",
+              "start": "0.64",
+              "unit": "m",
+              "value_reference": 76,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_parameters_depth_camera_rate_value",
+              "scalar_type": "real",
+              "start": "30.0",
+              "unit": "Hz",
+              "value_reference": 77,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_parameters_floor_friction_value",
+              "scalar_type": "real",
+              "start": "0.7",
+              "unit": "dimensionless",
+              "value_reference": 78,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_parameters_payload_disturbance_value",
+              "scalar_type": "real",
+              "start": "216.0",
+              "unit": "N",
+              "value_reference": 79,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_parameters_rear_effort_limit_value",
+              "scalar_type": "real",
+              "start": "30.8",
+              "unit": "N.m",
+              "value_reference": 80,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_parameters_residual_speed_limit_value",
+              "scalar_type": "real",
+              "start": "0.05",
+              "unit": "m/s",
+              "value_reference": 81,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_parameters_safety_range_value",
+              "scalar_type": "real",
+              "start": "1.4",
+              "unit": "m",
+              "value_reference": 82,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_parameters_settling_time_value",
+              "scalar_type": "real",
+              "start": "10.4",
+              "unit": "s",
+              "value_reference": 83,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_parameters_steering_effort_limit_value",
+              "scalar_type": "real",
+              "start": "30.8",
+              "unit": "N.m",
+              "value_reference": 84,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_parameters_target_speed_value",
+              "scalar_type": "real",
+              "start": "1.2",
+              "unit": "m/s",
+              "value_reference": 85,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_parameters_tracking_error_limit_value",
+              "scalar_type": "real",
+              "start": "0.198",
+              "unit": "m",
+              "value_reference": 86,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_parameters_wheelbase_value",
+              "scalar_type": "real",
+              "start": "0.74",
+              "unit": "m",
+              "value_reference": 87,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "g",
+              "scalar_type": "real",
+              "start": "9.81",
+              "unit": "m/s2",
+              "value_reference": 88,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "kp_speed",
+              "scalar_type": "real",
+              "start": "25.0",
+              "unit": "N.m.s/m",
+              "value_reference": 89,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "kp_steer",
+              "scalar_type": "real",
+              "start": "30.0",
+              "unit": "N.m.s/rad",
+              "value_reference": 90,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "steeringLimit",
+              "scalar_type": "real",
+              "start": "0.52",
+              "unit": "rad",
+              "value_reference": 91,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "wheelRadius",
+              "scalar_type": "real",
+              "start": "0.1",
+              "unit": "m",
+              "value_reference": 92,
+              "variability": "fixed"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_speed_output_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 61,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "acceleration",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m/s2",
+              "value_reference": 61,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "command_speed",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m/s",
+              "value_reference": 56,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "contact",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "dimensionless",
+              "value_reference": 57,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "encoder_reading",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "rad",
+              "value_reference": 60,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "imu_acceleration",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m/s2",
+              "value_reference": 61,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "obstacle_distance",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 62,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "rear_effort",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N.m",
+              "value_reference": 63,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "steering_effort",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N.m",
+              "value_reference": 65,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "tracking_error",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 66,
+              "variability": "continuous"
+            }
+          ]
+        },
+        "issues": [],
+        "resolved_mappings": [
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_speed_output",
+            "id": "map_speed_output",
+            "interface_id": "speed_output",
+            "quantity": "speed",
+            "required": true,
+            "semantic_entity_id": "chassis",
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "m/s",
+            "state_id": "rover.speed",
+            "target_unit": "m/s",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_rear_effort_output",
+            "id": "map_rear_effort_output",
+            "interface_id": "rear_effort_output",
+            "quantity": "effort",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "N.m",
+            "state_id": "rover.rear_effort",
+            "target_unit": "N.m",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_steering_effort_output",
+            "id": "map_steering_effort_output",
+            "interface_id": "steering_effort_output",
+            "quantity": "effort",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "N.m",
+            "state_id": "rover.steering_effort",
+            "target_unit": "N.m",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_command_speed_output",
+            "id": "map_command_speed_output",
+            "interface_id": "command_speed_output",
+            "quantity": "speed_command",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "m/s",
+            "state_id": "rover.command_speed",
+            "target_unit": "m/s",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_tracking_error_output",
+            "id": "map_tracking_error_output",
+            "interface_id": "tracking_error_output",
+            "quantity": "tracking_error",
+            "required": true,
+            "semantic_entity_id": "chassis",
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "m",
+            "state_id": "rover.tracking_error",
+            "target_unit": "m",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_contact_output",
+            "id": "map_contact_output",
+            "interface_id": "contact_output",
+            "quantity": "contact",
+            "required": true,
+            "semantic_entity_id": "chassis",
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "dimensionless",
+            "state_id": "rover.contact",
+            "target_unit": "dimensionless",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_obstacle_distance_output",
+            "id": "map_obstacle_distance_output",
+            "interface_id": "obstacle_distance_output",
+            "quantity": "distance",
+            "required": true,
+            "semantic_entity_id": "chassis",
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "m",
+            "state_id": "rover.obstacle_distance",
+            "target_unit": "m",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_emergency_stop_output",
+            "id": "map_emergency_stop_output",
+            "interface_id": "emergency_stop_output",
+            "quantity": "emergency_stop",
+            "required": true,
+            "semantic_entity_id": "chassis",
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "dimensionless",
+            "state_id": "rover.emergency_stop",
+            "target_unit": "dimensionless",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_encoder_output",
+            "id": "map_encoder_output",
+            "interface_id": "encoder_output",
+            "quantity": "position",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": "encoder_sensor",
+            "source_unit": "unspecified",
+            "state_id": "rover.encoder_reading",
+            "target_unit": "unspecified",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_imu_output",
+            "id": "map_imu_output",
+            "interface_id": "imu_output",
+            "quantity": "acceleration",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": "imu_sensor",
+            "source_unit": "unspecified",
+            "state_id": "rover.imu_acceleration",
+            "target_unit": "unspecified",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_depth_camera_output",
+            "id": "map_depth_camera_output",
+            "interface_id": "depth_camera_output",
+            "quantity": "depth",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": "depth_camera_sensor",
+            "source_unit": "unspecified",
+            "state_id": "rover.depth_image",
+            "target_unit": "unspecified",
+            "verification_status": "resolved_fmu_output"
+          }
+        ],
+        "resolved_parameter_mappings": [
+          {
+            "actual_unit": "kg",
+            "actual_value": 34.0,
+            "collection": "entities",
+            "expected_value": 34.0,
+            "fact_id": "entities.chassis.mass",
+            "field": "mass",
+            "fmu_variable": "fact_entities_chassis_mass",
+            "id": "fact_entities_chassis_mass",
+            "record_id": "chassis",
+            "required": true,
+            "source_unit": "kg",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "m",
+            "actual_value": 1.05,
+            "collection": "entities",
+            "expected_value": 1.05,
+            "fact_id": "entities.chassis.length",
+            "field": "length",
+            "fmu_variable": "fact_entities_chassis_length",
+            "id": "fact_entities_chassis_length",
+            "record_id": "chassis",
+            "required": true,
+            "source_unit": "m",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "m",
+            "actual_value": 0.64,
+            "collection": "entities",
+            "expected_value": 0.64,
+            "fact_id": "entities.chassis.width",
+            "field": "width",
+            "fmu_variable": "fact_entities_chassis_width",
+            "id": "fact_entities_chassis_width",
+            "record_id": "chassis",
+            "required": true,
+            "source_unit": "m",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "kg",
+            "actual_value": 34.0,
+            "collection": "parameters",
+            "expected_value": 34.0,
+            "fact_id": "parameters.chassis_mass.value",
+            "field": "value",
+            "fmu_variable": "fact_parameters_chassis_mass_value",
+            "id": "fact_parameters_chassis_mass_value",
+            "record_id": "chassis_mass",
+            "required": true,
+            "source_unit": "kg",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "m",
+            "actual_value": 1.05,
+            "collection": "parameters",
+            "expected_value": 1.05,
+            "fact_id": "parameters.chassis_length.value",
+            "field": "value",
+            "fmu_variable": "fact_parameters_chassis_length_value",
+            "id": "fact_parameters_chassis_length_value",
+            "record_id": "chassis_length",
+            "required": true,
+            "source_unit": "m",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "m",
+            "actual_value": 0.64,
+            "collection": "parameters",
+            "expected_value": 0.64,
+            "fact_id": "parameters.chassis_width.value",
+            "field": "value",
+            "fmu_variable": "fact_parameters_chassis_width_value",
+            "id": "fact_parameters_chassis_width_value",
+            "record_id": "chassis_width",
+            "required": true,
+            "source_unit": "m",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "m",
+            "actual_value": 0.74,
+            "collection": "parameters",
+            "expected_value": 0.74,
+            "fact_id": "parameters.wheelbase.value",
+            "field": "value",
+            "fmu_variable": "fact_parameters_wheelbase_value",
+            "id": "fact_parameters_wheelbase_value",
+            "record_id": "wheelbase",
+            "required": true,
+            "source_unit": "m",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "m",
+            "actual_value": 1.4,
+            "collection": "parameters",
+            "expected_value": 1.4,
+            "fact_id": "parameters.safety_range.value",
+            "field": "value",
+            "fmu_variable": "fact_parameters_safety_range_value",
+            "id": "fact_parameters_safety_range_value",
+            "record_id": "safety_range",
+            "required": true,
+            "source_unit": "m",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "m/s",
+            "actual_value": 1.2,
+            "collection": "parameters",
+            "expected_value": 1.2,
+            "fact_id": "parameters.target_speed.value",
+            "field": "value",
+            "fmu_variable": "fact_parameters_target_speed_value",
+            "id": "fact_parameters_target_speed_value",
+            "record_id": "target_speed",
+            "required": true,
+            "source_unit": "m/s",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "N.m",
+            "actual_value": 30.8,
+            "collection": "parameters",
+            "expected_value": 30.8,
+            "fact_id": "parameters.rear_effort_limit.value",
+            "field": "value",
+            "fmu_variable": "fact_parameters_rear_effort_limit_value",
+            "id": "fact_parameters_rear_effort_limit_value",
+            "record_id": "rear_effort_limit",
+            "required": true,
+            "source_unit": "N.m",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "N.m",
+            "actual_value": 30.8,
+            "collection": "parameters",
+            "expected_value": 30.8,
+            "fact_id": "parameters.steering_effort_limit.value",
+            "field": "value",
+            "fmu_variable": "fact_parameters_steering_effort_limit_value",
+            "id": "fact_parameters_steering_effort_limit_value",
+            "record_id": "steering_effort_limit",
+            "required": true,
+            "source_unit": "N.m",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "N",
+            "actual_value": 216.0,
+            "collection": "parameters",
+            "expected_value": 216.0,
+            "fact_id": "parameters.payload_disturbance.value",
+            "field": "value",
+            "fmu_variable": "fact_parameters_payload_disturbance_value",
+            "id": "fact_parameters_payload_disturbance_value",
+            "record_id": "payload_disturbance",
+            "required": true,
+            "source_unit": "N",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "m",
+            "actual_value": 7.0,
+            "collection": "parameters",
+            "expected_value": 7.0,
+            "fact_id": "parameters.barrier_distance.value",
+            "field": "value",
+            "fmu_variable": "fact_parameters_barrier_distance_value",
+            "id": "fact_parameters_barrier_distance_value",
+            "record_id": "barrier_distance",
+            "required": true,
+            "source_unit": "m",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "Hz",
+            "actual_value": 30.0,
+            "collection": "parameters",
+            "expected_value": 30.0,
+            "fact_id": "parameters.depth_camera_rate.value",
+            "field": "value",
+            "fmu_variable": "fact_parameters_depth_camera_rate_value",
+            "id": "fact_parameters_depth_camera_rate_value",
+            "record_id": "depth_camera_rate",
+            "required": true,
+            "source_unit": "Hz",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "dimensionless",
+            "actual_value": 0.7,
+            "collection": "parameters",
+            "expected_value": 0.7,
+            "fact_id": "parameters.floor_friction.value",
+            "field": "value",
+            "fmu_variable": "fact_parameters_floor_friction_value",
+            "id": "fact_parameters_floor_friction_value",
+            "record_id": "floor_friction",
+            "required": true,
+            "source_unit": "dimensionless",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "m/s",
+            "actual_value": 0.05,
+            "collection": "parameters",
+            "expected_value": 0.05,
+            "fact_id": "parameters.residual_speed_limit.value",
+            "field": "value",
+            "fmu_variable": "fact_parameters_residual_speed_limit_value",
+            "id": "fact_parameters_residual_speed_limit_value",
+            "record_id": "residual_speed_limit",
+            "required": true,
+            "source_unit": "m/s",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "m",
+            "actual_value": 0.198,
+            "collection": "parameters",
+            "expected_value": 0.198,
+            "fact_id": "parameters.tracking_error_limit.value",
+            "field": "value",
+            "fmu_variable": "fact_parameters_tracking_error_limit_value",
+            "id": "fact_parameters_tracking_error_limit_value",
+            "record_id": "tracking_error_limit",
+            "required": true,
+            "source_unit": "m",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "s",
+            "actual_value": 10.4,
+            "collection": "parameters",
+            "expected_value": 10.4,
+            "fact_id": "parameters.settling_time.value",
+            "field": "value",
+            "fmu_variable": "fact_parameters_settling_time_value",
+            "id": "fact_parameters_settling_time_value",
+            "record_id": "settling_time",
+            "required": true,
+            "source_unit": "s",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "dimensionless",
+            "actual_value": 0.7,
+            "collection": "environment",
+            "expected_value": 0.7,
+            "fact_id": "environment.floor_friction_env.magnitude",
+            "field": "magnitude",
+            "fmu_variable": "fact_environment_floor_friction_env_magnitude",
+            "id": "fact_environment_floor_friction_env_magnitude",
+            "record_id": "floor_friction_env",
+            "required": true,
+            "source_unit": "dimensionless",
+            "verification_status": "resolved_fmu_parameter"
+          }
+        ],
+        "success": true
+      },
+      "execution": {
+        "available": true,
+        "columns": [
+          "time",
+          "trace_command_speed_output",
+          "trace_contact_output",
+          "trace_depth_camera_output",
+          "trace_emergency_stop_output",
+          "trace_encoder_output",
+          "trace_imu_output",
+          "trace_obstacle_distance_output",
+          "trace_rear_effort_output",
+          "trace_speed_output",
+          "trace_steering_effort_output",
+          "trace_tracking_error_output"
+        ],
+        "diagnostics": [],
+        "duration_seconds": 7.099128656554967,
+        "initialized": true,
+        "report_file": "outputs/robotics-corpus-full-glm52-v1/RPI1007/rich/FULL/repeat-00/artifacts/execution/execution/execution.json",
+        "result_file": "outputs/robotics-corpus-full-glm52-v1/RPI1007/rich/FULL/repeat-00/artifacts/execution/execution/trace.csv",
+        "sample_count": 4001,
+        "simulated": true,
+        "success": true
+      },
+      "execution_completed": true,
+      "execution_mode": "integrated_fmu_behavior",
+      "failure_stage": "behavior_evaluation",
+      "fmu": {
+        "available": true,
+        "checked": true,
+        "diagnostics": [],
+        "duration_seconds": 47.78191735362634,
+        "exported": true,
+        "fmi_version": "2.0",
+        "fmu_path": "outputs/robotics-corpus-full-glm52-v1/RPI1007/rich/FULL/repeat-00/artifacts/execution/export/candidate.fmu",
+        "inputs": [],
+        "interface_type": "co_simulation",
+        "model_identifier": "candidate",
+        "model_name": "RobotTask_RPI1007_R00",
+        "outputs": [
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_command_speed_output",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m/s",
+            "value_reference": 56,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_contact_output",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "dimensionless",
+            "value_reference": 57,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_depth_camera_output",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 58,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_emergency_stop_output",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "dimensionless",
+            "value_reference": 59,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_encoder_output",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 60,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_imu_output",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 61,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_obstacle_distance_output",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 62,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_rear_effort_output",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m",
+            "value_reference": 63,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_speed_output",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m/s",
+            "value_reference": 64,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_steering_effort_output",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m",
+            "value_reference": 65,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_tracking_error_output",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 66,
+            "variability": "continuous"
+          }
+        ],
+        "success": true,
+        "variables": [
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "heading",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "rad",
+            "value_reference": 0,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "speed",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "m/s",
+            "value_reference": 1,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "steering_angle",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "rad",
+            "value_reference": 2,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "x",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "m",
+            "value_reference": 3,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(heading)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "Hz",
+            "value_reference": 4,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(speed)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m.s-2",
+            "value_reference": 5,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(steering_angle)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "Hz",
+            "value_reference": 6,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(x)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m.s-1",
+            "value_reference": 7,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_command_speed_output)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 8,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_contact_output)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 9,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_depth_camera_output)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 10,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_emergency_stop_output)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 11,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_encoder_output)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 12,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_imu_output)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 13,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_obstacle_distance_output)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 14,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_rear_effort_output)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 15,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_steering_effort_output)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 16,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_tracking_error_output)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 17,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(F_disturbance)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 18,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(F_drive)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 19,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(F_traction)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 20,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(brake_effort)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 21,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(frontBumperX)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 22,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_command_speed_output_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 39,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_contact_output_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 40,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_depth_camera_output_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 41,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_emergency_stop_output_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 42,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_encoder_output_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 43,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_imu_output_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 44,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_obstacle_distance_output_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 45,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_rear_effort_output_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 46,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_steering_effort_output_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 47,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_tracking_error_output_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 48,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "F_disturbance",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 49,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "F_drive",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 50,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "F_friction_max",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 51,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "F_normal",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 52,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "F_traction",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 53,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "brake_effort",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 54,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "frontBumperX",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 55,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_command_speed_output",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m/s",
+            "value_reference": 56,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_contact_output",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "dimensionless",
+            "value_reference": 57,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_depth_camera_output",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 58,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_emergency_stop_output",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "dimensionless",
+            "value_reference": 59,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_encoder_output",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 60,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_imu_output",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 61,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_obstacle_distance_output",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 62,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_rear_effort_output",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m",
+            "value_reference": 63,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_speed_output",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m/s",
+            "value_reference": 64,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_steering_effort_output",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m",
+            "value_reference": 65,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_tracking_error_output",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 66,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "depth_image",
+            "scalar_type": "real",
+            "start": "7.0",
+            "unit": null,
+            "value_reference": 67,
+            "variability": "discrete"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "emergency_stop",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": null,
+            "value_reference": 68,
+            "variability": "discrete"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_entities_chassis_length",
+            "scalar_type": "real",
+            "start": "1.05",
+            "unit": "m",
+            "value_reference": 69,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_entities_chassis_mass",
+            "scalar_type": "real",
+            "start": "34.0",
+            "unit": "kg",
+            "value_reference": 70,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_entities_chassis_width",
+            "scalar_type": "real",
+            "start": "0.64",
+            "unit": "m",
+            "value_reference": 71,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_environment_floor_friction_env_magnitude",
+            "scalar_type": "real",
+            "start": "0.7",
+            "unit": "dimensionless",
+            "value_reference": 72,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_parameters_barrier_distance_value",
+            "scalar_type": "real",
+            "start": "7.0",
+            "unit": "m",
+            "value_reference": 73,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_parameters_chassis_length_value",
+            "scalar_type": "real",
+            "start": "1.05",
+            "unit": "m",
+            "value_reference": 74,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_parameters_chassis_mass_value",
+            "scalar_type": "real",
+            "start": "34.0",
+            "unit": "kg",
+            "value_reference": 75,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_parameters_chassis_width_value",
+            "scalar_type": "real",
+            "start": "0.64",
+            "unit": "m",
+            "value_reference": 76,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_parameters_depth_camera_rate_value",
+            "scalar_type": "real",
+            "start": "30.0",
+            "unit": "Hz",
+            "value_reference": 77,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_parameters_floor_friction_value",
+            "scalar_type": "real",
+            "start": "0.7",
+            "unit": "dimensionless",
+            "value_reference": 78,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_parameters_payload_disturbance_value",
+            "scalar_type": "real",
+            "start": "216.0",
+            "unit": "N",
+            "value_reference": 79,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_parameters_rear_effort_limit_value",
+            "scalar_type": "real",
+            "start": "30.8",
+            "unit": "N.m",
+            "value_reference": 80,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_parameters_residual_speed_limit_value",
+            "scalar_type": "real",
+            "start": "0.05",
+            "unit": "m/s",
+            "value_reference": 81,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_parameters_safety_range_value",
+            "scalar_type": "real",
+            "start": "1.4",
+            "unit": "m",
+            "value_reference": 82,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_parameters_settling_time_value",
+            "scalar_type": "real",
+            "start": "10.4",
+            "unit": "s",
+            "value_reference": 83,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_parameters_steering_effort_limit_value",
+            "scalar_type": "real",
+            "start": "30.8",
+            "unit": "N.m",
+            "value_reference": 84,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_parameters_target_speed_value",
+            "scalar_type": "real",
+            "start": "1.2",
+            "unit": "m/s",
+            "value_reference": 85,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_parameters_tracking_error_limit_value",
+            "scalar_type": "real",
+            "start": "0.198",
+            "unit": "m",
+            "value_reference": 86,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_parameters_wheelbase_value",
+            "scalar_type": "real",
+            "start": "0.74",
+            "unit": "m",
+            "value_reference": 87,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "g",
+            "scalar_type": "real",
+            "start": "9.81",
+            "unit": "m/s2",
+            "value_reference": 88,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "kp_speed",
+            "scalar_type": "real",
+            "start": "25.0",
+            "unit": "N.m.s/m",
+            "value_reference": 89,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "kp_steer",
+            "scalar_type": "real",
+            "start": "30.0",
+            "unit": "N.m.s/rad",
+            "value_reference": 90,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "steeringLimit",
+            "scalar_type": "real",
+            "start": "0.52",
+            "unit": "rad",
+            "value_reference": 91,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "wheelRadius",
+            "scalar_type": "real",
+            "start": "0.1",
+            "unit": "m",
+            "value_reference": 92,
+            "variability": "fixed"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_speed_output_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 61,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "acceleration",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m/s2",
+            "value_reference": 61,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "command_speed",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m/s",
+            "value_reference": 56,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "contact",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "dimensionless",
+            "value_reference": 57,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "encoder_reading",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad",
+            "value_reference": 60,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "imu_acceleration",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m/s2",
+            "value_reference": 61,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "obstacle_distance",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 62,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "rear_effort",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m",
+            "value_reference": 63,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "steering_effort",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m",
+            "value_reference": 65,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "tracking_error",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 66,
+            "variability": "continuous"
+          }
+        ]
+      },
+      "passed": false,
+      "properties": [
+        {
+          "detail": "always robustness=8.88178e-15",
+          "formula": "G[0, T](trace_speed_output <= 1.2)",
+          "id": "speed_limit",
+          "interface_id": "speed_output",
+          "passed": true,
+          "property_id": "speed_limit",
+          "robustness": 8.881784197001252e-15,
+          "status": "satisfied"
+        },
+        {
+          "detail": "always robustness=0",
+          "formula": "G[0, T](-30.8 <= trace_rear_effort_output and trace_rear_effort_output <= 30.8)",
+          "id": "rear_effort_limit_prop",
+          "interface_id": "rear_effort_output",
+          "passed": true,
+          "property_id": "rear_effort_limit_prop",
+          "robustness": 0.0,
+          "status": "satisfied"
+        },
+        {
+          "detail": "always robustness=30.8",
+          "formula": "G[0, T](-30.8 <= trace_steering_effort_output and trace_steering_effort_output <= 30.8)",
+          "id": "steering_effort_limit_prop",
+          "interface_id": "steering_effort_output",
+          "passed": true,
+          "property_id": "steering_effort_limit_prop",
+          "robustness": 30.8,
+          "status": "satisfied"
+        },
+        {
+          "detail": "always robustness=0",
+          "formula": "G[0, T](trace_contact_output <= 0)",
+          "id": "no_barrier_collision_prop",
+          "interface_id": "contact_output",
+          "passed": true,
+          "property_id": "no_barrier_collision_prop",
+          "robustness": 0.0,
+          "status": "satisfied"
+        },
+        {
+          "detail": "final robustness=34.8562",
+          "formula": "final[0, T](trace_speed_output <= 0.05)",
+          "id": "residual_speed_prop",
+          "interface_id": "speed_output",
+          "passed": true,
+          "property_id": "residual_speed_prop",
+          "robustness": 34.85621576733403,
+          "status": "satisfied"
+        },
+        {
+          "detail": "always robustness=0.198",
+          "formula": "G[10.4, T](trace_tracking_error_output <= 0.198)",
+          "id": "tracking_error_bound",
+          "interface_id": "tracking_error_output",
+          "passed": true,
+          "property_id": "tracking_error_bound",
+          "robustness": 0.198,
+          "status": "satisfied"
+        },
+        {
+          "detail": "no deterministic evaluator exists for this grounded property kind",
+          "formula": "custom",
+          "id": "monotonic_braking_prop",
+          "passed": false,
+          "property_id": "monotonic_braking_prop",
+          "robustness": null,
+          "status": "unevaluable"
+        },
+        {
+          "detail": "finite-value trace gate passed",
+          "formula": "all requested runtime outputs are finite",
+          "id": "no_nan_inf_prop",
+          "passed": true,
+          "property_id": "no_nan_inf_prop",
+          "robustness": null,
+          "status": "satisfied"
+        },
+        {
+          "detail": "no deterministic evaluator exists for this grounded property kind",
+          "formula": "custom",
+          "id": "fail_closed_prop",
+          "passed": false,
+          "property_id": "fail_closed_prop",
+          "robustness": null,
+          "status": "unevaluable"
+        },
+        {
+          "detail": "no deterministic evaluator exists for this grounded property kind",
+          "formula": "custom",
+          "id": "emergency_brake_trigger_prop",
+          "passed": false,
+          "property_id": "emergency_brake_trigger_prop",
+          "robustness": null,
+          "status": "unevaluable"
+        }
+      ],
+      "property_count": 10,
+      "property_summary": {
+        "passed": 7,
+        "total": 10,
+        "unevaluable": 3,
+        "violated": 0
+      },
+      "report": "execution.json",
+      "trace_gate": {
+        "finite": true,
+        "minimum_expected_samples": 4000,
+        "missing_outputs": [],
+        "required_outputs": [
+          "trace_command_speed_output",
+          "trace_contact_output",
+          "trace_depth_camera_output",
+          "trace_emergency_stop_output",
+          "trace_encoder_output",
+          "trace_imu_output",
+          "trace_obstacle_distance_output",
+          "trace_rear_effort_output",
+          "trace_speed_output",
+          "trace_steering_effort_output",
+          "trace_tracking_error_output"
+        ],
+        "sample_count": 4001,
+        "success": true
+      }
+    },
+    "modelica": {
+      "artifact": "modelica/model.mo",
+      "attempt_0_valid": false,
+      "combiner_model": "z-ai/glm-5.2",
+      "expert_candidates": [
+        "qwen/qwen3.6-plus",
+        "z-ai/glm-5.2",
+        "deepseek/deepseek-v4-pro",
+        "meta-llama/llama-4-maverick"
+      ],
+      "expert_models": [
+        "qwen/qwen3.6-plus",
+        "z-ai/glm-5.2",
+        "deepseek/deepseek-v4-pro",
+        "meta-llama/llama-4-maverick"
+      ],
+      "expert_soft_fail_count": 0,
+      "generation_mode": "moe",
+      "identity_preserved": true,
+      "model_name": "RobotTask_RPI1007_R00",
+      "passed": true,
+      "repairs": 2,
+      "report": "modelica/generation.json",
+      "retrieved_examples": [
+        {
+          "id": "M1024",
+          "score": 57.12144590528147
+        },
+        {
+          "id": "M1008",
+          "score": 53.31997625495881
+        },
+        {
+          "id": "M1007",
+          "score": 53.20729147287024
+        },
+        {
+          "id": "M1009",
+          "score": 50.81735651581142
+        },
+        {
+          "id": "M1016",
+          "score": 48.825355299636655
+        }
+      ],
+      "study_controls": {
+        "max_tool_repairs": 2,
+        "moe_enabled": true,
+        "rag_enabled": true,
+        "retrieval_k": 5,
+        "tool_repair_enabled": true
+      }
+    },
+    "normalization": {
+      "attempt_count": 2,
+      "precomputed": true,
+      "report": "normalization.json",
+      "success": true
+    },
+    "one_shot": {
+      "artifact_pair_valid_attempt_0": null,
+      "artifact_valid_attempt_0": false,
+      "modelica_valid_attempt_0": false,
+      "openusd_valid_attempt_0": null
+    },
+    "paired_block": {
+      "block_fingerprint": "c7baf21721be01ffd3431175d31432c2ce070fd11520052aaaee7438a9882f19",
+      "normalized_ir_sha256": "4858392f5e025d1783a02b3584564f4cad6f6746970f2fd8beca68aac06f61ac",
+      "repetition": 0
+    },
+    "passed": false,
+    "plan": {
+      "contract": "contract.json",
+      "mapping_count": 11,
+      "model_name": "RobotTask_RPI1007_R00",
+      "parameter_mapping_count": 19,
+      "report": "plan.json",
+      "requirement_ir": "requirement_ir.json",
+      "success": true
+    },
+    "runtime_repair": {
+      "accepted": 0,
+      "attempted": 0,
+      "enabled": true,
+      "final_model": "modelica/model.mo",
+      "infrastructure_error": null,
+      "max_repairs": 2,
+      "original_model": null,
+      "report": "runtime-repair.json",
+      "triggered": true
+    },
+    "schema_version": "1.0",
+    "source_text_sha256": "948a03f4256834987e77f5d45a561e5688b9058222476b4ae22786c75937edb1",
+    "stage": "modelica_capability_orchestrator",
+    "stage_trace": [
+      {
+        "index": 0,
+        "passed": true,
+        "reached": true,
+        "stage": "requirement_normalization",
+        "status": "passed"
+      },
+      {
+        "index": 1,
+        "passed": true,
+        "reached": true,
+        "stage": "interface_planning",
+        "status": "passed"
+      },
+      {
+        "index": 2,
+        "passed": true,
+        "reached": true,
+        "stage": "modelica_validation",
+        "status": "passed"
+      },
+      {
+        "index": 3,
+        "passed": true,
+        "reached": true,
+        "stage": "modelica_identity",
+        "status": "passed"
+      },
+      {
+        "index": 4,
+        "passed": true,
+        "reached": true,
+        "stage": "fmu_export",
+        "status": "passed"
+      },
+      {
+        "index": 5,
+        "passed": true,
+        "reached": true,
+        "stage": "fmu_interface_contract",
+        "status": "passed"
+      },
+      {
+        "index": 6,
+        "passed": true,
+        "reached": true,
+        "stage": "runtime_initialization",
+        "status": "passed"
+      },
+      {
+        "index": 7,
+        "passed": true,
+        "reached": true,
+        "stage": "runtime_execution",
+        "status": "passed"
+      },
+      {
+        "index": 8,
+        "passed": true,
+        "reached": true,
+        "stage": "behavior_evaluation",
+        "status": "passed"
+      },
+      {
+        "index": 9,
+        "passed": true,
+        "reached": true,
+        "stage": "modelica_specification_alignment",
+        "status": "passed"
+      }
+    ],
+    "study_validity": {
+      "alignment_observed": true,
+      "complete_moe_required": true,
+      "condition_fidelity_passed": true,
+      "contract_created": true,
+      "eligible": true,
+      "expected": {
+        "alignment": true,
+        "id": "FULL",
+        "label": "complete_pipeline",
+        "moe": true,
+        "rag": true,
+        "tool_repair": true,
+        "validated_contract": true
+      },
+      "generation_reached": true,
+      "issues": [],
+      "observed_generation": [
+        {
+          "combiner_model": "z-ai/glm-5.2",
+          "expert_candidate_count": 4,
+          "expert_roster": [
+            "qwen/qwen3.6-plus",
+            "z-ai/glm-5.2",
+            "deepseek/deepseek-v4-pro",
+            "meta-llama/llama-4-maverick"
+          ],
+          "expert_soft_fail_count": 0,
+          "generation_mode": "moe",
+          "owner": "modelica",
+          "retrieval_count": 5,
+          "study_controls": {
+            "max_tool_repairs": 2,
+            "moe_enabled": true,
+            "rag_enabled": true,
+            "retrieval_k": 5,
+            "tool_repair_enabled": true
+          }
+        }
+      ],
+      "runtime_repair_observed": true
+    },
+    "task_id": "RPI1007-R00"
+  },
+  "schema_version": "1.1",
+  "task_id": "RPI1007",
+  "variant": "rich"
+}

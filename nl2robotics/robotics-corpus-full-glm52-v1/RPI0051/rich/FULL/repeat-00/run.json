@@ -1,0 +1,3160 @@
+{
+  "condition": {
+    "alignment": true,
+    "id": "FULL",
+    "label": "complete_pipeline",
+    "moe": true,
+    "rag": true,
+    "tool_repair": true,
+    "validated_contract": true
+  },
+  "configuration": {
+    "artifact_mode": "modelica_only",
+    "benchmark_manifest": "/storage/scratch1/4/skannan89/robotics-generalized/nl2robotics/corpus/pipeline_prompt_manifest.json",
+    "benchmark_manifest_sha256": "0a6631f7b9c9cbf4983d92ab4424943a668f60e571bf5ee4203213f84c1a8409",
+    "benchmark_split": "all",
+    "configuration_variant_filter": [],
+    "family_filter": [],
+    "fmi_backend": "local",
+    "h2_controller_backend": "local",
+    "h2_device": "cpu",
+    "h2_repetitions": 3,
+    "h2_solver": "TGS",
+    "isaac_handoff_configured": false,
+    "k": 5,
+    "max_runtime_repairs": 2,
+    "max_tool_repairs": 2,
+    "modelica_backend": "local",
+    "modelica_subset": "full1500",
+    "moe_configuration": "shared_with_sysml_pipeline",
+    "newton_controller_backend": "local",
+    "newton_device": "cuda:0",
+    "newton_fmi_runtime_image": "nl2robotics-fmi-runtime:0.1",
+    "newton_handoff_configured": false,
+    "newton_repeatability_tolerance": 1e-06,
+    "newton_repetitions": 3,
+    "newton_solver": "featherstone",
+    "newton_version": "1.5.0",
+    "pipeline": "nl_ir_modelica_compile_fmu_execute_spec",
+    "rag_routing": "family_preferred_4_of_5_with_global_fallback",
+    "randomization_seed": 20260830,
+    "require_complete_moe": true,
+    "runtime_repair_model": "z-ai/glm-5.2",
+    "runtime_repair_policy": "tool_conditions_only_monotonic_recompile_reexecute_recheck_behavior",
+    "runtime_repair_provider": "openrouter",
+    "semantic_case_filter": [],
+    "shard_assignment": "category_stratified_task_block_round_robin",
+    "shard_count": 4,
+    "single_model": "z-ai/glm-5.2",
+    "single_provider": "openrouter",
+    "study_protocol_core_sha256": "f5f0200a721873f9eeac07c7084e8f58fe820d1acef60434f7e0ac234041d153",
+    "task_order": "seeded_randomized"
+  },
+  "difficulty": "intermediate",
+  "duration_seconds": 705.0018128002994,
+  "fingerprint": "8b4b20d94a5a58eb5da449b4ad53dff23e87a7629482e61d63facc9dfcb8c798",
+  "infrastructure_error": null,
+  "metrics": {
+    "all_properties_pass": false,
+    "artifact_pair_valid": null,
+    "artifact_pair_valid_attempt_0": null,
+    "artifact_valid": true,
+    "artifact_valid_attempt_0": true,
+    "behavior_evaluated": true,
+    "blocking_violations": 1,
+    "condition_fidelity": true,
+    "configured_pipeline_success": false,
+    "contract_valid": true,
+    "end_to_end": false,
+    "failure_stage": "behavior_evaluation",
+    "fmu_execution": true,
+    "fmu_export": true,
+    "fmu_interface_valid": true,
+    "infrastructure_available": true,
+    "ir_valid": true,
+    "maximum_stage_reached": 9,
+    "modelica_build": true,
+    "modelica_build_attempt_0": true,
+    "named_simulator_load": null,
+    "normalization_valid": true,
+    "post_execution_semantic": false,
+    "pre_execution_semantic": null,
+    "property_evaluability_rate": 1.0,
+    "property_evaluable": 8,
+    "property_satisfaction_rate_evaluable": 0.875,
+    "property_satisfied": 7,
+    "property_total": 8,
+    "property_unevaluable": 0,
+    "property_violated": 1,
+    "repairs": 1,
+    "runtime_execution": true,
+    "runtime_trace_valid": true,
+    "semantic_coverage": 0.641791,
+    "semantic_score": 0.965116,
+    "specification_claim_ready": false,
+    "stable_simulation": true,
+    "usd_semantic_valid": null,
+    "usd_semantic_valid_attempt_0": null,
+    "verification_tier": 4
+  },
+  "planned_order_index": 179,
+  "profile": "capability",
+  "randomization_seed": 20260830,
+  "repetition": 0,
+  "result": {
+    "ablation": {
+      "condition": {
+        "alignment": true,
+        "id": "FULL",
+        "label": "complete_pipeline",
+        "moe": true,
+        "rag": true,
+        "tool_repair": true,
+        "validated_contract": true
+      },
+      "contract_role": "generation_and_validation",
+      "generation_strategy": "rag_moe"
+    },
+    "alignment": {
+      "blocking_violations": 1,
+      "claim_ready": false,
+      "counts": {
+        "not_applicable": 0,
+        "satisfied": 32,
+        "unknown": 23,
+        "violated": 1
+      },
+      "deterministic_violations": 1,
+      "enabled": true,
+      "evidence_coverage": 0.641791,
+      "not_run": false,
+      "passed": false,
+      "per_family": {
+        "interface": 1.0,
+        "parameter": 1.0,
+        "property": 0.875,
+        "timing": 1.0
+      },
+      "question_count": 56,
+      "report": "alignment.json",
+      "skipped": false,
+      "weighted_semantic_score": 0.965116
+    },
+    "artifact_mode": "modelica_only",
+    "capabilities": {
+      "highest_reached_tier": 4,
+      "highest_reached_tier_name": "behaviorally_executed",
+      "profile_count": 14,
+      "report": "capability-report.json",
+      "requested_feature_count": 25,
+      "tiers": [
+        {
+          "name": "normalized",
+          "passed": true,
+          "tier": 0
+        },
+        {
+          "name": "ir_validated",
+          "passed": true,
+          "tier": 1
+        },
+        {
+          "modelica_passed": true,
+          "name": "artifacts_validated",
+          "openusd_passed": null,
+          "passed": true,
+          "tier": 2
+        },
+        {
+          "name": "executable_contract_validated",
+          "passed": true,
+          "reason": null,
+          "tier": 3
+        },
+        {
+          "behavior_evaluated": true,
+          "execution_completed": true,
+          "name": "behaviorally_executed",
+          "passed": true,
+          "reason": null,
+          "tier": 4
+        },
+        {
+          "name": "accelerator_provenance_verified",
+          "passed": false,
+          "reason": "requires genuine accelerator execution provenance",
+          "tier": 5
+        }
+      ]
+    },
+    "claim_eligible_deltaai_h2": false,
+    "claim_eligible_h2": false,
+    "claim_eligible_newton_h2": false,
+    "failure_stage": "behavior_evaluation",
+    "hybrid": {
+      "behavior_evaluated": true,
+      "behavior_passed": false,
+      "contract": {
+        "fmu": {
+          "fmi_version": "2.0",
+          "interface_type": "co_simulation",
+          "model_name": "RobotTask_RPI0051_R00",
+          "variables": [
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "altitude",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "m",
+              "value_reference": 0,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "pitch_angle",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "rad",
+              "value_reference": 1,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "pitch_rate",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "rad/s",
+              "value_reference": 2,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "roll_angle",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "rad",
+              "value_reference": 3,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "roll_rate",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "rad/s",
+              "value_reference": 4,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "vx",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "m/s",
+              "value_reference": 5,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "vz",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "m/s",
+              "value_reference": 6,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "x_position",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "m",
+              "value_reference": 7,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "yaw_angle",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "rad",
+              "value_reference": 8,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "yaw_rate",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "rad/s",
+              "value_reference": 9,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(altitude)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m.s-1",
+              "value_reference": 10,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(pitch_angle)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "Hz",
+              "value_reference": 11,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(pitch_rate)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "s-2",
+              "value_reference": 12,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(roll_angle)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "Hz",
+              "value_reference": 13,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(roll_rate)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "s-2",
+              "value_reference": 14,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(vx)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m.s-2",
+              "value_reference": 15,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(vz)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m.s-2",
+              "value_reference": 16,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(x_position)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m.s-1",
+              "value_reference": 17,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(yaw_angle)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "Hz",
+              "value_reference": 18,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(yaw_rate)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "s-2",
+              "value_reference": 19,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_if_pos_sensor)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 20,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_if_thrust_1)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 21,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_if_thrust_2)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 22,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_if_tracking_error)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 23,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(roll_torque_cmd)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 24,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(thrust_raw_1)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 25,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(thrust_raw_2)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 26,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(total_thrust_cmd)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 27,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_pos_sensor_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 36,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_thrust_1_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 37,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_thrust_2_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 38,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "_D_trace_if_tilt_1_der",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": null,
+              "value_reference": 39,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "_D_trace_if_tilt_2_der",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": null,
+              "value_reference": 40,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_tracking_error_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 41,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "drag_force_x",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 42,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "drag_force_z",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 43,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "effective_tilt",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "rad",
+              "value_reference": 44,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "horizontal_thrust",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 45,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "pitch_torque",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N.m",
+              "value_reference": 46,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "pitch_torque_cmd",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N.m",
+              "value_reference": 47,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "roll_torque",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N.m",
+              "value_reference": 48,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "roll_torque_cmd",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N.m",
+              "value_reference": 49,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "thrust_raw_1",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 50,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "thrust_raw_2",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 51,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "tilt_raw_1",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "rad",
+              "value_reference": 52,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "tilt_raw_2",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "rad",
+              "value_reference": 53,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "total_thrust_cmd",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 54,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_altimeter",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 55,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_altitude",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 56,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_imu",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 57,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_pitch",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "rad",
+              "value_reference": 58,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_pos_sensor",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 59,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_roll",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "rad",
+              "value_reference": 60,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_thrust_1",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 61,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_thrust_2",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 62,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_tilt_1",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "rad",
+              "value_reference": 63,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_tilt_2",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "rad",
+              "value_reference": 64,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_tracking_error",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 65,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_yaw",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "rad",
+              "value_reference": 66,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "vertical_thrust",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 67,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "wind_force",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 68,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "yaw_torque",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N.m",
+              "value_reference": 69,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "yaw_torque_cmd",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N.m",
+              "value_reference": 70,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "pos_sensor_sample",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "m",
+              "value_reference": 71,
+              "variability": "discrete"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "drag_cd",
+              "scalar_type": "real",
+              "start": "0.4",
+              "unit": "1/m",
+              "value_reference": 74,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_entities_fuselage_mass",
+              "scalar_type": "real",
+              "start": "6.2",
+              "unit": "kg",
+              "value_reference": 75,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_entities_wing_length",
+              "scalar_type": "real",
+              "start": "1.8",
+              "unit": "m",
+              "value_reference": 76,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_environment_air_density_magnitude",
+              "scalar_type": "real",
+              "start": "1.225",
+              "unit": "kg/m3",
+              "value_reference": 77,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_environment_gravity_magnitude",
+              "scalar_type": "real",
+              "start": "9.81",
+              "unit": "m/s2",
+              "value_reference": 78,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_environment_wind_disturbance_magnitude",
+              "scalar_type": "real",
+              "start": "3.6",
+              "unit": "N",
+              "value_reference": 79,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_joints_tilt_joint_1_lower_limit",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "rad",
+              "value_reference": 80,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_joints_tilt_joint_1_upper_limit",
+              "scalar_type": "real",
+              "start": "1.57",
+              "unit": "rad",
+              "value_reference": 81,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_joints_tilt_joint_2_lower_limit",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "rad",
+              "value_reference": 82,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_joints_tilt_joint_2_upper_limit",
+              "scalar_type": "real",
+              "start": "1.57",
+              "unit": "rad",
+              "value_reference": 83,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_parameters_pos_sensor_rate_value",
+              "scalar_type": "real",
+              "start": "10.0",
+              "unit": "Hz",
+              "value_reference": 84,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_parameters_rotor_1_distance_from_center_value",
+              "scalar_type": "real",
+              "start": "0.62",
+              "unit": "m",
+              "value_reference": 85,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_parameters_rotor_2_distance_from_center_value",
+              "scalar_type": "real",
+              "start": "0.62",
+              "unit": "m",
+              "value_reference": 86,
+              "variability": "fixed"
+            },
+            {
+              "causality": "calculatedParameter",
+              "initial": null,
+              "name": "inertia_xx",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "kg.m2",
+              "value_reference": 87,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "inertia_yy",
+              "scalar_type": "real",
+              "start": "1.0",
+              "unit": "kg.m2",
+              "value_reference": 88,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "inertia_zz",
+              "scalar_type": "real",
+              "start": "0.8",
+              "unit": "kg.m2",
+              "value_reference": 89,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "kd_alt",
+              "scalar_type": "real",
+              "start": "18.0",
+              "unit": "N.s/m",
+              "value_reference": 90,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "kd_pitch",
+              "scalar_type": "real",
+              "start": "2.5",
+              "unit": "N.m.s/rad",
+              "value_reference": 91,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "kd_roll",
+              "scalar_type": "real",
+              "start": "3.0",
+              "unit": "N.m.s/rad",
+              "value_reference": 92,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "kd_yaw",
+              "scalar_type": "real",
+              "start": "1.5",
+              "unit": "N.m.s/rad",
+              "value_reference": 93,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "kp_alt",
+              "scalar_type": "real",
+              "start": "12.0",
+              "unit": "N/m",
+              "value_reference": 94,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "kp_pitch",
+              "scalar_type": "real",
+              "start": "12.0",
+              "unit": "N.m/rad",
+              "value_reference": 95,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "kp_roll",
+              "scalar_type": "real",
+              "start": "15.0",
+              "unit": "N.m/rad",
+              "value_reference": 96,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "kp_yaw",
+              "scalar_type": "real",
+              "start": "5.0",
+              "unit": "N.m/rad",
+              "value_reference": 97,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "target_altitude",
+              "scalar_type": "real",
+              "start": "2.5",
+              "unit": "m",
+              "value_reference": 98,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "thrust_max",
+              "scalar_type": "real",
+              "start": "47.8",
+              "unit": "N",
+              "value_reference": 99,
+              "variability": "fixed"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_altimeter_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 6,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_altitude_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 6,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_imu_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 4,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_pitch_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 2,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_roll_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 4,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_yaw_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 9,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "altimeter_reading",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 0,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "imu_attitude",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "rad",
+              "value_reference": 3,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "position_reading",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 71,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "thrust_command_1",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 61,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "thrust_command_2",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 62,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "tilt_command_1",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "rad",
+              "value_reference": 33,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "tilt_command_2",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "rad",
+              "value_reference": 34,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "tracking_error",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 65,
+              "variability": "continuous"
+            }
+          ]
+        },
+        "issues": [],
+        "resolved_mappings": [
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_thrust_1",
+            "id": "map_if_thrust_1",
+            "interface_id": "if_thrust_1",
+            "quantity": "thrust",
+            "required": true,
+            "semantic_entity_id": "rotor_1",
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "N",
+            "state_id": "thrust_command_1",
+            "target_unit": "N",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_thrust_2",
+            "id": "map_if_thrust_2",
+            "interface_id": "if_thrust_2",
+            "quantity": "thrust",
+            "required": true,
+            "semantic_entity_id": "rotor_2",
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "N",
+            "state_id": "thrust_command_2",
+            "target_unit": "N",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_altitude",
+            "id": "map_if_altitude",
+            "interface_id": "if_altitude",
+            "quantity": "altitude",
+            "required": true,
+            "semantic_entity_id": "fuselage",
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "m",
+            "state_id": "altitude",
+            "target_unit": "m",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_roll",
+            "id": "map_if_roll",
+            "interface_id": "if_roll",
+            "quantity": "roll_angle",
+            "required": true,
+            "semantic_entity_id": "fuselage",
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "rad",
+            "state_id": "roll",
+            "target_unit": "rad",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_pitch",
+            "id": "map_if_pitch",
+            "interface_id": "if_pitch",
+            "quantity": "pitch_angle",
+            "required": true,
+            "semantic_entity_id": "fuselage",
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "rad",
+            "state_id": "pitch",
+            "target_unit": "rad",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_yaw",
+            "id": "map_if_yaw",
+            "interface_id": "if_yaw",
+            "quantity": "yaw_angle",
+            "required": true,
+            "semantic_entity_id": "fuselage",
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "rad",
+            "state_id": "yaw",
+            "target_unit": "rad",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_tracking_error",
+            "id": "map_if_tracking_error",
+            "interface_id": "if_tracking_error",
+            "quantity": "tracking_error",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "m",
+            "state_id": "tracking_error",
+            "target_unit": "m",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_tilt_1",
+            "id": "map_if_tilt_1",
+            "interface_id": "if_tilt_1",
+            "quantity": "joint_position",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": "tilt_joint_1",
+            "semantic_sensor_id": null,
+            "source_unit": "rad",
+            "state_id": "tilt_command_1",
+            "target_unit": "rad",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_tilt_2",
+            "id": "map_if_tilt_2",
+            "interface_id": "if_tilt_2",
+            "quantity": "joint_position",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": "tilt_joint_2",
+            "semantic_sensor_id": null,
+            "source_unit": "rad",
+            "state_id": "tilt_command_2",
+            "target_unit": "rad",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_imu",
+            "id": "map_if_imu",
+            "interface_id": "if_imu",
+            "quantity": "attitude",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": "imu",
+            "source_unit": "unspecified",
+            "state_id": "imu_attitude",
+            "target_unit": "unspecified",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_altimeter",
+            "id": "map_if_altimeter",
+            "interface_id": "if_altimeter",
+            "quantity": "altitude",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": "altimeter",
+            "source_unit": "m",
+            "state_id": "altimeter_reading",
+            "target_unit": "m",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_pos_sensor",
+            "id": "map_if_pos_sensor",
+            "interface_id": "if_pos_sensor",
+            "quantity": "position",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": "pos_sensor",
+            "source_unit": "unspecified",
+            "state_id": "position_reading",
+            "target_unit": "unspecified",
+            "verification_status": "resolved_fmu_output"
+          }
+        ],
+        "resolved_parameter_mappings": [
+          {
+            "actual_unit": "kg",
+            "actual_value": 6.2,
+            "collection": "entities",
+            "expected_value": 6.2,
+            "fact_id": "entities.fuselage.mass",
+            "field": "mass",
+            "fmu_variable": "fact_entities_fuselage_mass",
+            "id": "fact_entities_fuselage_mass",
+            "record_id": "fuselage",
+            "required": true,
+            "source_unit": "kg",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "m",
+            "actual_value": 1.8,
+            "collection": "entities",
+            "expected_value": 1.8,
+            "fact_id": "entities.wing.length",
+            "field": "length",
+            "fmu_variable": "fact_entities_wing_length",
+            "id": "fact_entities_wing_length",
+            "record_id": "wing",
+            "required": true,
+            "source_unit": "m",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "rad",
+            "actual_value": 0.0,
+            "collection": "joints",
+            "expected_value": 0.0,
+            "fact_id": "joints.tilt_joint_1.lower_limit",
+            "field": "lower_limit",
+            "fmu_variable": "fact_joints_tilt_joint_1_lower_limit",
+            "id": "fact_joints_tilt_joint_1_lower_limit",
+            "record_id": "tilt_joint_1",
+            "required": true,
+            "source_unit": "rad",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "rad",
+            "actual_value": 1.57,
+            "collection": "joints",
+            "expected_value": 1.57,
+            "fact_id": "joints.tilt_joint_1.upper_limit",
+            "field": "upper_limit",
+            "fmu_variable": "fact_joints_tilt_joint_1_upper_limit",
+            "id": "fact_joints_tilt_joint_1_upper_limit",
+            "record_id": "tilt_joint_1",
+            "required": true,
+            "source_unit": "rad",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "rad",
+            "actual_value": 0.0,
+            "collection": "joints",
+            "expected_value": 0.0,
+            "fact_id": "joints.tilt_joint_2.lower_limit",
+            "field": "lower_limit",
+            "fmu_variable": "fact_joints_tilt_joint_2_lower_limit",
+            "id": "fact_joints_tilt_joint_2_lower_limit",
+            "record_id": "tilt_joint_2",
+            "required": true,
+            "source_unit": "rad",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "rad",
+            "actual_value": 1.57,
+            "collection": "joints",
+            "expected_value": 1.57,
+            "fact_id": "joints.tilt_joint_2.upper_limit",
+            "field": "upper_limit",
+            "fmu_variable": "fact_joints_tilt_joint_2_upper_limit",
+            "id": "fact_joints_tilt_joint_2_upper_limit",
+            "record_id": "tilt_joint_2",
+            "required": true,
+            "source_unit": "rad",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "m",
+            "actual_value": 0.62,
+            "collection": "parameters",
+            "expected_value": 0.62,
+            "fact_id": "parameters.rotor_1_distance_from_center.value",
+            "field": "value",
+            "fmu_variable": "fact_parameters_rotor_1_distance_from_center_value",
+            "id": "fact_parameters_rotor_1_distance_from_center_value",
+            "record_id": "rotor_1_distance_from_center",
+            "required": true,
+            "source_unit": "m",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "m",
+            "actual_value": 0.62,
+            "collection": "parameters",
+            "expected_value": 0.62,
+            "fact_id": "parameters.rotor_2_distance_from_center.value",
+            "field": "value",
+            "fmu_variable": "fact_parameters_rotor_2_distance_from_center_value",
+            "id": "fact_parameters_rotor_2_distance_from_center_value",
+            "record_id": "rotor_2_distance_from_center",
+            "required": true,
+            "source_unit": "m",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "Hz",
+            "actual_value": 10.0,
+            "collection": "parameters",
+            "expected_value": 10.0,
+            "fact_id": "parameters.pos_sensor_rate.value",
+            "field": "value",
+            "fmu_variable": "fact_parameters_pos_sensor_rate_value",
+            "id": "fact_parameters_pos_sensor_rate_value",
+            "record_id": "pos_sensor_rate",
+            "required": true,
+            "source_unit": "Hz",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "m/s2",
+            "actual_value": 9.81,
+            "collection": "environment",
+            "expected_value": 9.81,
+            "fact_id": "environment.gravity.magnitude",
+            "field": "magnitude",
+            "fmu_variable": "fact_environment_gravity_magnitude",
+            "id": "fact_environment_gravity_magnitude",
+            "record_id": "gravity",
+            "required": true,
+            "source_unit": "m/s2",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "kg/m3",
+            "actual_value": 1.225,
+            "collection": "environment",
+            "expected_value": 1.225,
+            "fact_id": "environment.air_density.magnitude",
+            "field": "magnitude",
+            "fmu_variable": "fact_environment_air_density_magnitude",
+            "id": "fact_environment_air_density_magnitude",
+            "record_id": "air_density",
+            "required": true,
+            "source_unit": "kg/m3",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "N",
+            "actual_value": 3.6,
+            "collection": "environment",
+            "expected_value": 3.6,
+            "fact_id": "environment.wind_disturbance.magnitude",
+            "field": "magnitude",
+            "fmu_variable": "fact_environment_wind_disturbance_magnitude",
+            "id": "fact_environment_wind_disturbance_magnitude",
+            "record_id": "wind_disturbance",
+            "required": true,
+            "source_unit": "N",
+            "verification_status": "resolved_fmu_parameter"
+          }
+        ],
+        "success": true
+      },
+      "execution": {
+        "available": true,
+        "columns": [
+          "time",
+          "trace_if_altimeter",
+          "trace_if_altitude",
+          "trace_if_imu",
+          "trace_if_pitch",
+          "trace_if_pos_sensor",
+          "trace_if_roll",
+          "trace_if_thrust_1",
+          "trace_if_thrust_2",
+          "trace_if_tilt_1",
+          "trace_if_tilt_2",
+          "trace_if_tracking_error",
+          "trace_if_yaw"
+        ],
+        "diagnostics": [],
+        "duration_seconds": 0.32522784685716033,
+        "initialized": true,
+        "report_file": "outputs/robotics-corpus-full-glm52-v1/RPI0051/rich/FULL/repeat-00/artifacts/execution/execution/execution.json",
+        "result_file": "outputs/robotics-corpus-full-glm52-v1/RPI0051/rich/FULL/repeat-00/artifacts/execution/execution/trace.csv",
+        "sample_count": 1501,
+        "simulated": true,
+        "success": true
+      },
+      "execution_completed": true,
+      "execution_mode": "integrated_fmu_behavior",
+      "failure_stage": "behavior_evaluation",
+      "fmu": {
+        "available": true,
+        "checked": true,
+        "diagnostics": [
+          {
+            "message": "[/storage/scratch1/4/skannan89/robotics-generalized/outputs/robotics-corpus-full-glm52-v1/RPI0051/rich/FULL/repeat-00/artifacts/execution/export/Candidate.mo:116:3-116:100:writable] Warning: The following equation is INCONSISTENT due to specified unit information: drag_force_z = -fact_environment_air_density_magnitude * fact_entities_wing_length * drag_cd * vz",
+            "severity": "warning",
+            "stage": "compiler"
+          },
+          {
+            "message": "Warning: The units of following sub-expressions need to be equal:",
+            "severity": "warning",
+            "stage": "compiler"
+          },
+          {
+            "message": "[/storage/scratch1/4/skannan89/robotics-generalized/outputs/robotics-corpus-full-glm52-v1/RPI0051/rich/FULL/repeat-00/artifacts/execution/export/Candidate.mo:117:3-117:100:writable] Warning: The following equation is INCONSISTENT due to specified unit information: drag_force_x = -fact_environment_air_density_magnitude * fact_entities_wing_length * drag_cd * vx",
+            "severity": "warning",
+            "stage": "compiler"
+          }
+        ],
+        "duration_seconds": 7.992611548863351,
+        "exported": true,
+        "fmi_version": "2.0",
+        "fmu_path": "outputs/robotics-corpus-full-glm52-v1/RPI0051/rich/FULL/repeat-00/artifacts/execution/export/candidate.fmu",
+        "inputs": [],
+        "interface_type": "co_simulation",
+        "model_identifier": "candidate",
+        "model_name": "RobotTask_RPI0051_R00",
+        "outputs": [
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_altimeter",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 55,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_altitude",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 56,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_imu",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 57,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_pitch",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad",
+            "value_reference": 58,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_pos_sensor",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 59,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_roll",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad",
+            "value_reference": 60,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_thrust_1",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 61,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_thrust_2",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 62,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_tilt_1",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad",
+            "value_reference": 63,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_tilt_2",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad",
+            "value_reference": 64,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_tracking_error",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 65,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_yaw",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad",
+            "value_reference": 66,
+            "variability": "continuous"
+          }
+        ],
+        "success": true,
+        "variables": [
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "altitude",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "m",
+            "value_reference": 0,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "pitch_angle",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "rad",
+            "value_reference": 1,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "pitch_rate",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "rad/s",
+            "value_reference": 2,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "roll_angle",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "rad",
+            "value_reference": 3,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "roll_rate",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "rad/s",
+            "value_reference": 4,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "vx",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "m/s",
+            "value_reference": 5,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "vz",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "m/s",
+            "value_reference": 6,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "x_position",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "m",
+            "value_reference": 7,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "yaw_angle",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "rad",
+            "value_reference": 8,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "yaw_rate",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "rad/s",
+            "value_reference": 9,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(altitude)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m.s-1",
+            "value_reference": 10,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(pitch_angle)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "Hz",
+            "value_reference": 11,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(pitch_rate)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "s-2",
+            "value_reference": 12,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(roll_angle)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "Hz",
+            "value_reference": 13,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(roll_rate)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "s-2",
+            "value_reference": 14,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(vx)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m.s-2",
+            "value_reference": 15,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(vz)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m.s-2",
+            "value_reference": 16,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(x_position)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m.s-1",
+            "value_reference": 17,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(yaw_angle)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "Hz",
+            "value_reference": 18,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(yaw_rate)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "s-2",
+            "value_reference": 19,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_if_pos_sensor)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 20,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_if_thrust_1)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 21,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_if_thrust_2)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 22,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_if_tracking_error)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 23,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(roll_torque_cmd)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 24,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(thrust_raw_1)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 25,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(thrust_raw_2)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 26,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(total_thrust_cmd)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 27,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_pos_sensor_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 36,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_thrust_1_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 37,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_thrust_2_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 38,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "_D_trace_if_tilt_1_der",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": null,
+            "value_reference": 39,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "_D_trace_if_tilt_2_der",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": null,
+            "value_reference": 40,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_tracking_error_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 41,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "drag_force_x",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 42,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "drag_force_z",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 43,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "effective_tilt",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad",
+            "value_reference": 44,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "horizontal_thrust",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 45,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "pitch_torque",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m",
+            "value_reference": 46,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "pitch_torque_cmd",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m",
+            "value_reference": 47,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "roll_torque",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m",
+            "value_reference": 48,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "roll_torque_cmd",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m",
+            "value_reference": 49,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "thrust_raw_1",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 50,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "thrust_raw_2",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 51,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "tilt_raw_1",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "rad",
+            "value_reference": 52,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "tilt_raw_2",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "rad",
+            "value_reference": 53,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "total_thrust_cmd",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 54,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_altimeter",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 55,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_altitude",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 56,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_imu",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 57,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_pitch",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad",
+            "value_reference": 58,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_pos_sensor",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 59,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_roll",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad",
+            "value_reference": 60,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_thrust_1",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 61,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_thrust_2",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 62,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_tilt_1",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad",
+            "value_reference": 63,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_tilt_2",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad",
+            "value_reference": 64,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_tracking_error",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 65,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_yaw",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad",
+            "value_reference": 66,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "vertical_thrust",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 67,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "wind_force",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 68,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "yaw_torque",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m",
+            "value_reference": 69,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "yaw_torque_cmd",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m",
+            "value_reference": 70,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "pos_sensor_sample",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "m",
+            "value_reference": 71,
+            "variability": "discrete"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "drag_cd",
+            "scalar_type": "real",
+            "start": "0.4",
+            "unit": "1/m",
+            "value_reference": 74,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_entities_fuselage_mass",
+            "scalar_type": "real",
+            "start": "6.2",
+            "unit": "kg",
+            "value_reference": 75,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_entities_wing_length",
+            "scalar_type": "real",
+            "start": "1.8",
+            "unit": "m",
+            "value_reference": 76,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_environment_air_density_magnitude",
+            "scalar_type": "real",
+            "start": "1.225",
+            "unit": "kg/m3",
+            "value_reference": 77,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_environment_gravity_magnitude",
+            "scalar_type": "real",
+            "start": "9.81",
+            "unit": "m/s2",
+            "value_reference": 78,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_environment_wind_disturbance_magnitude",
+            "scalar_type": "real",
+            "start": "3.6",
+            "unit": "N",
+            "value_reference": 79,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_joints_tilt_joint_1_lower_limit",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "rad",
+            "value_reference": 80,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_joints_tilt_joint_1_upper_limit",
+            "scalar_type": "real",
+            "start": "1.57",
+            "unit": "rad",
+            "value_reference": 81,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_joints_tilt_joint_2_lower_limit",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "rad",
+            "value_reference": 82,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_joints_tilt_joint_2_upper_limit",
+            "scalar_type": "real",
+            "start": "1.57",
+            "unit": "rad",
+            "value_reference": 83,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_parameters_pos_sensor_rate_value",
+            "scalar_type": "real",
+            "start": "10.0",
+            "unit": "Hz",
+            "value_reference": 84,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_parameters_rotor_1_distance_from_center_value",
+            "scalar_type": "real",
+            "start": "0.62",
+            "unit": "m",
+            "value_reference": 85,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_parameters_rotor_2_distance_from_center_value",
+            "scalar_type": "real",
+            "start": "0.62",
+            "unit": "m",
+            "value_reference": 86,
+            "variability": "fixed"
+          },
+          {
+            "causality": "calculatedParameter",
+            "initial": null,
+            "name": "inertia_xx",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "kg.m2",
+            "value_reference": 87,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "inertia_yy",
+            "scalar_type": "real",
+            "start": "1.0",
+            "unit": "kg.m2",
+            "value_reference": 88,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "inertia_zz",
+            "scalar_type": "real",
+            "start": "0.8",
+            "unit": "kg.m2",
+            "value_reference": 89,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "kd_alt",
+            "scalar_type": "real",
+            "start": "18.0",
+            "unit": "N.s/m",
+            "value_reference": 90,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "kd_pitch",
+            "scalar_type": "real",
+            "start": "2.5",
+            "unit": "N.m.s/rad",
+            "value_reference": 91,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "kd_roll",
+            "scalar_type": "real",
+            "start": "3.0",
+            "unit": "N.m.s/rad",
+            "value_reference": 92,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "kd_yaw",
+            "scalar_type": "real",
+            "start": "1.5",
+            "unit": "N.m.s/rad",
+            "value_reference": 93,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "kp_alt",
+            "scalar_type": "real",
+            "start": "12.0",
+            "unit": "N/m",
+            "value_reference": 94,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "kp_pitch",
+            "scalar_type": "real",
+            "start": "12.0",
+            "unit": "N.m/rad",
+            "value_reference": 95,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "kp_roll",
+            "scalar_type": "real",
+            "start": "15.0",
+            "unit": "N.m/rad",
+            "value_reference": 96,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "kp_yaw",
+            "scalar_type": "real",
+            "start": "5.0",
+            "unit": "N.m/rad",
+            "value_reference": 97,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "target_altitude",
+            "scalar_type": "real",
+            "start": "2.5",
+            "unit": "m",
+            "value_reference": 98,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "thrust_max",
+            "scalar_type": "real",
+            "start": "47.8",
+            "unit": "N",
+            "value_reference": 99,
+            "variability": "fixed"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_altimeter_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 6,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_altitude_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 6,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_imu_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 4,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_pitch_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 2,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_roll_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 4,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_yaw_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 9,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "altimeter_reading",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 0,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "imu_attitude",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad",
+            "value_reference": 3,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "position_reading",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 71,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "thrust_command_1",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 61,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "thrust_command_2",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 62,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "tilt_command_1",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad",
+            "value_reference": 33,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "tilt_command_2",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad",
+            "value_reference": 34,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "tracking_error",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 65,
+            "variability": "continuous"
+          }
+        ]
+      },
+      "passed": false,
+      "properties": [
+        {
+          "detail": "always robustness=2.389",
+          "formula": "G[0, T](-47.8 <= trace_if_thrust_1 and trace_if_thrust_1 <= 47.8)",
+          "id": "prop_thrust_bound_1",
+          "interface_id": "if_thrust_1",
+          "passed": true,
+          "property_id": "prop_thrust_bound_1",
+          "robustness": 2.388999999999996,
+          "status": "satisfied"
+        },
+        {
+          "detail": "always robustness=2.389",
+          "formula": "G[0, T](-47.8 <= trace_if_thrust_2 and trace_if_thrust_2 <= 47.8)",
+          "id": "prop_thrust_bound_2",
+          "interface_id": "if_thrust_2",
+          "passed": true,
+          "property_id": "prop_thrust_bound_2",
+          "robustness": 2.388999999999996,
+          "status": "satisfied"
+        },
+        {
+          "detail": "eventually robustness=-8.12299e-05",
+          "formula": "F[0, T](2.5 <= trace_if_altitude and trace_if_altitude <= 2.5)",
+          "id": "prop_altitude_settle",
+          "interface_id": "if_altitude",
+          "passed": false,
+          "property_id": "prop_altitude_settle",
+          "robustness": -8.122986329972548e-05,
+          "status": "violated"
+        },
+        {
+          "detail": "always robustness=0.4",
+          "formula": "G[0, T](trace_if_roll <= 0.4)",
+          "id": "prop_roll_bound",
+          "interface_id": "if_roll",
+          "passed": true,
+          "property_id": "prop_roll_bound",
+          "robustness": 0.4,
+          "status": "satisfied"
+        },
+        {
+          "detail": "always robustness=0.4",
+          "formula": "G[0, T](trace_if_pitch <= 0.4)",
+          "id": "prop_pitch_bound",
+          "interface_id": "if_pitch",
+          "passed": true,
+          "property_id": "prop_pitch_bound",
+          "robustness": 0.4,
+          "status": "satisfied"
+        },
+        {
+          "detail": "always robustness=0",
+          "formula": "G[0, T](0.0 <= trace_if_altitude)",
+          "id": "prop_positive_altitude",
+          "interface_id": "if_altitude",
+          "passed": true,
+          "property_id": "prop_positive_altitude",
+          "robustness": 0.0,
+          "status": "satisfied"
+        },
+        {
+          "detail": "always robustness=0.154337",
+          "formula": "G[7.8, T](trace_if_tracking_error <= 0.158)",
+          "id": "prop_tracking_error",
+          "interface_id": "if_tracking_error",
+          "passed": true,
+          "property_id": "prop_tracking_error",
+          "robustness": 0.1543365837286733,
+          "status": "satisfied"
+        },
+        {
+          "detail": "finite-value trace gate passed",
+          "formula": "all requested runtime outputs are finite",
+          "id": "prop_no_nan",
+          "passed": true,
+          "property_id": "prop_no_nan",
+          "robustness": null,
+          "status": "satisfied"
+        }
+      ],
+      "property_count": 8,
+      "property_summary": {
+        "passed": 7,
+        "total": 8,
+        "unevaluable": 0,
+        "violated": 1
+      },
+      "report": "execution.json",
+      "trace_gate": {
+        "finite": true,
+        "minimum_expected_samples": 1500,
+        "missing_outputs": [],
+        "required_outputs": [
+          "trace_if_altimeter",
+          "trace_if_altitude",
+          "trace_if_imu",
+          "trace_if_pitch",
+          "trace_if_pos_sensor",
+          "trace_if_roll",
+          "trace_if_thrust_1",
+          "trace_if_thrust_2",
+          "trace_if_tilt_1",
+          "trace_if_tilt_2",
+          "trace_if_tracking_error",
+          "trace_if_yaw"
+        ],
+        "sample_count": 1501,
+        "success": true
+      }
+    },
+    "modelica": {
+      "artifact": "modelica/model.mo",
+      "attempt_0_valid": true,
+      "combiner_model": "z-ai/glm-5.2",
+      "expert_candidates": [
+        "qwen/qwen3.6-plus",
+        "z-ai/glm-5.2",
+        "deepseek/deepseek-v4-pro",
+        "meta-llama/llama-4-maverick"
+      ],
+      "expert_models": [
+        "qwen/qwen3.6-plus",
+        "z-ai/glm-5.2",
+        "deepseek/deepseek-v4-pro",
+        "meta-llama/llama-4-maverick"
+      ],
+      "expert_soft_fail_count": 0,
+      "generation_mode": "moe",
+      "identity_preserved": true,
+      "model_name": "RobotTask_RPI0051_R00",
+      "passed": true,
+      "repairs": 0,
+      "report": "modelica/generation.json",
+      "retrieved_examples": [
+        {
+          "id": "M1021",
+          "score": 56.81124007449219
+        },
+        {
+          "id": "M009",
+          "score": 46.81333194649909
+        },
+        {
+          "id": "M008",
+          "score": 45.61527030549838
+        },
+        {
+          "id": "M007",
+          "score": 40.781363652574385
+        },
+        {
+          "id": "M1027",
+          "score": 51.772752390109034
+        }
+      ],
+      "study_controls": {
+        "max_tool_repairs": 2,
+        "moe_enabled": true,
+        "rag_enabled": true,
+        "retrieval_k": 5,
+        "tool_repair_enabled": true
+      }
+    },
+    "normalization": {
+      "attempt_count": 2,
+      "precomputed": true,
+      "report": "normalization.json",
+      "success": true
+    },
+    "one_shot": {
+      "artifact_pair_valid_attempt_0": null,
+      "artifact_valid_attempt_0": true,
+      "modelica_valid_attempt_0": true,
+      "openusd_valid_attempt_0": null
+    },
+    "paired_block": {
+      "block_fingerprint": "88272bd85b08773a46b12707287f845b3942f25c9b9ca00d511a6b5216d7ae30",
+      "normalized_ir_sha256": "84c17880f5a48e70cbf6cdc331bdade2ec17715d5256da86291e82c79a532dd5",
+      "repetition": 0
+    },
+    "passed": false,
+    "plan": {
+      "contract": "contract.json",
+      "mapping_count": 12,
+      "model_name": "RobotTask_RPI0051_R00",
+      "parameter_mapping_count": 12,
+      "report": "plan.json",
+      "requirement_ir": "requirement_ir.json",
+      "success": true
+    },
+    "runtime_repair": {
+      "accepted": 0,
+      "attempted": 1,
+      "enabled": true,
+      "final_model": "modelica/model.mo",
+      "infrastructure_error": null,
+      "max_repairs": 2,
+      "original_model": null,
+      "report": "runtime-repair.json",
+      "triggered": true
+    },
+    "schema_version": "1.0",
+    "source_text_sha256": "f1f9dd0e4158a85a0104e72f3b139e8d427b6550961cd948ac359f6b96bb02ba",
+    "stage": "modelica_capability_orchestrator",
+    "stage_trace": [
+      {
+        "index": 0,
+        "passed": true,
+        "reached": true,
+        "stage": "requirement_normalization",
+        "status": "passed"
+      },
+      {
+        "index": 1,
+        "passed": true,
+        "reached": true,
+        "stage": "interface_planning",
+        "status": "passed"
+      },
+      {
+        "index": 2,
+        "passed": true,
+        "reached": true,
+        "stage": "modelica_validation",
+        "status": "passed"
+      },
+      {
+        "index": 3,
+        "passed": true,
+        "reached": true,
+        "stage": "modelica_identity",
+        "status": "passed"
+      },
+      {
+        "index": 4,
+        "passed": true,
+        "reached": true,
+        "stage": "fmu_export",
+        "status": "passed"
+      },
+      {
+        "index": 5,
+        "passed": true,
+        "reached": true,
+        "stage": "fmu_interface_contract",
+        "status": "passed"
+      },
+      {
+        "index": 6,
+        "passed": true,
+        "reached": true,
+        "stage": "runtime_initialization",
+        "status": "passed"
+      },
+      {
+        "index": 7,
+        "passed": true,
+        "reached": true,
+        "stage": "runtime_execution",
+        "status": "passed"
+      },
+      {
+        "index": 8,
+        "passed": true,
+        "reached": true,
+        "stage": "behavior_evaluation",
+        "status": "passed"
+      },
+      {
+        "index": 9,
+        "passed": false,
+        "reached": true,
+        "stage": "modelica_specification_alignment",
+        "status": "failed"
+      }
+    ],
+    "study_validity": {
+      "alignment_observed": true,
+      "complete_moe_required": true,
+      "condition_fidelity_passed": true,
+      "contract_created": true,
+      "eligible": true,
+      "expected": {
+        "alignment": true,
+        "id": "FULL",
+        "label": "complete_pipeline",
+        "moe": true,
+        "rag": true,
+        "tool_repair": true,
+        "validated_contract": true
+      },
+      "generation_reached": true,
+      "issues": [],
+      "observed_generation": [
+        {
+          "combiner_model": "z-ai/glm-5.2",
+          "expert_candidate_count": 4,
+          "expert_roster": [
+            "qwen/qwen3.6-plus",
+            "z-ai/glm-5.2",
+            "deepseek/deepseek-v4-pro",
+            "meta-llama/llama-4-maverick"
+          ],
+          "expert_soft_fail_count": 0,
+          "generation_mode": "moe",
+          "owner": "modelica",
+          "retrieval_count": 5,
+          "study_controls": {
+            "max_tool_repairs": 2,
+            "moe_enabled": true,
+            "rag_enabled": true,
+            "retrieval_k": 5,
+            "tool_repair_enabled": true
+          }
+        }
+      ],
+      "runtime_repair_observed": true
+    },
+    "task_id": "RPI0051-R00"
+  },
+  "schema_version": "1.1",
+  "task_id": "RPI0051",
+  "variant": "rich"
+}

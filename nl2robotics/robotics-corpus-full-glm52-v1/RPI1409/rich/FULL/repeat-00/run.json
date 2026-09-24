@@ -1,0 +1,4027 @@
+{
+  "condition": {
+    "alignment": true,
+    "id": "FULL",
+    "label": "complete_pipeline",
+    "moe": true,
+    "rag": true,
+    "tool_repair": true,
+    "validated_contract": true
+  },
+  "configuration": {
+    "artifact_mode": "modelica_only",
+    "benchmark_manifest": "/storage/scratch1/4/skannan89/robotics-generalized/nl2robotics/corpus/pipeline_prompt_manifest.json",
+    "benchmark_manifest_sha256": "0a6631f7b9c9cbf4983d92ab4424943a668f60e571bf5ee4203213f84c1a8409",
+    "benchmark_split": "all",
+    "configuration_variant_filter": [],
+    "family_filter": [],
+    "fmi_backend": "local",
+    "h2_controller_backend": "local",
+    "h2_device": "cpu",
+    "h2_repetitions": 3,
+    "h2_solver": "TGS",
+    "isaac_handoff_configured": false,
+    "k": 5,
+    "max_runtime_repairs": 2,
+    "max_tool_repairs": 2,
+    "modelica_backend": "local",
+    "modelica_subset": "full1500",
+    "moe_configuration": "shared_with_sysml_pipeline",
+    "newton_controller_backend": "local",
+    "newton_device": "cuda:0",
+    "newton_fmi_runtime_image": "nl2robotics-fmi-runtime:0.1",
+    "newton_handoff_configured": false,
+    "newton_repeatability_tolerance": 1e-06,
+    "newton_repetitions": 3,
+    "newton_solver": "featherstone",
+    "newton_version": "1.5.0",
+    "pipeline": "nl_ir_modelica_compile_fmu_execute_spec",
+    "rag_routing": "family_preferred_4_of_5_with_global_fallback",
+    "randomization_seed": 20260830,
+    "require_complete_moe": true,
+    "runtime_repair_model": "z-ai/glm-5.2",
+    "runtime_repair_policy": "tool_conditions_only_monotonic_recompile_reexecute_recheck_behavior",
+    "runtime_repair_provider": "openrouter",
+    "semantic_case_filter": [],
+    "shard_assignment": "category_stratified_task_block_round_robin",
+    "shard_count": 4,
+    "single_model": "z-ai/glm-5.2",
+    "single_provider": "openrouter",
+    "study_protocol_core_sha256": "f5f0200a721873f9eeac07c7084e8f58fe820d1acef60434f7e0ac234041d153",
+    "task_order": "seeded_randomized"
+  },
+  "difficulty": "advanced",
+  "duration_seconds": 1027.9609597576782,
+  "fingerprint": "811887b6dba3fec01380fa130f33be69f4e310a4d5b3e0e03c42fcdfe0b16c4c",
+  "infrastructure_error": null,
+  "metrics": {
+    "all_properties_pass": false,
+    "artifact_pair_valid": null,
+    "artifact_pair_valid_attempt_0": null,
+    "artifact_valid": true,
+    "artifact_valid_attempt_0": true,
+    "behavior_evaluated": true,
+    "blocking_violations": 0,
+    "condition_fidelity": true,
+    "configured_pipeline_success": false,
+    "contract_valid": true,
+    "end_to_end": false,
+    "failure_stage": "behavior_evaluation",
+    "fmu_execution": true,
+    "fmu_export": true,
+    "fmu_interface_valid": true,
+    "infrastructure_available": true,
+    "ir_valid": true,
+    "maximum_stage_reached": 9,
+    "modelica_build": true,
+    "modelica_build_attempt_0": true,
+    "named_simulator_load": null,
+    "normalization_valid": true,
+    "post_execution_semantic": true,
+    "pre_execution_semantic": null,
+    "property_evaluability_rate": 0.8,
+    "property_evaluable": 4,
+    "property_satisfaction_rate_evaluable": 1.0,
+    "property_satisfied": 4,
+    "property_total": 5,
+    "property_unevaluable": 1,
+    "property_violated": 0,
+    "repairs": 1,
+    "runtime_execution": true,
+    "runtime_trace_valid": true,
+    "semantic_coverage": 0.663755,
+    "semantic_score": 1.0,
+    "specification_claim_ready": false,
+    "stable_simulation": true,
+    "usd_semantic_valid": null,
+    "usd_semantic_valid_attempt_0": null,
+    "verification_tier": 4
+  },
+  "planned_order_index": 208,
+  "profile": "capability",
+  "randomization_seed": 20260830,
+  "repetition": 0,
+  "result": {
+    "ablation": {
+      "condition": {
+        "alignment": true,
+        "id": "FULL",
+        "label": "complete_pipeline",
+        "moe": true,
+        "rag": true,
+        "tool_repair": true,
+        "validated_contract": true
+      },
+      "contract_role": "generation_and_validation",
+      "generation_strategy": "rag_moe"
+    },
+    "alignment": {
+      "blocking_violations": 0,
+      "claim_ready": false,
+      "counts": {
+        "not_applicable": 0,
+        "satisfied": 31,
+        "unknown": 22,
+        "violated": 0
+      },
+      "deterministic_violations": 0,
+      "enabled": true,
+      "evidence_coverage": 0.663755,
+      "not_run": false,
+      "passed": true,
+      "per_family": {
+        "actuator": 1.0,
+        "environment": 1.0,
+        "interface": 1.0,
+        "parameter": 1.0,
+        "property": 1.0,
+        "timing": 1.0
+      },
+      "question_count": 53,
+      "report": "alignment.json",
+      "skipped": false,
+      "weighted_semantic_score": 1.0
+    },
+    "artifact_mode": "modelica_only",
+    "capabilities": {
+      "highest_reached_tier": 4,
+      "highest_reached_tier_name": "behaviorally_executed",
+      "profile_count": 14,
+      "report": "capability-report.json",
+      "requested_feature_count": 23,
+      "tiers": [
+        {
+          "name": "normalized",
+          "passed": true,
+          "tier": 0
+        },
+        {
+          "name": "ir_validated",
+          "passed": true,
+          "tier": 1
+        },
+        {
+          "modelica_passed": true,
+          "name": "artifacts_validated",
+          "openusd_passed": null,
+          "passed": true,
+          "tier": 2
+        },
+        {
+          "name": "executable_contract_validated",
+          "passed": true,
+          "reason": null,
+          "tier": 3
+        },
+        {
+          "behavior_evaluated": true,
+          "execution_completed": true,
+          "name": "behaviorally_executed",
+          "passed": true,
+          "reason": null,
+          "tier": 4
+        },
+        {
+          "name": "accelerator_provenance_verified",
+          "passed": false,
+          "reason": "requires genuine accelerator execution provenance",
+          "tier": 5
+        }
+      ]
+    },
+    "claim_eligible_deltaai_h2": false,
+    "claim_eligible_h2": false,
+    "claim_eligible_newton_h2": false,
+    "failure_stage": "behavior_evaluation",
+    "hybrid": {
+      "behavior_evaluated": true,
+      "behavior_passed": false,
+      "contract": {
+        "fmu": {
+          "fmi_version": "2.0",
+          "interface_type": "co_simulation",
+          "model_name": "RobotTask_RPI1409_R00",
+          "variables": [
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "body_displacement",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "m",
+              "value_reference": 0,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "body_velocity",
+              "scalar_type": "real",
+              "start": "0.00878",
+              "unit": "m/s",
+              "value_reference": 1,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "estimated_body_displacement",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "m",
+              "value_reference": 2,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "estimated_section_deformation[1]",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": null,
+              "value_reference": 3,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "estimated_section_deformation[2]",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": null,
+              "value_reference": 4,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "estimated_section_deformation[3]",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": null,
+              "value_reference": 5,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "estimated_section_deformation[4]",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": null,
+              "value_reference": 6,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "estimated_section_deformation[5]",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": null,
+              "value_reference": 7,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "estimated_section_deformation[6]",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": null,
+              "value_reference": 8,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "gait_phase",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "rad",
+              "value_reference": 9,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "heater_power[1]",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "W",
+              "value_reference": 10,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "heater_power[2]",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "W",
+              "value_reference": 11,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "heater_power[3]",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "W",
+              "value_reference": 12,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "heater_power[4]",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "W",
+              "value_reference": 13,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "heater_power[5]",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "W",
+              "value_reference": 14,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "heater_power[6]",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "W",
+              "value_reference": 15,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "section_deformation[1]",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": null,
+              "value_reference": 16,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "section_deformation[2]",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": null,
+              "value_reference": 17,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "section_deformation[3]",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": null,
+              "value_reference": 18,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "section_deformation[4]",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": null,
+              "value_reference": 19,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "section_deformation[5]",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": null,
+              "value_reference": 20,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "section_deformation[6]",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": null,
+              "value_reference": 21,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "section_temperature[1]",
+              "scalar_type": "real",
+              "start": "295.0",
+              "unit": "K",
+              "value_reference": 22,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "section_temperature[2]",
+              "scalar_type": "real",
+              "start": "295.0",
+              "unit": "K",
+              "value_reference": 23,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "section_temperature[3]",
+              "scalar_type": "real",
+              "start": "295.0",
+              "unit": "K",
+              "value_reference": 24,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "section_temperature[4]",
+              "scalar_type": "real",
+              "start": "295.0",
+              "unit": "K",
+              "value_reference": 25,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "section_temperature[5]",
+              "scalar_type": "real",
+              "start": "295.0",
+              "unit": "K",
+              "value_reference": 26,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "section_temperature[6]",
+              "scalar_type": "real",
+              "start": "295.0",
+              "unit": "K",
+              "value_reference": 27,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "tendon_tension[1]",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "N",
+              "value_reference": 28,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "tendon_tension[2]",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "N",
+              "value_reference": 29,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "tendon_tension[3]",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "N",
+              "value_reference": 30,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(body_displacement)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m.s-1",
+              "value_reference": 31,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(body_velocity)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m.s-2",
+              "value_reference": 32,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(estimated_body_displacement)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m.s-1",
+              "value_reference": 33,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(estimated_section_deformation[1])",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 34,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(estimated_section_deformation[2])",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 35,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(estimated_section_deformation[3])",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 36,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(estimated_section_deformation[4])",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 37,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(estimated_section_deformation[5])",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 38,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(estimated_section_deformation[6])",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 39,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(gait_phase)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "Hz",
+              "value_reference": 40,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(heater_power[1])",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "km2.s-4.g",
+              "value_reference": 41,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(heater_power[2])",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "km2.s-4.g",
+              "value_reference": 42,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(heater_power[3])",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "km2.s-4.g",
+              "value_reference": 43,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(heater_power[4])",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "km2.s-4.g",
+              "value_reference": 44,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(heater_power[5])",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "km2.s-4.g",
+              "value_reference": 45,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(heater_power[6])",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "km2.s-4.g",
+              "value_reference": 46,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(section_deformation[1])",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 47,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(section_deformation[2])",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 48,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(section_deformation[3])",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 49,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(section_deformation[4])",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 50,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(section_deformation[5])",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 51,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(section_deformation[6])",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 52,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(section_temperature[1])",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "s-1.K",
+              "value_reference": 53,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(section_temperature[2])",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "s-1.K",
+              "value_reference": 54,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(section_temperature[3])",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "s-1.K",
+              "value_reference": 55,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(section_temperature[4])",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "s-1.K",
+              "value_reference": 56,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(section_temperature[5])",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "s-1.K",
+              "value_reference": 57,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(section_temperature[6])",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "s-1.K",
+              "value_reference": 58,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(tendon_tension[1])",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "km.s-3.g",
+              "value_reference": 59,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(tendon_tension[2])",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "km.s-3.g",
+              "value_reference": 60,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(tendon_tension[3])",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "km.s-3.g",
+              "value_reference": 61,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_average_speed)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 62,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_completed_cycles)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 63,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_command_trace_iface)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 64,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_drag_load_iface)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 65,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_heater_power_command_iface)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 66,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_tracking_error_iface)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 67,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(referenceDisplacement)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 68,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_average_speed_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 69,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_completed_cycles_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 70,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "_D_per_cycle_slip_der",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": null,
+              "value_reference": 88,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_drag_load_iface_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 89,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_heater_power_command_iface_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 90,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_section_deformation_iface_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 91,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_sensor_trace_iface_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 92,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_state_trace_iface_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 93,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_tendon_tension_command_iface_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 94,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_tracking_error_iface_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 95,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "absBodyVelocity",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m/s",
+              "value_reference": 96,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "average_speed",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m/s",
+              "value_reference": 97,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "bending_stiffness[1]",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N.m/rad",
+              "value_reference": 98,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "bending_stiffness[2]",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N.m/rad",
+              "value_reference": 99,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "bending_stiffness[3]",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N.m/rad",
+              "value_reference": 100,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "bending_stiffness[4]",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N.m/rad",
+              "value_reference": 101,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "bending_stiffness[5]",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N.m/rad",
+              "value_reference": 102,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "bending_stiffness[6]",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N.m/rad",
+              "value_reference": 103,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "completed_cycles",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 104,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "frictionForce",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 105,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "heater_power_command[2]",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "W",
+              "value_reference": 106,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "heater_power_command[3]",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "W",
+              "value_reference": 107,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "heater_power_command[4]",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "W",
+              "value_reference": 108,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "heater_power_command[5]",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "W",
+              "value_reference": 109,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "heater_power_command[6]",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "W",
+              "value_reference": 110,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "muEffective",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "1",
+              "value_reference": 111,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "per_cycle_slip",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 112,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "progress",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 113,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "propulsionForce",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 114,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "referenceDisplacement",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 115,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "ridgeEffectForce",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 116,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "stiffnessFactor[1]",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 117,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "stiffnessFactor[2]",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 118,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "stiffnessFactor[3]",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 119,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "stiffnessFactor[4]",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 120,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "stiffnessFactor[5]",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 121,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "stiffnessFactor[6]",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 122,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "sumDeformation",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 123,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "sumTension",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 124,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "tendon_tension_command[2]",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 125,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "tendon_tension_command[3]",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 126,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_body_displacement_iface",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 127,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_command_trace_iface",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 128,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_drag_load_iface",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 129,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_heater_power_command_iface",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "W",
+              "value_reference": 130,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_section_deformation_iface",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 131,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_sensor_trace_iface",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 132,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_state_trace_iface",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 133,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_tendon_tension_command_iface",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 134,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_tracking_error_iface",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 135,
+              "variability": "continuous"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "ambientTemperature",
+              "scalar_type": "real",
+              "start": "295.0",
+              "unit": "K",
+              "value_reference": 136,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "bodyMass",
+              "scalar_type": "real",
+              "start": "200.0",
+              "unit": "kg",
+              "value_reference": 137,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "coolingConductance",
+              "scalar_type": "real",
+              "start": "0.2",
+              "unit": "W/K",
+              "value_reference": 138,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "dampingCoeff",
+              "scalar_type": "real",
+              "start": "2000.0",
+              "unit": "N.s/m",
+              "value_reference": 139,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "deformationTimeConstant",
+              "scalar_type": "real",
+              "start": "0.25",
+              "unit": "s",
+              "value_reference": 140,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "estimatorTimeConst",
+              "scalar_type": "real",
+              "start": "0.04",
+              "unit": "s",
+              "value_reference": 141,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_environment_drag_load_env_magnitude",
+              "scalar_type": "real",
+              "start": "6.0",
+              "unit": "N",
+              "value_reference": 142,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_parameters_drag_load_magnitude_value",
+              "scalar_type": "real",
+              "start": "6.0",
+              "unit": "N",
+              "value_reference": 143,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_parameters_heater_power_bound_value",
+              "scalar_type": "real",
+              "start": "18.0",
+              "unit": "W",
+              "value_reference": 144,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_parameters_stiffness_temp_high_value",
+              "scalar_type": "real",
+              "start": "345.0",
+              "unit": "K",
+              "value_reference": 145,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_parameters_stiffness_temp_low_value",
+              "scalar_type": "real",
+              "start": "320.0",
+              "unit": "K",
+              "value_reference": 146,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_parameters_tendon_tension_bound_value",
+              "scalar_type": "real",
+              "start": "50.6",
+              "unit": "N",
+              "value_reference": 147,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "gaitFreq",
+              "scalar_type": "real",
+              "start": "0.5",
+              "unit": "Hz",
+              "value_reference": 148,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "gaitOmega",
+              "scalar_type": "real",
+              "start": "3.141592653589793",
+              "unit": "rad/s",
+              "value_reference": 149,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "gaitOscillation",
+              "scalar_type": "real",
+              "start": "5.0",
+              "unit": "N",
+              "value_reference": 150,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "gravity",
+              "scalar_type": "real",
+              "start": "9.81",
+              "unit": "m/s2",
+              "value_reference": 151,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "heatCapacity",
+              "scalar_type": "real",
+              "start": "2.0",
+              "unit": "J/K",
+              "value_reference": 152,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "heaterTimeConstant",
+              "scalar_type": "real",
+              "start": "0.05",
+              "unit": "s",
+              "value_reference": 153,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "muBackward",
+              "scalar_type": "real",
+              "start": "0.4",
+              "unit": "1",
+              "value_reference": 154,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "muForward",
+              "scalar_type": "real",
+              "start": "0.12",
+              "unit": "1",
+              "value_reference": 155,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "propulsionGain",
+              "scalar_type": "real",
+              "start": "10.0",
+              "unit": "1",
+              "value_reference": 156,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "referenceSpeed",
+              "scalar_type": "real",
+              "start": "0.00878",
+              "unit": "m/s",
+              "value_reference": 157,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "ridgeForce",
+              "scalar_type": "real",
+              "start": "2.0",
+              "unit": "N",
+              "value_reference": 158,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "ridgePos1",
+              "scalar_type": "real",
+              "start": "0.05",
+              "unit": "m",
+              "value_reference": 159,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "ridgePos2",
+              "scalar_type": "real",
+              "start": "0.1",
+              "unit": "m",
+              "value_reference": 160,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "ridgeWidth",
+              "scalar_type": "real",
+              "start": "0.015",
+              "unit": "m",
+              "value_reference": 161,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "softBending",
+              "scalar_type": "real",
+              "start": "40.0",
+              "unit": "N.m/rad",
+              "value_reference": 162,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "stiffBending",
+              "scalar_type": "real",
+              "start": "50.0",
+              "unit": "N.m/rad",
+              "value_reference": 163,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "tensionTimeConstant",
+              "scalar_type": "real",
+              "start": "0.08",
+              "unit": "s",
+              "value_reference": 164,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "vThreshold",
+              "scalar_type": "real",
+              "start": "0.005",
+              "unit": "m/s",
+              "value_reference": 165,
+              "variability": "fixed"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_progress_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 1,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_body_displacement_iface_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 1,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_command_trace_iface_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 94,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "drag_load_force",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 129,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "heater_power_command[1]",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "W",
+              "value_reference": 130,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "tendon_tension_command[1]",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 134,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "tracking_error",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 135,
+              "variability": "continuous"
+            }
+          ]
+        },
+        "issues": [],
+        "resolved_mappings": [
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_tendon_tension_command_iface",
+            "id": "map_tendon_tension_command_iface",
+            "interface_id": "tendon_tension_command_iface",
+            "quantity": "force",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "N",
+            "state_id": "tendon_tension_command",
+            "target_unit": "N",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_heater_power_command_iface",
+            "id": "map_heater_power_command_iface",
+            "interface_id": "heater_power_command_iface",
+            "quantity": "power",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "W",
+            "state_id": "heater_power_command",
+            "target_unit": "W",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_section_deformation_iface",
+            "id": "map_section_deformation_iface",
+            "interface_id": "section_deformation_iface",
+            "quantity": "strain",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": "strain_sensor",
+            "source_unit": "unspecified",
+            "state_id": "section_deformation",
+            "target_unit": "unspecified",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_body_displacement_iface",
+            "id": "map_body_displacement_iface",
+            "interface_id": "body_displacement_iface",
+            "quantity": "displacement",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": "odometry_sensor",
+            "source_unit": "m",
+            "state_id": "body_displacement",
+            "target_unit": "m",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_tracking_error_iface",
+            "id": "map_tracking_error_iface",
+            "interface_id": "tracking_error_iface",
+            "quantity": "displacement",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "m",
+            "state_id": "tracking_error",
+            "target_unit": "m",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_state_trace_iface",
+            "id": "map_state_trace_iface",
+            "interface_id": "state_trace_iface",
+            "quantity": "state",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "unspecified",
+            "state_id": "section_deformation",
+            "target_unit": "unspecified",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_command_trace_iface",
+            "id": "map_command_trace_iface",
+            "interface_id": "command_trace_iface",
+            "quantity": "command",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "unspecified",
+            "state_id": "tendon_tension_command",
+            "target_unit": "unspecified",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_sensor_trace_iface",
+            "id": "map_sensor_trace_iface",
+            "interface_id": "sensor_trace_iface",
+            "quantity": "sensor",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "unspecified",
+            "state_id": "estimated_section_deformation",
+            "target_unit": "unspecified",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_drag_load_iface",
+            "id": "map_drag_load_iface",
+            "interface_id": "drag_load_iface",
+            "quantity": "force",
+            "required": true,
+            "semantic_entity_id": "drag_load",
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "N",
+            "state_id": "tendon_tension",
+            "target_unit": "N",
+            "verification_status": "resolved_fmu_output"
+          }
+        ],
+        "resolved_parameter_mappings": [
+          {
+            "actual_unit": "K",
+            "actual_value": 320.0,
+            "collection": "parameters",
+            "expected_value": 320.0,
+            "fact_id": "parameters.stiffness_temp_low.value",
+            "field": "value",
+            "fmu_variable": "fact_parameters_stiffness_temp_low_value",
+            "id": "fact_parameters_stiffness_temp_low_value",
+            "record_id": "stiffness_temp_low",
+            "required": true,
+            "source_unit": "K",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "K",
+            "actual_value": 345.0,
+            "collection": "parameters",
+            "expected_value": 345.0,
+            "fact_id": "parameters.stiffness_temp_high.value",
+            "field": "value",
+            "fmu_variable": "fact_parameters_stiffness_temp_high_value",
+            "id": "fact_parameters_stiffness_temp_high_value",
+            "record_id": "stiffness_temp_high",
+            "required": true,
+            "source_unit": "K",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "N",
+            "actual_value": 50.6,
+            "collection": "parameters",
+            "expected_value": 50.6,
+            "fact_id": "parameters.tendon_tension_bound.value",
+            "field": "value",
+            "fmu_variable": "fact_parameters_tendon_tension_bound_value",
+            "id": "fact_parameters_tendon_tension_bound_value",
+            "record_id": "tendon_tension_bound",
+            "required": true,
+            "source_unit": "N",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "W",
+            "actual_value": 18.0,
+            "collection": "parameters",
+            "expected_value": 18.0,
+            "fact_id": "parameters.heater_power_bound.value",
+            "field": "value",
+            "fmu_variable": "fact_parameters_heater_power_bound_value",
+            "id": "fact_parameters_heater_power_bound_value",
+            "record_id": "heater_power_bound",
+            "required": true,
+            "source_unit": "W",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "N",
+            "actual_value": 6.0,
+            "collection": "parameters",
+            "expected_value": 6.0,
+            "fact_id": "parameters.drag_load_magnitude.value",
+            "field": "value",
+            "fmu_variable": "fact_parameters_drag_load_magnitude_value",
+            "id": "fact_parameters_drag_load_magnitude_value",
+            "record_id": "drag_load_magnitude",
+            "required": true,
+            "source_unit": "N",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "N",
+            "actual_value": 6.0,
+            "collection": "environment",
+            "expected_value": 6.0,
+            "fact_id": "environment.drag_load_env.magnitude",
+            "field": "magnitude",
+            "fmu_variable": "fact_environment_drag_load_env_magnitude",
+            "id": "fact_environment_drag_load_env_magnitude",
+            "record_id": "drag_load_env",
+            "required": true,
+            "source_unit": "N",
+            "verification_status": "resolved_fmu_parameter"
+          }
+        ],
+        "success": true
+      },
+      "execution": {
+        "available": true,
+        "columns": [
+          "time",
+          "trace_body_displacement_iface",
+          "trace_command_trace_iface",
+          "trace_drag_load_iface",
+          "trace_heater_power_command_iface",
+          "trace_section_deformation_iface",
+          "trace_sensor_trace_iface",
+          "trace_state_trace_iface",
+          "trace_tendon_tension_command_iface",
+          "trace_tracking_error_iface"
+        ],
+        "diagnostics": [],
+        "duration_seconds": 0.513214364182204,
+        "initialized": true,
+        "report_file": "outputs/robotics-corpus-full-glm52-v1/RPI1409/rich/FULL/repeat-00/artifacts/runtime-repair/attempt-1/execution/execution/execution.json",
+        "result_file": "outputs/robotics-corpus-full-glm52-v1/RPI1409/rich/FULL/repeat-00/artifacts/runtime-repair/attempt-1/execution/execution/trace.csv",
+        "sample_count": 4001,
+        "simulated": true,
+        "success": true
+      },
+      "execution_completed": true,
+      "execution_mode": "integrated_fmu_behavior",
+      "failure_stage": "behavior_evaluation",
+      "fmu": {
+        "available": true,
+        "checked": true,
+        "diagnostics": [],
+        "duration_seconds": 9.664024044759572,
+        "exported": true,
+        "fmi_version": "2.0",
+        "fmu_path": "outputs/robotics-corpus-full-glm52-v1/RPI1409/rich/FULL/repeat-00/artifacts/runtime-repair/attempt-1/execution/export/candidate.fmu",
+        "inputs": [],
+        "interface_type": "co_simulation",
+        "model_identifier": "candidate",
+        "model_name": "RobotTask_RPI1409_R00",
+        "outputs": [
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "average_speed",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m/s",
+            "value_reference": 97,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "completed_cycles",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 104,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "per_cycle_slip",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 112,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "progress",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 113,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_body_displacement_iface",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 127,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_command_trace_iface",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 128,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_drag_load_iface",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 129,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_heater_power_command_iface",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "W",
+            "value_reference": 130,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_section_deformation_iface",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 131,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_sensor_trace_iface",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 132,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_state_trace_iface",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 133,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_tendon_tension_command_iface",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 134,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_tracking_error_iface",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 135,
+            "variability": "continuous"
+          }
+        ],
+        "success": true,
+        "variables": [
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "body_displacement",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "m",
+            "value_reference": 0,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "body_velocity",
+            "scalar_type": "real",
+            "start": "0.00878",
+            "unit": "m/s",
+            "value_reference": 1,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "estimated_body_displacement",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "m",
+            "value_reference": 2,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "estimated_section_deformation[1]",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": null,
+            "value_reference": 3,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "estimated_section_deformation[2]",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": null,
+            "value_reference": 4,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "estimated_section_deformation[3]",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": null,
+            "value_reference": 5,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "estimated_section_deformation[4]",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": null,
+            "value_reference": 6,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "estimated_section_deformation[5]",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": null,
+            "value_reference": 7,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "estimated_section_deformation[6]",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": null,
+            "value_reference": 8,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "gait_phase",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "rad",
+            "value_reference": 9,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "heater_power[1]",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "W",
+            "value_reference": 10,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "heater_power[2]",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "W",
+            "value_reference": 11,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "heater_power[3]",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "W",
+            "value_reference": 12,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "heater_power[4]",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "W",
+            "value_reference": 13,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "heater_power[5]",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "W",
+            "value_reference": 14,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "heater_power[6]",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "W",
+            "value_reference": 15,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "section_deformation[1]",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": null,
+            "value_reference": 16,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "section_deformation[2]",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": null,
+            "value_reference": 17,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "section_deformation[3]",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": null,
+            "value_reference": 18,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "section_deformation[4]",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": null,
+            "value_reference": 19,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "section_deformation[5]",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": null,
+            "value_reference": 20,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "section_deformation[6]",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": null,
+            "value_reference": 21,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "section_temperature[1]",
+            "scalar_type": "real",
+            "start": "295.0",
+            "unit": "K",
+            "value_reference": 22,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "section_temperature[2]",
+            "scalar_type": "real",
+            "start": "295.0",
+            "unit": "K",
+            "value_reference": 23,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "section_temperature[3]",
+            "scalar_type": "real",
+            "start": "295.0",
+            "unit": "K",
+            "value_reference": 24,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "section_temperature[4]",
+            "scalar_type": "real",
+            "start": "295.0",
+            "unit": "K",
+            "value_reference": 25,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "section_temperature[5]",
+            "scalar_type": "real",
+            "start": "295.0",
+            "unit": "K",
+            "value_reference": 26,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "section_temperature[6]",
+            "scalar_type": "real",
+            "start": "295.0",
+            "unit": "K",
+            "value_reference": 27,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "tendon_tension[1]",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "N",
+            "value_reference": 28,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "tendon_tension[2]",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "N",
+            "value_reference": 29,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "tendon_tension[3]",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "N",
+            "value_reference": 30,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(body_displacement)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m.s-1",
+            "value_reference": 31,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(body_velocity)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m.s-2",
+            "value_reference": 32,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(estimated_body_displacement)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m.s-1",
+            "value_reference": 33,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(estimated_section_deformation[1])",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 34,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(estimated_section_deformation[2])",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 35,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(estimated_section_deformation[3])",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 36,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(estimated_section_deformation[4])",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 37,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(estimated_section_deformation[5])",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 38,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(estimated_section_deformation[6])",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 39,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(gait_phase)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "Hz",
+            "value_reference": 40,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(heater_power[1])",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "km2.s-4.g",
+            "value_reference": 41,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(heater_power[2])",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "km2.s-4.g",
+            "value_reference": 42,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(heater_power[3])",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "km2.s-4.g",
+            "value_reference": 43,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(heater_power[4])",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "km2.s-4.g",
+            "value_reference": 44,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(heater_power[5])",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "km2.s-4.g",
+            "value_reference": 45,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(heater_power[6])",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "km2.s-4.g",
+            "value_reference": 46,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(section_deformation[1])",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 47,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(section_deformation[2])",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 48,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(section_deformation[3])",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 49,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(section_deformation[4])",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 50,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(section_deformation[5])",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 51,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(section_deformation[6])",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 52,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(section_temperature[1])",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "s-1.K",
+            "value_reference": 53,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(section_temperature[2])",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "s-1.K",
+            "value_reference": 54,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(section_temperature[3])",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "s-1.K",
+            "value_reference": 55,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(section_temperature[4])",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "s-1.K",
+            "value_reference": 56,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(section_temperature[5])",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "s-1.K",
+            "value_reference": 57,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(section_temperature[6])",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "s-1.K",
+            "value_reference": 58,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(tendon_tension[1])",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "km.s-3.g",
+            "value_reference": 59,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(tendon_tension[2])",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "km.s-3.g",
+            "value_reference": 60,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(tendon_tension[3])",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "km.s-3.g",
+            "value_reference": 61,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_average_speed)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 62,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_completed_cycles)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 63,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_command_trace_iface)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 64,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_drag_load_iface)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 65,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_heater_power_command_iface)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 66,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_tracking_error_iface)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 67,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(referenceDisplacement)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 68,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_average_speed_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 69,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_completed_cycles_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 70,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "_D_per_cycle_slip_der",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": null,
+            "value_reference": 88,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_drag_load_iface_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 89,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_heater_power_command_iface_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 90,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_section_deformation_iface_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 91,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_sensor_trace_iface_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 92,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_state_trace_iface_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 93,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_tendon_tension_command_iface_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 94,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_tracking_error_iface_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 95,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "absBodyVelocity",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m/s",
+            "value_reference": 96,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "average_speed",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m/s",
+            "value_reference": 97,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "bending_stiffness[1]",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m/rad",
+            "value_reference": 98,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "bending_stiffness[2]",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m/rad",
+            "value_reference": 99,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "bending_stiffness[3]",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m/rad",
+            "value_reference": 100,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "bending_stiffness[4]",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m/rad",
+            "value_reference": 101,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "bending_stiffness[5]",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m/rad",
+            "value_reference": 102,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "bending_stiffness[6]",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m/rad",
+            "value_reference": 103,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "completed_cycles",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 104,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "frictionForce",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 105,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "heater_power_command[2]",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "W",
+            "value_reference": 106,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "heater_power_command[3]",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "W",
+            "value_reference": 107,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "heater_power_command[4]",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "W",
+            "value_reference": 108,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "heater_power_command[5]",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "W",
+            "value_reference": 109,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "heater_power_command[6]",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "W",
+            "value_reference": 110,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "muEffective",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "1",
+            "value_reference": 111,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "per_cycle_slip",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 112,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "progress",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 113,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "propulsionForce",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 114,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "referenceDisplacement",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 115,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "ridgeEffectForce",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 116,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "stiffnessFactor[1]",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 117,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "stiffnessFactor[2]",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 118,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "stiffnessFactor[3]",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 119,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "stiffnessFactor[4]",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 120,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "stiffnessFactor[5]",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 121,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "stiffnessFactor[6]",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 122,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "sumDeformation",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 123,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "sumTension",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 124,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "tendon_tension_command[2]",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 125,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "tendon_tension_command[3]",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 126,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_body_displacement_iface",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 127,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_command_trace_iface",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 128,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_drag_load_iface",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 129,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_heater_power_command_iface",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "W",
+            "value_reference": 130,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_section_deformation_iface",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 131,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_sensor_trace_iface",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 132,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_state_trace_iface",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 133,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_tendon_tension_command_iface",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 134,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_tracking_error_iface",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 135,
+            "variability": "continuous"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "ambientTemperature",
+            "scalar_type": "real",
+            "start": "295.0",
+            "unit": "K",
+            "value_reference": 136,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "bodyMass",
+            "scalar_type": "real",
+            "start": "200.0",
+            "unit": "kg",
+            "value_reference": 137,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "coolingConductance",
+            "scalar_type": "real",
+            "start": "0.2",
+            "unit": "W/K",
+            "value_reference": 138,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "dampingCoeff",
+            "scalar_type": "real",
+            "start": "2000.0",
+            "unit": "N.s/m",
+            "value_reference": 139,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "deformationTimeConstant",
+            "scalar_type": "real",
+            "start": "0.25",
+            "unit": "s",
+            "value_reference": 140,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "estimatorTimeConst",
+            "scalar_type": "real",
+            "start": "0.04",
+            "unit": "s",
+            "value_reference": 141,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_environment_drag_load_env_magnitude",
+            "scalar_type": "real",
+            "start": "6.0",
+            "unit": "N",
+            "value_reference": 142,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_parameters_drag_load_magnitude_value",
+            "scalar_type": "real",
+            "start": "6.0",
+            "unit": "N",
+            "value_reference": 143,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_parameters_heater_power_bound_value",
+            "scalar_type": "real",
+            "start": "18.0",
+            "unit": "W",
+            "value_reference": 144,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_parameters_stiffness_temp_high_value",
+            "scalar_type": "real",
+            "start": "345.0",
+            "unit": "K",
+            "value_reference": 145,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_parameters_stiffness_temp_low_value",
+            "scalar_type": "real",
+            "start": "320.0",
+            "unit": "K",
+            "value_reference": 146,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_parameters_tendon_tension_bound_value",
+            "scalar_type": "real",
+            "start": "50.6",
+            "unit": "N",
+            "value_reference": 147,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "gaitFreq",
+            "scalar_type": "real",
+            "start": "0.5",
+            "unit": "Hz",
+            "value_reference": 148,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "gaitOmega",
+            "scalar_type": "real",
+            "start": "3.141592653589793",
+            "unit": "rad/s",
+            "value_reference": 149,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "gaitOscillation",
+            "scalar_type": "real",
+            "start": "5.0",
+            "unit": "N",
+            "value_reference": 150,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "gravity",
+            "scalar_type": "real",
+            "start": "9.81",
+            "unit": "m/s2",
+            "value_reference": 151,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "heatCapacity",
+            "scalar_type": "real",
+            "start": "2.0",
+            "unit": "J/K",
+            "value_reference": 152,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "heaterTimeConstant",
+            "scalar_type": "real",
+            "start": "0.05",
+            "unit": "s",
+            "value_reference": 153,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "muBackward",
+            "scalar_type": "real",
+            "start": "0.4",
+            "unit": "1",
+            "value_reference": 154,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "muForward",
+            "scalar_type": "real",
+            "start": "0.12",
+            "unit": "1",
+            "value_reference": 155,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "propulsionGain",
+            "scalar_type": "real",
+            "start": "10.0",
+            "unit": "1",
+            "value_reference": 156,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "referenceSpeed",
+            "scalar_type": "real",
+            "start": "0.00878",
+            "unit": "m/s",
+            "value_reference": 157,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "ridgeForce",
+            "scalar_type": "real",
+            "start": "2.0",
+            "unit": "N",
+            "value_reference": 158,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "ridgePos1",
+            "scalar_type": "real",
+            "start": "0.05",
+            "unit": "m",
+            "value_reference": 159,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "ridgePos2",
+            "scalar_type": "real",
+            "start": "0.1",
+            "unit": "m",
+            "value_reference": 160,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "ridgeWidth",
+            "scalar_type": "real",
+            "start": "0.015",
+            "unit": "m",
+            "value_reference": 161,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "softBending",
+            "scalar_type": "real",
+            "start": "40.0",
+            "unit": "N.m/rad",
+            "value_reference": 162,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "stiffBending",
+            "scalar_type": "real",
+            "start": "50.0",
+            "unit": "N.m/rad",
+            "value_reference": 163,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "tensionTimeConstant",
+            "scalar_type": "real",
+            "start": "0.08",
+            "unit": "s",
+            "value_reference": 164,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "vThreshold",
+            "scalar_type": "real",
+            "start": "0.005",
+            "unit": "m/s",
+            "value_reference": 165,
+            "variability": "fixed"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_progress_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 1,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_body_displacement_iface_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 1,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_command_trace_iface_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 94,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "drag_load_force",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 129,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "heater_power_command[1]",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "W",
+            "value_reference": 130,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "tendon_tension_command[1]",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 134,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "tracking_error",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 135,
+            "variability": "continuous"
+          }
+        ]
+      },
+      "passed": false,
+      "properties": [
+        {
+          "detail": "always robustness=0.0116503",
+          "formula": "G[10.4, T](trace_tracking_error_iface <= 0.036)",
+          "id": "tracking_error_bound",
+          "interface_id": "tracking_error_iface",
+          "passed": true,
+          "property_id": "tracking_error_bound",
+          "robustness": 0.011650285247593088,
+          "status": "satisfied"
+        },
+        {
+          "detail": "always robustness=0",
+          "formula": "G[0, T](trace_tendon_tension_command_iface <= 50.6)",
+          "id": "tendon_tension_command_bound",
+          "interface_id": "tendon_tension_command_iface",
+          "passed": true,
+          "property_id": "tendon_tension_command_bound",
+          "robustness": 0.0,
+          "status": "satisfied"
+        },
+        {
+          "detail": "always robustness=0",
+          "formula": "G[0, T](trace_heater_power_command_iface <= 18.0)",
+          "id": "heater_power_command_bound",
+          "interface_id": "heater_power_command_iface",
+          "passed": true,
+          "property_id": "heater_power_command_bound",
+          "robustness": 0.0,
+          "status": "satisfied"
+        },
+        {
+          "detail": "finite-value trace gate passed",
+          "formula": "all requested runtime outputs are finite",
+          "id": "no_nan_inf_values",
+          "passed": true,
+          "property_id": "no_nan_inf_values",
+          "robustness": null,
+          "status": "satisfied"
+        },
+        {
+          "detail": "no deterministic evaluator exists for this grounded property kind",
+          "formula": "custom",
+          "id": "fail_closed_acceptance",
+          "passed": false,
+          "property_id": "fail_closed_acceptance",
+          "robustness": null,
+          "status": "unevaluable"
+        }
+      ],
+      "property_count": 5,
+      "property_summary": {
+        "passed": 4,
+        "total": 5,
+        "unevaluable": 1,
+        "violated": 0
+      },
+      "report": "execution.json",
+      "trace_gate": {
+        "finite": true,
+        "minimum_expected_samples": 4000,
+        "missing_outputs": [],
+        "required_outputs": [
+          "trace_body_displacement_iface",
+          "trace_command_trace_iface",
+          "trace_drag_load_iface",
+          "trace_heater_power_command_iface",
+          "trace_section_deformation_iface",
+          "trace_sensor_trace_iface",
+          "trace_state_trace_iface",
+          "trace_tendon_tension_command_iface",
+          "trace_tracking_error_iface"
+        ],
+        "sample_count": 4001,
+        "success": true
+      }
+    },
+    "modelica": {
+      "artifact": "modelica/model.mo",
+      "attempt_0_valid": true,
+      "combiner_model": "z-ai/glm-5.2",
+      "expert_candidates": [
+        "qwen/qwen3.6-plus",
+        "z-ai/glm-5.2",
+        "deepseek/deepseek-v4-pro",
+        "meta-llama/llama-4-maverick"
+      ],
+      "expert_models": [
+        "qwen/qwen3.6-plus",
+        "z-ai/glm-5.2",
+        "deepseek/deepseek-v4-pro",
+        "meta-llama/llama-4-maverick"
+      ],
+      "expert_soft_fail_count": 0,
+      "generation_mode": "moe",
+      "identity_preserved": true,
+      "model_name": "RobotTask_RPI1409_R00",
+      "passed": true,
+      "repairs": 0,
+      "report": "modelica/generation.json",
+      "retrieved_examples": [
+        {
+          "id": "M1021",
+          "score": 44.50416409323397
+        },
+        {
+          "id": "M1009",
+          "score": 44.1235954167224
+        },
+        {
+          "id": "M1008",
+          "score": 41.799300039130756
+        },
+        {
+          "id": "M1007",
+          "score": 36.274323234930826
+        },
+        {
+          "id": "M1114",
+          "score": 40.96784081859639
+        }
+      ],
+      "study_controls": {
+        "max_tool_repairs": 2,
+        "moe_enabled": true,
+        "rag_enabled": true,
+        "retrieval_k": 5,
+        "tool_repair_enabled": true
+      }
+    },
+    "normalization": {
+      "attempt_count": 1,
+      "precomputed": true,
+      "report": "normalization.json",
+      "success": true
+    },
+    "one_shot": {
+      "artifact_pair_valid_attempt_0": null,
+      "artifact_valid_attempt_0": true,
+      "modelica_valid_attempt_0": true,
+      "openusd_valid_attempt_0": null
+    },
+    "paired_block": {
+      "block_fingerprint": "3887036ec4e9ff072c27be7037f48b17497727615028882df9f66cd653b8d865",
+      "normalized_ir_sha256": "8951bc0148823af0d8d40d8644f06c92335320c5fad47325b669cf60fc0881e6",
+      "repetition": 0
+    },
+    "passed": false,
+    "plan": {
+      "contract": "contract.json",
+      "mapping_count": 9,
+      "model_name": "RobotTask_RPI1409_R00",
+      "parameter_mapping_count": 6,
+      "report": "plan.json",
+      "requirement_ir": "requirement_ir.json",
+      "success": true
+    },
+    "runtime_repair": {
+      "accepted": 1,
+      "attempted": 1,
+      "enabled": true,
+      "final_model": "modelica/model.mo",
+      "infrastructure_error": null,
+      "max_repairs": 2,
+      "original_model": "modelica/pre-runtime-model.mo",
+      "report": "runtime-repair.json",
+      "triggered": true
+    },
+    "schema_version": "1.0",
+    "source_text_sha256": "51c5c5fb1fe4fc692e3cf66eb1b77996219657a1a9f110dd47d81108aed13b91",
+    "stage": "modelica_capability_orchestrator",
+    "stage_trace": [
+      {
+        "index": 0,
+        "passed": true,
+        "reached": true,
+        "stage": "requirement_normalization",
+        "status": "passed"
+      },
+      {
+        "index": 1,
+        "passed": true,
+        "reached": true,
+        "stage": "interface_planning",
+        "status": "passed"
+      },
+      {
+        "index": 2,
+        "passed": true,
+        "reached": true,
+        "stage": "modelica_validation",
+        "status": "passed"
+      },
+      {
+        "index": 3,
+        "passed": true,
+        "reached": true,
+        "stage": "modelica_identity",
+        "status": "passed"
+      },
+      {
+        "index": 4,
+        "passed": true,
+        "reached": true,
+        "stage": "fmu_export",
+        "status": "passed"
+      },
+      {
+        "index": 5,
+        "passed": true,
+        "reached": true,
+        "stage": "fmu_interface_contract",
+        "status": "passed"
+      },
+      {
+        "index": 6,
+        "passed": true,
+        "reached": true,
+        "stage": "runtime_initialization",
+        "status": "passed"
+      },
+      {
+        "index": 7,
+        "passed": true,
+        "reached": true,
+        "stage": "runtime_execution",
+        "status": "passed"
+      },
+      {
+        "index": 8,
+        "passed": true,
+        "reached": true,
+        "stage": "behavior_evaluation",
+        "status": "passed"
+      },
+      {
+        "index": 9,
+        "passed": true,
+        "reached": true,
+        "stage": "modelica_specification_alignment",
+        "status": "passed"
+      }
+    ],
+    "study_validity": {
+      "alignment_observed": true,
+      "complete_moe_required": true,
+      "condition_fidelity_passed": true,
+      "contract_created": true,
+      "eligible": true,
+      "expected": {
+        "alignment": true,
+        "id": "FULL",
+        "label": "complete_pipeline",
+        "moe": true,
+        "rag": true,
+        "tool_repair": true,
+        "validated_contract": true
+      },
+      "generation_reached": true,
+      "issues": [],
+      "observed_generation": [
+        {
+          "combiner_model": "z-ai/glm-5.2",
+          "expert_candidate_count": 4,
+          "expert_roster": [
+            "qwen/qwen3.6-plus",
+            "z-ai/glm-5.2",
+            "deepseek/deepseek-v4-pro",
+            "meta-llama/llama-4-maverick"
+          ],
+          "expert_soft_fail_count": 0,
+          "generation_mode": "moe",
+          "owner": "modelica",
+          "retrieval_count": 5,
+          "study_controls": {
+            "max_tool_repairs": 2,
+            "moe_enabled": true,
+            "rag_enabled": true,
+            "retrieval_k": 5,
+            "tool_repair_enabled": true
+          }
+        }
+      ],
+      "runtime_repair_observed": true
+    },
+    "task_id": "RPI1409-R00"
+  },
+  "schema_version": "1.1",
+  "task_id": "RPI1409",
+  "variant": "rich"
+}

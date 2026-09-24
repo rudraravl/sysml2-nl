@@ -212,7 +212,8 @@ def build_metrics(naive: dict[str, dict], full: dict[str, dict],
     ]
 
 
-def by_category(naive: dict[str, dict], full: dict[str, dict], sids: list[str]) -> str:
+def by_category(naive: dict[str, dict], full: dict[str, dict], sids: list[str],
+                labels: tuple[str, str] = report.DEFAULT_LABELS) -> str:
     groups: dict[str, list[str]] = defaultdict(list)
     for s in sids:
         groups[full[s].get("category") or naive[s].get("category") or "unknown"].append(s)
@@ -235,7 +236,7 @@ def by_category(naive: dict[str, dict], full: dict[str, dict], sids: list[str]) 
     cols = [c for c in cols if has(c[1], naive) and has(c[1], full)]  # both sides scored
     headers = ["Category", "n"]
     for name, _, _ in cols:
-        headers += [f"{name} naive", f"{name} full"]
+        headers += [f"{name} {labels[0].lower()}", f"{name} {labels[1].lower()}"]
     rows = []
     for cat, members in sorted(groups.items(), key=lambda kv: -len(kv[1])):
         row = [cat, len(members)]
@@ -278,11 +279,21 @@ def main() -> None:
     ap.add_argument("--full-dir", help=f"full-pipeline samples (default {FULL_DEFAULT.relative_to(_ROOT)})")
     ap.add_argument("--out-dir", default=str(DEFAULT_OUT), help="where to write results")
     ap.add_argument("--no-plots", action="store_true")
+    ap.add_argument("--naive-label", default=report.DEFAULT_LABELS[0],
+                    help="display name of the --naive-dir corpus (e.g. FSM-SCG*)")
+    ap.add_argument("--full-label", default=report.DEFAULT_LABELS[1],
+                    help="display name of the --full-dir corpus (e.g. FORGE)")
+    ap.add_argument("--ids", nargs="+", help="pair only these sample ids (e.g. a pilot)")
     args = ap.parse_args()
+    labels = (args.naive_label, args.full_label)
 
     naive_dir, full_dir = resolve_dirs(args)
 
     naive, full = load_corpus(naive_dir), load_corpus(full_dir)
+    if args.ids:
+        wanted = set(args.ids)
+        naive = {s: m for s, m in naive.items() if s in wanted}
+        full = {s: m for s, m in full.items() if s in wanted}
     sids = sorted(set(naive) & set(full))
     print(f"naive : {naive_dir}  ({len(naive)} samples)")
     print(f"full  : {full_dir}  ({len(full)} samples)")
@@ -293,8 +304,10 @@ def main() -> None:
 
     metrics = build_metrics(naive, full, sids)
     results = ps.analyze(metrics)
-    title = f"Naive vs full pipeline — Solidity (naive vs full, n={len(sids)} pairs)"
-    report.print_summary(results, title)
+    title = (f"Naive vs full pipeline — Solidity (naive vs full, n={len(sids)} pairs)"
+             if labels == report.DEFAULT_LABELS else
+             f"{labels[0]} vs {labels[1]} — Solidity (n={len(sids)} pairs)")
+    report.print_summary(results, title, labels)
 
     nb, fb = failure_breakdown(naive, sids), failure_breakdown(full, sids)
     order = ["empty output", "fails solc", "solc ok, execution not scored",
@@ -302,15 +315,15 @@ def main() -> None:
              "fuzz ok, property tier not passed", "passes execution tiers"]
     order = [k for k in order if nb[k] or fb[k]]
     fail_tbl = report.table_md(
-        ["Outcome (first failing stage)", "Naive", "Full"],
+        ["Outcome (first failing stage)", *labels],
         [[k, f"{nb[k]} ({nb[k] / len(sids) * 100:.1f}%)", f"{fb[k]} ({fb[k] / len(sids) * 100:.1f}%)"]
          for k in order])
 
     out_dir = Path(args.out_dir)
     extra_sections, extra_nums = extras.build(naive, full, sids, out_dir, plots=not args.no_plots)
     header = [
-        f"- Naive corpus: `{naive_dir}` — {len(naive)} samples",
-        f"- Full corpus: `{full_dir}` — {len(full)} samples",
+        f"- {labels[0]} corpus: `{naive_dir}` — {len(naive)} samples",
+        f"- {labels[1]} corpus: `{full_dir}` — {len(full)} samples",
         f"- Paired on sid: **{len(sids)}** (naive-only {len(set(naive) - set(full))}, "
         f"full-only {len(set(full) - set(naive))})",
         "- All metrics come from cached `meta.json`; a metric missing for either side of a "
@@ -319,10 +332,11 @@ def main() -> None:
     written = report.write_outputs(
         out_dir, title=title, header_lines=header, results=results,
         extra_sections=[("First failing stage", fail_tbl),
-                        ("By category", by_category(naive, full, sids))] + extra_sections,
+                        ("By category", by_category(naive, full, sids, labels))] + extra_sections,
         meta={"naive_dir": str(naive_dir), "full_dir": str(full_dir), "n_pairs": len(sids),
-              "naive_total": len(naive), "full_total": len(full)},
-        plots=not args.no_plots, metrics=metrics)
+              "naive_total": len(naive), "full_total": len(full),
+              "labels": list(labels), "ids_filter": sorted(args.ids) if args.ids else None},
+        plots=not args.no_plots, metrics=metrics, labels=labels)
     extras_path = out_dir / "extras.json"
     extras_path.write_text(json.dumps(extra_nums, indent=2, default=str) + "\n", encoding="utf-8")
     written["extras"] = extras_path

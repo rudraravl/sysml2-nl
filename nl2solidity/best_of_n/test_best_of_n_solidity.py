@@ -100,9 +100,9 @@ def make_stub(replies, downstream=True, fire=True):
     return stub, log
 
 
-def installed(stub, n=6):
+def installed(stub, n=6, template="a0", naive=None):
     """Install the hook the way main() does; the stub's generate_solidity_moe is then the wrapper."""
-    hook = bon.BestOfN(stub, n)
+    hook = bon.BestOfN(stub, n, template=template, naive=naive)
     hook.install(SimpleNamespace(create_meta_json=lambda *a: {}, write_entry_output=lambda *a: None))
     return hook
 
@@ -142,6 +142,23 @@ def test_failed_samples_are_not_candidates():
     b = record["best_of_n"]
     assert b["n_candidates"] == 2 and b["n_transport_failures"] == 4
     assert len(b["failures"]) == 4 and "provider 500" in b["failures"][0]["error"]
+
+
+def test_any_transport_failure_refuses_a_partial_ensemble():
+    # e.g. OpenRouter 402 once credits run out mid-run: 2 of 6 samples come back, 4 are rejected.
+    down = RuntimeError('OpenRouter call failed (z-ai/glm-5.2): {"error":{"code":402}}')
+    stub, _ = make_stub(lambda human, i: down if i <= 4 else f"err={i}", downstream=False)
+    installed(stub)
+    with pytest.raises(RuntimeError, match="4/6 samples hit a transport failure"):
+        stub.generate_solidity_moe("p")
+
+
+def test_a_lone_dropped_connection_also_aborts_the_seed():
+    stub, _ = make_stub(lambda human, i: RuntimeError("IncompleteRead(0 bytes read)") if i == 3
+                        else f"err={i}", downstream=False)
+    installed(stub)
+    with pytest.raises(RuntimeError, match="1/6 samples hit a transport failure"):
+        stub.generate_solidity_moe("p")
 
 
 def test_all_samples_failing_raises_like_a_failed_a0_call():
@@ -189,6 +206,78 @@ def test_invalid_n():
         bon.BestOfN(make_stub(lambda h, i: "")[0], 0)
 
 
+# ------------------------------------------------------------------ naive template (the default)
+def fake_naive():
+    return SimpleNamespace(
+        MODEL="z-ai/glm-5.2", SYSTEM_PROMPT="NAIVE-SYS", HUMAN_TEMPLATE="NAIVE-HUMAN: {input}",
+        _postprocess=lambda text: text.replace("```", "").strip())
+
+
+def naive_stub(replies):
+    """A stub whose `_openrouter_invoke` is the transport the naive samples go through."""
+    stub, log = make_stub(lambda human, i: "unused", downstream=False)
+    calls, lock = [], threading.Lock()
+
+    def transport(model, system, human, key):
+        with lock:
+            calls.append((model, system, human))
+            i = len(calls)
+        reply = replies(system, human, i)
+        if isinstance(reply, Exception):
+            raise reply
+        return reply
+
+    stub._openrouter_invoke = transport
+    return stub, calls, log
+
+
+def test_naive_template_samples_the_naive_call_not_the_a0_prompt():
+    stub, calls, log = naive_stub(lambda s, h, i: f"contract C {{}} err={i}")
+    installed(stub, 4, template="naive", naive=fake_naive())
+    stub.generate_solidity_moe("build a vault")
+
+    assert len(calls) == 4
+    assert {c[0] for c in calls} == {"z-ai/glm-5.2"}
+    assert {c[1] for c in calls} == {"NAIVE-SYS"}
+    assert {c[2] for c in calls} == {"NAIVE-HUMAN: build a vault"}
+    assert log == []                      # the A0 generator prompt was never sent
+
+
+def test_naive_template_records_which_template_was_sampled():
+    stub, _, _ = naive_stub(lambda s, h, i: f"contract C {{}} err={i}")
+    installed(stub, 3, template="naive", naive=fake_naive())
+    _, record = stub.generate_solidity_moe("p")
+    assert record["best_of_n"]["sample_template"] == "naive"
+
+
+def test_naive_template_retries_a_degenerate_reply_once_like_generate_one():
+    seen = []
+
+    def reply(system, human, i):
+        seen.append(system)
+        return "I cannot help" if i == 1 else "```\ncontract C {} err=0\n```"
+
+    stub, calls, _ = naive_stub(reply)
+    installed(stub, 1, template="naive", naive=fake_naive())
+    code, record = stub.generate_solidity_moe("p")
+    assert len(calls) == 2 and seen[0] == "NAIVE-SYS"
+    assert seen[1].startswith("NAIVE-SYS") and seen[1] != "NAIVE-SYS"      # the stricter retry prompt
+    assert code == "contract C {} err=0"                                   # fences stripped
+
+
+def test_naive_template_failures_are_not_candidates():
+    stub, _, _ = naive_stub(lambda s, h, i: RuntimeError("500") if i % 2 else f"contract C {{}} err={i}")
+    installed(stub, 6, template="naive", naive=fake_naive())
+    _, record = stub.generate_solidity_moe("p")
+    b = record["best_of_n"]
+    assert b["n_candidates"] == 3 and b["n_transport_failures"] == 3
+
+
+def test_invalid_template():
+    with pytest.raises(ValueError):
+        bon.BestOfN(make_stub(lambda h, i: "")[0], 2, template="nope")
+
+
 # ------------------------------------------------------------------ end to end, real generator + solc
 def _solc_available() -> bool:
     try:
@@ -225,7 +314,7 @@ E2E_SCRIPT = textwrap.dedent('''
         marker = "SEEDA" if "SEEDA" in human else "SEEDB"
         with LOCK:
             k = SEEN[marker] = SEEN.get(marker, -1) + 1
-            open(LOG, "a").write(json.dumps({{"marker": marker, "k": k}}) + "\\n")
+            open(LOG, "a").write(json.dumps({{"marker": marker, "k": k, "system": msgs[0]["content"]}}) + "\\n")
         text = contract(marker, k % 6)
         return Resp(json.dumps({{"choices": [{{"message": {{"content": text}}}}]}}).encode())
 
@@ -261,6 +350,8 @@ def test_end_to_end_real_generator_real_solc(tmp_path):
     calls = [json.loads(line) for line in log.read_text().splitlines()]
     assert sum(c["marker"] == "SEEDA" for c in calls) == 6      # exactly N model calls per seed:
     assert sum(c["marker"] == "SEEDB" for c in calls) == 6      # cheap mode has no other stage
+    from nl2solidity import naive_glm_generate as naive
+    assert {c["system"] for c in calls} == {naive.SYSTEM_PROMPT}   # the naive call, not A0's prompt
 
     arm = out_root / "BoN6"
     for sid, marker in (("U1", "SEEDA"), ("U2", "SEEDB")):
@@ -268,6 +359,7 @@ def test_end_to_end_real_generator_real_solc(tmp_path):
         meta = json.loads((d / "meta.json").read_text())
         b = meta["best_of_n"]
         assert meta["ablation"] == "BoN6"
+        assert b["sample_template"] == "naive"
         assert b["n"] == 6 and b["n_candidates"] == 6 and len(b["candidates"]) == 6
         assert sorted(p.name for p in (d / "candidates").iterdir()) == [f"cand-{i}.sol" for i in range(6)]
         assert "codes" not in b

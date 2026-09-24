@@ -1,0 +1,3066 @@
+{
+  "condition": {
+    "alignment": true,
+    "id": "FULL",
+    "label": "complete_pipeline",
+    "moe": true,
+    "rag": true,
+    "tool_repair": true,
+    "validated_contract": true
+  },
+  "configuration": {
+    "artifact_mode": "modelica_only",
+    "benchmark_manifest": "/storage/scratch1/4/skannan89/robotics-generalized/nl2robotics/corpus/pipeline_prompt_manifest.json",
+    "benchmark_manifest_sha256": "0a6631f7b9c9cbf4983d92ab4424943a668f60e571bf5ee4203213f84c1a8409",
+    "benchmark_split": "all",
+    "configuration_variant_filter": [],
+    "family_filter": [],
+    "fmi_backend": "local",
+    "h2_controller_backend": "local",
+    "h2_device": "cpu",
+    "h2_repetitions": 3,
+    "h2_solver": "TGS",
+    "isaac_handoff_configured": false,
+    "k": 5,
+    "max_runtime_repairs": 2,
+    "max_tool_repairs": 2,
+    "modelica_backend": "local",
+    "modelica_subset": "full1500",
+    "moe_configuration": "shared_with_sysml_pipeline",
+    "newton_controller_backend": "local",
+    "newton_device": "cuda:0",
+    "newton_fmi_runtime_image": "nl2robotics-fmi-runtime:0.1",
+    "newton_handoff_configured": false,
+    "newton_repeatability_tolerance": 1e-06,
+    "newton_repetitions": 3,
+    "newton_solver": "featherstone",
+    "newton_version": "1.5.0",
+    "pipeline": "nl_ir_modelica_compile_fmu_execute_spec",
+    "rag_routing": "family_preferred_4_of_5_with_global_fallback",
+    "randomization_seed": 20260830,
+    "require_complete_moe": true,
+    "runtime_repair_model": "z-ai/glm-5.2",
+    "runtime_repair_policy": "tool_conditions_only_monotonic_recompile_reexecute_recheck_behavior",
+    "runtime_repair_provider": "openrouter",
+    "semantic_case_filter": [],
+    "shard_assignment": "category_stratified_task_block_round_robin",
+    "shard_count": 4,
+    "single_model": "z-ai/glm-5.2",
+    "single_provider": "openrouter",
+    "study_protocol_core_sha256": "f5f0200a721873f9eeac07c7084e8f58fe820d1acef60434f7e0ac234041d153",
+    "task_order": "seeded_randomized"
+  },
+  "difficulty": "intermediate",
+  "duration_seconds": 784.4277553162538,
+  "fingerprint": "c426563715ec70e813c498951889aa6513807ec1774e5b4b5659c40d1663e1fe",
+  "infrastructure_error": null,
+  "metrics": {
+    "all_properties_pass": false,
+    "artifact_pair_valid": null,
+    "artifact_pair_valid_attempt_0": null,
+    "artifact_valid": true,
+    "artifact_valid_attempt_0": true,
+    "behavior_evaluated": true,
+    "blocking_violations": 0,
+    "condition_fidelity": true,
+    "configured_pipeline_success": false,
+    "contract_valid": true,
+    "end_to_end": false,
+    "failure_stage": "behavior_evaluation",
+    "fmu_execution": true,
+    "fmu_export": true,
+    "fmu_interface_valid": true,
+    "infrastructure_available": true,
+    "ir_valid": true,
+    "maximum_stage_reached": 9,
+    "modelica_build": true,
+    "modelica_build_attempt_0": true,
+    "named_simulator_load": null,
+    "normalization_valid": true,
+    "post_execution_semantic": true,
+    "pre_execution_semantic": null,
+    "property_evaluability_rate": 0.75,
+    "property_evaluable": 9,
+    "property_satisfaction_rate_evaluable": 1.0,
+    "property_satisfied": 9,
+    "property_total": 12,
+    "property_unevaluable": 3,
+    "property_violated": 0,
+    "repairs": 1,
+    "runtime_execution": true,
+    "runtime_trace_valid": true,
+    "semantic_coverage": 0.735099,
+    "semantic_score": 1.0,
+    "specification_claim_ready": false,
+    "stable_simulation": true,
+    "usd_semantic_valid": null,
+    "usd_semantic_valid_attempt_0": null,
+    "verification_tier": 4
+  },
+  "planned_order_index": 620,
+  "profile": "capability",
+  "randomization_seed": 20260830,
+  "repetition": 0,
+  "result": {
+    "ablation": {
+      "condition": {
+        "alignment": true,
+        "id": "FULL",
+        "label": "complete_pipeline",
+        "moe": true,
+        "rag": true,
+        "tool_repair": true,
+        "validated_contract": true
+      },
+      "contract_role": "generation_and_validation",
+      "generation_strategy": "rag_moe"
+    },
+    "alignment": {
+      "blocking_violations": 0,
+      "claim_ready": false,
+      "counts": {
+        "not_applicable": 0,
+        "satisfied": 42,
+        "unknown": 17,
+        "violated": 0
+      },
+      "deterministic_violations": 0,
+      "enabled": true,
+      "evidence_coverage": 0.735099,
+      "not_run": false,
+      "passed": true,
+      "per_family": {
+        "controller_kind": 1.0,
+        "environment": 1.0,
+        "interface": 1.0,
+        "parameter": 1.0,
+        "property": 1.0,
+        "timing": 1.0
+      },
+      "question_count": 59,
+      "report": "alignment.json",
+      "skipped": false,
+      "weighted_semantic_score": 1.0
+    },
+    "artifact_mode": "modelica_only",
+    "capabilities": {
+      "highest_reached_tier": 4,
+      "highest_reached_tier_name": "behaviorally_executed",
+      "profile_count": 14,
+      "report": "capability-report.json",
+      "requested_feature_count": 32,
+      "tiers": [
+        {
+          "name": "normalized",
+          "passed": true,
+          "tier": 0
+        },
+        {
+          "name": "ir_validated",
+          "passed": true,
+          "tier": 1
+        },
+        {
+          "modelica_passed": true,
+          "name": "artifacts_validated",
+          "openusd_passed": null,
+          "passed": true,
+          "tier": 2
+        },
+        {
+          "name": "executable_contract_validated",
+          "passed": true,
+          "reason": null,
+          "tier": 3
+        },
+        {
+          "behavior_evaluated": true,
+          "execution_completed": true,
+          "name": "behaviorally_executed",
+          "passed": true,
+          "reason": null,
+          "tier": 4
+        },
+        {
+          "name": "accelerator_provenance_verified",
+          "passed": false,
+          "reason": "requires genuine accelerator execution provenance",
+          "tier": 5
+        }
+      ]
+    },
+    "claim_eligible_deltaai_h2": false,
+    "claim_eligible_h2": false,
+    "claim_eligible_newton_h2": false,
+    "failure_stage": "behavior_evaluation",
+    "hybrid": {
+      "behavior_evaluated": true,
+      "behavior_passed": false,
+      "contract": {
+        "fmu": {
+          "fmi_version": "2.0",
+          "interface_type": "co_simulation",
+          "model_name": "RobotTask_RPI1312_R00",
+          "variables": [
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "estimator_estimation_error",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": null,
+              "value_reference": 0,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "estimator_observer_state",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": null,
+              "value_reference": 1,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "estimator_post_load_recovery",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": null,
+              "value_reference": 2,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "estimator_residual",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": null,
+              "value_reference": 3,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "plant_position",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": null,
+              "value_reference": 4,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "plant_velocity",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": null,
+              "value_reference": 5,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(estimator_estimation_error)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 6,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(estimator_observer_state)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 7,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(estimator_post_load_recovery)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 8,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(estimator_residual)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 9,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(plant_position)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 10,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(plant_velocity)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 11,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_iface_acoustic_range_output)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 12,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_iface_actuator_current_or_pressure)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 13,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_iface_imu_output)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 14,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_iface_load_disturbance)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 15,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_iface_thruster_4_command)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 16,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_iface_tracking_error)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 17,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(rawThrusterCommand)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 18,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_iface_acoustic_range_output_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 26,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_iface_actuator_current_or_pressure_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 27,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "_D_trace_iface_commanded_state_der",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": null,
+              "value_reference": 28,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "_D_trace_iface_compass_output_der",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": null,
+              "value_reference": 29,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_iface_imu_output_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 30,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_iface_in_load_estimation_error_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 31,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_iface_observer_state_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 32,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_iface_post_load_recovery_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 33,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_iface_pre_load_residual_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 34,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_iface_thruster_1_command_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 35,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_iface_tracking_error_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 36,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_iface_wrench_measurement_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 37,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "plant_compass_heading",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": null,
+              "value_reference": 38,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "predictedAcceleration",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 39,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "rawThrusterCommand",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 40,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "residualRaw",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 41,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_iface_acoustic_range_output",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 42,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_iface_actuator_current_or_pressure",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 43,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_iface_commanded_state",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 44,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_iface_compass_output",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 45,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_iface_doppler_velocity_output",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 46,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_iface_imu_output",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 47,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_iface_in_load_estimation_error",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 48,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_iface_load_disturbance",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N_or_Nm",
+              "value_reference": 49,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_iface_observer_state",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 50,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_iface_position_measurement",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 51,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_iface_post_load_recovery",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 52,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_iface_pre_load_residual",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 53,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_iface_pressure_depth_output",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 54,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_iface_thruster_1_command",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 55,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_iface_thruster_2_command",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 56,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_iface_thruster_3_command",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 57,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_iface_thruster_4_command",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 58,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_iface_tracking_error",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N_or_Nm",
+              "value_reference": 59,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_iface_velocity_measurement",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 60,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_iface_wrench_measurement",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 61,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "plant_acoustic_range",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": null,
+              "value_reference": 62,
+              "variability": "discrete"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "commandedSetpoint",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "m",
+              "value_reference": 64,
+              "variability": "fixed"
+            },
+            {
+              "causality": "calculatedParameter",
+              "initial": null,
+              "name": "controller_command_state",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 65,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "dampingCoeff",
+              "scalar_type": "real",
+              "start": "20.0",
+              "unit": "N.s/m",
+              "value_reference": 66,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_environment_env_load_disturbance_magnitude",
+              "scalar_type": "real",
+              "start": "14.0",
+              "unit": "N_or_Nm",
+              "value_reference": 67,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_parameters_param_acoustic_range_rate_value",
+              "scalar_type": "real",
+              "start": "1.0",
+              "unit": "Hz",
+              "value_reference": 68,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_parameters_param_load_disturbance_magnitude_value",
+              "scalar_type": "real",
+              "start": "14.0",
+              "unit": "N_or_Nm",
+              "value_reference": 69,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_parameters_param_thruster_force_limit_value",
+              "scalar_type": "real",
+              "start": "105.0",
+              "unit": "N",
+              "value_reference": 70,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_parameters_param_tracking_error_threshold_value",
+              "scalar_type": "real",
+              "start": "2.5",
+              "unit": "N_or_Nm",
+              "value_reference": 71,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "filterCutoff",
+              "scalar_type": "real",
+              "start": "50.0",
+              "unit": "rad/s",
+              "value_reference": 72,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "kd_state",
+              "scalar_type": "real",
+              "start": "30.0",
+              "unit": "N.s/m",
+              "value_reference": 73,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "kp_state",
+              "scalar_type": "real",
+              "start": "50.0",
+              "unit": "N/m",
+              "value_reference": 74,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "loadEnd",
+              "scalar_type": "real",
+              "start": "9.333333333333334",
+              "unit": "s",
+              "value_reference": 75,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "loadStart",
+              "scalar_type": "real",
+              "start": "4.666666666666667",
+              "unit": "s",
+              "value_reference": 76,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "rampDuration",
+              "scalar_type": "real",
+              "start": "0.5",
+              "unit": "s",
+              "value_reference": 77,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "vehicleMass",
+              "scalar_type": "real",
+              "start": "50.0",
+              "unit": "kg",
+              "value_reference": 78,
+              "variability": "fixed"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_iface_doppler_velocity_output_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 47,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_iface_load_disturbance_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 37,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_iface_position_measurement_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 5,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_iface_pressure_depth_output_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 5,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_iface_thruster_2_command_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 35,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_iface_thruster_3_command_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 35,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_iface_thruster_4_command_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 35,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_iface_velocity_measurement_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 47,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "controller_thruster_1_command",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 56,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "controller_thruster_2_command",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 56,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "controller_thruster_3_command",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 56,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "controller_thruster_4_command",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 56,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "estimator_tracking_error",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 59,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "plant_acceleration",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 47,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "plant_actuator_current_or_pressure",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 43,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "plant_doppler_velocity",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 5,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "plant_imu_measurement",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 47,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "plant_load_disturbance",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 61,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "plant_pressure_depth",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 4,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "plant_wrench",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 61,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "totalThrust",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 43,
+              "variability": "continuous"
+            }
+          ]
+        },
+        "issues": [],
+        "resolved_mappings": [
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_iface_actuator_current_or_pressure",
+            "id": "map_iface_actuator_current_or_pressure",
+            "interface_id": "iface_actuator_current_or_pressure",
+            "quantity": "actuator_current_or_pressure",
+            "required": true,
+            "semantic_entity_id": "underwater_vehicle",
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "unspecified",
+            "state_id": "plant.actuator_current_or_pressure",
+            "target_unit": "unspecified",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_iface_position_measurement",
+            "id": "map_iface_position_measurement",
+            "interface_id": "iface_position_measurement",
+            "quantity": "position",
+            "required": true,
+            "semantic_entity_id": "underwater_vehicle",
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "unspecified",
+            "state_id": "plant.position",
+            "target_unit": "unspecified",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_iface_velocity_measurement",
+            "id": "map_iface_velocity_measurement",
+            "interface_id": "iface_velocity_measurement",
+            "quantity": "velocity",
+            "required": true,
+            "semantic_entity_id": "underwater_vehicle",
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "unspecified",
+            "state_id": "plant.velocity",
+            "target_unit": "unspecified",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_iface_wrench_measurement",
+            "id": "map_iface_wrench_measurement",
+            "interface_id": "iface_wrench_measurement",
+            "quantity": "wrench",
+            "required": true,
+            "semantic_entity_id": "underwater_vehicle",
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "unspecified",
+            "state_id": "plant.wrench",
+            "target_unit": "unspecified",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_iface_imu_output",
+            "id": "map_iface_imu_output",
+            "interface_id": "iface_imu_output",
+            "quantity": "imu",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": "sensor_imu",
+            "source_unit": "unspecified",
+            "state_id": "plant.imu_measurement",
+            "target_unit": "unspecified",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_iface_pressure_depth_output",
+            "id": "map_iface_pressure_depth_output",
+            "interface_id": "iface_pressure_depth_output",
+            "quantity": "pressure_depth",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": "sensor_pressure_depth",
+            "source_unit": "unspecified",
+            "state_id": "plant.pressure_depth",
+            "target_unit": "unspecified",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_iface_doppler_velocity_output",
+            "id": "map_iface_doppler_velocity_output",
+            "interface_id": "iface_doppler_velocity_output",
+            "quantity": "doppler_velocity",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": "sensor_doppler_velocity",
+            "source_unit": "unspecified",
+            "state_id": "plant.doppler_velocity",
+            "target_unit": "unspecified",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_iface_compass_output",
+            "id": "map_iface_compass_output",
+            "interface_id": "iface_compass_output",
+            "quantity": "compass_heading",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": "sensor_compass",
+            "source_unit": "unspecified",
+            "state_id": "plant.compass_heading",
+            "target_unit": "unspecified",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_iface_acoustic_range_output",
+            "id": "map_iface_acoustic_range_output",
+            "interface_id": "iface_acoustic_range_output",
+            "quantity": "acoustic_range",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": "sensor_acoustic_range",
+            "source_unit": "unspecified",
+            "state_id": "plant.acoustic_range",
+            "target_unit": "unspecified",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_iface_load_disturbance",
+            "id": "map_iface_load_disturbance",
+            "interface_id": "iface_load_disturbance",
+            "quantity": "external_force_or_torque",
+            "required": true,
+            "semantic_entity_id": "underwater_vehicle",
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "N_or_Nm",
+            "state_id": "plant.load_disturbance",
+            "target_unit": "N_or_Nm",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_iface_commanded_state",
+            "id": "map_iface_commanded_state",
+            "interface_id": "iface_commanded_state",
+            "quantity": "commanded_state",
+            "required": true,
+            "semantic_entity_id": "underwater_vehicle",
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "unspecified",
+            "state_id": "controller.command_state",
+            "target_unit": "unspecified",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_iface_thruster_1_command",
+            "id": "map_iface_thruster_1_command",
+            "interface_id": "iface_thruster_1_command",
+            "quantity": "thrust",
+            "required": true,
+            "semantic_entity_id": "underwater_vehicle",
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "N",
+            "state_id": "controller.thruster_1_command",
+            "target_unit": "N",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_iface_thruster_2_command",
+            "id": "map_iface_thruster_2_command",
+            "interface_id": "iface_thruster_2_command",
+            "quantity": "thrust",
+            "required": true,
+            "semantic_entity_id": "underwater_vehicle",
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "N",
+            "state_id": "controller.thruster_2_command",
+            "target_unit": "N",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_iface_thruster_3_command",
+            "id": "map_iface_thruster_3_command",
+            "interface_id": "iface_thruster_3_command",
+            "quantity": "thrust",
+            "required": true,
+            "semantic_entity_id": "underwater_vehicle",
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "N",
+            "state_id": "controller.thruster_3_command",
+            "target_unit": "N",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_iface_thruster_4_command",
+            "id": "map_iface_thruster_4_command",
+            "interface_id": "iface_thruster_4_command",
+            "quantity": "thrust",
+            "required": true,
+            "semantic_entity_id": "underwater_vehicle",
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "N",
+            "state_id": "controller.thruster_4_command",
+            "target_unit": "N",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_iface_observer_state",
+            "id": "map_iface_observer_state",
+            "interface_id": "iface_observer_state",
+            "quantity": "observer_state",
+            "required": true,
+            "semantic_entity_id": "underwater_vehicle",
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "unspecified",
+            "state_id": "estimator.observer_state",
+            "target_unit": "unspecified",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_iface_pre_load_residual",
+            "id": "map_iface_pre_load_residual",
+            "interface_id": "iface_pre_load_residual",
+            "quantity": "pre_load_residual",
+            "required": true,
+            "semantic_entity_id": "underwater_vehicle",
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "unspecified",
+            "state_id": "estimator.residual",
+            "target_unit": "unspecified",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_iface_in_load_estimation_error",
+            "id": "map_iface_in_load_estimation_error",
+            "interface_id": "iface_in_load_estimation_error",
+            "quantity": "in_load_estimation_error",
+            "required": true,
+            "semantic_entity_id": "underwater_vehicle",
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "unspecified",
+            "state_id": "estimator.estimation_error",
+            "target_unit": "unspecified",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_iface_post_load_recovery",
+            "id": "map_iface_post_load_recovery",
+            "interface_id": "iface_post_load_recovery",
+            "quantity": "post_load_recovery",
+            "required": true,
+            "semantic_entity_id": "underwater_vehicle",
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "unspecified",
+            "state_id": "estimator.post_load_recovery",
+            "target_unit": "unspecified",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_iface_tracking_error",
+            "id": "map_iface_tracking_error",
+            "interface_id": "iface_tracking_error",
+            "quantity": "tracking_error",
+            "required": true,
+            "semantic_entity_id": "underwater_vehicle",
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "N_or_Nm",
+            "state_id": "estimator.tracking_error",
+            "target_unit": "N_or_Nm",
+            "verification_status": "resolved_fmu_output"
+          }
+        ],
+        "resolved_parameter_mappings": [
+          {
+            "actual_unit": "N",
+            "actual_value": 105.0,
+            "collection": "parameters",
+            "expected_value": 105.0,
+            "fact_id": "parameters.param_thruster_force_limit.value",
+            "field": "value",
+            "fmu_variable": "fact_parameters_param_thruster_force_limit_value",
+            "id": "fact_parameters_param_thruster_force_limit_value",
+            "record_id": "param_thruster_force_limit",
+            "required": true,
+            "source_unit": "N",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "N_or_Nm",
+            "actual_value": 14.0,
+            "collection": "parameters",
+            "expected_value": 14.0,
+            "fact_id": "parameters.param_load_disturbance_magnitude.value",
+            "field": "value",
+            "fmu_variable": "fact_parameters_param_load_disturbance_magnitude_value",
+            "id": "fact_parameters_param_load_disturbance_magnitude_value",
+            "record_id": "param_load_disturbance_magnitude",
+            "required": true,
+            "source_unit": "N_or_Nm",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "N_or_Nm",
+            "actual_value": 2.5,
+            "collection": "parameters",
+            "expected_value": 2.5,
+            "fact_id": "parameters.param_tracking_error_threshold.value",
+            "field": "value",
+            "fmu_variable": "fact_parameters_param_tracking_error_threshold_value",
+            "id": "fact_parameters_param_tracking_error_threshold_value",
+            "record_id": "param_tracking_error_threshold",
+            "required": true,
+            "source_unit": "N_or_Nm",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "Hz",
+            "actual_value": 1.0,
+            "collection": "parameters",
+            "expected_value": 1.0,
+            "fact_id": "parameters.param_acoustic_range_rate.value",
+            "field": "value",
+            "fmu_variable": "fact_parameters_param_acoustic_range_rate_value",
+            "id": "fact_parameters_param_acoustic_range_rate_value",
+            "record_id": "param_acoustic_range_rate",
+            "required": true,
+            "source_unit": "Hz",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "N_or_Nm",
+            "actual_value": 14.0,
+            "collection": "environment",
+            "expected_value": 14.0,
+            "fact_id": "environment.env_load_disturbance.magnitude",
+            "field": "magnitude",
+            "fmu_variable": "fact_environment_env_load_disturbance_magnitude",
+            "id": "fact_environment_env_load_disturbance_magnitude",
+            "record_id": "env_load_disturbance",
+            "required": true,
+            "source_unit": "N_or_Nm",
+            "verification_status": "resolved_fmu_parameter"
+          }
+        ],
+        "success": true
+      },
+      "execution": {
+        "available": true,
+        "columns": [
+          "time",
+          "trace_iface_acoustic_range_output",
+          "trace_iface_actuator_current_or_pressure",
+          "trace_iface_commanded_state",
+          "trace_iface_compass_output",
+          "trace_iface_doppler_velocity_output",
+          "trace_iface_imu_output",
+          "trace_iface_in_load_estimation_error",
+          "trace_iface_load_disturbance",
+          "trace_iface_observer_state",
+          "trace_iface_position_measurement",
+          "trace_iface_post_load_recovery",
+          "trace_iface_pre_load_residual",
+          "trace_iface_pressure_depth_output",
+          "trace_iface_thruster_1_command",
+          "trace_iface_thruster_2_command",
+          "trace_iface_thruster_3_command",
+          "trace_iface_thruster_4_command",
+          "trace_iface_tracking_error",
+          "trace_iface_velocity_measurement",
+          "trace_iface_wrench_measurement"
+        ],
+        "diagnostics": [],
+        "duration_seconds": 0.3449747897684574,
+        "initialized": true,
+        "report_file": "outputs/robotics-corpus-full-glm52-v1/RPI1312/rich/FULL/repeat-00/artifacts/runtime-repair/attempt-1/execution/execution/execution.json",
+        "result_file": "outputs/robotics-corpus-full-glm52-v1/RPI1312/rich/FULL/repeat-00/artifacts/runtime-repair/attempt-1/execution/execution/trace.csv",
+        "sample_count": 2801,
+        "simulated": true,
+        "success": true
+      },
+      "execution_completed": true,
+      "execution_mode": "integrated_fmu_behavior",
+      "failure_stage": "behavior_evaluation",
+      "fmu": {
+        "available": true,
+        "checked": true,
+        "diagnostics": [],
+        "duration_seconds": 9.77285476308316,
+        "exported": true,
+        "fmi_version": "2.0",
+        "fmu_path": "outputs/robotics-corpus-full-glm52-v1/RPI1312/rich/FULL/repeat-00/artifacts/runtime-repair/attempt-1/execution/export/candidate.fmu",
+        "inputs": [],
+        "interface_type": "co_simulation",
+        "model_identifier": "candidate",
+        "model_name": "RobotTask_RPI1312_R00",
+        "outputs": [
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_acoustic_range_output",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 42,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_actuator_current_or_pressure",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 43,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_commanded_state",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 44,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_compass_output",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 45,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_doppler_velocity_output",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 46,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_imu_output",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 47,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_in_load_estimation_error",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 48,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_load_disturbance",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N_or_Nm",
+            "value_reference": 49,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_observer_state",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 50,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_position_measurement",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 51,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_post_load_recovery",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 52,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_pre_load_residual",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 53,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_pressure_depth_output",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 54,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_thruster_1_command",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 55,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_thruster_2_command",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 56,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_thruster_3_command",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 57,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_thruster_4_command",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 58,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_tracking_error",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N_or_Nm",
+            "value_reference": 59,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_velocity_measurement",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 60,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_wrench_measurement",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 61,
+            "variability": "continuous"
+          }
+        ],
+        "success": true,
+        "variables": [
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "estimator_estimation_error",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": null,
+            "value_reference": 0,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "estimator_observer_state",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": null,
+            "value_reference": 1,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "estimator_post_load_recovery",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": null,
+            "value_reference": 2,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "estimator_residual",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": null,
+            "value_reference": 3,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "plant_position",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": null,
+            "value_reference": 4,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "plant_velocity",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": null,
+            "value_reference": 5,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(estimator_estimation_error)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 6,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(estimator_observer_state)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 7,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(estimator_post_load_recovery)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 8,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(estimator_residual)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 9,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(plant_position)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 10,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(plant_velocity)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 11,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_iface_acoustic_range_output)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 12,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_iface_actuator_current_or_pressure)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 13,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_iface_imu_output)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 14,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_iface_load_disturbance)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 15,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_iface_thruster_4_command)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 16,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_iface_tracking_error)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 17,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(rawThrusterCommand)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 18,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_iface_acoustic_range_output_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 26,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_iface_actuator_current_or_pressure_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 27,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "_D_trace_iface_commanded_state_der",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": null,
+            "value_reference": 28,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "_D_trace_iface_compass_output_der",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": null,
+            "value_reference": 29,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_iface_imu_output_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 30,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_iface_in_load_estimation_error_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 31,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_iface_observer_state_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 32,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_iface_post_load_recovery_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 33,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_iface_pre_load_residual_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 34,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_iface_thruster_1_command_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 35,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_iface_tracking_error_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 36,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_iface_wrench_measurement_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 37,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "plant_compass_heading",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": null,
+            "value_reference": 38,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "predictedAcceleration",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 39,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "rawThrusterCommand",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 40,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "residualRaw",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 41,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_acoustic_range_output",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 42,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_actuator_current_or_pressure",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 43,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_commanded_state",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 44,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_compass_output",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 45,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_doppler_velocity_output",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 46,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_imu_output",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 47,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_in_load_estimation_error",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 48,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_load_disturbance",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N_or_Nm",
+            "value_reference": 49,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_observer_state",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 50,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_position_measurement",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 51,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_post_load_recovery",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 52,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_pre_load_residual",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 53,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_pressure_depth_output",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 54,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_thruster_1_command",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 55,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_thruster_2_command",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 56,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_thruster_3_command",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 57,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_thruster_4_command",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 58,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_tracking_error",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N_or_Nm",
+            "value_reference": 59,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_velocity_measurement",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 60,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_iface_wrench_measurement",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 61,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "plant_acoustic_range",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": null,
+            "value_reference": 62,
+            "variability": "discrete"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "commandedSetpoint",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "m",
+            "value_reference": 64,
+            "variability": "fixed"
+          },
+          {
+            "causality": "calculatedParameter",
+            "initial": null,
+            "name": "controller_command_state",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 65,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "dampingCoeff",
+            "scalar_type": "real",
+            "start": "20.0",
+            "unit": "N.s/m",
+            "value_reference": 66,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_environment_env_load_disturbance_magnitude",
+            "scalar_type": "real",
+            "start": "14.0",
+            "unit": "N_or_Nm",
+            "value_reference": 67,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_parameters_param_acoustic_range_rate_value",
+            "scalar_type": "real",
+            "start": "1.0",
+            "unit": "Hz",
+            "value_reference": 68,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_parameters_param_load_disturbance_magnitude_value",
+            "scalar_type": "real",
+            "start": "14.0",
+            "unit": "N_or_Nm",
+            "value_reference": 69,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_parameters_param_thruster_force_limit_value",
+            "scalar_type": "real",
+            "start": "105.0",
+            "unit": "N",
+            "value_reference": 70,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_parameters_param_tracking_error_threshold_value",
+            "scalar_type": "real",
+            "start": "2.5",
+            "unit": "N_or_Nm",
+            "value_reference": 71,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "filterCutoff",
+            "scalar_type": "real",
+            "start": "50.0",
+            "unit": "rad/s",
+            "value_reference": 72,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "kd_state",
+            "scalar_type": "real",
+            "start": "30.0",
+            "unit": "N.s/m",
+            "value_reference": 73,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "kp_state",
+            "scalar_type": "real",
+            "start": "50.0",
+            "unit": "N/m",
+            "value_reference": 74,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "loadEnd",
+            "scalar_type": "real",
+            "start": "9.333333333333334",
+            "unit": "s",
+            "value_reference": 75,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "loadStart",
+            "scalar_type": "real",
+            "start": "4.666666666666667",
+            "unit": "s",
+            "value_reference": 76,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "rampDuration",
+            "scalar_type": "real",
+            "start": "0.5",
+            "unit": "s",
+            "value_reference": 77,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "vehicleMass",
+            "scalar_type": "real",
+            "start": "50.0",
+            "unit": "kg",
+            "value_reference": 78,
+            "variability": "fixed"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_iface_doppler_velocity_output_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 47,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_iface_load_disturbance_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 37,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_iface_position_measurement_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 5,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_iface_pressure_depth_output_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 5,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_iface_thruster_2_command_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 35,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_iface_thruster_3_command_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 35,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_iface_thruster_4_command_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 35,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_iface_velocity_measurement_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 47,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "controller_thruster_1_command",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 56,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "controller_thruster_2_command",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 56,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "controller_thruster_3_command",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 56,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "controller_thruster_4_command",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 56,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "estimator_tracking_error",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 59,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "plant_acceleration",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 47,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "plant_actuator_current_or_pressure",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 43,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "plant_doppler_velocity",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 5,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "plant_imu_measurement",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 47,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "plant_load_disturbance",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 61,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "plant_pressure_depth",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 4,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "plant_wrench",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 61,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "totalThrust",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 43,
+            "variability": "continuous"
+          }
+        ]
+      },
+      "passed": false,
+      "properties": [
+        {
+          "detail": "always robustness=1.94",
+          "formula": "G[9.1, T](trace_iface_tracking_error <= 2.5)",
+          "id": "prop_tracking_error_bound",
+          "interface_id": "iface_tracking_error",
+          "passed": true,
+          "property_id": "prop_tracking_error_bound",
+          "robustness": 1.9400000000002193,
+          "status": "satisfied"
+        },
+        {
+          "detail": "always robustness=100.783",
+          "formula": "G[0, T](trace_iface_thruster_1_command <= 105.0)",
+          "id": "prop_thruster_1_limit",
+          "interface_id": "iface_thruster_1_command",
+          "passed": true,
+          "property_id": "prop_thruster_1_limit",
+          "robustness": 100.783080663904,
+          "status": "satisfied"
+        },
+        {
+          "detail": "always robustness=100.783",
+          "formula": "G[0, T](trace_iface_thruster_2_command <= 105.0)",
+          "id": "prop_thruster_2_limit",
+          "interface_id": "iface_thruster_2_command",
+          "passed": true,
+          "property_id": "prop_thruster_2_limit",
+          "robustness": 100.783080663904,
+          "status": "satisfied"
+        },
+        {
+          "detail": "always robustness=100.783",
+          "formula": "G[0, T](trace_iface_thruster_3_command <= 105.0)",
+          "id": "prop_thruster_3_limit",
+          "interface_id": "iface_thruster_3_command",
+          "passed": true,
+          "property_id": "prop_thruster_3_limit",
+          "robustness": 100.783080663904,
+          "status": "satisfied"
+        },
+        {
+          "detail": "always robustness=100.783",
+          "formula": "G[0, T](trace_iface_thruster_4_command <= 105.0)",
+          "id": "prop_thruster_4_limit",
+          "interface_id": "iface_thruster_4_command",
+          "passed": true,
+          "property_id": "prop_thruster_4_limit",
+          "robustness": 100.783080663904,
+          "status": "satisfied"
+        },
+        {
+          "detail": "finite-value trace gate passed",
+          "formula": "all requested runtime outputs are finite",
+          "id": "prop_finite_physical_values",
+          "passed": true,
+          "property_id": "prop_finite_physical_values",
+          "robustness": null,
+          "status": "satisfied"
+        },
+        {
+          "detail": "finite-value trace gate passed",
+          "formula": "all requested runtime outputs are finite",
+          "id": "prop_finite_control_values",
+          "passed": true,
+          "property_id": "prop_finite_control_values",
+          "robustness": null,
+          "status": "satisfied"
+        },
+        {
+          "detail": "finite-value trace gate passed",
+          "formula": "all requested runtime outputs are finite",
+          "id": "prop_finite_estimator_values",
+          "passed": true,
+          "property_id": "prop_finite_estimator_values",
+          "robustness": null,
+          "status": "satisfied"
+        },
+        {
+          "detail": "finite-value trace gate passed",
+          "formula": "all requested runtime outputs are finite",
+          "id": "prop_finite_observer_state",
+          "passed": true,
+          "property_id": "prop_finite_observer_state",
+          "robustness": null,
+          "status": "satisfied"
+        },
+        {
+          "detail": "no deterministic evaluator exists for this grounded property kind",
+          "formula": "custom",
+          "id": "prop_pre_load_residual",
+          "passed": false,
+          "property_id": "prop_pre_load_residual",
+          "robustness": null,
+          "status": "unevaluable"
+        },
+        {
+          "detail": "no deterministic evaluator exists for this grounded property kind",
+          "formula": "custom",
+          "id": "prop_in_load_estimation_error",
+          "passed": false,
+          "property_id": "prop_in_load_estimation_error",
+          "robustness": null,
+          "status": "unevaluable"
+        },
+        {
+          "detail": "no deterministic evaluator exists for this grounded property kind",
+          "formula": "custom",
+          "id": "prop_post_load_recovery",
+          "passed": false,
+          "property_id": "prop_post_load_recovery",
+          "robustness": null,
+          "status": "unevaluable"
+        }
+      ],
+      "property_count": 12,
+      "property_summary": {
+        "passed": 9,
+        "total": 12,
+        "unevaluable": 3,
+        "violated": 0
+      },
+      "report": "execution.json",
+      "trace_gate": {
+        "finite": true,
+        "minimum_expected_samples": 2800,
+        "missing_outputs": [],
+        "required_outputs": [
+          "trace_iface_acoustic_range_output",
+          "trace_iface_actuator_current_or_pressure",
+          "trace_iface_commanded_state",
+          "trace_iface_compass_output",
+          "trace_iface_doppler_velocity_output",
+          "trace_iface_imu_output",
+          "trace_iface_in_load_estimation_error",
+          "trace_iface_load_disturbance",
+          "trace_iface_observer_state",
+          "trace_iface_position_measurement",
+          "trace_iface_post_load_recovery",
+          "trace_iface_pre_load_residual",
+          "trace_iface_pressure_depth_output",
+          "trace_iface_thruster_1_command",
+          "trace_iface_thruster_2_command",
+          "trace_iface_thruster_3_command",
+          "trace_iface_thruster_4_command",
+          "trace_iface_tracking_error",
+          "trace_iface_velocity_measurement",
+          "trace_iface_wrench_measurement"
+        ],
+        "sample_count": 2801,
+        "success": true
+      }
+    },
+    "modelica": {
+      "artifact": "modelica/model.mo",
+      "attempt_0_valid": true,
+      "combiner_model": "z-ai/glm-5.2",
+      "expert_candidates": [
+        "qwen/qwen3.6-plus",
+        "z-ai/glm-5.2",
+        "deepseek/deepseek-v4-pro",
+        "meta-llama/llama-4-maverick"
+      ],
+      "expert_models": [
+        "qwen/qwen3.6-plus",
+        "z-ai/glm-5.2",
+        "deepseek/deepseek-v4-pro",
+        "meta-llama/llama-4-maverick"
+      ],
+      "expert_soft_fail_count": 0,
+      "generation_mode": "moe",
+      "identity_preserved": true,
+      "model_name": "RobotTask_RPI1312_R00",
+      "passed": true,
+      "repairs": 0,
+      "report": "modelica/generation.json",
+      "retrieved_examples": [
+        {
+          "id": "M523",
+          "score": 51.89503235363695
+        },
+        {
+          "id": "M008",
+          "score": 50.57764689541786
+        },
+        {
+          "id": "M007",
+          "score": 43.648250970540595
+        },
+        {
+          "id": "M009",
+          "score": 43.1288910553181
+        },
+        {
+          "id": "M1061",
+          "score": 42.88905165376013
+        }
+      ],
+      "study_controls": {
+        "max_tool_repairs": 2,
+        "moe_enabled": true,
+        "rag_enabled": true,
+        "retrieval_k": 5,
+        "tool_repair_enabled": true
+      }
+    },
+    "normalization": {
+      "attempt_count": 1,
+      "precomputed": true,
+      "report": "normalization.json",
+      "success": true
+    },
+    "one_shot": {
+      "artifact_pair_valid_attempt_0": null,
+      "artifact_valid_attempt_0": true,
+      "modelica_valid_attempt_0": true,
+      "openusd_valid_attempt_0": null
+    },
+    "paired_block": {
+      "block_fingerprint": "3eba3d88231e6ef3d27f2518b71fb81ce562760d8f9dbf89571b5e9ee8f85f82",
+      "normalized_ir_sha256": "c7cf493356ae6bb1ce1909cff3c2c7b8e9850066a40d8f1ffde708334d8b9ca0",
+      "repetition": 0
+    },
+    "passed": false,
+    "plan": {
+      "contract": "contract.json",
+      "mapping_count": 20,
+      "model_name": "RobotTask_RPI1312_R00",
+      "parameter_mapping_count": 5,
+      "report": "plan.json",
+      "requirement_ir": "requirement_ir.json",
+      "success": true
+    },
+    "runtime_repair": {
+      "accepted": 1,
+      "attempted": 1,
+      "enabled": true,
+      "final_model": "modelica/model.mo",
+      "infrastructure_error": null,
+      "max_repairs": 2,
+      "original_model": "modelica/pre-runtime-model.mo",
+      "report": "runtime-repair.json",
+      "triggered": true
+    },
+    "schema_version": "1.0",
+    "source_text_sha256": "39cd71bda911a88ea3d83e2ef1a893d22ae3f2d92cc716caa27a081623fb7906",
+    "stage": "modelica_capability_orchestrator",
+    "stage_trace": [
+      {
+        "index": 0,
+        "passed": true,
+        "reached": true,
+        "stage": "requirement_normalization",
+        "status": "passed"
+      },
+      {
+        "index": 1,
+        "passed": true,
+        "reached": true,
+        "stage": "interface_planning",
+        "status": "passed"
+      },
+      {
+        "index": 2,
+        "passed": true,
+        "reached": true,
+        "stage": "modelica_validation",
+        "status": "passed"
+      },
+      {
+        "index": 3,
+        "passed": true,
+        "reached": true,
+        "stage": "modelica_identity",
+        "status": "passed"
+      },
+      {
+        "index": 4,
+        "passed": true,
+        "reached": true,
+        "stage": "fmu_export",
+        "status": "passed"
+      },
+      {
+        "index": 5,
+        "passed": true,
+        "reached": true,
+        "stage": "fmu_interface_contract",
+        "status": "passed"
+      },
+      {
+        "index": 6,
+        "passed": true,
+        "reached": true,
+        "stage": "runtime_initialization",
+        "status": "passed"
+      },
+      {
+        "index": 7,
+        "passed": true,
+        "reached": true,
+        "stage": "runtime_execution",
+        "status": "passed"
+      },
+      {
+        "index": 8,
+        "passed": true,
+        "reached": true,
+        "stage": "behavior_evaluation",
+        "status": "passed"
+      },
+      {
+        "index": 9,
+        "passed": true,
+        "reached": true,
+        "stage": "modelica_specification_alignment",
+        "status": "passed"
+      }
+    ],
+    "study_validity": {
+      "alignment_observed": true,
+      "complete_moe_required": true,
+      "condition_fidelity_passed": true,
+      "contract_created": true,
+      "eligible": true,
+      "expected": {
+        "alignment": true,
+        "id": "FULL",
+        "label": "complete_pipeline",
+        "moe": true,
+        "rag": true,
+        "tool_repair": true,
+        "validated_contract": true
+      },
+      "generation_reached": true,
+      "issues": [],
+      "observed_generation": [
+        {
+          "combiner_model": "z-ai/glm-5.2",
+          "expert_candidate_count": 4,
+          "expert_roster": [
+            "qwen/qwen3.6-plus",
+            "z-ai/glm-5.2",
+            "deepseek/deepseek-v4-pro",
+            "meta-llama/llama-4-maverick"
+          ],
+          "expert_soft_fail_count": 0,
+          "generation_mode": "moe",
+          "owner": "modelica",
+          "retrieval_count": 5,
+          "study_controls": {
+            "max_tool_repairs": 2,
+            "moe_enabled": true,
+            "rag_enabled": true,
+            "retrieval_k": 5,
+            "tool_repair_enabled": true
+          }
+        }
+      ],
+      "runtime_repair_observed": true
+    },
+    "task_id": "RPI1312-R00"
+  },
+  "schema_version": "1.1",
+  "task_id": "RPI1312",
+  "variant": "rich"
+}

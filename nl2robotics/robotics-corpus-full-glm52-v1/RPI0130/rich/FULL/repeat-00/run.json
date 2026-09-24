@@ -1,0 +1,4567 @@
+{
+  "condition": {
+    "alignment": true,
+    "id": "FULL",
+    "label": "complete_pipeline",
+    "moe": true,
+    "rag": true,
+    "tool_repair": true,
+    "validated_contract": true
+  },
+  "configuration": {
+    "artifact_mode": "modelica_only",
+    "benchmark_manifest": "/storage/scratch1/4/skannan89/robotics-generalized/nl2robotics/corpus/pipeline_prompt_manifest.json",
+    "benchmark_manifest_sha256": "0a6631f7b9c9cbf4983d92ab4424943a668f60e571bf5ee4203213f84c1a8409",
+    "benchmark_split": "all",
+    "configuration_variant_filter": [],
+    "family_filter": [],
+    "fmi_backend": "local",
+    "h2_controller_backend": "local",
+    "h2_device": "cpu",
+    "h2_repetitions": 3,
+    "h2_solver": "TGS",
+    "isaac_handoff_configured": false,
+    "k": 5,
+    "max_runtime_repairs": 2,
+    "max_tool_repairs": 2,
+    "modelica_backend": "local",
+    "modelica_subset": "full1500",
+    "moe_configuration": "shared_with_sysml_pipeline",
+    "newton_controller_backend": "local",
+    "newton_device": "cuda:0",
+    "newton_fmi_runtime_image": "nl2robotics-fmi-runtime:0.1",
+    "newton_handoff_configured": false,
+    "newton_repeatability_tolerance": 1e-06,
+    "newton_repetitions": 3,
+    "newton_solver": "featherstone",
+    "newton_version": "1.5.0",
+    "pipeline": "nl_ir_modelica_compile_fmu_execute_spec",
+    "rag_routing": "family_preferred_4_of_5_with_global_fallback",
+    "randomization_seed": 20260830,
+    "require_complete_moe": true,
+    "runtime_repair_model": "z-ai/glm-5.2",
+    "runtime_repair_policy": "tool_conditions_only_monotonic_recompile_reexecute_recheck_behavior",
+    "runtime_repair_provider": "openrouter",
+    "semantic_case_filter": [],
+    "shard_assignment": "category_stratified_task_block_round_robin",
+    "shard_count": 4,
+    "single_model": "z-ai/glm-5.2",
+    "single_provider": "openrouter",
+    "study_protocol_core_sha256": "f5f0200a721873f9eeac07c7084e8f58fe820d1acef60434f7e0ac234041d153",
+    "task_order": "seeded_randomized"
+  },
+  "difficulty": "intermediate",
+  "duration_seconds": 1208.4890307341702,
+  "fingerprint": "2f8f53f0af3965776f92da7a58e2d66389acb0b56db5463e55aca3be8bebf928",
+  "infrastructure_error": null,
+  "metrics": {
+    "all_properties_pass": false,
+    "artifact_pair_valid": null,
+    "artifact_pair_valid_attempt_0": null,
+    "artifact_valid": true,
+    "artifact_valid_attempt_0": false,
+    "behavior_evaluated": true,
+    "blocking_violations": 1,
+    "condition_fidelity": true,
+    "configured_pipeline_success": false,
+    "contract_valid": true,
+    "end_to_end": false,
+    "failure_stage": "behavior_evaluation",
+    "fmu_execution": true,
+    "fmu_export": true,
+    "fmu_interface_valid": true,
+    "infrastructure_available": true,
+    "ir_valid": true,
+    "maximum_stage_reached": 9,
+    "modelica_build": true,
+    "modelica_build_attempt_0": false,
+    "named_simulator_load": null,
+    "normalization_valid": true,
+    "post_execution_semantic": false,
+    "pre_execution_semantic": null,
+    "property_evaluability_rate": 0.8888888888888888,
+    "property_evaluable": 8,
+    "property_satisfaction_rate_evaluable": 0.875,
+    "property_satisfied": 7,
+    "property_total": 9,
+    "property_unevaluable": 1,
+    "property_violated": 1,
+    "repairs": 2,
+    "runtime_execution": true,
+    "runtime_trace_valid": true,
+    "semantic_coverage": 0.707692,
+    "semantic_score": 0.967391,
+    "specification_claim_ready": false,
+    "stable_simulation": true,
+    "usd_semantic_valid": null,
+    "usd_semantic_valid_attempt_0": null,
+    "verification_tier": 4
+  },
+  "planned_order_index": 1210,
+  "profile": "capability",
+  "randomization_seed": 20260830,
+  "repetition": 0,
+  "result": {
+    "ablation": {
+      "condition": {
+        "alignment": true,
+        "id": "FULL",
+        "label": "complete_pipeline",
+        "moe": true,
+        "rag": true,
+        "tool_repair": true,
+        "validated_contract": true
+      },
+      "contract_role": "generation_and_validation",
+      "generation_strategy": "rag_moe"
+    },
+    "alignment": {
+      "blocking_violations": 1,
+      "claim_ready": false,
+      "counts": {
+        "not_applicable": 0,
+        "satisfied": 34,
+        "unknown": 18,
+        "violated": 1
+      },
+      "deterministic_violations": 1,
+      "enabled": true,
+      "evidence_coverage": 0.707692,
+      "not_run": false,
+      "passed": false,
+      "per_family": {
+        "interface": 1.0,
+        "parameter": 1.0,
+        "property": 0.875,
+        "timing": 1.0
+      },
+      "question_count": 53,
+      "report": "alignment.json",
+      "skipped": false,
+      "weighted_semantic_score": 0.967391
+    },
+    "artifact_mode": "modelica_only",
+    "capabilities": {
+      "highest_reached_tier": 4,
+      "highest_reached_tier_name": "behaviorally_executed",
+      "profile_count": 14,
+      "report": "capability-report.json",
+      "requested_feature_count": 23,
+      "tiers": [
+        {
+          "name": "normalized",
+          "passed": true,
+          "tier": 0
+        },
+        {
+          "name": "ir_validated",
+          "passed": true,
+          "tier": 1
+        },
+        {
+          "modelica_passed": true,
+          "name": "artifacts_validated",
+          "openusd_passed": null,
+          "passed": true,
+          "tier": 2
+        },
+        {
+          "name": "executable_contract_validated",
+          "passed": true,
+          "reason": null,
+          "tier": 3
+        },
+        {
+          "behavior_evaluated": true,
+          "execution_completed": true,
+          "name": "behaviorally_executed",
+          "passed": true,
+          "reason": null,
+          "tier": 4
+        },
+        {
+          "name": "accelerator_provenance_verified",
+          "passed": false,
+          "reason": "requires genuine accelerator execution provenance",
+          "tier": 5
+        }
+      ]
+    },
+    "claim_eligible_deltaai_h2": false,
+    "claim_eligible_h2": false,
+    "claim_eligible_newton_h2": false,
+    "failure_stage": "behavior_evaluation",
+    "hybrid": {
+      "behavior_evaluated": true,
+      "behavior_passed": false,
+      "contract": {
+        "fmu": {
+          "fmi_version": "2.0",
+          "interface_type": "co_simulation",
+          "model_name": "RobotTask_RPI0130_R00",
+          "variables": [
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "integ1",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": null,
+              "value_reference": 0,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "integ2",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": null,
+              "value_reference": 1,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "q1",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "rad",
+              "value_reference": 2,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "q1dot",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "rad/s",
+              "value_reference": 3,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "q2",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "rad",
+              "value_reference": 4,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "q2dot",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "rad/s",
+              "value_reference": 5,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(integ1)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 6,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(integ2)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 7,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(q1)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "Hz",
+              "value_reference": 8,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(q1dot)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "s-2",
+              "value_reference": 9,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(q2)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "Hz",
+              "value_reference": 10,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(q2dot)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "s-2",
+              "value_reference": 11,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_if_disturbance)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 12,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_if_encoder1_position)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 13,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_if_encoder1_velocity)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 14,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_if_encoder2_position)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 15,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_if_encoder2_velocity)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 16,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_if_joint1_command)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 17,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_if_joint2_command)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 18,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_if_obstacle_clearance)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 19,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_if_overshoot)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 20,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(_D_outputAlias_trace_if_tracking_error)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 21,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(d_seg1)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 22,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(d_seg2)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 23,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(ee_x)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 24,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(ee_z)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 25,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(elbow_x)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 26,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(elbow_z)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 27,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(err1)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 28,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(err2)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 29,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(os1)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 30,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(os2)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 31,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(px1)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 32,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(px2)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 33,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(pz1)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 34,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(pz2)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 35,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(q1_des)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 36,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(q1dot_des)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 37,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(q2_des)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 38,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(q2dot_des)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 39,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(s1)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 40,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(s2)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 41,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(t_clamp1)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 42,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(t_clamp2)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 43,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(t_proj1)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 44,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(t_proj2)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 45,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(tau1_raw)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 46,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "der(tau2_raw)",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 47,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_disturbance_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 70,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_encoder1_position_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 71,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_encoder1_velocity_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 72,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_encoder2_position_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 73,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_encoder2_velocity_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 74,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_joint1_command_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 75,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_joint2_command_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 76,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_obstacle_clearance_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 77,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_overshoot_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 78,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_tracking_error_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 79,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "C1",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 80,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "C2",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 81,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "M11",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 82,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "M12",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 83,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "M22",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 84,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "c1_com",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 85,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "c2_com",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 86,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "d_seg1",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 87,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "d_seg2",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 88,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "det_M",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 89,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "det_M_safe",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 90,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "ee_x",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 91,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "ee_z",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 92,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "elbow_x",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 93,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "elbow_z",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 94,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "err1",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "rad",
+              "value_reference": 95,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "err2",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "rad",
+              "value_reference": 96,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "os1",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "percent",
+              "value_reference": 97,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "os2",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "percent",
+              "value_reference": 98,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "px1",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 99,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "px2",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 100,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "pz1",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 101,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "pz2",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 102,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "q1_des",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "rad",
+              "value_reference": 103,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "q1ddot",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 104,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "q1dot_des",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "rad/s",
+              "value_reference": 105,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "q2_des",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "rad",
+              "value_reference": 106,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "q2ddot",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 107,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "q2dot_des",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "rad/s",
+              "value_reference": 108,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "s1",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 109,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "s2",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 110,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "span1",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "rad",
+              "value_reference": 111,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "span2",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "rad",
+              "value_reference": 112,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "t_clamp1",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 113,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "t_clamp2",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 114,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "t_proj1",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 115,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "t_proj2",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 116,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "tau1_dist",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N.m",
+              "value_reference": 117,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "tau1_lim",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N.m",
+              "value_reference": 118,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "tau1_raw",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N.m",
+              "value_reference": 119,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "tau2_dist",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N.m",
+              "value_reference": 120,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "tau2_lim",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N.m",
+              "value_reference": 121,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "tau2_raw",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N.m",
+              "value_reference": 122,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "total_system_mass",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "kg",
+              "value_reference": 123,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_disturbance",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 124,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_encoder1_position",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "rad",
+              "value_reference": 125,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_encoder1_velocity",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "rad/s",
+              "value_reference": 126,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_encoder2_position",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "rad",
+              "value_reference": 127,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_encoder2_velocity",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "rad/s",
+              "value_reference": 128,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_joint1_command",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N.m",
+              "value_reference": 129,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_joint1_position",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "rad",
+              "value_reference": 130,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_joint1_velocity",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "rad/s",
+              "value_reference": 131,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_joint2_command",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N.m",
+              "value_reference": 132,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_joint2_position",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "rad",
+              "value_reference": 133,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_joint2_velocity",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "rad/s",
+              "value_reference": 134,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_obstacle_clearance",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 135,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_overshoot",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "percent",
+              "value_reference": 136,
+              "variability": "continuous"
+            },
+            {
+              "causality": "output",
+              "initial": null,
+              "name": "trace_if_tracking_error",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "rad_or_m",
+              "value_reference": 137,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "enc1_pos",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "rad",
+              "value_reference": 138,
+              "variability": "discrete"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "enc1_vel",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "rad/s",
+              "value_reference": 139,
+              "variability": "discrete"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "enc2_pos",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "rad",
+              "value_reference": 140,
+              "variability": "discrete"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "enc2_vel",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "rad/s",
+              "value_reference": 141,
+              "variability": "discrete"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "max_q1",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "rad",
+              "value_reference": 142,
+              "variability": "discrete"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "max_q2",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "rad",
+              "value_reference": 143,
+              "variability": "discrete"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "min_q1",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "rad",
+              "value_reference": 144,
+              "variability": "discrete"
+            },
+            {
+              "causality": "local",
+              "initial": "exact",
+              "name": "min_q2",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "rad",
+              "value_reference": 145,
+              "variability": "discrete"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "dist_start",
+              "scalar_type": "real",
+              "start": "4.666666666666667",
+              "unit": "s",
+              "value_reference": 146,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "dist_stop",
+              "scalar_type": "real",
+              "start": "9.333333333333334",
+              "unit": "s",
+              "value_reference": 147,
+              "variability": "fixed"
+            },
+            {
+              "causality": "calculatedParameter",
+              "initial": null,
+              "name": "dt_sample",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "s",
+              "value_reference": 148,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_entities_duo_base_mass",
+              "scalar_type": "real",
+              "start": "20.0",
+              "unit": "kg",
+              "value_reference": 149,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_entities_link1_length",
+              "scalar_type": "real",
+              "start": "0.55",
+              "unit": "m",
+              "value_reference": 150,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_entities_link1_mass",
+              "scalar_type": "real",
+              "start": "5.0",
+              "unit": "kg",
+              "value_reference": 151,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_entities_link2_length",
+              "scalar_type": "real",
+              "start": "0.38",
+              "unit": "m",
+              "value_reference": 152,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_entities_link2_mass",
+              "scalar_type": "real",
+              "start": "3.0",
+              "unit": "kg",
+              "value_reference": 153,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_joints_joint1_lower_limit",
+              "scalar_type": "real",
+              "start": "-1.6",
+              "unit": "rad",
+              "value_reference": 154,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_joints_joint1_upper_limit",
+              "scalar_type": "real",
+              "start": "1.6",
+              "unit": "rad",
+              "value_reference": 155,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_joints_joint2_lower_limit",
+              "scalar_type": "real",
+              "start": "-1.6",
+              "unit": "rad",
+              "value_reference": 156,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_joints_joint2_upper_limit",
+              "scalar_type": "real",
+              "start": "1.6",
+              "unit": "rad",
+              "value_reference": 157,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_parameters_param_disturbance_magnitude_value",
+              "scalar_type": "real",
+              "start": "10.0",
+              "unit": "N",
+              "value_reference": 158,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_parameters_param_joint1_effort_limit_value",
+              "scalar_type": "real",
+              "start": "70.0",
+              "unit": "N.m",
+              "value_reference": 159,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "fact_parameters_param_joint2_effort_limit_value",
+              "scalar_type": "real",
+              "start": "70.0",
+              "unit": "N.m",
+              "value_reference": 160,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "ff1",
+              "scalar_type": "real",
+              "start": "2.0",
+              "unit": "N.m.s/rad",
+              "value_reference": 161,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "ff2",
+              "scalar_type": "real",
+              "start": "1.0",
+              "unit": "N.m.s/rad",
+              "value_reference": 162,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "kd1",
+              "scalar_type": "real",
+              "start": "18.0",
+              "unit": "N.m.s/rad",
+              "value_reference": 163,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "kd2",
+              "scalar_type": "real",
+              "start": "7.0",
+              "unit": "N.m.s/rad",
+              "value_reference": 164,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "ki1",
+              "scalar_type": "real",
+              "start": "15.0",
+              "unit": "N.m/(rad.s)",
+              "value_reference": 165,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "ki2",
+              "scalar_type": "real",
+              "start": "8.0",
+              "unit": "N.m/(rad.s)",
+              "value_reference": 166,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "kp1",
+              "scalar_type": "real",
+              "start": "80.0",
+              "unit": "N.m/rad",
+              "value_reference": 167,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "kp2",
+              "scalar_type": "real",
+              "start": "35.0",
+              "unit": "N.m/rad",
+              "value_reference": 168,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "link1_radius",
+              "scalar_type": "real",
+              "start": "0.03",
+              "unit": "m",
+              "value_reference": 169,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "link2_radius",
+              "scalar_type": "real",
+              "start": "0.025",
+              "unit": "m",
+              "value_reference": 170,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "obstacle_radius",
+              "scalar_type": "real",
+              "start": "0.05",
+              "unit": "m",
+              "value_reference": 171,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "obstacle_x",
+              "scalar_type": "real",
+              "start": "0.8",
+              "unit": "m",
+              "value_reference": 172,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "obstacle_z",
+              "scalar_type": "real",
+              "start": "-0.2",
+              "unit": "m",
+              "value_reference": 173,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "q1_w0",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "rad",
+              "value_reference": 174,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "q1_w1",
+              "scalar_type": "real",
+              "start": "0.6",
+              "unit": "rad",
+              "value_reference": 175,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "q1_w2",
+              "scalar_type": "real",
+              "start": "1.0",
+              "unit": "rad",
+              "value_reference": 176,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "q2_w0",
+              "scalar_type": "real",
+              "start": "0.0",
+              "unit": "rad",
+              "value_reference": 177,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "q2_w1",
+              "scalar_type": "real",
+              "start": "0.4",
+              "unit": "rad",
+              "value_reference": 178,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "q2_w2",
+              "scalar_type": "real",
+              "start": "0.6",
+              "unit": "rad",
+              "value_reference": 179,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "run_duration",
+              "scalar_type": "real",
+              "start": "14.0",
+              "unit": "s",
+              "value_reference": 180,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "run_freq_hz",
+              "scalar_type": "real",
+              "start": "200.0",
+              "unit": "Hz",
+              "value_reference": 181,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "t_wp1",
+              "scalar_type": "real",
+              "start": "4.667",
+              "unit": "s",
+              "value_reference": 182,
+              "variability": "fixed"
+            },
+            {
+              "causality": "parameter",
+              "initial": null,
+              "name": "t_wp2",
+              "scalar_type": "real",
+              "start": "9.333",
+              "unit": "s",
+              "value_reference": 183,
+              "variability": "fixed"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_joint1_position_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 3,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_joint1_velocity_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 104,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_joint2_position_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 5,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "_D_trace_if_joint2_velocity_der",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 107,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "clearance_val",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "m",
+              "value_reference": 135,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "dist_force",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N",
+              "value_reference": 124,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "overshoot_val",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "percent",
+              "value_reference": 136,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "tau1_sat",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N.m",
+              "value_reference": 129,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "tau2_sat",
+              "scalar_type": "real",
+              "start": null,
+              "unit": "N.m",
+              "value_reference": 132,
+              "variability": "continuous"
+            },
+            {
+              "causality": "local",
+              "initial": null,
+              "name": "track_err",
+              "scalar_type": "real",
+              "start": null,
+              "unit": null,
+              "value_reference": 137,
+              "variability": "continuous"
+            }
+          ]
+        },
+        "issues": [],
+        "resolved_mappings": [
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_joint1_position",
+            "id": "map_if_joint1_position",
+            "interface_id": "if_joint1_position",
+            "quantity": "position",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": "joint1",
+            "semantic_sensor_id": null,
+            "source_unit": "rad",
+            "state_id": "joint1.position",
+            "target_unit": "rad",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_joint1_velocity",
+            "id": "map_if_joint1_velocity",
+            "interface_id": "if_joint1_velocity",
+            "quantity": "velocity",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": "joint1",
+            "semantic_sensor_id": null,
+            "source_unit": "rad/s",
+            "state_id": "joint1.velocity",
+            "target_unit": "rad/s",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_joint2_position",
+            "id": "map_if_joint2_position",
+            "interface_id": "if_joint2_position",
+            "quantity": "position",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": "joint2",
+            "semantic_sensor_id": null,
+            "source_unit": "rad",
+            "state_id": "joint2.position",
+            "target_unit": "rad",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_joint2_velocity",
+            "id": "map_if_joint2_velocity",
+            "interface_id": "if_joint2_velocity",
+            "quantity": "velocity",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": "joint2",
+            "semantic_sensor_id": null,
+            "source_unit": "rad/s",
+            "state_id": "joint2.velocity",
+            "target_unit": "rad/s",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_joint1_command",
+            "id": "map_if_joint1_command",
+            "interface_id": "if_joint1_command",
+            "quantity": "effort",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": "joint1",
+            "semantic_sensor_id": null,
+            "source_unit": "N.m",
+            "state_id": "joint1.effort_command",
+            "target_unit": "N.m",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_joint2_command",
+            "id": "map_if_joint2_command",
+            "interface_id": "if_joint2_command",
+            "quantity": "effort",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": "joint2",
+            "semantic_sensor_id": null,
+            "source_unit": "N.m",
+            "state_id": "joint2.effort_command",
+            "target_unit": "N.m",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_encoder1_position",
+            "id": "map_if_encoder1_position",
+            "interface_id": "if_encoder1_position",
+            "quantity": "position",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": "encoder1",
+            "source_unit": "rad",
+            "state_id": "joint1.position",
+            "target_unit": "rad",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_encoder1_velocity",
+            "id": "map_if_encoder1_velocity",
+            "interface_id": "if_encoder1_velocity",
+            "quantity": "velocity",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": "encoder1",
+            "source_unit": "rad/s",
+            "state_id": "joint1.velocity",
+            "target_unit": "rad/s",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_encoder2_position",
+            "id": "map_if_encoder2_position",
+            "interface_id": "if_encoder2_position",
+            "quantity": "position",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": "encoder2",
+            "source_unit": "rad",
+            "state_id": "joint2.position",
+            "target_unit": "rad",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_encoder2_velocity",
+            "id": "map_if_encoder2_velocity",
+            "interface_id": "if_encoder2_velocity",
+            "quantity": "velocity",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": "encoder2",
+            "source_unit": "rad/s",
+            "state_id": "joint2.velocity",
+            "target_unit": "rad/s",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_obstacle_clearance",
+            "id": "map_if_obstacle_clearance",
+            "interface_id": "if_obstacle_clearance",
+            "quantity": "distance",
+            "required": true,
+            "semantic_entity_id": "keepout_obstacle",
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "m",
+            "state_id": "obstacle.clearance",
+            "target_unit": "m",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_overshoot",
+            "id": "map_if_overshoot",
+            "interface_id": "if_overshoot",
+            "quantity": "overshoot",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "percent",
+            "state_id": "tracking.overshoot",
+            "target_unit": "percent",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_tracking_error",
+            "id": "map_if_tracking_error",
+            "interface_id": "if_tracking_error",
+            "quantity": "tracking_error",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "rad_or_m",
+            "state_id": "tracking.error",
+            "target_unit": "rad_or_m",
+            "verification_status": "resolved_fmu_output"
+          },
+          {
+            "direction": "modelica_output",
+            "fmu_causality": "output",
+            "fmu_variable": "trace_if_disturbance",
+            "id": "map_if_disturbance",
+            "interface_id": "if_disturbance",
+            "quantity": "force",
+            "required": true,
+            "semantic_entity_id": null,
+            "semantic_joint_id": null,
+            "semantic_sensor_id": null,
+            "source_unit": "N",
+            "state_id": "disturbance.lateral_force",
+            "target_unit": "N",
+            "verification_status": "resolved_fmu_output"
+          }
+        ],
+        "resolved_parameter_mappings": [
+          {
+            "actual_unit": "kg",
+            "actual_value": 20.0,
+            "collection": "entities",
+            "expected_value": 20.0,
+            "fact_id": "entities.duo_base.mass",
+            "field": "mass",
+            "fmu_variable": "fact_entities_duo_base_mass",
+            "id": "fact_entities_duo_base_mass",
+            "record_id": "duo_base",
+            "required": true,
+            "source_unit": "kg",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "kg",
+            "actual_value": 5.0,
+            "collection": "entities",
+            "expected_value": 5.0,
+            "fact_id": "entities.link1.mass",
+            "field": "mass",
+            "fmu_variable": "fact_entities_link1_mass",
+            "id": "fact_entities_link1_mass",
+            "record_id": "link1",
+            "required": true,
+            "source_unit": "kg",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "m",
+            "actual_value": 0.55,
+            "collection": "entities",
+            "expected_value": 0.55,
+            "fact_id": "entities.link1.length",
+            "field": "length",
+            "fmu_variable": "fact_entities_link1_length",
+            "id": "fact_entities_link1_length",
+            "record_id": "link1",
+            "required": true,
+            "source_unit": "m",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "kg",
+            "actual_value": 3.0,
+            "collection": "entities",
+            "expected_value": 3.0,
+            "fact_id": "entities.link2.mass",
+            "field": "mass",
+            "fmu_variable": "fact_entities_link2_mass",
+            "id": "fact_entities_link2_mass",
+            "record_id": "link2",
+            "required": true,
+            "source_unit": "kg",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "m",
+            "actual_value": 0.38,
+            "collection": "entities",
+            "expected_value": 0.38,
+            "fact_id": "entities.link2.length",
+            "field": "length",
+            "fmu_variable": "fact_entities_link2_length",
+            "id": "fact_entities_link2_length",
+            "record_id": "link2",
+            "required": true,
+            "source_unit": "m",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "rad",
+            "actual_value": -1.6,
+            "collection": "joints",
+            "expected_value": -1.6,
+            "fact_id": "joints.joint1.lower_limit",
+            "field": "lower_limit",
+            "fmu_variable": "fact_joints_joint1_lower_limit",
+            "id": "fact_joints_joint1_lower_limit",
+            "record_id": "joint1",
+            "required": true,
+            "source_unit": "rad",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "rad",
+            "actual_value": 1.6,
+            "collection": "joints",
+            "expected_value": 1.6,
+            "fact_id": "joints.joint1.upper_limit",
+            "field": "upper_limit",
+            "fmu_variable": "fact_joints_joint1_upper_limit",
+            "id": "fact_joints_joint1_upper_limit",
+            "record_id": "joint1",
+            "required": true,
+            "source_unit": "rad",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "rad",
+            "actual_value": -1.6,
+            "collection": "joints",
+            "expected_value": -1.6,
+            "fact_id": "joints.joint2.lower_limit",
+            "field": "lower_limit",
+            "fmu_variable": "fact_joints_joint2_lower_limit",
+            "id": "fact_joints_joint2_lower_limit",
+            "record_id": "joint2",
+            "required": true,
+            "source_unit": "rad",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "rad",
+            "actual_value": 1.6,
+            "collection": "joints",
+            "expected_value": 1.6,
+            "fact_id": "joints.joint2.upper_limit",
+            "field": "upper_limit",
+            "fmu_variable": "fact_joints_joint2_upper_limit",
+            "id": "fact_joints_joint2_upper_limit",
+            "record_id": "joint2",
+            "required": true,
+            "source_unit": "rad",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "N.m",
+            "actual_value": 70.0,
+            "collection": "parameters",
+            "expected_value": 70.0,
+            "fact_id": "parameters.param_joint1_effort_limit.value",
+            "field": "value",
+            "fmu_variable": "fact_parameters_param_joint1_effort_limit_value",
+            "id": "fact_parameters_param_joint1_effort_limit_value",
+            "record_id": "param_joint1_effort_limit",
+            "required": true,
+            "source_unit": "N.m",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "N.m",
+            "actual_value": 70.0,
+            "collection": "parameters",
+            "expected_value": 70.0,
+            "fact_id": "parameters.param_joint2_effort_limit.value",
+            "field": "value",
+            "fmu_variable": "fact_parameters_param_joint2_effort_limit_value",
+            "id": "fact_parameters_param_joint2_effort_limit_value",
+            "record_id": "param_joint2_effort_limit",
+            "required": true,
+            "source_unit": "N.m",
+            "verification_status": "resolved_fmu_parameter"
+          },
+          {
+            "actual_unit": "N",
+            "actual_value": 10.0,
+            "collection": "parameters",
+            "expected_value": 10.0,
+            "fact_id": "parameters.param_disturbance_magnitude.value",
+            "field": "value",
+            "fmu_variable": "fact_parameters_param_disturbance_magnitude_value",
+            "id": "fact_parameters_param_disturbance_magnitude_value",
+            "record_id": "param_disturbance_magnitude",
+            "required": true,
+            "source_unit": "N",
+            "verification_status": "resolved_fmu_parameter"
+          }
+        ],
+        "success": true
+      },
+      "execution": {
+        "available": true,
+        "columns": [
+          "time",
+          "trace_if_disturbance",
+          "trace_if_encoder1_position",
+          "trace_if_encoder1_velocity",
+          "trace_if_encoder2_position",
+          "trace_if_encoder2_velocity",
+          "trace_if_joint1_command",
+          "trace_if_joint1_position",
+          "trace_if_joint1_velocity",
+          "trace_if_joint2_command",
+          "trace_if_joint2_position",
+          "trace_if_joint2_velocity",
+          "trace_if_obstacle_clearance",
+          "trace_if_overshoot",
+          "trace_if_tracking_error"
+        ],
+        "diagnostics": [],
+        "duration_seconds": 1.993687529116869,
+        "initialized": true,
+        "report_file": "outputs/robotics-corpus-full-glm52-v1/RPI0130/rich/FULL/repeat-00/artifacts/runtime-repair/attempt-1/execution/execution/execution.json",
+        "result_file": "outputs/robotics-corpus-full-glm52-v1/RPI0130/rich/FULL/repeat-00/artifacts/runtime-repair/attempt-1/execution/execution/trace.csv",
+        "sample_count": 2801,
+        "simulated": true,
+        "success": true
+      },
+      "execution_completed": true,
+      "execution_mode": "integrated_fmu_behavior",
+      "failure_stage": "behavior_evaluation",
+      "fmu": {
+        "available": true,
+        "checked": true,
+        "diagnostics": [],
+        "duration_seconds": 23.50335245579481,
+        "exported": true,
+        "fmi_version": "2.0",
+        "fmu_path": "outputs/robotics-corpus-full-glm52-v1/RPI0130/rich/FULL/repeat-00/artifacts/runtime-repair/attempt-1/execution/export/candidate.fmu",
+        "inputs": [],
+        "interface_type": "co_simulation",
+        "model_identifier": "candidate",
+        "model_name": "RobotTask_RPI0130_R00",
+        "outputs": [
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_disturbance",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 124,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_encoder1_position",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad",
+            "value_reference": 125,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_encoder1_velocity",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad/s",
+            "value_reference": 126,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_encoder2_position",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad",
+            "value_reference": 127,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_encoder2_velocity",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad/s",
+            "value_reference": 128,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_joint1_command",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m",
+            "value_reference": 129,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_joint1_position",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad",
+            "value_reference": 130,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_joint1_velocity",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad/s",
+            "value_reference": 131,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_joint2_command",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m",
+            "value_reference": 132,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_joint2_position",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad",
+            "value_reference": 133,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_joint2_velocity",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad/s",
+            "value_reference": 134,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_obstacle_clearance",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 135,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_overshoot",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "percent",
+            "value_reference": 136,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_tracking_error",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad_or_m",
+            "value_reference": 137,
+            "variability": "continuous"
+          }
+        ],
+        "success": true,
+        "variables": [
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "integ1",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": null,
+            "value_reference": 0,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "integ2",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": null,
+            "value_reference": 1,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "q1",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "rad",
+            "value_reference": 2,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "q1dot",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "rad/s",
+            "value_reference": 3,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "q2",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "rad",
+            "value_reference": 4,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "q2dot",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "rad/s",
+            "value_reference": 5,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(integ1)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 6,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(integ2)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 7,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(q1)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "Hz",
+            "value_reference": 8,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(q1dot)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "s-2",
+            "value_reference": 9,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(q2)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "Hz",
+            "value_reference": 10,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(q2dot)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "s-2",
+            "value_reference": 11,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_if_disturbance)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 12,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_if_encoder1_position)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 13,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_if_encoder1_velocity)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 14,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_if_encoder2_position)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 15,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_if_encoder2_velocity)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 16,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_if_joint1_command)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 17,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_if_joint2_command)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 18,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_if_obstacle_clearance)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 19,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_if_overshoot)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 20,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(_D_outputAlias_trace_if_tracking_error)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 21,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(d_seg1)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 22,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(d_seg2)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 23,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(ee_x)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 24,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(ee_z)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 25,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(elbow_x)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 26,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(elbow_z)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 27,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(err1)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 28,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(err2)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 29,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(os1)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 30,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(os2)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 31,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(px1)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 32,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(px2)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 33,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(pz1)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 34,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(pz2)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 35,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(q1_des)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 36,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(q1dot_des)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 37,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(q2_des)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 38,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(q2dot_des)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 39,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(s1)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 40,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(s2)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 41,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(t_clamp1)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 42,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(t_clamp2)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 43,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(t_proj1)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 44,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(t_proj2)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 45,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(tau1_raw)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 46,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "der(tau2_raw)",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 47,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_disturbance_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 70,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_encoder1_position_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 71,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_encoder1_velocity_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 72,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_encoder2_position_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 73,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_encoder2_velocity_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 74,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_joint1_command_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 75,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_joint2_command_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 76,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_obstacle_clearance_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 77,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_overshoot_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 78,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_tracking_error_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 79,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "C1",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 80,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "C2",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 81,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "M11",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 82,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "M12",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 83,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "M22",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 84,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "c1_com",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 85,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "c2_com",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 86,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "d_seg1",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 87,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "d_seg2",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 88,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "det_M",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 89,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "det_M_safe",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 90,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "ee_x",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 91,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "ee_z",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 92,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "elbow_x",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 93,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "elbow_z",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 94,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "err1",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad",
+            "value_reference": 95,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "err2",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad",
+            "value_reference": 96,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "os1",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "percent",
+            "value_reference": 97,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "os2",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "percent",
+            "value_reference": 98,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "px1",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 99,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "px2",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 100,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "pz1",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 101,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "pz2",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 102,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "q1_des",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad",
+            "value_reference": 103,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "q1ddot",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 104,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "q1dot_des",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad/s",
+            "value_reference": 105,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "q2_des",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad",
+            "value_reference": 106,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "q2ddot",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 107,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "q2dot_des",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad/s",
+            "value_reference": 108,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "s1",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 109,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "s2",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 110,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "span1",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad",
+            "value_reference": 111,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "span2",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad",
+            "value_reference": 112,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "t_clamp1",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 113,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "t_clamp2",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 114,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "t_proj1",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 115,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "t_proj2",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 116,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "tau1_dist",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m",
+            "value_reference": 117,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "tau1_lim",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m",
+            "value_reference": 118,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "tau1_raw",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m",
+            "value_reference": 119,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "tau2_dist",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m",
+            "value_reference": 120,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "tau2_lim",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m",
+            "value_reference": 121,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "tau2_raw",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m",
+            "value_reference": 122,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "total_system_mass",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "kg",
+            "value_reference": 123,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_disturbance",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 124,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_encoder1_position",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad",
+            "value_reference": 125,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_encoder1_velocity",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad/s",
+            "value_reference": 126,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_encoder2_position",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad",
+            "value_reference": 127,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_encoder2_velocity",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad/s",
+            "value_reference": 128,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_joint1_command",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m",
+            "value_reference": 129,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_joint1_position",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad",
+            "value_reference": 130,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_joint1_velocity",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad/s",
+            "value_reference": 131,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_joint2_command",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m",
+            "value_reference": 132,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_joint2_position",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad",
+            "value_reference": 133,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_joint2_velocity",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad/s",
+            "value_reference": 134,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_obstacle_clearance",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 135,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_overshoot",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "percent",
+            "value_reference": 136,
+            "variability": "continuous"
+          },
+          {
+            "causality": "output",
+            "initial": null,
+            "name": "trace_if_tracking_error",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "rad_or_m",
+            "value_reference": 137,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "enc1_pos",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "rad",
+            "value_reference": 138,
+            "variability": "discrete"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "enc1_vel",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "rad/s",
+            "value_reference": 139,
+            "variability": "discrete"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "enc2_pos",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "rad",
+            "value_reference": 140,
+            "variability": "discrete"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "enc2_vel",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "rad/s",
+            "value_reference": 141,
+            "variability": "discrete"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "max_q1",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "rad",
+            "value_reference": 142,
+            "variability": "discrete"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "max_q2",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "rad",
+            "value_reference": 143,
+            "variability": "discrete"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "min_q1",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "rad",
+            "value_reference": 144,
+            "variability": "discrete"
+          },
+          {
+            "causality": "local",
+            "initial": "exact",
+            "name": "min_q2",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "rad",
+            "value_reference": 145,
+            "variability": "discrete"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "dist_start",
+            "scalar_type": "real",
+            "start": "4.666666666666667",
+            "unit": "s",
+            "value_reference": 146,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "dist_stop",
+            "scalar_type": "real",
+            "start": "9.333333333333334",
+            "unit": "s",
+            "value_reference": 147,
+            "variability": "fixed"
+          },
+          {
+            "causality": "calculatedParameter",
+            "initial": null,
+            "name": "dt_sample",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "s",
+            "value_reference": 148,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_entities_duo_base_mass",
+            "scalar_type": "real",
+            "start": "20.0",
+            "unit": "kg",
+            "value_reference": 149,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_entities_link1_length",
+            "scalar_type": "real",
+            "start": "0.55",
+            "unit": "m",
+            "value_reference": 150,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_entities_link1_mass",
+            "scalar_type": "real",
+            "start": "5.0",
+            "unit": "kg",
+            "value_reference": 151,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_entities_link2_length",
+            "scalar_type": "real",
+            "start": "0.38",
+            "unit": "m",
+            "value_reference": 152,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_entities_link2_mass",
+            "scalar_type": "real",
+            "start": "3.0",
+            "unit": "kg",
+            "value_reference": 153,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_joints_joint1_lower_limit",
+            "scalar_type": "real",
+            "start": "-1.6",
+            "unit": "rad",
+            "value_reference": 154,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_joints_joint1_upper_limit",
+            "scalar_type": "real",
+            "start": "1.6",
+            "unit": "rad",
+            "value_reference": 155,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_joints_joint2_lower_limit",
+            "scalar_type": "real",
+            "start": "-1.6",
+            "unit": "rad",
+            "value_reference": 156,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_joints_joint2_upper_limit",
+            "scalar_type": "real",
+            "start": "1.6",
+            "unit": "rad",
+            "value_reference": 157,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_parameters_param_disturbance_magnitude_value",
+            "scalar_type": "real",
+            "start": "10.0",
+            "unit": "N",
+            "value_reference": 158,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_parameters_param_joint1_effort_limit_value",
+            "scalar_type": "real",
+            "start": "70.0",
+            "unit": "N.m",
+            "value_reference": 159,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "fact_parameters_param_joint2_effort_limit_value",
+            "scalar_type": "real",
+            "start": "70.0",
+            "unit": "N.m",
+            "value_reference": 160,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "ff1",
+            "scalar_type": "real",
+            "start": "2.0",
+            "unit": "N.m.s/rad",
+            "value_reference": 161,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "ff2",
+            "scalar_type": "real",
+            "start": "1.0",
+            "unit": "N.m.s/rad",
+            "value_reference": 162,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "kd1",
+            "scalar_type": "real",
+            "start": "18.0",
+            "unit": "N.m.s/rad",
+            "value_reference": 163,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "kd2",
+            "scalar_type": "real",
+            "start": "7.0",
+            "unit": "N.m.s/rad",
+            "value_reference": 164,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "ki1",
+            "scalar_type": "real",
+            "start": "15.0",
+            "unit": "N.m/(rad.s)",
+            "value_reference": 165,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "ki2",
+            "scalar_type": "real",
+            "start": "8.0",
+            "unit": "N.m/(rad.s)",
+            "value_reference": 166,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "kp1",
+            "scalar_type": "real",
+            "start": "80.0",
+            "unit": "N.m/rad",
+            "value_reference": 167,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "kp2",
+            "scalar_type": "real",
+            "start": "35.0",
+            "unit": "N.m/rad",
+            "value_reference": 168,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "link1_radius",
+            "scalar_type": "real",
+            "start": "0.03",
+            "unit": "m",
+            "value_reference": 169,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "link2_radius",
+            "scalar_type": "real",
+            "start": "0.025",
+            "unit": "m",
+            "value_reference": 170,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "obstacle_radius",
+            "scalar_type": "real",
+            "start": "0.05",
+            "unit": "m",
+            "value_reference": 171,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "obstacle_x",
+            "scalar_type": "real",
+            "start": "0.8",
+            "unit": "m",
+            "value_reference": 172,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "obstacle_z",
+            "scalar_type": "real",
+            "start": "-0.2",
+            "unit": "m",
+            "value_reference": 173,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "q1_w0",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "rad",
+            "value_reference": 174,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "q1_w1",
+            "scalar_type": "real",
+            "start": "0.6",
+            "unit": "rad",
+            "value_reference": 175,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "q1_w2",
+            "scalar_type": "real",
+            "start": "1.0",
+            "unit": "rad",
+            "value_reference": 176,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "q2_w0",
+            "scalar_type": "real",
+            "start": "0.0",
+            "unit": "rad",
+            "value_reference": 177,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "q2_w1",
+            "scalar_type": "real",
+            "start": "0.4",
+            "unit": "rad",
+            "value_reference": 178,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "q2_w2",
+            "scalar_type": "real",
+            "start": "0.6",
+            "unit": "rad",
+            "value_reference": 179,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "run_duration",
+            "scalar_type": "real",
+            "start": "14.0",
+            "unit": "s",
+            "value_reference": 180,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "run_freq_hz",
+            "scalar_type": "real",
+            "start": "200.0",
+            "unit": "Hz",
+            "value_reference": 181,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "t_wp1",
+            "scalar_type": "real",
+            "start": "4.667",
+            "unit": "s",
+            "value_reference": 182,
+            "variability": "fixed"
+          },
+          {
+            "causality": "parameter",
+            "initial": null,
+            "name": "t_wp2",
+            "scalar_type": "real",
+            "start": "9.333",
+            "unit": "s",
+            "value_reference": 183,
+            "variability": "fixed"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_joint1_position_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 3,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_joint1_velocity_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 104,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_joint2_position_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 5,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "_D_trace_if_joint2_velocity_der",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 107,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "clearance_val",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "m",
+            "value_reference": 135,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "dist_force",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N",
+            "value_reference": 124,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "overshoot_val",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "percent",
+            "value_reference": 136,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "tau1_sat",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m",
+            "value_reference": 129,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "tau2_sat",
+            "scalar_type": "real",
+            "start": null,
+            "unit": "N.m",
+            "value_reference": 132,
+            "variability": "continuous"
+          },
+          {
+            "causality": "local",
+            "initial": null,
+            "name": "track_err",
+            "scalar_type": "real",
+            "start": null,
+            "unit": null,
+            "value_reference": 137,
+            "variability": "continuous"
+          }
+        ]
+      },
+      "passed": false,
+      "properties": [
+        {
+          "detail": "always robustness=0.543006",
+          "formula": "G[0, T](-1.6 <= trace_if_joint1_position and trace_if_joint1_position <= 1.6)",
+          "id": "prop_joint1_limits",
+          "interface_id": "if_joint1_position",
+          "passed": true,
+          "property_id": "prop_joint1_limits",
+          "robustness": 0.5430064936560033,
+          "status": "satisfied"
+        },
+        {
+          "detail": "always robustness=0.936025",
+          "formula": "G[0, T](-1.6 <= trace_if_joint2_position and trace_if_joint2_position <= 1.6)",
+          "id": "prop_joint2_limits",
+          "interface_id": "if_joint2_position",
+          "passed": true,
+          "property_id": "prop_joint2_limits",
+          "robustness": 0.9360254821997191,
+          "status": "satisfied"
+        },
+        {
+          "detail": "always robustness=0.075",
+          "formula": "G[0, T](0.05 <= trace_if_obstacle_clearance)",
+          "id": "prop_clearance",
+          "interface_id": "if_obstacle_clearance",
+          "passed": true,
+          "property_id": "prop_clearance",
+          "robustness": 0.07500000000000002,
+          "status": "satisfied"
+        },
+        {
+          "detail": "always robustness=12",
+          "formula": "G[0, T](trace_if_overshoot <= 12.0)",
+          "id": "prop_overshoot",
+          "interface_id": "if_overshoot",
+          "passed": true,
+          "property_id": "prop_overshoot",
+          "robustness": 12.0,
+          "status": "satisfied"
+        },
+        {
+          "detail": "always robustness=-0.0356769",
+          "formula": "G[9.1, T](trace_if_tracking_error <= 0.05)",
+          "id": "prop_tracking_error",
+          "interface_id": "if_tracking_error",
+          "passed": false,
+          "property_id": "prop_tracking_error",
+          "robustness": -0.035676907124580076,
+          "status": "violated"
+        },
+        {
+          "detail": "finite-value trace gate passed",
+          "formula": "all requested runtime outputs are finite",
+          "id": "prop_finite_physical",
+          "passed": true,
+          "property_id": "prop_finite_physical",
+          "robustness": null,
+          "status": "satisfied"
+        },
+        {
+          "detail": "finite-value trace gate passed",
+          "formula": "all requested runtime outputs are finite",
+          "id": "prop_finite_control",
+          "passed": true,
+          "property_id": "prop_finite_control",
+          "robustness": null,
+          "status": "satisfied"
+        },
+        {
+          "detail": "finite-value trace gate passed",
+          "formula": "all requested runtime outputs are finite",
+          "id": "prop_finite_estimator",
+          "passed": true,
+          "property_id": "prop_finite_estimator",
+          "robustness": null,
+          "status": "satisfied"
+        },
+        {
+          "detail": "no deterministic evaluator exists for this grounded property kind",
+          "formula": "custom",
+          "id": "prop_disturbance_window",
+          "passed": false,
+          "property_id": "prop_disturbance_window",
+          "robustness": null,
+          "status": "unevaluable"
+        }
+      ],
+      "property_count": 9,
+      "property_summary": {
+        "passed": 7,
+        "total": 9,
+        "unevaluable": 1,
+        "violated": 1
+      },
+      "report": "execution.json",
+      "trace_gate": {
+        "finite": true,
+        "minimum_expected_samples": 2800,
+        "missing_outputs": [],
+        "required_outputs": [
+          "trace_if_disturbance",
+          "trace_if_encoder1_position",
+          "trace_if_encoder1_velocity",
+          "trace_if_encoder2_position",
+          "trace_if_encoder2_velocity",
+          "trace_if_joint1_command",
+          "trace_if_joint1_position",
+          "trace_if_joint1_velocity",
+          "trace_if_joint2_command",
+          "trace_if_joint2_position",
+          "trace_if_joint2_velocity",
+          "trace_if_obstacle_clearance",
+          "trace_if_overshoot",
+          "trace_if_tracking_error"
+        ],
+        "sample_count": 2801,
+        "success": true
+      }
+    },
+    "modelica": {
+      "artifact": "modelica/model.mo",
+      "attempt_0_valid": false,
+      "combiner_model": "z-ai/glm-5.2",
+      "expert_candidates": [
+        "qwen/qwen3.6-plus",
+        "z-ai/glm-5.2",
+        "deepseek/deepseek-v4-pro",
+        "meta-llama/llama-4-maverick"
+      ],
+      "expert_models": [
+        "qwen/qwen3.6-plus",
+        "z-ai/glm-5.2",
+        "deepseek/deepseek-v4-pro",
+        "meta-llama/llama-4-maverick"
+      ],
+      "expert_soft_fail_count": 0,
+      "generation_mode": "moe",
+      "identity_preserved": true,
+      "model_name": "RobotTask_RPI0130_R00",
+      "passed": true,
+      "repairs": 1,
+      "report": "modelica/generation.json",
+      "retrieved_examples": [
+        {
+          "id": "M008",
+          "score": 62.52582058503832
+        },
+        {
+          "id": "M009",
+          "score": 55.86459323978458
+        },
+        {
+          "id": "M007",
+          "score": 55.03914485521893
+        },
+        {
+          "id": "M1027",
+          "score": 48.41061581907701
+        },
+        {
+          "id": "M523",
+          "score": 48.75861840226649
+        }
+      ],
+      "study_controls": {
+        "max_tool_repairs": 2,
+        "moe_enabled": true,
+        "rag_enabled": true,
+        "retrieval_k": 5,
+        "tool_repair_enabled": true
+      }
+    },
+    "normalization": {
+      "attempt_count": 1,
+      "precomputed": true,
+      "report": "normalization.json",
+      "success": true
+    },
+    "one_shot": {
+      "artifact_pair_valid_attempt_0": null,
+      "artifact_valid_attempt_0": false,
+      "modelica_valid_attempt_0": false,
+      "openusd_valid_attempt_0": null
+    },
+    "paired_block": {
+      "block_fingerprint": "9fea438ad887effc9d330568d166f6333a0de7a6470ccb2a5601ce4d5286c2de",
+      "normalized_ir_sha256": "f4a89df02e78c2504ce6cc87a31bd4aa9697222c9ae909d2c093c049a1404c10",
+      "repetition": 0
+    },
+    "passed": false,
+    "plan": {
+      "contract": "contract.json",
+      "mapping_count": 14,
+      "model_name": "RobotTask_RPI0130_R00",
+      "parameter_mapping_count": 12,
+      "report": "plan.json",
+      "requirement_ir": "requirement_ir.json",
+      "success": true
+    },
+    "runtime_repair": {
+      "accepted": 1,
+      "attempted": 1,
+      "enabled": true,
+      "final_model": "modelica/model.mo",
+      "infrastructure_error": null,
+      "max_repairs": 2,
+      "original_model": "modelica/pre-runtime-model.mo",
+      "report": "runtime-repair.json",
+      "triggered": true
+    },
+    "schema_version": "1.0",
+    "source_text_sha256": "3cfe80e24dd29668ae163acd8de9cbbc0d588c99973305c851620ad5087602ba",
+    "stage": "modelica_capability_orchestrator",
+    "stage_trace": [
+      {
+        "index": 0,
+        "passed": true,
+        "reached": true,
+        "stage": "requirement_normalization",
+        "status": "passed"
+      },
+      {
+        "index": 1,
+        "passed": true,
+        "reached": true,
+        "stage": "interface_planning",
+        "status": "passed"
+      },
+      {
+        "index": 2,
+        "passed": true,
+        "reached": true,
+        "stage": "modelica_validation",
+        "status": "passed"
+      },
+      {
+        "index": 3,
+        "passed": true,
+        "reached": true,
+        "stage": "modelica_identity",
+        "status": "passed"
+      },
+      {
+        "index": 4,
+        "passed": true,
+        "reached": true,
+        "stage": "fmu_export",
+        "status": "passed"
+      },
+      {
+        "index": 5,
+        "passed": true,
+        "reached": true,
+        "stage": "fmu_interface_contract",
+        "status": "passed"
+      },
+      {
+        "index": 6,
+        "passed": true,
+        "reached": true,
+        "stage": "runtime_initialization",
+        "status": "passed"
+      },
+      {
+        "index": 7,
+        "passed": true,
+        "reached": true,
+        "stage": "runtime_execution",
+        "status": "passed"
+      },
+      {
+        "index": 8,
+        "passed": true,
+        "reached": true,
+        "stage": "behavior_evaluation",
+        "status": "passed"
+      },
+      {
+        "index": 9,
+        "passed": false,
+        "reached": true,
+        "stage": "modelica_specification_alignment",
+        "status": "failed"
+      }
+    ],
+    "study_validity": {
+      "alignment_observed": true,
+      "complete_moe_required": true,
+      "condition_fidelity_passed": true,
+      "contract_created": true,
+      "eligible": true,
+      "expected": {
+        "alignment": true,
+        "id": "FULL",
+        "label": "complete_pipeline",
+        "moe": true,
+        "rag": true,
+        "tool_repair": true,
+        "validated_contract": true
+      },
+      "generation_reached": true,
+      "issues": [],
+      "observed_generation": [
+        {
+          "combiner_model": "z-ai/glm-5.2",
+          "expert_candidate_count": 4,
+          "expert_roster": [
+            "qwen/qwen3.6-plus",
+            "z-ai/glm-5.2",
+            "deepseek/deepseek-v4-pro",
+            "meta-llama/llama-4-maverick"
+          ],
+          "expert_soft_fail_count": 0,
+          "generation_mode": "moe",
+          "owner": "modelica",
+          "retrieval_count": 5,
+          "study_controls": {
+            "max_tool_repairs": 2,
+            "moe_enabled": true,
+            "rag_enabled": true,
+            "retrieval_k": 5,
+            "tool_repair_enabled": true
+          }
+        }
+      ],
+      "runtime_repair_observed": true
+    },
+    "task_id": "RPI0130-R00"
+  },
+  "schema_version": "1.1",
+  "task_id": "RPI0130",
+  "variant": "rich"
+}

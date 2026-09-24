@@ -242,6 +242,24 @@ def write_seed(out_dir: Path, sid: str, prompt: str, n: int, result: dict) -> di
     return meta
 
 
+# --------------------------------------------------------------------------- resume
+def is_complete(meta_path: Path, n: Optional[int] = None) -> bool:
+    """A seed is done only if all its samples came back. A transport failure (rate limit, exhausted
+    credits, dropped connection) is infrastructure, not a model outcome: a seed that recorded one is
+    incomplete and must be redone, never counted as "the model failed six times"."""
+    try:
+        block = json.loads(meta_path.read_text(encoding="utf-8")).get("best_of_n")
+    except (OSError, json.JSONDecodeError):
+        return False
+    if not block or block.get("n_transport_failures", 1) != 0:
+        return False
+    return n is None or (block.get("n") == n and len(block.get("candidates", [])) == n)
+
+
+def transport_failures(result: dict) -> list[str]:
+    return [c["error"] for c in result["candidates"] if c["error"]]
+
+
 # --------------------------------------------------------------------------- driver
 def shard_ids(ids: list[str], shards: int, shard: int) -> list[str]:
     """Positions p with p % shards == shard over the sorted id list: disjoint and complete."""
@@ -281,7 +299,8 @@ def main(argv=None) -> int:
     if args.limit is not None:
         ids = ids[:args.limit]
     mine = shard_ids(ids, args.shards, args.shard)
-    todo = [s for s in mine if args.no_resume or not (out_dir / s / "meta.json").exists()]
+    todo = [s for s in mine
+            if args.no_resume or not is_complete(out_dir / s / "meta.json", args.n)]
 
     print("=" * 70)
     print(f"SysML best-of-{args.n} | model {naive.MODEL} | selector: SysML compiler")
@@ -322,7 +341,7 @@ def main(argv=None) -> int:
         else:
             print(f"  {sid}: no prompt, skipping")
 
-    stats = {"done": 0, "valid": 0, "any_valid": 0, "errors": 0}
+    stats = {"done": 0, "valid": 0, "any_valid": 0, "errors": 0, "incomplete": 0}
     t_start = time.time()
     pending: dict = {}
     with ProcessPoolExecutor(max_workers=args.workers) as pool:
@@ -349,6 +368,14 @@ def main(argv=None) -> int:
                     sid = pending.pop(fut)
                     try:
                         result = fut.result()
+                        failed = transport_failures(result)
+                        if failed:
+                            # Never persist a partial ensemble: it would look complete on resume.
+                            stats["incomplete"] += 1
+                            print(f"[{sid}] {len(failed)}/{args.n} samples hit a transport failure "
+                                  f"({failed[0][:90]}); NOT written, will rerun on resume", flush=True)
+                            submit_next()
+                            continue
                         meta = write_seed(out_dir, sid, prompts[sid], args.n, result)
                     except Exception as exc:  # noqa: BLE001
                         stats["errors"] += 1
@@ -372,8 +399,12 @@ def main(argv=None) -> int:
 
     print("=" * 70)
     print(f"Done {stats['done']} in {time.time() - t_start:.0f}s | selected valid {stats['valid']} | "
-          f"any-of-{args.n} valid {stats['any_valid']} | errors {stats['errors']}")
-    return 1 if stats["errors"] else 0
+          f"any-of-{args.n} valid {stats['any_valid']} | errors {stats['errors']} | "
+          f"incomplete (transport failures, rerun to fill) {stats['incomplete']}")
+    if stats["incomplete"]:
+        print("INCOMPLETE: resubmit the same command once the provider issue (rate limit / credits) "
+              "is fixed; only the missing seeds are redone.")
+    return 1 if (stats["errors"] or stats["incomplete"]) else 0
 
 
 if __name__ == "__main__":

@@ -7,15 +7,20 @@ arm spends one. Best-of-N is the compute-matched control: draw N independent one
 **naive baseline**, let the **same compiler** the harness uses pick one, and stop. No retrieval, no
 experts, no combiner, no repair loop, no feedback of any kind.
 
-Each script is the naive arm with its single generation call replaced by N, and nothing else. The
-prompt, model, temperature, post-processing and downstream scoring are the naive arm's own, so
-naive -> BoN isolates *sampling*, and BoN -> FORGE isolates *the design* at (roughly) matched calls.
+Each script is the naive arm with its single generation call replaced by N, and nothing else. It is a
+**replacement for the naive GLM data**, run over the same full set as the naive and FORGE corpora
+(about 1,500 requirements per domain), and is not part of the Solidity ablation ladder. The prompt,
+model, temperature and post-processing are the naive arm's own, so naive -> BoN isolates *sampling*,
+and BoN -> FORGE isolates *the design* at (roughly) matched calls.
 
-| domain | script | samples | selector | writes | pairs with |
-|---|---|---|---|---|---|
-| SysML | `nl2sysml/best_of_n_generate.py` | `naive_glm_generate.py`'s call | SysML compiler (jar) | `dataset/best_of_6/` | `dataset/naive_glm`, `dataset/with_kernel_spec` |
-| Solidity | `nl2solidity/best_of_n/run_best_of_n.py` | ablation arm **A0** | `solc` | `nl2solidity/dataset/best_of_n/BoN6/` | ablation `A0`..`A5` (same first 500 seeds) |
-| Modelica | `python -m nl2robotics.experiments.run_best_of_n` | condition **B0** | OpenModelica | `<output-dir>/<task>/rich/BoN6/` | `B0`, `FULL` |
+| domain | script | samples | requirements | selector | writes | replaces / pairs with |
+|---|---|---|---|---|---|---|
+| SysML | `nl2sysml/best_of_n_generate.py` | `naive_glm_generate.py`'s call | all ids the naive arm covered (~1,540) | SysML compiler (jar) | `dataset/best_of_6/` | `dataset/naive_glm`; `dataset/with_kernel_spec` |
+| Solidity | `nl2solidity/best_of_n/run_best_of_n.py` | `naive_glm_generate.py`'s call | all **1,500** seeds | `solc` | `nl2solidity/dataset/best_of_n/BoN6/` | `nl2solidity/dataset/naive_glm`; `with_kernel_spec` |
+| Modelica | `python -m nl2robotics.experiments.run_best_of_n` | condition **B0** | all 1,560 tasks | OpenModelica | `<output-dir>/<task>/rich/BoN6/` | `B0`; `FULL` |
+
+N=6 is samples per requirement. Model-call totals are about 9,000 (SysML), 9,000 (Solidity) and
+9,400 (Modelica).
 
 ## Selection rules (compiler only, deterministic, no oracle)
 
@@ -25,7 +30,8 @@ influences the choice. Those run on the winner afterwards, exactly as they do fo
 * **SysML**: compiles cleanly > compiler actually scored it > fewest **de-duplicated** errors > lowest
   index. (The parser jar reports each syntax error twice, see `recompute_sysml_stats.py`; raw counts are
   stored too.) Empty and timed-out candidates rank last, since an empty file has "0 errors".
-* **Solidity**: compiles cleanly > fewest `solc` errors > lowest index.
+* **Solidity**: compiles cleanly > fewest `solc` errors > lowest index. A sample whose call fails or
+  comes back empty is not a candidate; if all six do, the seed soft-fails as a failed naive call would.
 * **Modelica**: maximise `Layer1CandidateResult.quality` = `(compiled, checked, -error_count)`, the
   ordering FORGE's own compile-repair loop uses to keep an attempt, then lowest index.
 
@@ -39,13 +45,17 @@ python nl2sysml/best_of_n_generate.py --dry-run --limit 10          # sanity
 sbatch nl2sysml/pace/best_of_n.sbatch                               # 5 shards; BON_N / BON_SHARDS override
 ```
 
-**Solidity** (same node setup, toolchain and eval set as the ablation; measures the winner with Foundry,
-Slither and the aligner, zero repair passes, so every A0..A5 metric exists for BoN too):
+**Solidity** (samples the naive call; the winner is then measured with Foundry, Slither and the aligner,
+zero repair passes, giving it the same fields as the `naive_glm` and `with_kernel_spec` corpora):
 
 ```bash
-python nl2solidity/best_of_n/run_best_of_n.py --shards 5 --shard 0 --dry-run
-sbatch nl2solidity/best_of_n/pace/best_of_n.sbatch                  # ABLATION_N=500, 5 shards by default
+python nl2solidity/best_of_n/run_best_of_n.py --shards 15 --shard 0 --dry-run
+sbatch nl2solidity/best_of_n/pace/best_of_n.sbatch                  # 1500 seeds, 15 shards of 100, 12 h each
 ```
+
+Knobs are `BON_N`, `BON_SHARDS` (must equal the array width), `BON_NUM_ENTRIES` (default 1500) and
+`BON_PROMPT_TEMPLATE` (`naive` default, or `a0` to sample the ablation arm's prompt). Only the node
+setup is borrowed from the ablation's `common.sh`.
 
 **Modelica**: freeze the protocol once (no model calls), then submit. The header of
 `nl2robotics/experiments/pace/best_of_n.sbatch` has the exact freeze command.
@@ -74,11 +84,11 @@ not diverse and the baseline is weaker than it looks.
 ## Comparing
 
 ```bash
-# Solidity: BoN6 vs full pipeline (A5), and what sampling alone buys over one-shot (A0)
+# Solidity: BoN6 vs full pipeline, and what sampling alone buys over the naive arm
 python nl2solidity/analyze_naive_vs_full.py \
-  --naive-dir nl2solidity/dataset/best_of_n/BoN6 --full-dir nl2solidity/dataset/ablation/A5
+  --naive-dir nl2solidity/dataset/best_of_n/BoN6 --full-dir nl2solidity/dataset/with_kernel_spec
 python nl2solidity/analyze_naive_vs_full.py \
-  --naive-dir nl2solidity/dataset/ablation/A0 --full-dir nl2solidity/dataset/best_of_n/BoN6
+  --naive-dir nl2solidity/dataset/naive_glm --full-dir nl2solidity/dataset/best_of_n/BoN6
 
 # Modelica: BoN6 as the "naive" side
 python nl2robotics/modelica/analyze_naive_vs_full.py \

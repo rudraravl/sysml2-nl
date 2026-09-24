@@ -2,21 +2,24 @@
 """Best-of-N sampling baseline for Solidity: N samples of the A0 one-shot call, `solc` picks one.
 
 Answers the compute-fairness question "does the harness beat plain best-of-N sampling from the
-same cheap model, scored by the same compiler?". FORGE spends several model calls per requirement;
-this baseline spends the same budget on N independent samples of arm A0 (bare requirement, one
-GLM-5.2 call, no retrieval / experts / repair) and keeps the one `solc` likes best.
+same cheap model, scored by the same compiler?". It is a drop-in REPLACEMENT for the naive GLM data
+(`dataset/naive_glm`, from naive_glm_generate.py) over all seeds: FORGE spends several model calls per
+requirement; this spends the same budget on N independent samples of the naive call and keeps the
+one `solc` likes best. It is not part of the ablation ladder.
 
 How it stays comparable
 -----------------------
-It runs the ordinary generator (`batch_generate.py` -> `generate_solidity_moe`) under the A0
-profile, so the sampled prompt, model, temperature and post-processing are byte-identical to A0's,
-and A0 -> BoN6 isolates sampling and nothing else. The one thing it changes is the single
-"initial generation" model call: that call is fanned out into N samples, each compiled with the
-same `check_code` the generator's compile stage uses, and the winner is returned in its place. Every
-downstream stage then runs on the winner exactly as it does for A0 (measure-only by default:
-Foundry fuzz + requirement-derived properties, Slither, twin-blind spec alignment, all with zero
-repair passes), so `meta.json` carries every metric an A0..A5 arm carries and
-`analyze_naive_vs_full.py` / `analyze_with_kernel_spec.py` read it unchanged.
+The N samples are naive_glm_generate.py's call, imported not copied: its model, system prompt, human
+template and post-processing, over the same seed_long prompts. So best-of-1 is the naive arm. To
+score the winner with every metric the other corpora carry, the script drives the ordinary generator
+(`batch_generate.py` -> `generate_solidity_moe`) with every generation and repair stage off
+(bare requirement, no RAG / experts / repair) and fans its single initial model call out into N
+samples, each compiled with the same `check_code` its compile stage uses. The winner is returned in
+that call's place, and every downstream stage then runs on it measure-only (Foundry fuzz +
+requirement-derived properties, Slither, twin-blind spec alignment, zero repair passes), so
+`meta.json` carries the same fields as `naive_glm` and `with_kernel_spec` and
+`analyze_naive_vs_full.py` reads it unchanged. (`--prompt-template a0` samples the ablation A0
+prompt instead, for a like-for-like with that arm; the default is the naive one.)
 
 Selection rule (deterministic; the compiler is the only judge; nothing sees Foundry/Slither/aligner):
     1. a contract that compiles cleanly beats any that does not;
@@ -30,12 +33,13 @@ worker threads, are never touched. If the generator ever stops making that call 
 rather than silently degrading to best-of-1.
 
 Output: <output-root>/BoN<N>/U###/{U###.sol, U###.txt, meta.json, candidates/cand-k.sol}
+Default eval set: ALL 1500 seeds of sol_seed.jsonl, the same set as naive_glm and with_kernel_spec.
 `meta.json` gains a `best_of_n` block listing every candidate's compile result, so any-of-N and
 mean-per-sample validity come straight out of the data.
 
 Examples
-    python nl2solidity/best_of_n/run_best_of_n.py --shards 5 --shard 0 --num-entries 500 --dry-run
-    python nl2solidity/best_of_n/run_best_of_n.py --n 6 --shards 5 --shard 3 --num-entries 500
+    python nl2solidity/best_of_n/run_best_of_n.py --shards 15 --shard 0 --dry-run
+    python nl2solidity/best_of_n/run_best_of_n.py --n 6 --shards 15 --shard 3
 """
 
 from __future__ import annotations
@@ -43,6 +47,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import os
+import re
 import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor
@@ -57,7 +62,13 @@ for _path in (str(_ROOT), str(_NL2), str(_NL2 / "ablation")):
         sys.path.insert(0, _path)
 
 DEFAULT_N = 6
-BASE_ARM = "A0"
+DEFAULT_NUM_ENTRIES = 1500          # every seed in sol_seed.jsonl, like naive_glm / with_kernel_spec
+BASE_ARM = "A0"                    # a stage-flag profile only: everything off, measure-only
+# Provider/transport failures (rate limit, exhausted credits, dropped connection, missing key). These
+# are infrastructure, not model outcomes: the seed must be redone, never scored on a partial ensemble.
+INFRA_ERROR = re.compile(
+    r"OpenRouter call failed|OpenRouter error|OpenRouter returned|OPENROUTER_API_KEY missing"
+    r"|IncompleteRead|Timeout|timed out|Connection", re.I)
 SELECTION_RULE = "compiles cleanly > fewest solc errors > lowest sample index"
 
 
@@ -83,11 +94,16 @@ class BestOfN:
     """
 
     def __init__(self, amoe: Any, n: int,
-                 check: Optional[Callable[[str], Any]] = None):
+                 check: Optional[Callable[[str], Any]] = None,
+                 template: str = "naive", naive: Any = None):
         if n < 1:
             raise ValueError("n must be >= 1")
+        if template not in ("naive", "a0"):
+            raise ValueError("template must be 'naive' or 'a0'")
         self.amoe = amoe
         self.n = n
+        self.template = template
+        self._naive = naive
         self._check = check
         self._real_invoke = amoe._invoke_with_retry
         self._real_generate = amoe.generate_solidity_moe
@@ -101,9 +117,24 @@ class BestOfN:
         return self.amoe.check_code(code, syntax_only=self.amoe.COMPILER_SYNTAX_ONLY)
 
     # -- the fan-out -------------------------------------------------------
+    def _draw_naive(self, prompt: str, key) -> str:
+        """One sample of naive_glm_generate.generate_one's model call, incl. its degenerate retry."""
+        naive = self._naive
+        human = naive.HUMAN_TEMPLATE.format(input=prompt)
+        invoke = self.amoe._openrouter_invoke      # FORGE's hardened transport, same model/temp
+        code = naive._postprocess(invoke(naive.MODEL, naive.SYSTEM_PROMPT, human, key))
+        if not code or not any(kw in code.lower() for kw in ("contract", "pragma")):
+            strong = naive.SYSTEM_PROMPT + " No markdown, no fences, no prose. Output Solidity code only."
+            code = naive._postprocess(invoke(naive.MODEL, strong, human, key))
+        if not code:
+            raise RuntimeError("empty response after the degenerate-output retry")
+        return code
+
     def _sample(self, ctx: dict, model: str, system: str, human: str, key) -> str:
         def draw(i: int):
             try:
+                if self.template == "naive":
+                    return i, self._draw_naive(ctx["prompt"], key), None
                 return i, self._real_invoke(model, system, human, key), None
             except Exception as exc:  # noqa: BLE001 - a failed sample is data, not a crash
                 return i, None, f"{type(exc).__name__}: {exc}"
@@ -128,6 +159,13 @@ class BestOfN:
                 "syntax_error_count": sum(1 for e in errors if e.is_syntax_error()),
                 "semantic_error_count": sum(1 for e in errors if e.is_semantic_error()),
             })
+        infra = [f for f in failures if INFRA_ERROR.search(f["error"])]
+        if infra:
+            # A partial ensemble is never kept: it would be written as a complete seed and skipped on
+            # resume. Raising soft-fails the seed (no meta.json), so a rerun redoes exactly it.
+            raise RuntimeError(
+                f"best-of-{self.n}: {len(infra)}/{self.n} samples hit a transport failure "
+                f"({infra[0]['error'][:120]}); not keeping a partial ensemble")
         chosen = select_best(candidates)
         if chosen is None:
             raise RuntimeError(
@@ -136,6 +174,7 @@ class BestOfN:
 
         ctx["record"] = {
             "n": self.n,
+            "sample_template": self.template,
             "selection_rule": SELECTION_RULE,
             "selected_index": chosen["index"],
             "selected_error_count": chosen["error_count"],
@@ -171,6 +210,7 @@ class BestOfN:
         root = Path(amoe.__file__).parent.parent
         context = amoe._rag_context(prompt_text, root, k=3)
         ctx = {
+            "prompt": prompt_text,
             "fired": False,
             "model": amoe._active_combiner_model(),
             "system": amoe._default_system_prompt(None),
@@ -223,10 +263,15 @@ def _parse_args(argv=None):
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--n", type=int, default=int(os.getenv("BON_N", DEFAULT_N)),
                         help=f"samples per seed (env BON_N, default {DEFAULT_N})")
-    parser.add_argument("--shards", type=int, default=int(os.getenv("ABLATION_SHARDS", "5")))
-    parser.add_argument("--shard", type=int, default=int(os.getenv("ABLATION_SHARD", "0")))
-    parser.add_argument("--num-entries", type=int, default=int(os.getenv("ABLATION_N", "500")),
-                        help="first N seeds of sol_seed.jsonl; must match the ablation arms (default 500)")
+    parser.add_argument("--shards", type=int, default=int(os.getenv("BON_SHARDS", "15")))
+    parser.add_argument("--shard", type=int, default=int(os.getenv("BON_SHARD", "0")))
+    parser.add_argument("--num-entries", type=int,
+                        default=int(os.getenv("BON_NUM_ENTRIES", DEFAULT_NUM_ENTRIES)),
+                        help="first N seeds of sol_seed.jsonl (default 1500 = all, like naive_glm)")
+    parser.add_argument("--prompt-template", choices=("naive", "a0"),
+                        default=os.getenv("BON_PROMPT_TEMPLATE", "naive"),
+                        help="whose call to sample: naive_glm_generate.py's (default, replaces the "
+                             "naive data) or the ablation A0 arm's")
     parser.add_argument("--workers", type=int, default=int(os.getenv("BATCH_WORKERS", "4")),
                         help="seeds in flight within this shard (each fans out to N samples)")
     parser.add_argument("--output-root", type=str,
@@ -234,10 +279,10 @@ def _parse_args(argv=None):
                         help="parent directory; output goes to <root>/BoN<N>/")
     parser.add_argument("--seed-file", type=str, default=str(_NL2 / "sol_seed.jsonl"))
     parser.add_argument("--prompt-source", choices=("seed_long", "dataset", "seed"),
-                        default=os.getenv("ABLATION_PROMPT_SOURCE", "seed_long"),
-                        help="keep identical to the ablation arms (default seed_long)")
+                        default=os.getenv("BON_PROMPT_SOURCE", "seed_long"),
+                        help="NL prompt source (default seed_long, what naive_glm used)")
     parser.add_argument("--no-measure-all", dest="measure_all", action="store_false",
-                        default=os.getenv("ABLATION_MEASURE_ALL", "1").lower()
+                        default=os.getenv("BON_MEASURE_ALL", "1").lower()
                         not in ("0", "false", "no", "off"),
                         help="cheap mode: compile only, skip Foundry / Slither / alignment measurement")
     parser.add_argument("--no-resume", action="store_true")
@@ -265,12 +310,12 @@ def main(argv=None) -> int:
     output_dir = Path(args.output_root) / arm_id
 
     print("=" * 70)
-    print(f"Best-of-{args.n} (sampling {BASE_ARM}: one-shot GLM-5.2), selector: solc")
+    print(f"Best-of-{args.n} (sampling the {args.prompt_template} one-shot GLM-5.2 call), selector: solc")
     print(f"  shard:       {args.shard + 1}/{args.shards}")
-    print(f"  eval set:    first {args.num_entries} seeds of {Path(args.seed_file).name}")
+    print(f"  eval set:    first {args.num_entries} seeds of {Path(args.seed_file).name} (1500 = all)")
     print(f"  workers:     {args.workers} seeds x {args.n} samples in flight")
     print(f"  output:      {output_dir}")
-    print(f"  measured by: {'all metrics (comparable to A0..A5)' if args.measure_all else 'compile only'}")
+    print(f"  measured by: {'all metrics (same fields as naive_glm / with_kernel_spec)' if args.measure_all else 'compile only'}")
     print("  stage flags:")
     for key, value in sorted(applied.items()):
         print(f"    {key}={value}")
@@ -299,7 +344,15 @@ def main(argv=None) -> int:
             print(f"Error: {exc}", file=sys.stderr)
             return 1
 
-    BestOfN(amoe, args.n).install(batch_generate)
+    naive = None
+    if args.prompt_template == "naive":
+        try:
+            import nl2solidity.naive_glm_generate as naive  # noqa: PLC0415
+        except ModuleNotFoundError as exc:
+            if exc.name != "nl2solidity":
+                raise
+            import naive_glm_generate as naive  # noqa: PLC0415
+    BestOfN(amoe, args.n, template=args.prompt_template, naive=naive).install(batch_generate)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # The generator resolves generate_solidity_moe from the module at call time, so the
