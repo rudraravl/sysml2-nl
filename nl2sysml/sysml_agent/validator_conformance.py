@@ -47,11 +47,13 @@ def check_file(path: str) -> dict:
     signal.alarm(600)
     try:
         tree, syn = av.parse(code)
-        sem = {c: ([] if syn else av.semantic_errors(tree, (c,))) for c in ALL_CHECKS}
+        info = {"unresolved_abstained": False}
+        sem = {c: ([] if syn else av.semantic_errors(tree, (c,), info=info)) for c in ALL_CHECKS}
         out = {"path": path, "empty": not code.strip(), "syntax": syn, "semantic": sem,
-               "timeout": False}
+               "timeout": False, **info}
     except TimeoutError:
-        out = {"path": path, "empty": False, "syntax": [], "semantic": {}, "timeout": True}
+        out = {"path": path, "empty": False, "syntax": [], "semantic": {}, "timeout": True,
+               "unresolved_abstained": False}
     finally:
         signal.alarm(0)
     out["valid"] = (not out["empty"] and not out["timeout"] and not out["syntax"]
@@ -113,14 +115,18 @@ def conformance(workers: int) -> dict:
     }
 
 
-def corpus(d: Path, workers: int) -> dict:
+def corpus(d: Path, workers: int, ids: list[str] | None = None) -> dict:
     sids = sorted(p.parent.name for p in d.glob("*/meta.json"))
+    if ids:
+        sids = [s for s in sids if s in set(ids)]
     res = run([str(d / s / f"{s}.sysml") for s in sids], workers)
     per = {s: {"antlr_valid": r["valid"], "empty": r["empty"], "timeout": r["timeout"],
+               "unresolved_abstained": r["unresolved_abstained"],
                "n_syntax": len(r["syntax"]),
                **{f"n_{c}": len(r["semantic"].get(c, [])) for c in ALL_CHECKS}}
            for s, r in zip(sids, res)}
     return {"corpus": str(d), "n": len(per), "antlr_valid": sum(v["antlr_valid"] for v in per.values()),
+            "unresolved_abstained": sum(v["unresolved_abstained"] for v in per.values()),
             "per_id": per}
 
 
@@ -129,14 +135,17 @@ if __name__ == "__main__":
     ap.add_argument("--corpus", type=Path, default=None)
     ap.add_argument("--workers", type=int, default=8)
     ap.add_argument("--out", type=Path, default=None)
+    ap.add_argument("--ids", default=None, help="@file with one id per line: score only these seeds")
     a = ap.parse_args()
     REPORTS.mkdir(exist_ok=True)
     t0 = time.time()
     if a.corpus:
-        r = corpus(a.corpus, a.workers)
-        out = a.out or REPORTS / f"antlr_valid_{a.corpus.name}.json"
+        ids = Path(a.ids[1:]).read_text().split() if a.ids else None
+        r = corpus(a.corpus, a.workers, ids)
+        out = a.out or REPORTS / f"antlr_valid_{a.corpus.name}{'_subset' if ids else ''}.json"
         print(f"{a.corpus}: ANTLR-valid {r['antlr_valid']}/{r['n']} "
-              f"({r['antlr_valid'] / max(r['n'], 1):.1%})")
+              f"({r['antlr_valid'] / max(r['n'], 1):.1%}) | unresolved check abstained on "
+              f"{r['unresolved_abstained']}")
     else:
         r = conformance(a.workers)
         out = a.out or REPORTS / "conformance.json"

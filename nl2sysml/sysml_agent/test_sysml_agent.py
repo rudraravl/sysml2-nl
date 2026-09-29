@@ -274,3 +274,19 @@ def test_underline_marks_the_offending_token_and_keeps_tabs():
     assert e["length"] == 4
     assert av.underline(code, e) == ["    \tpart x : Real;", "    \t         ^^^^"]
     assert av.format_errors([e]) == av.format_errors([e], code=code).splitlines()[0]
+
+
+def test_unresolved_abstention_is_reported():
+    r = av.validate("package P { import Foo::*; part x : Bar; }")
+    assert r["valid"] and r["unresolved_abstained"] is True
+    assert av.validate(VALID)["unresolved_abstained"] is False
+
+
+def test_resume_refuses_to_mix_configurations(tmp_path, monkeypatch):
+    d, meta = _run_and_write(tmp_path, monkeypatch, [VALID])
+    assert meta["sysml_agent"]["fixer_format"] == run.FIXER_FORMAT and meta["sysml_agent"]["code_version"]
+    assert run.is_complete(d / "meta.json", run.MODEL, True)
+    with pytest.raises(SystemExit):
+        run.is_complete(d / "meta.json", "openai/gpt-4o-mini", True)
+    with pytest.raises(SystemExit):
+        run.is_complete(d / "meta.json", run.MODEL, False)

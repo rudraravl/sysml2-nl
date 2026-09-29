@@ -85,6 +85,7 @@ FIX_PROMPT = ("The SysML v2 model you generated is not valid. The validator repo
 EMPTY_ERROR = {"line": 1, "column": 0, "kind": "syntax",
                "message": "empty model: the response contains no SysML v2 code"}  # D12
 DEFAULT_VALIDATE_TIMEOUT = 300  # s; see antlr_check
+FIXER_FORMAT = "A1-underline"   # error report format of the Fixer turn (DEVIATIONS.md amendment A1)
 
 
 # --------------------------------------------------------------------------- prompts
@@ -255,6 +256,10 @@ def agent_block(res: dict, model: str, rag: bool, max_rounds: int) -> dict:
                                   "semantic": sum(e["kind"] == "semantic" for e in it["antlr"]["errors"])}
                                  for it in its],
         "antlr_timeout_by_iter": [bool(it["antlr"].get("timeout")) for it in its],
+        "antlr_unresolved_abstained_by_iter": [bool(it["antlr"].get("unresolved_abstained"))
+                                               for it in its],
+        "finish_reason_by_iter": [(it.get("usage") or {}).get("finish_reason") for it in its],
+        "provider_by_iter": [(it.get("usage") or {}).get("provider") for it in its],
         "compile_valid_by_iter": [it.get("compile", {}).get("is_valid") for it in its],
         "grammar_tag": antlr_validator.GRAMMAR_TAG,
         "retrieval_ids": [h["id"] for h in res["retrieval"]],
@@ -263,6 +268,8 @@ def agent_block(res: dict, model: str, rag: bool, max_rounds: int) -> dict:
         "backbone": model,
         "tokens": _tokens(its),
         "gen_elapsed_sec": res.get("gen_elapsed_sec"),
+        "fixer_format": FIXER_FORMAT,
+        "code_version": CODE_VERSION,
     }
 
 
@@ -298,6 +305,7 @@ def transcript(res: dict) -> dict:
             "iter": it["iter"],
             "sha256": hashlib.sha256(it["code"].encode("utf-8")).hexdigest()[:16],
             "antlr": {"valid": it["antlr"]["valid"], "timeout": bool(it["antlr"].get("timeout")),
+                      "unresolved_abstained": bool(it["antlr"].get("unresolved_abstained")),
                       "syntax": [e for e in it["antlr"]["errors"] if e["kind"] == "syntax"],
                       "semantic": [e for e in it["antlr"]["errors"] if e["kind"] == "semantic"]},
             "latency_sec": it["latency_sec"], "validate_sec": it["validate_sec"],
@@ -326,11 +334,31 @@ def write_seed(out_dir: Path, sid: str, prompt: str, res: dict, model: str, rag:
     return meta
 
 
-def is_complete(meta_path: Path) -> bool:
+def is_complete(meta_path: Path, model: str | None = None, rag: bool | None = None) -> bool:
+    """Done = meta.json has a `sysml_agent` block. With model/rag given, a seed written under a
+    different configuration raises instead of being silently kept (never mix configs in one dir)."""
     try:
-        return "sysml_agent" in json.loads(meta_path.read_text(encoding="utf-8"))
+        b = json.loads(meta_path.read_text(encoding="utf-8")).get("sysml_agent")
     except (OSError, json.JSONDecodeError):
         return False
+    if not b:
+        return False
+    if (model is not None and b.get("backbone") != model) or (rag is not None and b.get("rag") != rag):
+        raise SystemExit(f"{meta_path}: written with backbone={b.get('backbone')} rag={b.get('rag')}, "
+                         f"this run is backbone={model} rag={rag}; use a different --out-dir")
+    return True
+
+
+def _code_version() -> str:
+    import subprocess
+    try:
+        return subprocess.run(["git", "-C", str(_ROOT), "describe", "--always", "--dirty", "--abbrev=9"],
+                              capture_output=True, text=True, timeout=10).stdout.strip() or "unknown"
+    except (OSError, subprocess.SubprocessError):
+        return "unknown"
+
+
+CODE_VERSION = _code_version()
 
 
 # --------------------------------------------------------------------------- prompt sets
@@ -393,8 +421,8 @@ def main(argv=None) -> int:
     if a.limit is not None:
         ids = ids[:a.limit]
     mine = bon.shard_ids(ids, a.shards, a.shard)
-    todo = [s for s in mine if a.no_resume or not is_complete(out_dir / s / "meta.json")]
     rag = not a.no_rag
+    todo = [s for s in mine if a.no_resume or not is_complete(out_dir / s / "meta.json", a.model, rag)]
 
     print("=" * 70)
     print(f"SysMLAgent | model {a.model} | RAG {'on' if rag else 'OFF'} | "
@@ -434,6 +462,13 @@ def main(argv=None) -> int:
         else:
             print(f"  {sid}: no prompt, skipping")
     queue = [s for s in todo if s in text]
+    if rag:  # every query embedding must be cached: nodes have no model download (HF_HUB_OFFLINE)
+        import context_engine
+        missing = [s for s in queue if context_engine._key(text[s]) not in context_engine._queries()]
+        if missing and os.getenv("HF_HUB_OFFLINE") == "1":
+            print(f"Error: {len(missing)} prompts have no cached query embedding (e.g. {missing[:3]}); "
+                  f"run context_engine.py --precompute on a machine with the model", file=sys.stderr)
+            return 1
 
     stats = {"done": 0, "converged": 0, "compile_valid": 0, "errors": 0, "infra": 0, "rounds": 0}
     t_start = time.time()

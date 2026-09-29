@@ -202,3 +202,21 @@ The run used A1.
   median 95 s, max 1,159 s.
   **Projection for 1,543 prompts: ≈ $118, ≈ 2.3 h** on 5 shards × 8 seeds in flight, plus the
   tail from slow seeds.
+
+## Pre-deployment data-quality audit (pilot, 2026-09-28)
+
+- **No copying from retrieval:** a median of 2% (max 19%) of non-trivial output lines appear
+  verbatim in the two retrieved examples. Outputs model the requirement (e.g. U1532's parts are the
+  prompt's four modules), although they are thin.
+- **No empty replies, no truncation:** the largest completion was 15.3 k of the 32.8 k token cap.
+  From the full run on, every call records `finish_reason` and the serving provider
+  (`finish_reason_by_iter`, `provider_by_iter`).
+- **The unresolved-reference check never abstained** on the pilot ids in any arm (naive, FORGE,
+  and the three SysMLAgent snapshots), so ANTLR-valid is not inflated by (b) being skipped.
+  Per-iteration abstention is recorded (`antlr_unresolved_abstained_by_iter`).
+- ANTLR-valid on the 20 pilot ids: naive 0/20, FORGE 7/20, SysMLAgent iter-0 4/20, iter-1 11/20,
+  final 19/20 (`validator_conformance.py --corpus … --ids @pilot_ids.txt`).
+- **Provenance:** each `meta.json` records `code_version` (git describe, `-dirty` if uncommitted) and
+  `fixer_format` (`A1-underline`). A resume into a directory written with a different backbone or
+  RAG setting aborts instead of mixing configurations. With `HF_HUB_OFFLINE=1` the run refuses to
+  start if any prompt lacks a cached query embedding.

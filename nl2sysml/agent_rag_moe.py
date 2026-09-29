@@ -746,8 +746,11 @@ def _openrouter_invoke_once(model: str, system_msg: str, human_msg: str, key: st
         raise RuntimeError(
             f"OpenRouter returned unexpected payload for {model}: {obj!r}"
         ) from e
-    if usage_out is not None and isinstance(obj.get("usage"), dict):
-        usage_out.update(obj["usage"])
+    if usage_out is not None:
+        if isinstance(obj.get("usage"), dict):
+            usage_out.update(obj["usage"])
+        usage_out["finish_reason"] = (obj["choices"][0] or {}).get("finish_reason")
+        usage_out["provider"] = obj.get("provider")
     if text is None or not str(text).strip():
         # A successful provider response with no final answer is a model-output
         # failure, not an infrastructure one — return an empty candidate so the

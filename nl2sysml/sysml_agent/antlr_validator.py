@@ -217,7 +217,9 @@ class _Collect(SysMLv2ParserListener):
         self._ref(ctx, True)
 
 
-def semantic_errors(tree, checks=None, lib=None) -> list[dict]:
+def semantic_errors(tree, checks=None, lib=None, info=None) -> list[dict]:
+    """Semantic errors of a syntactically valid tree. `info`, if given, receives
+    `unresolved_abstained`: True when (b) was skipped because of an import of an unknown namespace."""
     import library_symbols
 
     checks = CHECKS if checks is None else checks
@@ -234,6 +236,8 @@ def semantic_errors(tree, checks=None, lib=None) -> list[dict]:
     for segs, kind in c.imports:
         got = library_symbols.exports(lib, segs, kind)
         if got is None and not (segs and segs[0] in c.declared):
+            if info is not None:
+                info["unresolved_abstained"] = True
             return sorted(errs, key=_pos)  # import of an unknown namespace: (b) is ambiguous, skip
         visible |= got or set()
     for ln, col, w, n, feature in c.refs:
@@ -256,9 +260,10 @@ def validate(code: str, checks=None) -> dict:
     """{valid, errors[]}; errors are syntax errors, or (only if there are none) semantic ones.
     `checks` overrides CHECKS (() = syntax only)."""
     tree, errs = parse(code or "")
+    info = {"unresolved_abstained": False}
     if not errs:
-        errs = semantic_errors(tree, checks)
-    return {"valid": not errs, "errors": errs}
+        errs = semantic_errors(tree, checks, info=info)
+    return {"valid": not errs, "errors": errs, **info}
 
 
 def underline(code: str, e: dict) -> list[str]:
