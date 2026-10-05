@@ -52,6 +52,11 @@ recompiled inside the loop; the risk scoring (impact × confidence, 10 when the 
   selected by the pragma), with `CompilerResult.format_errors()` as `{error_info}`. Upstream uses
   py-solc-x `compile_source` and passes the raw solc stderr cut from `> stderr:`. The diagnostics
   are the same solc errors, but ours omit warnings and add the offending source line.
+  `check_code` also stops before code generation (`SOLC_CODEGEN` is off, as for every arm we
+  score), so a "Stack too deep" contract passes it, while upstream's full compile would reject it
+  and send a compile-repair turn. In the 500-seed run this affected 3 seeds (U192, U335, U417):
+  they passed our check, Slither then failed on them (it needs the full build), so no security
+  turn fired (`security_feedback: "slither_error"`).
 - **Slither invocation:** the Slither CLI (`slither Candidate.sol --json - --solc <bin>`) with no
   `--exclude`, instead of the Python API with every detector registered. It runs the same detector
   set and applies upstream's filtering and merging. The solc binary is the one our checker picks

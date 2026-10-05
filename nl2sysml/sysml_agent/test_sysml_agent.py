@@ -182,9 +182,20 @@ def test_fixer_turn_carries_model_and_errors_and_history_accumulates():
     assert llm.seen[2][:4] == llm.seen[1]
 
 
-def test_empty_reply_is_invalid():
-    res = run.run_agent("req", FakeLLM(["", VALID]), retrieve=_hits)
+def test_empty_reply_is_retried_with_the_identical_request():
+    llm = FakeLLM(["", "```sysml\n```", VALID])  # two replies with no code, then a model
+    res = run.run_agent("req", llm, retrieve=_hits)
+    assert res["n_fix_rounds"] == 0 and res["converged"]
+    assert len(res["iterations"][0]["empty_retry_usage"]) == 2
+    assert llm.seen[0] == llm.seen[1] == llm.seen[2]  # nothing appended between retries
+    assert [m["role"] for m in res["messages"]] == ["system", "user", "assistant"]
+
+
+def test_empty_after_retries_is_invalid():
+    llm = FakeLLM(["", "", "", VALID])
+    res = run.run_agent("req", llm, retrieve=_hits)
     assert res["n_fix_rounds"] == 1 and res["iterations"][0]["antlr"]["errors"] == [run.EMPTY_ERROR]
+    assert run._tokens(res["iterations"])["total_tokens"] == 4 * 15
 
 
 def test_no_rag_skips_retrieval():

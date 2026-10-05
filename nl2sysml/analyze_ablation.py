@@ -32,9 +32,10 @@ seconds on a laptop or on PACE alike)
                                            static, over final.sysml; no arm repairs against it
 
 Scope: this is a standalone analysis of the ablation arms. It is NOT compared with the
-full-pipeline (`dataset/with_kernel_spec`) or naive (`dataset/naive_glm`) corpora: the
-ablation ran on the short seed prompts in `nl_seed.jsonl`, those corpora on long
-descriptions, so a pairing would confound prompt length with pipeline stage.
+full-pipeline (`dataset/with_kernel_spec`) or naive (`dataset/naive_glm`) corpora. The
+rich-500 study reuses those corpora's long descriptions for its 500 tasks, but it is a
+separate run under its own protocol (2 compiler + 2 execution repairs, no specification
+alignment), so a pairing would confound the run with the pipeline stage.
 
 Not available here: spec-alignment similarity. The ablation harness ran with
 specification_alignment = false, so there is nothing to pair.
@@ -43,13 +44,12 @@ Protocol
     * A task is analysed for an arm only if the harness marked it eligible. Cells
       lost to infrastructure interruptions (e.g. an exhausted API credit) are
       excluded, and a pair drops out of any comparison where either side is missing,
-      per the study protocol. A2-A4 may be partial runs: each comparison uses only
-      the tasks both arms completed.
+      per the study protocol. Each comparison uses only the tasks both arms completed.
     * Intent-to-treat: a task where the model produced nothing counts as a failure
       for every rate and as 0 for std-rule compliance; it has no error count.
 
-Layout under --root:    <root>/A1/tasks/<task>/run.json ... (or its parent, which
-                        holds one sysml-ablation-* study directory)
+Layout under --root:    <root>/A1/tasks/<task>/run.json ... (or a directory up to two
+                        levels above it, e.g. dataset/sysml-ablation/outputs/<study>)
 Default --root:         dataset/sysml-ablation
 
 Usage
@@ -103,9 +103,10 @@ def find_root(arg: Optional[str]) -> Path:
     base = Path(arg) if arg else DEFAULT_ROOT
     if _has_arms(base):
         return base
-    studies = sorted(p for p in base.glob("*") if _has_arms(p))
-    if studies:
-        return studies[-1]               # newest timestamped study directory
+    for pattern in ("*", "*/*"):         # <base>/<study> or <base>/outputs/<study>
+        studies = sorted(p for p in base.glob(pattern) if _has_arms(p))
+        if studies:
+            return studies[-1]           # newest timestamped study directory
     sys.exit(f"No SysML ablation arms (A*/tasks/*/run.json) found under {base}.\n"
              "Pass --root <study dir, or the dir holding it> (e.g. a PACE copy).")
 
@@ -356,9 +357,9 @@ def provenance(root: Path, corpora: dict[str, dict], arms: list[str]) -> str:
     prompt_line = (f"**Prompts:** `{dataset}` (sha256 `{str(ref_proto.get('dataset_sha256'))[:12]}…`), "
                    + (f"median {words[len(words) // 2]} words per prompt (range {words[0]}–{words[-1]}). "
                       if words else "prompt length unavailable. ")
-                   + "These are the short one-line seed prompts, not the long descriptions used to "
-                   "generate the full-pipeline and naive-baseline corpora, so absolute rates here "
-                   "describe this ablation only and are not comparable to those corpora.")
+                   + "The ablation is a separate run under its own protocol, so absolute rates here "
+                   "describe this ablation only and are not paired with the full-pipeline or "
+                   "naive-baseline corpora.")
     proto_line = ("**Protocol check:** the protocols of all arms are identical apart from the "
                   "condition under test (same prompts, dataset hash, retrieval corpus, expert and "
                   "combiner models, repair budgets, commit and seed)."
@@ -399,11 +400,12 @@ STUDY = ablation.Study(
         "tasks are dropped from every pair they touch.",
         "The compiler and the kernel are different engines: a task can pass the kernel while the "
         "compiler rejects it. `End-to-end pass` requires both, as in the harness.",
-        "This ablation ran on the short one-line seed prompts, and is analysed on its own: it is "
-        "deliberately not compared with the full-pipeline or naive corpora, which used long "
-        "descriptions.",
+        "This ablation is analysed on its own: it is deliberately not paired with the "
+        "full-pipeline or naive corpora, which come from separate runs under different "
+        "protocols (the ablation caps repair at 2 compiler + 2 execution rounds and disables "
+        "specification alignment).",
         "Spec-alignment similarity is not reported: the ablation harness ran with "
-        "`specification_alignment = false`. Partial arms are compared on the tasks both sides "
+        "`specification_alignment = false`. Arms are compared on the tasks both sides "
         "completed; the coverage table shows whether those subsets are representative.",
     ],
     find_root=find_root,

@@ -4,10 +4,9 @@ outcomes, each baseline paired against FORGE. Reads cached meta.json only (plus 
 cache for the upstream metrics). No LLM, solc or Slither calls.
 
 Outcomes (FSM_SCG_BASELINE_SPEC.md section 9, as amended 2026-09-23):
-  primary    contract-defect-free execution among executed contracts; spec-alignment accepted
-  secondary  Tier B property pass; solc compile-valid; Slither actionable-clean; quality grade A;
-             CPR, VRS, ZRCP, HRCP
-  tests      paired vs FORGE, McNemar (rates) / Wilcoxon (VRS), Holm at alpha = 0.05 over ALL
+  primary    contract-defect-free execution among executed contracts; spec-alignment similarity
+  secondary  solc compile-valid; Slither actionable-clean; quality grade A; CPR, VRS, ZRCP, HRCP
+  tests      paired vs FORGE, McNemar (rates) / Wilcoxon (similarity, VRS), Holm at alpha = 0.05 over ALL
              (baseline x metric) rows together
   cost       mean model calls, tokens and wall-clock per seed, where the corpus records them
 
@@ -16,6 +15,16 @@ Amendment 2026-09-23: Tier B property pass moved from primary to secondary. Over
 detectable effect (h ~ 0.10). The change was made after the 20-seed FSM-SCG* pilot had been
 scored, so the paper should disclose it. Tiers only order and label the rows: every test sits
 in one Holm family, so no p-value depends on this split.
+
+Amendment 2026-09-28: Tier B property pass removed from the table entirely. Its measurement is not
+comparable across arms: FORGE's property tests were written at generation time and 148 of its 500
+contracts got none (each scored as a failure), while naive_glm and FSM-SCG* got fresh tests from
+score_naive_glm.py. Spec-alignment acceptance also depends on those tests (quality_gate.py accepts
+only when the execution status, which includes the property tier, is passed or skipped); see
+results/fsm_scg/RESULTS.md. So spec-alignment accepted was replaced as a primary outcome by
+spec-alignment similarity, the twin-blind aligner's score in [0, 1], which does not depend on the
+property tests. Acceptance is no longer reported. Quality grade A includes acceptance and stays only
+as a secondary row.
 
 "Contract-defect-free execution" is reported two ways: among pairs where both contracts executed
 under Foundry (the pre-registered definition), and over all pairs with a non-executing contract
@@ -53,15 +62,18 @@ def executed(m):
 
 
 def defects_zero(m):
+    """Zero contract defects, defined only for a contract that executed under Foundry (None
+    otherwise), so a column rate and its paired test cover the same contracts."""
     e = core._exec(m)
-    return None if e is None or "contract_defects" not in e else e["contract_defects"] == 0
+    if e is None or "contract_defects" not in e or not executed(m):
+        return None
+    return e["contract_defects"] == 0
 
 
 # (key, label, kind, getter, subset rule, tier)
 ROWS = [
-    ("defect_exec", "Defect-free (executed)", "proportion", defects_zero, "both_executed", "primary"),
-    ("align", "Spec-alignment accepted", "proportion", core.align_accepted, None, "primary"),
-    ("props", "Tier B property pass", "proportion", core.tier_passed("properties"), None, "secondary"),
+    ("defect_exec", "Defect-free (executed)", "proportion", defects_zero, None, "primary"),
+    ("similarity", "Spec-alignment similarity", "continuous", core.similarity, None, "primary"),
     ("valid", "solc compile-valid", "proportion", core.is_valid, None, "secondary"),
     ("sec_clean", "Slither actionable-clean", "proportion", core.sec_clean, "both_compile", "secondary"),
     ("grade_a", "Quality grade A", "proportion", core.grade_a, None, "secondary"),
@@ -147,9 +159,7 @@ def main() -> int:
             continue
         for key, label, kind, get, rule, tier in ROWS:
             sids = shared
-            if rule == "both_executed":
-                sids = [s for s in shared if executed(c[s]) and executed(ref[s])]
-            elif rule == "both_compile":
+            if rule == "both_compile":
                 sids = [s for s in shared if core.is_valid(c[s]) and core.is_valid(ref[s])]
             tests.append(((name, key, tier), ps.PairedMetric.from_pairs(
                 label, kind, [(s, get(c[s]), get(ref[s])) for s in sids])))
@@ -182,7 +192,8 @@ def main() -> int:
             s += "$^{*}$"
         return s
 
-    cols = [(k, lab, True, 1) for k, lab, *_ in ROWS] + [
+    cols = [(k, lab, kind == "proportion", 1 if kind == "proportion" else 3)
+            for k, lab, kind, *_ in ROWS] + [
         ("CPR", "CPR", True, 1), ("VRS", "VRS", False, 2), ("ZRCP", "ZRCP", True, 1),
         ("HRCP", "HRCP", True, 1),
         ("calls", "Calls", False, 1), ("tokens", "Tokens", False, 0), ("sec", "Sec", False, 0)]
@@ -193,7 +204,7 @@ def main() -> int:
            "\\begin{table}[t]", "\\centering",
            f"\\caption{{Solidity baselines vs.\\ FORGE on $n={len(shared)}$ shared requirements. "
            "Primary: defect-free execution (among pairs where both contracts execute) and "
-           "spec-alignment accepted; the rest are secondary. $^{*}$: differs from FORGE, paired McNemar/Wilcoxon, "
+           "spec-alignment similarity (aligner score in $[0,1]$); the rest are secondary. $^{*}$: differs from FORGE, paired McNemar/Wilcoxon, "
            "Holm-corrected at $\\alpha=0.05$ over every baseline$\\times$metric test. "
            "VRS: FSM-SCG risk score (lower is better). Cost is generation only, per seed; -- = not recorded. "
            "$^\\dagger$FSM-SCG$^*$, the prompting variant.}",

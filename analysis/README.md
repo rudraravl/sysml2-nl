@@ -57,7 +57,7 @@ metric definitions, so they cannot drift apart.
 | Domain | Script | Arms | Default data | Default output |
 |---|---|---|---|---|
 | Solidity | `nl2solidity/ablation/analyze_ablation.py` | A0 one-shot … A5 full | `nl2solidity/dataset/ablation`, else the local `ablation/solidity_ablation/ablation` | `nl2solidity/dataset/analysis_results/ablation/` |
-| SysML | `nl2sysml/analyze_ablation.py` | A1 GLM+RAG … A4 (discovered from the data) | `dataset/sysml-ablation` (newest study dir) | `dataset/analysis_results/sysml_ablation/` |
+| SysML | `nl2sysml/analyze_ablation.py` | A1 GLM+RAG … A4 (discovered from the data) | `dataset/sysml-ablation` (newest study dir, up to two levels down) | `dataset/analysis_results/sysml_ablation/` |
 | Modelica | `nl2robotics/modelica/analyze_ablation.py` | A0 direct … A4 (from `study-protocol.json`) | `nl2robotics/glm52-ablation-corpus-v2` | `nl2robotics/analysis_results/modelica_ablation/` |
 
 ```bash
@@ -94,13 +94,17 @@ stages after the first failure), so it stays correct if the study is rerun. Test
 compiler errors, kernel pass, kernel errors and Standard Modeling Rule compliance, plus
 pre-repair validity and end-to-end pass. Spec-alignment similarity is absent: the ablation
 harness ran with `specification_alignment = false`. There is no one-shot arm, so cumulative
-comparisons are against retrieval-only (A1), not naive. The ablation ran on the short seed
-prompts (`nl_seed.jsonl`, median ~17 words) while the full-pipeline and naive corpora used long
-descriptions (~300 words), so this analysis is deliberately **standalone**: it is not compared
-with `with_kernel_spec` or `naive_glm`, and its absolute rates should not be read against them. Cells the harness marks as
+comparisons are against retrieval-only (A1), not naive. The current study (rich-500,
+`dataset/sysml-ablation/outputs/sysml-ablation-rich500-20260922-0acc72e0`) runs 500 tasks per
+arm, complete in every arm, on the same long descriptions (median ~300 words) the full-pipeline
+corpus used for those tasks. It is still a separate run under its own protocol (2 compiler + 2
+execution repairs, no specification alignment), so this analysis is deliberately
+**standalone**: it is not paired with `with_kernel_spec` or `naive_glm`. The earlier partial
+short-seed-prompt study (1,574 tasks, A4 stopped at 861) is superseded and kept only as raw data
+in `dataset/sysml-ablation-old`. Cells the harness marks as
 infrastructure-excluded (e.g. an exhausted API credit) are dropped and a pair vanishes from any
 comparison where either side is missing; a task where the model produced nothing counts as a
-failure for rates and has no error count. A2–A4 can be partial runs, so the summary includes a
+failure for rates and has no error count. The summary includes a
 coverage table showing whether each arm's completed subset is representative, and a protocol
 check that the arms differ only in the condition under test. Tests:
 `.venv/bin/python -m pytest nl2sysml/test_analyze_ablation.py`.

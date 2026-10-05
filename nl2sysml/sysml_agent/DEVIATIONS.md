@@ -220,3 +220,24 @@ The run used A1.
   `fixer_format` (`A1-underline`). A resume into a directory written with a different backbone or
   RAG setting aborts instead of mixing configurations. With `HF_HUB_OFFLINE=1` the run refuses to
   start if any prompt lacks a cached query embedding.
+
+## Post-run amendment A2 (2026-09-29): empty replies are re-requested
+
+**Found in the first 1,454 seeds.** GLM-5.2 is a reasoning model. On some Fixer turns it spent the
+entire 32,768-token completion budget on hidden reasoning and returned no content
+(`finish_reason: length`, 28–32 k reasoning tokens): 250 of 316 empty replies. The loop then has no
+model left to fix and usually stalls. 163/1,454 seeds (11.2%) had at least one empty reply, and 66
+ended empty; those score as failures on every metric and pulled std-rule compliance down. The
+paper's GPT-4o-mini is not a reasoning model and cannot fail this way.
+
+**Change.** A reply that yields no code is re-sent with the identical message list, up to 2 more
+times (`EMPTY_RETRIES`). Nothing is added to the conversation between attempts, and discarded
+attempts are recorded (`empty_retry_usage`, `empty_retries_by_iter`). If it is still empty after
+that, the empty candidate stands as a model outcome. This is parity with the other arms: the naive
+arm retries an empty or degenerate reply once (7 empty finals remain), and FORGE's
+`_invoke_with_retry` retries once and then fails the seed, which is regenerated (0 empty finals).
+
+**Scope of the re-run.** Only the 163 affected seeds are regenerated; the other seeds never produced
+an empty reply, so the rule would not have fired for them and their outputs stand. The first
+outputs of the 163 are kept for audit in `dataset/sysml_agent_A2_superseded/`. Interim results
+before A2 (n = 1,445 paired) are in `dataset/analysis_results/sysml_agent/comparison_preA2.*`.

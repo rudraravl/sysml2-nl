@@ -86,6 +86,10 @@ EMPTY_ERROR = {"line": 1, "column": 0, "kind": "syntax",
                "message": "empty model: the response contains no SysML v2 code"}  # D12
 DEFAULT_VALIDATE_TIMEOUT = 300  # s; see antlr_check
 FIXER_FORMAT = "A1-underline"   # error report format of the Fixer turn (DEVIATIONS.md amendment A1)
+# A2: a reply with no code (e.g. a reasoning backbone spending its whole token budget on hidden
+# reasoning, finish_reason=length) is re-requested with the identical messages, up to this many
+# times, as the naive and FORGE arms retry empty replies. Still empty after that = model outcome.
+EMPTY_RETRIES = 2
 
 
 # --------------------------------------------------------------------------- prompts
@@ -174,13 +178,19 @@ def run_agent(requirement: str, chat, rag: bool = True, max_rounds: int = MAX_FI
 
     def step():
         t0 = time.time()
-        raw, usage = chat(messages)
+        retried = []  # usage of discarded empty replies (A2)
+        while True:
+            raw, usage = chat(messages)
+            code = extract(raw)
+            if code.strip() or len(retried) >= EMPTY_RETRIES:
+                break
+            retried.append(usage)
         latency = time.time() - t0
         messages.append({"role": "assistant", "content": raw})
-        code = extract(raw)
         t1 = time.time()
         v = validate(code)
         iters.append({"iter": len(iters), "code": code, "antlr": v, "usage": usage,
+                      "empty_retry_usage": retried,
                       "latency_sec": round(latency, 2), "validate_sec": round(time.time() - t1, 2)})
         return code, v
 
@@ -236,11 +246,10 @@ def run_seed(job: dict) -> dict:
 # --------------------------------------------------------------------------- output
 def _tokens(iters: list[dict]) -> dict:
     """Summed provider usage; `cost` is OpenRouter's billed USD."""
-    tot = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
-    for it in iters:
-        for k in tot:
-            tot[k] += int((it.get("usage") or {}).get(k) or 0)
-    tot["cost"] = round(sum(float((it.get("usage") or {}).get("cost") or 0) for it in iters), 6)
+    us = [u or {} for it in iters for u in [it.get("usage")] + list(it.get("empty_retry_usage") or [])]
+    tot = {k: sum(int(u.get(k) or 0) for u in us)
+           for k in ("prompt_tokens", "completion_tokens", "total_tokens")}
+    tot["cost"] = round(sum(float(u.get("cost") or 0) for u in us), 6)
     return tot
 
 
@@ -260,6 +269,8 @@ def agent_block(res: dict, model: str, rag: bool, max_rounds: int) -> dict:
                                                for it in its],
         "finish_reason_by_iter": [(it.get("usage") or {}).get("finish_reason") for it in its],
         "provider_by_iter": [(it.get("usage") or {}).get("provider") for it in its],
+        "empty_retries_by_iter": [len(it.get("empty_retry_usage") or []) for it in its],
+        "empty_retry_policy": EMPTY_RETRIES,
         "compile_valid_by_iter": [it.get("compile", {}).get("is_valid") for it in its],
         "grammar_tag": antlr_validator.GRAMMAR_TAG,
         "retrieval_ids": [h["id"] for h in res["retrieval"]],
@@ -309,7 +320,8 @@ def transcript(res: dict) -> dict:
                       "syntax": [e for e in it["antlr"]["errors"] if e["kind"] == "syntax"],
                       "semantic": [e for e in it["antlr"]["errors"] if e["kind"] == "semantic"]},
             "latency_sec": it["latency_sec"], "validate_sec": it["validate_sec"],
-            "usage": it["usage"], "compile": it.get("compile"),
+            "usage": it["usage"], "empty_retry_usage": it.get("empty_retry_usage", []),
+            "compile": it.get("compile"),
         } for it in res["iterations"]],
         "converged": res["converged"], "n_fix_rounds": res["n_fix_rounds"],
         "n_calls": res["n_calls"],
