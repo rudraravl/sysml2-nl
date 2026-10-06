@@ -87,8 +87,11 @@ python ecir_v3/generate.py R1  --provider P
 python ecir_v3/generate.py R1b --provider P
 python ecir_v3/generate.py R2  --lang sys --provider P   # and --lang sol, --lang mod
 python ecir_v3/generate.py R4  --provider P
-python ecir_v3/analyze.py stage1 && python ecir_v3/analyze.py a1
+python ecir_v3/analyze.py stage1 && python ecir_v3/analyze.py a1   # a1 also writes A1.impshare/impvalid/impcopied/impexset.<arm>
 
+# Stage 2 + gated Stage 3 for Solidity, as one resumable queue (~1,720 calls, + up to 400 for R7):
+#   nohup ecir_v3/run_stage2_sol.sh > ecir_v3/analysis/stage2_queue.log 2>&1 &
+# or step by step:
 # Stage 2 (~3,150 calls)
 python ecir_v3/generate.py U0 --lang sol --provider P    # and --lang mod (see deviation 9)
 python ecir_v3/generate.py U1 --lang sol --provider P    # and --lang mod

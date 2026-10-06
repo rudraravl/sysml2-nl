@@ -396,12 +396,17 @@ def preflight(args):
     except Exception as e:
         print("endpoint listing failed:", e); ok = False
     # compiler controls: a valid and an invalid program must be told apart
-    sys_ok = L.compile_check("sys", "package P { part def A; }")["compile_valid"]
-    sys_bad = L.compile_check("sys", "package P { part def A }} oops")["compile_valid"]
-    print("SysML compiler controls (valid, invalid):", sys_ok, sys_bad); ok &= sys_ok and not sys_bad
-    sol = L.compile_check("sol", "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.20;\ncontract C { uint x; }")
-    print("solc control:", sol["compile_valid"], sol.get("solc")); ok &= sol["compile_valid"]
     want = set((args.lang or "sys,sol,mod").split(","))
+    if "sys" in want:
+        sys_ok = L.compile_check("sys", "package P { part def A; }")["compile_valid"]
+        sys_bad = L.compile_check("sys", "package P { part def A }} oops")["compile_valid"]
+        print("SysML compiler controls (valid, invalid):", sys_ok, sys_bad); ok &= sys_ok and not sys_bad
+    if "sol" in want:
+        sol = L.compile_check("sol", "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.20;\ncontract C { uint x; }")
+        print("solc control:", sol["compile_valid"], sol.get("solc"), "(installed set:", L.PACE_SOLC + ")")
+        ok &= sol["compile_valid"] and sol.get("solc") in L.PACE_SOLC.split(",")
+        fv = versions()["foundry"]
+        print("forge:", fv); ok &= bool(fv)
     if "mod" in want:
         try:
             m = L.compile_check("mod", "model M\n  Real x(start=1);\nequation\n  der(x) = -x;\nend M;")
@@ -410,7 +415,6 @@ def preflight(args):
             print("OpenModelica control failed:", e); ok = False
     else:
         print("OpenModelica: not checked (--lang excludes mod)")
-    print("forge:", versions()["foundry"])
     if args.probe:
         r = chat("Reply with READY.", "READY?", lang="sol", provider=args.provider)
         print("probe:", r["text"][:40], "served by", r["provider"], r["usage"])

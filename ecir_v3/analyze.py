@@ -4,7 +4,7 @@
   python ecir_v3/analyze.py a10          leakage (A10.leak.proto, A10.leak.dup)
   python ecir_v3/analyze.py a14          retrieval score vs. final validity under repair (A14.*)
   python ecir_v3/analyze.py stage1       R1, R1b, R2, R4, V, A2 (+ fig-selective.pdf), Table 1 Holm family
-  python ecir_v3/analyze.py a1           Solidity error classes (A1.*)
+  python ecir_v3/analyze.py a1           Solidity error classes and the import mechanism (A1.*)
   python ecir_v3/analyze.py u2           label reliability (U2.agree, U2.kappa)
   python ecir_v3/analyze.py a13          pool evaluation, reranker CV, harm model, R7 gate (U1.*, A13.*)
   python ecir_v3/analyze.py r7           reranked vs deployed A1 on the held-out IDs (R7.*)
@@ -307,6 +307,57 @@ def a1():
         per["increase_a0_to_a1"] = inc
     save("A1_error_classes", per)
     placeholders_set(vals, "analyze.py a1")
+    print(json.dumps(vals, indent=1))
+    a1_imports(arms)
+
+
+_IMPORT = re.compile(r"""^\s*import\s+[^;]*?["']([^"']+)["']""", re.M)
+
+
+def _sol_program(path, rid):
+    """Generated Solidity program behind a results.jsonl row (v1 ladder dir or a v3 run's outputs/)."""
+    if path.parent.parent.parent.name == "ladder":          # runs/ladder/sol/<arm>/results.jsonl
+        f = LADDER_SOL / path.parent.name / rid / f"{rid}.sol"
+    else:
+        f = path.parent / "outputs" / f"{rid}.sol"
+    return f.read_text(encoding="utf-8") if f.exists() else ""
+
+
+def a1_imports(arms):
+    """Mechanism behind the Solidity A0->A1 loss: generated contracts copy a retrieved exemplar's import,
+    and an import never compiles as a single file. Keys (no sentence is written; the TODO stays manual):
+      A1.impshare.<arm>   % of contracts with an import statement
+      A1.impvalid.<arm>   % of those that compile
+      A1.impcopied.<arm>  % of importing contracts whose import path (or file name) is in a retrieved exemplar
+      A1.impexset.<arm>   % of requirements whose retrieved set contains an importing exemplar"""
+    from corpora import exemplar_index
+    ix = exemplar_index("sol")
+    vals, rep = {}, {}
+    for arm, p in arms.items():
+        p = Path(p)
+        rows = [r for r in read_jsonl(p) if r["status"] != "infra_error"] if have(p) else []
+        if not rows:
+            continue
+        n = len(rows)
+        imp = valid = copied = exset = 0
+        for r in rows:
+            paths = _IMPORT.findall(_sol_program(p, r["req_id"]))
+            ex = r["retrieval"]["exemplar_ids"]
+            ex_paths = {q for x in ex for q in _IMPORT.findall(ix[x].code)}
+            exset += bool(ex_paths)
+            if paths:
+                imp += 1
+                valid += bool(r["compile_valid"])
+                names = {q.split("/")[-1] for q in ex_paths}
+                copied += any(q in ex_paths or q.split("/")[-1] in names for q in paths)
+        rep[arm] = {"n": n, "with_import": imp, "with_import_valid": valid, "copied": copied, "importing_exemplar_in_set": exset}
+        vals[f"A1.impshare.{arm}"] = pct(imp / n)
+        vals[f"A1.impvalid.{arm}"] = pct(valid / imp) if imp else "0.0"
+        if arm != "a0":
+            vals[f"A1.impcopied.{arm}"] = pct(copied / imp) if imp else "0.0"
+            vals[f"A1.impexset.{arm}"] = pct(exset / n)
+    save("A1_import_mechanism", rep)
+    placeholders_set(vals, "analyze.py a1 (imports)")
     print(json.dumps(vals, indent=1))
 
 
