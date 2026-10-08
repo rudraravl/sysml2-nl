@@ -170,8 +170,12 @@ def run_job(job: Job, args) -> dict:
     logp = root / "logs" / f"{job.key}.json"
     if logp.exists():
         old = json.loads(logp.read_text())
-        if old.get("record", {}).get("status") in ("ok", "empty_output"):
-            return old["record"]
+        orec = old.get("record", {})
+        if orec.get("status") in ("ok", "empty_output"):
+            # Solidity records scored before import-resolved scoring existed are re-scored from the
+            # cached program below (no model call); everything else is final.
+            if not (job.lang == "sol" and "gain_res" not in orec and not args.dry_run):
+                return orec
     req = requirements(job.lang)[job.req_id]
     rec = {"req_id": job.req_id, "status": "ok", "compile_valid": False, "n_compiler_errors": 0,
            "compiler_error_classes": [], "gain": 0,
@@ -230,6 +234,10 @@ def run_job(job: Job, args) -> dict:
     rec["possibly_billed_failures"] = sum(c.get("possibly_billed_failures") or 0 for c in calls)
     if not code.strip():
         rec["status"] = "empty_output"
+        if job.lang == "sol":
+            rec.update({"compile_valid_res": False, "n_compiler_errors_res": 0, "compiler_error_classes_res": [],
+                        "gain_res": 0, "res_profile": None, "res_resolved": [], "res_unresolved": [],
+                        "res_lib_errors": 0})
         return _finish(job, rec, log, logp, code="")
     # 2) scoring: local toolchains only; retried on infrastructure failure without regenerating.
     last = None
@@ -244,6 +252,10 @@ def run_job(job: Job, args) -> dict:
                 [str(e.get("code") or "other") for e in s["errors"]]
             if s.get("solc"):
                 rec["solc"] = s["solc"]
+            if job.lang == "sol":
+                rec.update({k: s[k] for k in ("compile_valid_res", "n_compiler_errors_res", "gain_res",
+                                              "res_profile", "res_resolved", "res_unresolved", "res_lib_errors")})
+                rec["compiler_error_classes_res"] = [L.solc_class(e) for e in s["errors_res"]]
             log["score"] = s
             return _finish(job, rec, log, logp, code=code)
         except Exception as e:
@@ -358,11 +370,18 @@ def run_task(task, lang, args):
 
 
 # ---------------------------------------------------------------- labels (U1 + U0 -> labels.jsonl)
+def gain_key(lang):
+    """Label metric: Solidity uses the import-resolved gain (as Table 1 uses compile_valid_res) unless
+    ECIR_SOL_SCORING=single; other languages have one gain."""
+    return "gain_res" if lang == "sol" and os.getenv("ECIR_SOL_SCORING", "resolved") != "single" else "gain"
+
+
 def build_labels(lang):
+    gk = gain_key(lang)
     u0 = collections.defaultdict(list)
     for r in read_jsonl(RUNS / "U0" / lang / "A0" / "results.jsonl"):
         if r["status"] != "infra_error":
-            u0[r["req_id"]].append(int(r["gain"]))
+            u0[r["req_id"]].append(int(r[gk]))
     pool = {row["req_id"]: {it["exemplar_id"]: it for it in row["pool"]}
             for row in read_jsonl(RETR / lang / "pool.jsonl")}
     out, missing = [], set()
@@ -372,12 +391,13 @@ def build_labels(lang):
         if not u0.get(r["req_id"]):
             missing.add(r["req_id"]); continue
         it = pool[r["req_id"]][r["exemplar_id"]]
-        out.append({"req_id": r["req_id"], "exemplar_id": r["exemplar_id"], "gain": int(r["gain"]),
+        out.append({"req_id": r["req_id"], "exemplar_id": r["exemplar_id"], "gain": int(r[gk]),
+                    "gain_single": int(r["gain"]), "gain_res": r.get("gain_res"), "gain_metric": gk,
                     "g0": int(statistics.median_low(u0[r["req_id"]])),
                     "g0_samples": u0[r["req_id"]], "ranks": it["ranks"], "random": it["random"],
                     "features": it["features"], "status": r["status"]})
     write_jsonl(RUNS / "U1" / lang / "labels.jsonl", out)
-    print(f"{lang}: {len(out)} labels; requirements lacking U0 samples: {sorted(missing)}")
+    print(f"{lang}: {len(out)} labels ({gk}); requirements lacking U0 samples: {sorted(missing)}")
 
 
 # ---------------------------------------------------------------- preflight

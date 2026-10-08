@@ -5,6 +5,7 @@
   python ecir_v3/analyze.py a14          retrieval score vs. final validity under repair (A14.*)
   python ecir_v3/analyze.py stage1       R1, R1b, R2, R4, V, A2 (+ fig-selective.pdf), Table 1 Holm family
   python ecir_v3/analyze.py a1           Solidity error classes and the import mechanism (A1.*)
+  python ecir_v3/analyze.py res          Solidity Stage 1 + A1 with library imports resolved (RES.*)
   python ecir_v3/analyze.py u2           label reliability (U2.agree, U2.kappa)
   python ecir_v3/analyze.py a13          pool evaluation, reranker CV, harm model, R7 gate (U1.*, A13.*)
   python ecir_v3/analyze.py r7           reranked vs deployed A1 on the held-out IDs (R7.*)
@@ -16,6 +17,7 @@ from __future__ import annotations
 
 import collections
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -33,6 +35,11 @@ A0 = {"sys": RUNS / "R4/sys/A0/results.jsonl", "sol": RUNS / "ladder/sol/A0/resu
 A1 = {l: RUNS / f"ladder/{l}/A1/results.jsonl" for l in ("sys", "sol", "mod")}
 ALT = {"sol": RUNS / "R1/sol/A1bm25/results.jsonl", "mod": RUNS / "R1b/mod/A1cos/results.jsonl"}
 RAND = {l: RUNS / f"R2/{l}/A1rand/results.jsonl" for l in ("sys", "sol", "mod")}
+# Solidity compile validity is scored with library imports resolved (sol_imports.py, README deviation 18);
+# ECIR_SOL_SCORING=single restores v1's single-file verdicts.
+_SFX = "" if os.getenv("ECIR_SOL_SCORING", "resolved") == "single" else "_res"
+CV = {"sys": "compile_valid", "sol": "compile_valid" + _SFX, "mod": "compile_valid"}
+NERR, ECLS = "n_compiler_errors" + _SFX, "compiler_error_classes" + _SFX   # Solidity only
 
 
 def have(*ps):
@@ -184,7 +191,7 @@ def a14():
     for lang in ("sol", "mod"):
         rows = [r for r in read_jsonl(RUNS / f"ladder/{lang}/A3/results.jsonl")
                 if r["status"] != "infra_error" and r["retrieval"]["scores"]]
-        y = np.array([int(r["compile_valid"]) for r in rows])
+        y = np.array([int(r[CV[lang]]) for r in rows])
         x = np.array([float(r["retrieval"]["scores"][0]) for r in rows])
         o, lo, hi, p, n = _logit_or(y, x)
         rep[lang] = {"n": n, "or_per_sd": o, "ci": [lo, hi], "p": p, "final_valid_rate": y.mean()}
@@ -199,10 +206,9 @@ def a14():
 def stage1():
     vals, rep, fam = {}, {}, []      # fam: Table 1 Holm family entries (label, raw p)
 
-    def cmp(a, b, m="compile_valid", kind="rate"):
-        return T.compare(str(a), str(b), m, kind)
-
     for lang in ("sys", "sol", "mod"):
+        def cmp(a, b, m=CV[lang], kind="rate"):
+            return T.compare(str(a), str(b), m, kind)
         if have(A0[lang], A1[lang]):
             c = cmp(A0[lang], A1[lang]); rep[f"{lang}.A1_vs_A0"] = c; fam.append((f"{lang}.A1_vs_A0", c["p_raw"]))
         if lang in ALT and have(A0[lang], ALT[lang]):
@@ -210,7 +216,7 @@ def stage1():
         if have(A1[lang], RAND[lang]):
             c = cmp(A1[lang], RAND[lang]); rep[f"{lang}.rand_vs_A1"] = c; fam.append((f"{lang}.rand_vs_A1", c["p_raw"]))
         if have(A0[lang], A1[lang]):
-            s = T.selective(str(A0[lang]), str(A1[lang]), "compile_valid")
+            s = T.selective(str(A0[lang]), str(A1[lang]), CV[lang])
             rep[f"{lang}.selective"] = s
             fam.append((f"{lang}.sel_vs_best", s["p_vs_best_fixed"]))
     adj = dict(zip([k for k, _ in fam], T.holm([p for _, p in fam])))
@@ -226,7 +232,7 @@ def stage1():
         c = rep["sol.alt_vs_A0"]
         vals.update({"R1.sol.cv": c["b_pct"], "R1.sol.d": c["delta_pp"], "R1.sol.p": P("sol.alt_vs_A0")})
         alt = read_jsonl(ALT["sol"])
-        vals["R1.sol.err"] = f"{np.mean([r['n_compiler_errors'] for r in alt if r['status'] != 'infra_error']):.2f}"
+        vals["R1.sol.err"] = f"{np.mean([r[NERR] for r in alt if r['status'] != 'infra_error']):.2f}"
     if "mod.alt_vs_A0" in rep:
         vals["R1b.mod.cv"] = rep["mod.alt_vs_A0"]["b_pct"]
     gaps = {}
@@ -237,7 +243,7 @@ def stage1():
             gaps[lang] = (-float(c["delta_pp"]), adj[f"{lang}.rand_vs_A1"])    # A1 minus random
     if "sol.rand_vs_A1" in rep:
         rr = read_jsonl(RAND["sol"])
-        vals["R2.sol.err"] = f"{np.mean([r['n_compiler_errors'] for r in rr if r['status'] != 'infra_error']):.2f}"
+        vals["R2.sol.err"] = f"{np.mean([r[NERR] for r in rr if r['status'] != 'infra_error']):.2f}"
     if gaps:
         sig = [g for g, p in gaps.values() if p < 0.05 and g > 0]
         if sig:
@@ -273,7 +279,7 @@ def stage1():
     if have(A0["sol"], A1["sol"], A0["mod"], A1["mod"]):
         PAPER.mkdir(parents=True, exist_ok=True)
         T.curve(str(PAPER / "fig-selective.pdf"),
-                [f"Solidity:{A0['sol']}:{A1['sol']}", f"Modelica:{A0['mod']}:{A1['mod']}"])
+                [f"Solidity:{A0['sol']}:{A1['sol']}:{CV['sol']}", f"Modelica:{A0['mod']}:{A1['mod']}"])
     rep["family_complete"] = len(fam) == 11
     if len(fam) != 11:
         # Holm-adjusted values depend on the whole family: keep them out of placeholders.json until it is complete.
@@ -294,7 +300,7 @@ def a1():
         rows = [r for r in read_jsonl(p) if r["status"] != "infra_error"] if have(p) else []
         if not rows:
             continue
-        c = collections.Counter(x for r in rows for x in r.get("compiler_error_classes") or [])
+        c = collections.Counter(x for r in rows for x in r.get(ECLS) or [])
         per[arm] = {k: c[k] / len(rows) for k in ERR_CLASSES}
         per[arm]["_n"] = len(rows)
     vals = {f"A1.{k}.{arm}": f"{v[k]:.2f}" for arm, v in per.items() for k in ERR_CLASSES}
@@ -347,7 +353,7 @@ def a1_imports(arms):
             exset += bool(ex_paths)
             if paths:
                 imp += 1
-                valid += bool(r["compile_valid"])
+                valid += bool(r[CV["sol"]])
                 names = {q.split("/")[-1] for q in ex_paths}
                 copied += any(q in ex_paths or q.split("/")[-1] in names for q in paths)
         rep[arm] = {"n": n, "with_import": imp, "with_import_valid": valid, "copied": copied, "importing_exemplar_in_set": exset}
@@ -358,6 +364,59 @@ def a1_imports(arms):
             vals[f"A1.impexset.{arm}"] = pct(exset / n)
     save("A1_import_mechanism", rep)
     placeholders_set(vals, "analyze.py a1 (imports)")
+    print(json.dumps(vals, indent=1))
+
+
+# ---------------------------------------------------------------- import-resolved Solidity (sensitivity)
+def res():
+    """Solidity Stage 1 + A1 under import-resolved scoring (sol_imports.py; fields added by
+    rescore_sol_imports.py). Keys RES.*; p values are raw and Holm-adjusted within this 4-test family
+    (A1 vs A0, alt vs A0, random vs A1, selective vs best fixed), separate from the Table 1 family."""
+    from langs import ERR_CLASSES
+    m = "compile_valid_res"
+    arms = {"a0": A0["sol"], "a1": A1["sol"], "alt": ALT["sol"], "rand": RAND["sol"],
+            "a3": RUNS / "ladder/sol/A3/results.jsonl"}
+    data = {k: [r for r in read_jsonl(p) if r["status"] != "infra_error"] for k, p in arms.items()}
+    if any(m not in r for rows in data.values() for r in rows):
+        raise FileNotFoundError("compile_valid_res missing; run ecir_v3/rescore_sol_imports.py")
+    rep, vals = {"arms": {}}, {}
+    for k, rows in data.items():
+        n = len(rows)
+        imp = [r for r in rows if r.get("res_profile")]
+        rep["arms"][k] = {"n": n, "cv_single_pct": pct(sum(bool(r["compile_valid"]) for r in rows) / n),
+                          "cv_res_pct": pct(sum(bool(r[m]) for r in rows) / n),
+                          "with_resolvable_import": len(imp),
+                          "with_resolvable_import_valid": sum(bool(r[m]) for r in imp),
+                          "err_per_sample_res": f"{np.mean([r['n_compiler_errors_res'] for r in rows]):.2f}"}
+        vals[f"RES.sol.{k}.cv"] = rep["arms"][k]["cv_res_pct"]
+        vals[f"RES.sol.{k}.err"] = rep["arms"][k]["err_per_sample_res"]
+        if imp:
+            vals[f"RES.sol.{k}.impvalid"] = pct(rep["arms"][k]["with_resolvable_import_valid"] / len(imp))
+    fam = {"a1_vs_a0": T.compare(str(A0["sol"]), str(A1["sol"]), m),
+           "alt_vs_a0": T.compare(str(A0["sol"]), str(ALT["sol"]), m),
+           "rand_vs_a1": T.compare(str(A1["sol"]), str(RAND["sol"]), m)}
+    sel = T.selective(str(A0["sol"]), str(A1["sol"]), m)
+    raw = [fam[k]["p_raw"] for k in fam] + [sel["p_vs_best_fixed"]]
+    adj = T.holm(raw)
+    for (k, c), p in zip(fam.items(), adj):
+        c["p_holm4"] = p
+        vals.update({f"RES.sol.{k}.d": c["delta_pp"], f"RES.sol.{k}.ci": c["ci"], f"RES.sol.{k}.p": T.fmt_p(p)})
+    sel["p_holm4"] = adj[-1]
+    vals.update({"RES.sol.sel": sel["selective_pct"], "RES.sol.orc": sel["oracle_pct"],
+                 "RES.sol.sel.d": sel["delta_vs_best_fixed_pp"], "RES.sol.sel.p": T.fmt_p(adj[-1])})
+    rep.update(fam)
+    rep["selective"] = sel
+    # error classes per sample (first attempt), as Table 2
+    cls = {}
+    for k in ("a0", "a1", "alt", "rand"):
+        c = collections.Counter(x for r in data[k] for x in r.get("compiler_error_classes_res") or [])
+        cls[k] = {e: c[e] / len(data[k]) for e in ERR_CLASSES}
+        vals.update({f"RES.A1.{e}.{k}": f"{cls[k][e]:.2f}" for e in ERR_CLASSES})
+    inc = {e: cls["a1"][e] - cls["a0"][e] for e in ERR_CLASSES}
+    rep["error_classes"], rep["increase_a0_to_a1"] = cls, inc
+    rep["n_compiler_errors_a1_vs_a0"] = T.compare(str(A0["sol"]), str(A1["sol"]), "n_compiler_errors_res", "count")
+    save("RES_sol_imports", rep)
+    placeholders_set(vals, "analyze.py res (import-resolved Solidity)")
     print(json.dumps(vals, indent=1))
 
 
@@ -372,8 +431,9 @@ def u2():
             k = (r["req_id"], r["exemplar_id"])
             if r["status"] == "infra_error" or k not in first or first[k]["status"] == "infra_error":
                 continue
-            a.append(int(first[k]["gain"])); b.append(int(r["gain"]))
-            rep.setdefault(lang, []).append([first[k]["gain"], r["gain"]])
+            gk = "gain_res" if lang == "sol" and _SFX else "gain"      # same label metric as generate.py labels
+            a.append(int(first[k][gk])); b.append(int(r[gk]))
+            rep.setdefault(lang, []).append([first[k][gk], r[gk]])
     if not a:
         print("U2: no paired labels yet"); return
     agree = float(np.mean(np.array(a) == np.array(b)))
@@ -493,7 +553,7 @@ def r7():
         base = OUT / f"_r7_base_{lang}.jsonl"
         base.parent.mkdir(parents=True, exist_ok=True)
         base.write_text("".join(json.dumps(r) + "\n" for r in read_jsonl(A1[lang]) if r["req_id"] in held))
-        c = T.compare(str(base), str(p), "compile_valid")
+        c = T.compare(str(base), str(p), CV[lang])
         rep[lang] = c
         vals[f"R7.{lang}.cv"] = c["b_pct"]
         vals[f"R7.{lang}.base"] = c["a_pct"]
@@ -551,7 +611,7 @@ def switches():
 def main():
     cmd = sys.argv[1] if len(sys.argv) > 1 else "all"
     fns = {"a10": a10, "a14": a14, "stage1": stage1, "a1": a1, "u2": u2, "a13": a13, "r7": r7,
-           "d7": d7, "switches": switches}
+           "d7": d7, "switches": switches, "res": res}
     if cmd == "all":
         for k, f in fns.items():
             try:

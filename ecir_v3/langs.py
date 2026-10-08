@@ -249,7 +249,23 @@ def score(lang: str, code: str, req: Requirement, *, gain2: bool, workdir: Path 
         out["tier2"] = t
         out["infra"] = t.get("infra")
         out["gain"] = 2 if t["passed"] else 1
+    if lang == "sol" and not out.get("infra"):
+        out.update(resolved_fields(code, out["gain"]))
     return out
+
+
+def resolved_fields(code: str, gain_single: int) -> dict:
+    """Import-resolved Solidity verdict (sol_imports.py, README deviation 18) next to the single-file one.
+    gain_res: 0 = fails resolved compilation, 1 = compiles resolved, 2 = also passed Tier A, which runs on
+    single-file-valid programs only (forge keeps fixed remappings), so an importing program tops out at 1."""
+    import sol_imports as S
+    x = S.compile_resolved(code)
+    if x["infra"]:
+        return {"infra": f"resolved scoring: {x['infra']}"}
+    return {"compile_valid_res": x["compile_valid"], "n_compiler_errors_res": x["n_compiler_errors"],
+            "errors_res": x["errors"], "res_profile": x["profile"], "res_resolved": x["resolved_imports"],
+            "res_unresolved": x["unresolved_imports"], "res_lib_errors": x["lib_errors"],
+            "gain_res": 2 if gain_single == 2 else int(x["compile_valid"])}
 
 
 # ---------------------------------------------------------------- solc error classes (A1)

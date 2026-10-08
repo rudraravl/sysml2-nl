@@ -298,9 +298,9 @@ def curve(out, specs, metric="compile_valid"):
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     fig, ax = plt.subplots(figsize=(3.4, 2.4))
-    for spec in specs:
-        name, a0, a1 = spec.split(":", 2)
-        xa, xb, s, _ = selective_data(a0, a1, metric)
+    for spec in specs:   # name:a0:a1[:metric]  (a per-curve metric overrides `metric`)
+        name, a0, a1, *m = spec.split(":")
+        xa, xb, s, _ = selective_data(a0, a1, m[0] if m else metric)
         n = len(s)
         # retrieve for the q highest-scoring requirements, q = 0..n
         order = np.argsort(-s, kind="stable")
