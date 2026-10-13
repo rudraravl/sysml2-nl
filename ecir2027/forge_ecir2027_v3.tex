@@ -1,0 +1,256 @@
+% =====================================================================
+% ECIR 2027 short paper (v3): retrieval-utility framing, minimal new runs.
+% LLNCS macro package, Version 2.25 of 2026/09/03.
+% Short papers: up to 6 pages plus references; double-anonymous review.
+%
+% HOW TO USE THIS DRAFT (details in the student runbook)
+%  \tbd{KEY}          a number still to be produced; KEY is listed in the runbook.
+%  \verify{VAL}{KEY}  an existing number to recompute (Holm families changed).
+%  \TODO{...}         text to write or decide once a result is in.
+%  \branch{S}{T}{F}   outcome-dependent text; set boolean S below using the
+%                     runbook's decision rules. Draft builds show both versions.
+%  Lines tagged  % DROP-IF-NOT-RUN(<task>)  are deleted if that task does not run.
+%  Set \booltrue{submission} for the final build: any placeholder left then
+%  stops compilation with an error naming it.
+%  Fill numbers with:  python forge_ecir_tools.py fill forge_ecir2027_v3.tex placeholders.json
+%
+% REGISTRATION ABSTRACT (plain text for EasyChair; holds for any outcome):
+%  Retrieval-augmented generation is the default remedy when a large language
+%  model must write code in a domain-specific language (DSL) it has seen little
+%  of. Retrievers rank exemplars by their relevance to the request; a DSL's
+%  toolchain can instead judge the program each exemplar leads to, giving a
+%  deterministic, reference-free measure of retrieval utility. We use this
+%  signal to study exemplar retrieval for SysML v2, Solidity, and Modelica. On
+%  500 requirements per language, paired ablations swap retrievers across
+%  languages and replace retrieved exemplars with random in-domain ones. We then
+%  build a small test collection in which every pooled exemplar is labeled by
+%  the compiler's verdict on the program it produces, evaluate lexical and dense
+%  retrievers against these utility labels, and test whether retrieval scores
+%  can decide when to retrieve and whether a reranker trained on the labels
+%  selects more useful exemplars. We release the labeled pools for
+%  utility-oriented evaluation of DSL retrieval.
+% =====================================================================
+\documentclass[runningheads]{llncs}
+%
+\usepackage[T1]{fontenc}
+\usepackage{newtxtext}
+\usepackage[varvw]{newtxmath}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{xspace}
+\usepackage{xcolor}
+\usepackage{etoolbox}
+\usepackage{hyperref}
+\renewcommand\UrlFont{\color{blue}\rmfamily}
+\urlstyle{rm}
+
+\newcommand{\pp}{\,pp\xspace}
+
+% ---------------- placeholder machinery ----------------
+\newbool{submission}
+\boolfalse{submission}   % \booltrue{submission} for the final build
+
+% Outcome switches: set from the runbook's decision rules.
+\newbool{Rone} \boolfalse{Rone} % R1: true if Solidity A1 with BM25+lineage diversity is NOT significantly below A0
+\newbool{Rtwo} \boolfalse{Rtwo} % R2: true if relevance-ranked A1 significantly beats random-exemplar A1 in >= 2 of 3 languages
+\newbool{Urel} \boolfalse{Urel} % U1: true if the best lexical retriever's Gain@5 significantly exceeds random exemplars' in both Solidity and Modelica
+\newbool{Sel}  \boolfalse{Sel}  % A2: true if the cross-validated selective policy significantly beats the better fixed policy in >= 1 language
+\newbool{Rrk}  \boolfalse{Rrk}  % R7: true if R7 ran and the reranker significantly beats the deployed retriever in >= 1 language
+
+\newcommand{\tbd}[1]{\ifbool{submission}%
+  {\PackageError{forge}{Unfilled placeholder #1}{See the runbook placeholder table.}}%
+  {\mbox{\textcolor{red}{\textsf{\tiny[#1]}}}}}
+\newcommand{\verify}[2]{\ifbool{submission}%
+  {\PackageError{forge}{Unverified value #2}{See the runbook.}}%
+  {\textcolor{orange}{#1}}}
+\newcommand{\TODO}[1]{\ifbool{submission}%
+  {\PackageError{forge}{Unresolved TODO}{See the runbook.}}%
+  {\textcolor{red}{[\textbf{TODO:} #1]}}}
+\newcommand{\branch}[3]{\ifbool{submission}%
+  {\ifbool{#1}{#2}{#3}}%
+  {\mbox{\textcolor{blue}{\textsf{\tiny[#1 true:]}}}~#2~\mbox{\textcolor{blue}{\textsf{\tiny[#1 false:]}}}~#3}}
+% --------------------------------------------------------
+
+\begin{document}
+\emergencystretch=3em
+%
+\title{When Do Retrieved Exemplars Help Domain-Specific Code Generation? Compiler Outcomes as Retrieval Utility}
+\titlerunning{Compiler Outcomes as Retrieval Utility}
+%
+% Double-anonymous submission: no author names, affiliations, or identifying links.
+\author{Anonymous Author(s)}
+\authorrunning{Anonymous}
+\institute{Anonymous Institution}
+%
+\maketitle
+%
+\begin{abstract}
+Retrieval-augmented generation (RAG) is the default remedy when a large language model must write code in a domain-specific language (DSL) it has seen little of. Retrievers rank exemplars by relevance to the request; a DSL's toolchain can judge the program each exemplar leads to, giving a deterministic, reference-free measure of retrieval utility. We use this signal to study exemplar retrieval for SysML~v2, Solidity, and Modelica. On 500 requirements per language, lexical retrieval of natural-language--code exemplars raises Modelica compile validity by 13.7\pp and lowers Solidity's by 11.4\pp.
+\branch{Rone}{Swapping retrievers between the two languages moves Solidity's change to $\tbd{R1.sol.d}$\pp, so the sign follows retriever design.}{The Solidity loss persists under Modelica's retriever ($\tbd{R1.sol.d}$\pp), so the sign follows the language.}
+\branch{Rtwo}{Relevance-ranked exemplars beat random in-domain ones by at least \tbd{R2.mingap}\pp.}{Random in-domain exemplars come within \tbd{R2.maxgap}\pp of relevance-ranked ones.}
+Labeling \tbd{U1.nlabels} pooled exemplars by the compiler's verdict on the program each produces alone,
+\branch{Urel}{we find that lexical relevance predicts utility, yet \tbd{U1.sol.hurt.lex}\% of top-ranked Solidity exemplars make the program worse than no retrieval.}{we find that top-ranked exemplars are barely more useful than random ones, and \tbd{U1.sol.hurt.lex}\% of top-ranked Solidity exemplars make the program worse than no retrieval.}
+\branch{Sel}{Deciding whether to retrieve from the top-1 retrieval score recovers \tbd{A2.recov}\% of the per-requirement oracle gain on held-out requirements.}{The top-1 retrieval score is too weak a predictor to decide when to retrieve.}
+\branch{Rrk}{A reranker trained on the compiler labels raises validity by $\tbd{R7.best.d}$\pp over the deployed retriever.}{}
+We release the labeled pools as a test collection for utility-oriented DSL retrieval.
+
+\keywords{Retrieval-augmented generation \and Retrieval utility \and Code generation \and Domain-specific languages.}
+\end{abstract}
+%
+\section{Introduction}
+\label{sec:intro}
+
+LLMs generate general-purpose code far more reliably than code in domain-specific languages (DSLs)~\cite{chen2021evaluating,joel2024lowresource}, which are underrepresented in pretraining data and whose correctness is decided by a toolchain. The standard IR remedy is RAG~\cite{lewis2020rag}: condition generation on retrieved documentation or natural-language (NL)--code exemplars~\cite{zhou2023docprompting,dutta2024rar}. Retrievers rank this context by relevance to the request, while the user needs a valid program, and the two can diverge: misaligned context degrades code generation~\cite{gu2025alliancecoder,wan2025modelica}, and random documents can raise RAG accuracy~\cite{cuconasu2024noise}. Measuring utility directly usually needs reference outputs or an LLM judge~\cite{salemi2024erag}.
+
+DSLs come with a better judge. A compiler, a test generator, or a simulator decides for every generated program whether it is valid, deterministically and without references. We use this judge to study exemplar retrieval in SysML~v2, Solidity, and Modelica, asking:
+\textbf{RQ1:} Does lexical exemplar retrieval improve one-shot DSL generation, and does its effect follow the retriever, the language, or relevance?
+\textbf{RQ2:} How well does relevance, lexical or dense, predict an exemplar's utility as judged by the toolchain?
+\textbf{RQ3:} Can toolchain outcomes decide when to retrieve and which exemplars to retrieve?
+We contribute paired retrieval ablations across three DSLs; a test collection of \tbd{U1.nlabels} pooled exemplars for 200 requirements, each labeled by the toolchain's verdict on the program it produces; and evaluations of selective retrieval and of a reranker trained on these labels.
+
+\section{Related Work}
+\label{sec:related}
+
+\textbf{Retrieval for code generation.} Retrieved documentation~\cite{zhou2023docprompting} or code exemplars~\cite{dutta2024rar} help with unfamiliar libraries and low-resource languages~\cite{cassano2024knowledge}, with gains that depend on the retrieved source~\cite{wang2025coderagbench}; CEDAR selects code demonstrations by embedding or lexical similarity~\cite{nashid2023cedar}. DSL generators target one language each~\cite{cibrian2025agent,bouamra2025systemp,peng2025soleval,luo2025fsm,xiang2025modigen,wan2025modelica}, and compilable models can still be semantically wrong~\cite{hendricks2025text2model}.
+
+\textbf{Relevance and utility.} eRAG labels each retrieved document by the downstream score an LLM reaches with that document alone~\cite{salemi2024erag}; our labels follow this protocol with a toolchain as the metric. Retrievers of in-context examples can be trained from LM feedback, such as the likelihood of a target output~\cite{rubin2022epr}, distilled LLM preferences~\cite{wang2024llmr}, or a black-box LM's scores~\cite{shi2024replug}; these signals need reference outputs or model likelihoods.
+
+\textbf{When to retrieve.} Adaptive retrieval decides per query whether to retrieve at all~\cite{mallen2023adaptive,asai2024selfrag,jiang2023flare}, a query performance prediction problem~\cite{cronen2002qpp}. We test whether a retrieval score supports that decision when the toolchain defines success.
+
+\section{Experimental Setup}
+\label{sec:setup}
+
+\textbf{Tasks and corpora.} SysML~v2: 1{,}543 requirements written by Gemini~2.5~Pro from Wikipedia-listed engineered systems, with 300 curated exemplar models. Solidity: 1{,}500 requirements in 21 application domains, expanded by Gemini~2.5~Flash from DefiLlama protocol entries, with 1{,}500 human-authored exemplar contracts (libraries, audit contests, on-chain code) described by Gemini. Modelica: 1{,}560 robotics tasks (13 robot families) with 1{,}500 separately authored exemplars. We use a fixed sample of 500 requirements per language (498 for Modelica). Requirements and exemplars come from disjoint sources: \tbd{A10.leak.proto} DefiLlama protocols appear among exemplar sources, and \tbd{A10.leak.dup} generated contracts have a near-duplicate exemplar (token 5-gram Jaccard $\geq 0.8$).
+
+\textbf{Generation.} Every condition is one GLM-5.2 call through OpenRouter at temperature 0.2 with pinned providers (\tbd{D7.providers}). A0 prompts with the requirement alone; A1 adds $k=5$ retrieved exemplars, their code truncated to 80 non-comment lines, and for SysML~v2 three passages from a 1{,}775-chunk index of the language specification. Modelica requirements are first normalized into an intermediate representation and an execution contract in both conditions.
+
+\textbf{Retrievers.} \emph{Binary cosine}: cosine similarity of binary token sets between the requirement and exemplar descriptions (deployed for SysML~v2 and Solidity). \emph{BM25}~\cite{robertson2009bm25} over description, category, and tags, keeping at most one exemplar per source lineage (deployed for Modelica). \emph{Dense}: \tbd{D9.dense} embeddings without fine-tuning, used for pooling and offline evaluation. \emph{Random}: exemplars drawn uniformly from the same corpus under the same truncation (on SysML~v2 also three random specification chunks).
+
+\textbf{Utility judge.} Each generated program receives a graded gain: 0 if it fails to compile; 1 if it compiles; 2 if it also passes interface-level checks, namely fuzzing and boundary tests generated programmatically from the contract ABI (Solidity; single-file \texttt{solc}~\tbd{D2.solc}) or a successful FMU build and simulation (Modelica). Set-level results report compile validity.
+
+\textbf{Utility-labeled pools.} For 100 requirements each in Solidity and Modelica, drawn at random from the 500, the pool is the union of the three retrievers' top-5 plus two random exemplars (\tbd{U1.poolsize} exemplars per requirement on average). Each pooled exemplar is placed alone ($k=1$) in the A1 prompt, and the resulting program's gain is its label. A0 is sampled three times per pooled requirement; an exemplar \emph{helps} or \emph{hurts} when its gain is above or below the median A0 gain. Relabeling a random 10\% of pairs with a second sample reproduces \tbd{U2.agree}\% of gains (Cohen's $\kappa=\tbd{U2.kappa}$). Retrievers are scored by Gain@5 (mean gain of their top five), Help@5, Hurt@5, and nDCG@5 against the pooled gains.
+
+\textbf{Statistics.} Set-level comparisons are paired per requirement: exact McNemar tests, Holm-corrected within each table, with paired bootstrap 95\% confidence intervals (10{,}000 resamples). Pool comparisons use paired randomization tests over requirements (10{,}000 sign flips). Code, requirement samples, labeled pools, and outputs: \TODO{anonymized repository URL}.
+
+\section{Results}
+\label{sec:results}
+
+\begin{table}[t]
+\centering
+\caption{Compile validity (\%) of one-shot generation, paired within each column ($n=500$, 500, 498). The deployed retriever is binary cosine for SysML~v2 and Solidity and BM25 with lineage diversity for Modelica; the alternative is the other one. Selective: retrieve only when the top-1 score clears a threshold chosen by 10-fold cross-validation. Oracle: the better of A0 and A1 per requirement.}
+\label{tab:set}
+\scriptsize
+\setlength{\tabcolsep}{6pt}
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+Condition & SysML~v2 & Solidity & Modelica \\
+\midrule
+A0: no retrieval & \tbd{R4.sys.a0} & 69.6 & 49.2 \\
+A1: deployed retriever & 15.2 & 58.2 & 62.9 \\
+A1: alternative retriever & -- & \tbd{R1.sol.cv} & \tbd{R1b.mod.cv} \\
+A1: random exemplars & \tbd{R2.sys.cv} & \tbd{R2.sol.cv} & \tbd{R2.mod.cv} \\
+\midrule
+Selective (deployed retriever) & \tbd{A2.sys.sel} & \tbd{A2.sol.sel} & \tbd{A2.mod.sel} \\
+Oracle, max(A0, A1) & \tbd{A2.sys.orc} & \tbd{A2.sol.orc} & \tbd{A2.mod.orc} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[t]
+\centering
+\caption{Solidity compiler errors per sample on the first attempt, by error class (paired, $n=500$).}
+\label{tab:err}
+\scriptsize
+\setlength{\tabcolsep}{6pt}
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+Error class & A0 & A1 deployed & A1 alternative & A1 random \\
+\midrule
+Unresolved import & \tbd{A1.imp.a0} & \tbd{A1.imp.a1} & \tbd{A1.imp.alt} & \tbd{A1.imp.rand} \\
+Compiler version or pragma & \tbd{A1.ver.a0} & \tbd{A1.ver.a1} & \tbd{A1.ver.alt} & \tbd{A1.ver.rand} \\
+Undeclared identifier & \tbd{A1.und.a0} & \tbd{A1.und.a1} & \tbd{A1.und.alt} & \tbd{A1.und.rand} \\
+Type error & \tbd{A1.type.a0} & \tbd{A1.type.a1} & \tbd{A1.type.alt} & \tbd{A1.type.rand} \\
+Parser error & \tbd{A1.parse.a0} & \tbd{A1.parse.a1} & \tbd{A1.parse.alt} & \tbd{A1.parse.rand} \\
+Other & \tbd{A1.other.a0} & \tbd{A1.other.a1} & \tbd{A1.other.alt} & \tbd{A1.other.rand} \\
+\midrule
+Total & 0.82 & 1.38 & \tbd{R1.sol.err} & \tbd{R2.sol.err} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{RQ1: Set-level effect of retrieval} (Table~\ref{tab:set}). Deployed retrieval raises Modelica compile validity by 13.7\pp (Holm $p=\verify{2.0\times10^{-6}}{V.p.mod}$) and lowers Solidity's by 11.4\pp ($p=\verify{1.4\times10^{-3}}{V.p.sol}$), raising Solidity compiler errors per sample from 0.82 to 1.38, mostly through \tbd{A1.top.class} (\tbd{A1.top.share}\% of the increase; Table~\ref{tab:err}) \TODO{A1: mechanism in one clause, and whether the alternative and random retrievers show the same classes}. On SysML~v2, exemplars and specification passages raise validity from \tbd{R4.sys.a0}\% to 15.2\% ($p=\tbd{R4.sys.p}$).
+\branch{Rone}{With Modelica's BM25 lineage-diversity retriever, Solidity's change becomes $\tbd{R1.sol.d}$\pp ($p=\tbd{R1.sol.p}$), so the sign of retrieval's effect follows the retriever.}{With Modelica's BM25 lineage-diversity retriever, Solidity's change is still $\tbd{R1.sol.d}$\pp ($p=\tbd{R1.sol.p}$), so the sign follows the language.}
+Binary cosine on Modelica gives \tbd{R1b.mod.cv}\%.
+\branch{Rtwo}{Random in-domain exemplars fall \tbd{R2.mingap}\pp or more below relevance-ranked ones, so relevance matters beyond in-domain context.}{Random in-domain exemplars come within \tbd{R2.maxgap}\pp of relevance-ranked ones, so in-domain context of any kind carries most of the effect.}
+
+\begin{table}[t]
+\centering
+\caption{Exemplar utility on the labeled pools (100 requirements per language). Each exemplar is used alone; Gain@5 is the mean graded gain (0--2) of a method's top five, Help@5 and Hurt@5 the share of them scoring above or below the median A0 program, and nDCG@5 is computed against the pooled gains. Random: the two random exemplars per requirement. Reranker: 5-fold cross-validation by requirement.}
+\label{tab:pool}
+\scriptsize
+\setlength{\tabcolsep}{3.5pt}
+\begin{tabular}{@{}lrrrrrrrr@{}}
+\toprule
+ & \multicolumn{4}{c}{Solidity (A0 gain \tbd{U1.sol.a0.gain})} & \multicolumn{4}{c}{Modelica (A0 gain \tbd{U1.mod.a0.gain})} \\
+\cmidrule(lr){2-5}\cmidrule(l){6-9}
+Method & Gain@5 & Help@5 & Hurt@5 & nDCG@5 & Gain@5 & Help@5 & Hurt@5 & nDCG@5 \\
+\midrule
+Binary cosine & \tbd{U1.sol.cos.gain} & \tbd{U1.sol.cos.help} & \tbd{U1.sol.cos.hurt} & \tbd{U1.sol.cos.ndcg} & \tbd{U1.mod.cos.gain} & \tbd{U1.mod.cos.help} & \tbd{U1.mod.cos.hurt} & \tbd{U1.mod.cos.ndcg} \\
+BM25 + lineage diversity & \tbd{U1.sol.bm25.gain} & \tbd{U1.sol.bm25.help} & \tbd{U1.sol.bm25.hurt} & \tbd{U1.sol.bm25.ndcg} & \tbd{U1.mod.bm25.gain} & \tbd{U1.mod.bm25.help} & \tbd{U1.mod.bm25.hurt} & \tbd{U1.mod.bm25.ndcg} \\
+Dense & \tbd{U1.sol.dense.gain} & \tbd{U1.sol.dense.help} & \tbd{U1.sol.dense.hurt} & \tbd{U1.sol.dense.ndcg} & \tbd{U1.mod.dense.gain} & \tbd{U1.mod.dense.help} & \tbd{U1.mod.dense.hurt} & \tbd{U1.mod.dense.ndcg} \\
+Random & \tbd{U1.sol.rand.gain} & \tbd{U1.sol.rand.help} & \tbd{U1.sol.rand.hurt} & -- & \tbd{U1.mod.rand.gain} & \tbd{U1.mod.rand.help} & \tbd{U1.mod.rand.hurt} & -- \\
+\midrule
+Utility-trained reranker & \tbd{A13.sol.rr.gain} & \tbd{A13.sol.rr.help} & \tbd{A13.sol.rr.hurt} & \tbd{A13.sol.rr.ndcg} & \tbd{A13.mod.rr.gain} & \tbd{A13.mod.rr.help} & \tbd{A13.mod.rr.hurt} & \tbd{A13.mod.rr.ndcg} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{RQ2: Relevance and exemplar utility} (Table~\ref{tab:pool}).
+\branch{Urel}{Relevance carries utility signal: the best lexical retriever's top five score $\tbd{U1.sol.lexgap}$ and $\tbd{U1.mod.lexgap}$ gain above random exemplars on Solidity and Modelica ($p\le\tbd{U1.p}$), yet \tbd{U1.sol.hurt.lex}\% of its top five Solidity exemplars still produce a worse program than no retrieval.}{Relevance carries little utility signal: the best lexical retriever's top five differ from random exemplars by $\tbd{U1.sol.lexgap}$ and $\tbd{U1.mod.lexgap}$ gain on Solidity and Modelica, and \tbd{U1.sol.hurt.lex}\% of its top five Solidity exemplars produce a worse program than no retrieval.}
+Dense retrieval reaches nDCG@5 of \tbd{U1.sol.dense.ndcg} and \tbd{U1.mod.dense.ndcg} \TODO{U1: compare with the lexical retrievers, citing the randomization p}. Across pooled exemplars, harm is best predicted by \tbd{A13.harm.feat} (odds ratio \tbd{A13.harm.or}, 95\% CI $[\tbd{A13.harm.orci}]$), the same mechanism behind the set-level Solidity loss \TODO{A13: one concrete harmful exemplar, e.g.\ a top-ranked contract whose library import the generated code copies, failing single-file compilation}. The set level agrees with the pools where they overlap: \TODO{U1/R1: the retriever with the higher Gain@5 also gives the higher A1 validity in Table~\ref{tab:set}, or say where they disagree}.
+
+\begin{figure}[t]
+\centering
+\IfFileExists{fig-selective.pdf}%
+  {\includegraphics[width=0.7\textwidth]{fig-selective.pdf}}%
+  {\ifbool{submission}{\PackageError{forge}{Missing figure fig-selective.pdf}{Run the curve command of the helper script.}}%
+    {\fbox{\parbox[c][3.4cm][c]{0.66\textwidth}{\centering\textcolor{red}{Figure placeholder: \texttt{forge\_ecir\_tools.py curve fig-selective.pdf \dots}}}}}}
+\caption{Selective retrieval: compile validity when only the requirements with the highest top-1 retrieval scores retrieve, from none (A0, left) to all (A1, right); dotted lines mark the per-requirement oracle. The curve is in-sample; Table~\ref{tab:set} reports the cross-validated policy.}
+\label{fig:sel}
+\end{figure}
+
+\textbf{RQ3: When and what to retrieve.} Figure~\ref{fig:sel} shows where retrieval pays off \TODO{A2: describe the curve in one sentence, e.g.\ validity peaks when the top X\% retrieve}.
+\branch{Sel}{Retrieving only when the top-1 score clears a cross-validated threshold beats the better fixed policy by $\tbd{A2.sel.d}$\pp on \tbd{A2.sel.dsl} (95\% CI $[\tbd{A2.sel.ci}]$, $p=\tbd{A2.sel.p}$) and recovers \tbd{A2.recov}\% of the gap to the per-requirement oracle (Table~\ref{tab:set}).}{Retrieving only when the top-1 score clears a cross-validated threshold never beats the better fixed policy (Table~\ref{tab:set}), although the per-requirement oracle lies \tbd{A2.orcgap}\pp above it: the top-1 score is a weak predictor of when retrieval helps.}
+A reranker trained on the pooled labels (logistic regression over the three retrieval scores and exemplar features) reaches cross-validated nDCG@5 of \tbd{A13.sol.rr.ndcg} and \tbd{A13.mod.rr.ndcg} \TODO{A13: against the best single retriever, with p}.
+Trained on all 100 labeled requirements and applied to the held-out requirements (400 Solidity, 398 Modelica), its top five give \tbd{R7.sol.cv}\% and \tbd{R7.mod.cv}\% compile validity against \tbd{R7.sol.base}\% and \tbd{R7.mod.base}\% for the deployed retriever ($p=\tbd{R7.p}$), \branch{Rrk}{so compiler-derived labels transfer to generation.}{so the offline gains did not transfer to generation.} % DROP-IF-NOT-RUN(R7)
+
+\section{Discussion and Scope}
+\label{sec:discussion}
+
+\textbf{Retrieval under repair.} In a four-model harness built on these prompts, synthesis and at most two compiler-repair rounds raise validity from the A1 level to 34.2\%, 92.0\%, and 81.3\% (SysML~v2, Solidity, Modelica), so repair absorbs much of retrieval's harm on Solidity. Within that configuration the odds ratio of final validity per standard deviation of top-1 score is \tbd{A14.sol.or} ($[\tbd{A14.sol.orci}]$) on Solidity and \tbd{A14.mod.or} ($[\tbd{A14.mod.orci}]$) on Modelica; this association is observational, and fewer repair rounds are a natural further target for utility-trained retrieval.
+
+\textbf{Implications for IR.} Toolchain verdicts give graded utility judgments for the cost of one generation and one compilation per requirement--exemplar pair, with no assessors, reference outputs, or LLM judges. Pools like ours evaluate any DSL retriever offline, and the same labels can train retrievers the way LM likelihoods do~\cite{rubin2022epr,wang2024llmr,shi2024replug}, with an executable signal in their place.
+
+\textbf{Scope.} We use one backbone, one sample per requirement--exemplar pair, 100 labeled requirements per language, and untuned retrievers. Labels score each exemplar alone, which ignores interactions among the five exemplars of a prompt; Table~\ref{tab:set} is the set-level check. Compilation and interface-level checks are necessary conditions for correctness; they do not establish that a program implements its requirement.
+\TODO{If R7 did not run: replace the R7 sentence in RQ3 and the abstract with the offline result only.}
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+A DSL toolchain turns every generation into a utility judgment, which lets retrieval be evaluated by what it does to the program. Used this way, lexical exemplar retrieval helped on Modelica and hurt on Solidity, with a sign set by \branch{Rone}{the retriever.}{the language.}
+\branch{Rtwo}{Relevance-ranked exemplars beat random in-domain ones,}{Random in-domain exemplars did nearly as well as relevance-ranked ones,}
+and relevance predicted the utility of individual exemplars \branch{Urel}{only in part.}{poorly.}
+\branch{Rrk}{A reranker trained on compiler labels improved generation, closing the loop from judgment to retrieval.}{Training retrievers on compiler labels at larger scale is the natural next step.}
+
+\begin{credits}
+\subsubsection{\discintname}
+The authors have no competing interests to declare that are relevant to the content of this article.
+\end{credits}
+%
+% ---- Bibliography ----
+% references.bib = the v1 bibliography; references_v2_additions.bib = entries added since.
+\bibliographystyle{splncs04}
+\bibliography{references,references_v2_additions}
+%
+\end{document}
