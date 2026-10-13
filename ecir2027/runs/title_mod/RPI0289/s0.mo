@@ -1,0 +1,93 @@
+model PantographDriveA
+  parameter Real a = 0.25 "short crank link length [m]";
+  parameter Real b = 0.50 "long coupler/ground link length [m]";
+  parameter Real s_start = 0.02 "initial input coordinate [m]";
+  parameter Real s_travel = 0.16 "prismatic input travel [m]";
+  parameter Real T_run = 8.0 "scenario duration [s]";
+  parameter Real v_ref = s_travel/T_run "constant input speed command [m/s]";
+  parameter Real m_eff = 1.2 "effective reflected mass at input [kg]";
+  parameter Real c_fr = 60.0 "viscous friction coefficient [N.s/m]";
+  parameter Real m_cr = 0.5 "crank link mass [kg]";
+  parameter Real g_acc = 9.81 "gravitational acceleration [m/s2]";
+  parameter Real F_max = 230.0 "actuator command magnitude limit [N]";
+  parameter Real Kp_pi = 1500.0 "PI speed proportional gain [N.s/m]";
+  parameter Real Ki_pi = 400.0 "PI speed integral gain [N/m]";
+  parameter Real F_dist = 4.0 "load disturbance magnitude [N]";
+  parameter Real dt = 1.0/80.0 "sensor sample period 80 Hz [s]";
+  parameter Real theta0 = s_start/a "initial crank angle [rad]";
+
+  Real s(start=s_start, fixed=true) "input prismatic coordinate [m]";
+  Real v(start=0.0, fixed=true) "input velocity [m/s]";
+  Real integ(start=0.0, fixed=true) "PI integrator state [m]";
+  Real s_ref "reference input coordinate [m]";
+  Real F_cmd "unsaturated actuator command [N]";
+  Real F_act "saturated actuator force [N]";
+  Real F_dist_eff "applied disturbance force [N]";
+  Real F_grav "reflected gravity force [N]";
+  Real theta "pantograph crank angle [rad]";
+  Real Ox "joint O x [m]"; Real Oy "joint O y [m]";
+  Real Ax "joint A x [m]"; Real Ay "joint A y [m]";
+  Real Bx "joint B x [m]"; Real By "joint B y [m]";
+  Real Cx "joint C x [m]"; Real Cy "joint C y [m]";
+  Real x_out "output point x [m]";
+  Real y_out "output point y [m]";
+  Real travel_out "output path travel from start [m]";
+  Real res_OA "closure residual |OA|-a [m]";
+  Real res_CB "closure residual |CB|-a [m]";
+  Real res_AB "closure residual |AB|-b [m]";
+  Real res_OC "closure residual |OC|-b [m]";
+  Real res_par_cranks "crank parallelism residual [m2]";
+  Real res_par_coupler "coupler-ground parallelism residual [m2]";
+  Real res_norm "closure residual norm [m]";
+  Real min_clearance "minimum nonadjacent link clearance [m]";
+  Real speed_err "input speed tracking error [m/s]";
+  Real track_err "input position tracking error [m]";
+  Real track_err_out "output position tracking error [m]";
+  discrete Real s_samp "sampled input coordinate [m]";
+  discrete Real F_samp "sampled actuator force [N]";
+  discrete Real xout_samp "sampled output x [m]";
+  discrete Real yout_samp "sampled output y [m]";
+  discrete Real resnorm_samp "sampled closure residual norm [m]";
+equation
+  s_ref = s_start + v_ref*time;
+  F_dist_eff = if (time >= T_run/3.0 and time <= 2.0*T_run/3.0) then F_dist else 0.0;
+  F_grav = m_cr*g_acc*cos(theta);
+  speed_err = v_ref - v;
+  der(integ) = speed_err;
+  F_cmd = Kp_pi*speed_err + Ki_pi*integ;
+  F_act = max(-F_max, min(F_max, F_cmd));
+  m_eff*der(v) = F_act - c_fr*v - F_dist_eff - F_grav;
+  der(s) = v;
+
+  theta = theta0 + (s - s_start)/a;
+  Ox = 0.0; Oy = 0.0;
+  Cx = b;  Cy = 0.0;
+  Ax = a*cos(theta);
+  Ay = a*sin(theta);
+  Bx = b + a*cos(theta);
+  By = a*sin(theta);
+  x_out = (a+b)*cos(theta);
+  y_out = (a+b)*sin(theta);
+  travel_out = (a+b)*(theta - theta0);
+
+  res_OA = sqrt(Ax*Ax + Ay*Ay) - a;
+  res_CB = sqrt((Bx-Cx)*(Bx-Cx) + (By-Cy)*(By-Cy)) - a;
+  res_AB = sqrt((Bx-Ax)*(Bx-Ax) + (By-Ay)*(By-Ay)) - b;
+  res_OC = sqrt(Cx*Cx + Cy*Cy) - b;
+  res_par_cranks   = Ax*(By-Cy) - Ay*(Bx-Cx);
+  res_par_coupler  = (Bx-Ax)*(Cy-Oy) - (By-Ay)*(Cx-Ox);
+  res_norm = sqrt(res_OA*res_OA + res_CB*res_CB + res_AB*res_AB + res_OC*res_OC);
+  min_clearance = a*sin(theta);
+  track_err = abs(s - s_ref);
+  track_err_out = abs(travel_out - (a+b)/a * (s - s_start));
+
+  when sample(0, dt) then
+    s_samp = s;
+    F_samp = F_act;
+    xout_samp = x_out;
+    yout_samp = y_out;
+    resnorm_samp = res_norm;
+  end when;
+
+  annotation(experiment(StopTime=8.0, Tolerance=1e-6, Interval=0.0125));
+end PantographDriveA;

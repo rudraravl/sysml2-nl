@@ -31,7 +31,7 @@ from .conditions import AblationCondition
 
 
 class PipelineExperimentExecutor:
-    """Execute B0-FULL using one frozen transport and tool configuration."""
+    """Execute A0-A4 / B0-FULL using one frozen transport and tool configuration."""
 
     def __init__(self, *, text_ask, json_ask, baseline_ask=None,
                  baseline_model: str | None = None,
@@ -255,10 +255,10 @@ class PipelineExperimentExecutor:
                 task_id=task.id,
                 max_ir_repairs=1,
                 runtime_repair_ask=(
-                    self.text_ask if condition.tool_repair else None
+                    self.text_ask if condition.execution_repair else None
                 ),
                 max_runtime_repairs=(
-                    self.max_tool_repairs if condition.tool_repair else 0
+                    self.max_tool_repairs if condition.execution_repair else 0
                 ),
                 specification_ask=(
                     self.json_ask if condition.alignment else None
@@ -278,7 +278,7 @@ class PipelineExperimentExecutor:
             modelica_generator=modelica_generator,
             openusd_generator=openusd_generator,
             k=self.k,
-            max_profile_repairs=(self.max_tool_repairs if condition.tool_repair else 0),
+            max_profile_repairs=(self.max_tool_repairs if condition.compiler_repair else 0),
             isaac_preparer=self.isaac_preparer,
             newton_preparer=self.newton_preparer,
         )
@@ -292,9 +292,9 @@ class PipelineExperimentExecutor:
             alignment_ask=self.json_ask if condition.alignment else None,
             semantic_repair_ask=self.text_ask if condition.alignment else None,
             max_semantic_repairs=(1 if condition.alignment else 0),
-            runtime_repair_ask=self.text_ask if condition.tool_repair else None,
+            runtime_repair_ask=self.text_ask if condition.execution_repair else None,
             max_runtime_repairs=(
-                self.max_tool_repairs if condition.tool_repair else 0
+                self.max_tool_repairs if condition.execution_repair else 0
             ),
             enable_alignment=condition.alignment,
             precomputed_normalization=(
@@ -386,7 +386,7 @@ class PipelineExperimentExecutor:
             requirement,
             pipeline=self.modelica,
             k=self.k,
-            max_repairs=self.max_tool_repairs if condition.tool_repair else 0,
+            max_repairs=self.max_tool_repairs if condition.compiler_repair else 0,
             output_dir=output_dir,
             preferred_categories=preferred_categories,
         )
@@ -424,7 +424,7 @@ class PipelineExperimentExecutor:
             requirement,
             pipeline=self.openusd,
             k=self.k,
-            max_repairs=self.max_tool_repairs if condition.tool_repair else 0,
+            max_repairs=self.max_tool_repairs if condition.compiler_repair else 0,
             output_dir=output_dir,
             preferred_categories=preferred_categories,
         )
@@ -509,8 +509,12 @@ def _annotate_generation_report(report: dict, condition: AblationCondition,
         "rag_enabled": condition.rag,
         "moe_enabled": condition.moe,
         "tool_repair_enabled": condition.tool_repair,
+        "compiler_repair_enabled": condition.compiler_repair,
+        "execution_repair_enabled": condition.execution_repair,
         "retrieval_k": k if condition.rag else 0,
-        "max_tool_repairs": max_tool_repairs if condition.tool_repair else 0,
+        "max_tool_repairs": max_tool_repairs if condition.compiler_repair else 0,
+        "max_compiler_repairs": max_tool_repairs if condition.compiler_repair else 0,
+        "max_execution_repairs": max_tool_repairs if condition.execution_repair else 0,
     }
 
 
@@ -603,9 +607,9 @@ def _study_validity(result: dict, condition: AblationCondition,
     runtime_repair_observed = None
     if isinstance(runtime_repair, dict):
         runtime_repair_observed = runtime_repair.get("enabled")
-        if runtime_repair_observed is not condition.tool_repair:
+        if runtime_repair_observed is not condition.execution_repair:
             issues.append("runtime-repair control mismatch")
-        if runtime_repair.get("triggered") is True and not condition.tool_repair:
+        if runtime_repair.get("triggered") is True and not condition.execution_repair:
             issues.append("runtime repair executed while disabled")
         attempted = runtime_repair.get("attempted", 0)
         maximum = runtime_repair.get("max_repairs", 0)

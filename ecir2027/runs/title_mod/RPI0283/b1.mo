@@ -1,0 +1,202 @@
+model FiveBarPressA
+  "Five-bar parallel press with hybrid position-force control at 80 Hz"
+
+  // ---- Geometry from requirement ----
+  parameter Real base_half(unit="m") = 0.25 "base pivot half separation";
+  parameter Real L1(unit="m") = 0.30 "actuated link length";
+  parameter Real L2(unit="m") = 0.42 "passive link length";
+  parameter Real tau_max(unit="N.m") = 27.4 "per-actuator command magnitude limit";
+
+  // ---- Contact model from requirement ----
+  parameter Real k_contact(unit="N/m") = 200000.0 "contact stiffness";
+  parameter Real d_contact(unit="N.s/m") = 2000.0 "contact damping";
+  parameter Real mu_contact = 0.70 "friction coefficient";
+
+  // ---- Scenario timing ----
+  parameter Real T_sample(unit="s") = 0.0125 "80 Hz sample period";
+  parameter Real T_end(unit="s") = 8.0 "total run time";
+  parameter Real T_dist_start(unit="s") = 8.0/3.0 "middle third start";
+  parameter Real T_dist_end(unit="s") = 16.0/3.0 "middle third end";
+  parameter Real disturbance_force(unit="N") = 9.0 "controlled force change";
+
+  // ---- Values not stated in the requirement (assumed for executability) ----
+  parameter Real m_eff(unit="kg") = 20.0 "assumed lumped endpoint mass";
+  parameter Real y_surface(unit="m") = -0.34995 "assumed fixed workpiece plane";
+  parameter Real F_ref_nom(unit="N") = 10.0 "assumed normal force setpoint";
+  parameter Real F_band(unit="N") = 1.0 "assumed contact-force band";
+  parameter Real v_lock(unit="m/s") = 0.001 "assumed locked-contact speed";
+  parameter Real x_ref(unit="m") = 0.0 "assumed tangential position setpoint";
+  parameter Real Kp_x(unit="N/m") = 1000.0 "tangential position gain";
+  parameter Real Kd_x(unit="N.s/m") = 200.0 "tangential velocity gain";
+  parameter Real Kf = 0.5 "normal force feedback gain";
+  parameter Real Kv_y(unit="N.s/m") = 0.0 "normal velocity gain";
+  parameter Real v_tanh(unit="m/s") = 0.01 "friction velocity smoothing";
+
+  // ---- Numerical guards ----
+  parameter Real eps_d = 1.0e-9;
+  parameter Real eps_a = 1.0e-6;
+  parameter Real eps_det = 1.0e-9;
+
+  // ---- Dynamic states ----
+  Real x(start=0.0, unit="m") "endpoint x position";
+  Real y(start=-0.350, unit="m") "endpoint y position";
+  Real vx(start=0.0, unit="m/s") "endpoint x velocity";
+  Real vy(start=0.0, unit="m/s") "endpoint y velocity";
+
+  // ---- Joint-level variables ----
+  Real theta1(unit="rad") "left actuated joint angle";
+  Real theta2(unit="rad") "right actuated joint angle";
+  Real omega1(unit="rad/s") "left joint angular velocity";
+  Real omega2(unit="rad/s") "right joint angular velocity";
+
+  // ---- Contact and force variables ----
+  Real penetration(unit="m") "workpiece penetration depth";
+  Real F_n(unit="N") "normal contact force (positive upward)";
+  Real F_contact_x(unit="N") "contact friction force";
+  Real F_contact_y(unit="N") "contact normal force y-component";
+  Real F_act_x(unit="N") "actuator-derived force x";
+  Real F_act_y(unit="N") "actuator-derived force y";
+  Real F_ref_actual(unit="N") "force reference including disturbance";
+
+  // ---- Discrete control commands ----
+  discrete Real Fx_cmd(start=0.0, unit="N") "tangential force command";
+  discrete Real Fy_cmd(start=0.0, unit="N") "normal force command";
+  discrete Real tau1_cmd(start=0.0, unit="N.m") "left torque command";
+  discrete Real tau2_cmd(start=0.0, unit="N.m") "right torque command";
+
+  // ---- Requirement monitors ----
+  Real closure_error(unit="m") "five-bar closure error";
+  Real tangential_slip(unit="m/s") "tangential slip speed";
+  Real actuator_bound_margin(unit="N.m") "margin to actuator limit";
+  Boolean locked_contact "contact locked";
+  Boolean force_in_band "force within band";
+  Boolean actuator_bounds_ok "actuator within bounds";
+  Boolean closure_requirement_met "closure requirement satisfied after 5.2 s";
+
+protected
+  discrete Real lam1(start=0.0) "left Lagrange multiplier";
+  discrete Real lam2(start=0.0) "right Lagrange multiplier";
+  discrete Real tau1_raw(start=0.0) "left unsaturated torque";
+  discrete Real tau2_raw(start=0.0) "right unsaturated torque";
+
+  Real dA, dA_safe, arg1, arg1c, alpha1;
+  Real d2, d2_safe, arg2, arg2c, alpha2;
+  Real Cx, Cy, Dx, Dy;
+  Real r1x, r1y, r2x, r2y, len1, len2, len1_safe, len2_safe;
+  Real n1x, n1y, n2x, n2y;
+  Real a1, a2, a1_safe, a2_safe, detM, detM_safe;
+
+equation
+  // ---- Endpoint dynamics ----
+  der(x) = vx;
+  der(y) = vy;
+  m_eff*der(vx) = F_act_x + F_contact_x;
+  m_eff*der(vy) = F_act_y + F_contact_y;
+
+  // ---- Left inverse kinematics under five-bar closure ----
+  dA = sqrt((x + base_half)^2 + y^2);
+  dA_safe = if dA > eps_d then dA else eps_d;
+  arg1 = (L1^2 + dA_safe^2 - L2^2)/(2.0*L1*dA_safe);
+  arg1c = if arg1 > 1.0 then 1.0 elseif arg1 < -1.0 then -1.0 else arg1;
+  alpha1 = acos(arg1c);
+  theta1 = atan2(y, x + base_half) - alpha1;
+
+  // ---- Right inverse kinematics under five-bar closure ----
+  d2 = sqrt((x - base_half)^2 + y^2);
+  d2_safe = if d2 > eps_d then d2 else eps_d;
+  arg2 = (L1^2 + d2_safe^2 - L2^2)/(2.0*L1*d2_safe);
+  arg2c = if arg2 > 1.0 then 1.0 elseif arg2 < -1.0 then -1.0 else arg2;
+  alpha2 = acos(arg2c);
+  theta2 = atan2(y, x - base_half) + alpha2;
+
+  // ---- Active link tip positions ----
+  Cx = -base_half + L1*cos(theta1);
+  Cy = L1*sin(theta1);
+  Dx = base_half + L1*cos(theta2);
+  Dy = L1*sin(theta2);
+
+  // ---- Passive link geometry and closure error ----
+  r1x = x - Cx;
+  r1y = y - Cy;
+  r2x = x - Dx;
+  r2y = y - Dy;
+  len1 = sqrt(r1x^2 + r1y^2);
+  len2 = sqrt(r2x^2 + r2y^2);
+  len1_safe = if len1 > eps_d then len1 else eps_d;
+  len2_safe = if len2 > eps_d then len2 else eps_d;
+  n1x = r1x/len1_safe;
+  n1y = r1y/len1_safe;
+  n2x = r2x/len2_safe;
+  n2y = r2y/len2_safe;
+  closure_error = sqrt((len1 - L2)^2 + (len2 - L2)^2);
+
+  // ---- Jacobian diagonal terms ----
+  a1 = L1*(-n1x*sin(theta1) + n1y*cos(theta1));
+  a2 = L1*(-n2x*sin(theta2) + n2y*cos(theta2));
+  a1_safe = if a1 > eps_a then a1 elseif a1 < -eps_a then a1 else (if a1 >= 0.0 then eps_a else -eps_a);
+  a2_safe = if a2 > eps_a then a2 elseif a2 < -eps_a then a2 else (if a2 >= 0.0 then eps_a else -eps_a);
+  detM = n1x*n2y - n1y*n2x;
+  detM_safe = if detM > eps_det then detM elseif detM < -eps_det then detM else (if detM >= 0.0 then eps_det else -eps_det);
+
+  // ---- Force from saturated actuator torques ----
+  F_act_x = n1x*tau1_cmd/a1_safe + n2x*tau2_cmd/a2_safe;
+  F_act_y = n1y*tau1_cmd/a1_safe + n2y*tau2_cmd/a2_safe;
+
+  // ---- Joint velocity sensors from endpoint velocity ----
+  omega1 = (n1x*vx + n1y*vy)/a1_safe;
+  omega2 = (n2x*vx + n2y*vy)/a2_safe;
+
+  // ---- Fixed compliant workpiece contact ----
+  penetration = y_surface - y;
+  F_n = if penetration > 0.0 then
+          (if k_contact*penetration - d_contact*vy > 0.0 then
+             k_contact*penetration - d_contact*vy
+           else 0.0)
+        else 0.0;
+  F_contact_y = F_n;
+  F_contact_x = -mu_contact*F_n*tanh(vx/v_tanh);
+
+  // ---- Force reference with controlled middle-third disturbance ----
+  F_ref_actual = F_ref_nom +
+    (if time >= T_dist_start and time <= T_dist_end then disturbance_force else 0.0);
+
+  // ---- Requirement monitors ----
+  tangential_slip = abs(vx);
+  locked_contact = F_n > 0.0 and abs(vx) < v_lock;
+  force_in_band = F_n >= F_ref_actual - F_band and F_n <= F_ref_actual + F_band;
+  actuator_bounds_ok = abs(tau1_cmd) <= tau_max + 1.0e-6 and
+                       abs(tau2_cmd) <= tau_max + 1.0e-6;
+  actuator_bound_margin = tau_max - max(abs(tau1_cmd), abs(tau2_cmd));
+  closure_requirement_met = if time >= 5.2 then closure_error < 0.001 else true;
+
+  // ---- 80 Hz hybrid position-force control ----
+  when sample(0.0, T_sample) then
+    // Tangential position regulation
+    Fx_cmd = Kp_x*(x_ref - x) - Kd_x*vx;
+    // Normal force regulation
+    Fy_cmd = -F_ref_actual - Kf*(F_ref_actual - F_n) - Kv_y*vy;
+    // Resolve endpoint force commands into link tensions
+    lam1 = (n2y*Fx_cmd - n2x*Fy_cmd)/detM_safe;
+    lam2 = (-n1y*Fx_cmd + n1x*Fy_cmd)/detM_safe;
+    // Map tensions to joint torques
+    tau1_raw = a1*lam1;
+    tau2_raw = a2*lam2;
+    // Saturate to actuator limit
+    tau1_cmd = if tau1_raw > tau_max then tau_max
+                elseif tau1_raw < -tau_max then -tau_max
+                else tau1_raw;
+    tau2_cmd = if tau2_raw > tau_max then tau_max
+                elseif tau2_raw < -tau_max then -tau_max
+                else tau2_raw;
+  end when;
+
+  annotation(
+    experiment(StopTime=8.0, Tolerance=1.0e-6),
+    Documentation(info="Five-bar parallel mechanism (base pivots at +/-0.25 m,
+      actuated links 0.30 m, passive links 0.42 m) pressing a fixed compliant
+      workpiece. Hybrid position-force control at 80 Hz with 27.4 N.m actuator
+      limit. A controlled 9 N force disturbance is applied during the middle
+      third of the 8 s scenario. Values not stated in the requirement (mass,
+      surface height, force setpoint, gains, band, lock threshold) are assumed
+      and documented in the parameter comments."));
+end FiveBarPressA;

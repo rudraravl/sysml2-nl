@@ -130,7 +130,8 @@ class ConditionTests(unittest.TestCase):
             self.assertFalse(is_best_of_n(CONDITIONS[cid]), cid)
 
     def test_importing_the_module_does_not_touch_the_frozen_conditions(self):
-        self.assertEqual(["B0", "B1", "B2", "B3", "FULL"], list(CONDITIONS))
+        self.assertEqual(["B0", "B1", "B2", "B3", "FULL",
+                          "A0", "A1", "A2", "A3", "A4"], list(CONDITIONS))
 
     def test_invalid_n(self):
         with self.assertRaises(ValueError):

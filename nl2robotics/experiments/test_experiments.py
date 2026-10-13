@@ -73,6 +73,34 @@ class ExperimentTests(unittest.TestCase):
         orchestrator.assert_called_once()
         orchestrator.return_value.run.assert_called_once()
 
+    def test_ladder_compiler_and_runtime_repairs_are_independent(self):
+        task, prompt = _load_suite(CAPABILITY_MANIFEST).select(
+            profile="capability", variant="rich"
+        )[0]
+        executor = object.__new__(PipelineExperimentExecutor)
+        executor.modelica = object()
+        executor.normalizer = object()
+        executor.text_ask = lambda _: ""
+        executor.json_ask = lambda _: ""
+        executor.max_tool_repairs = 2
+        executor.k = 5
+        bounds = []
+        executor.modelica_moe = lambda *args, **kwargs: (
+            bounds.append(kwargs["max_repairs"]) or "model X end X;", {}
+        )
+        for cid, expected_bound in (("A2", 0), ("A3", 2), ("A4", 2)):
+            executor._generate_modelica(prompt, CONDITIONS[cid], Path("unused"))
+            self.assertEqual(expected_bound, bounds[-1])
+            with tempfile.TemporaryDirectory() as tmp, patch(
+                "nl2robotics.experiments.executor.ModelicaCapabilityOrchestrator"
+            ) as orchestrator:
+                orchestrator.return_value.run.return_value = {}
+                executor._run_hybrid(task, CONDITIONS[cid], prompt, Path(tmp))
+                kwargs = orchestrator.return_value.run.call_args.kwargs
+                self.assertEqual(2 if cid == "A4" else 0, kwargs["max_runtime_repairs"])
+                self.assertIs(executor.text_ask if cid == "A4" else None,
+                              kwargs["runtime_repair_ask"])
+
     def test_b0_capability_bypasses_normalizer_and_contract_planner(self):
         task, prompt = _load_suite(
             Path("nl2robotics/corpus/pipeline_prompt_manifest.json")
